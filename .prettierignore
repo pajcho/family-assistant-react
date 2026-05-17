@@ -1,0 +1,5 @@
+MIGRATION_PLAN.md
+pnpm-lock.yaml
+dist/
+.nuxt-screens/
+src/routeTree.gen.ts

@@ -1,10 +1,40 @@
-.nuxt-screens/
 node_modules/
 dist/
+dist-ssr/
+*.local
 .env
 .env.local
 .env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editors / OS
 .DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TS / build caches
+*.tsbuildinfo
+node_modules/.tmp/
+
+# TanStack Router generated tree
+src/routeTree.gen.ts
+
+# Reference screenshots (read-only scratch)
+.nuxt-screens/
 
 # Claude Code local state
 .agents/

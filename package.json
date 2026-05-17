@@ -1,0 +1,64 @@
+{
+  "name": "family-assistant-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -b",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "lint": "oxlint",
+    "fmt": "oxfmt",
+    "check": "oxfmt --check && oxlint --deny-warnings",
+    "setup-family": "tsx --env-file=.env scripts/setup-family.ts",
+    "setup-family:local": "tsx --env-file=.env.local scripts/setup-family.ts"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@heroicons/react": "latest",
+    "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "latest",
+    "@tanstack/react-query-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/router-plugin": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "date-fns": "latest",
+    "pulltorefreshjs": "latest",
+    "react": "latest",
+    "react-day-picker": "latest",
+    "react-dom": "latest",
+    "sonner": "latest",
+    "tailwind-merge": "latest",
+    "vaul": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "latest",
+    "@types/pulltorefreshjs": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "@vitest/ui": "latest",
+    "jsdom": "latest",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

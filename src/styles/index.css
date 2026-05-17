@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn/ui design tokens — neutral base, v4 @theme inline pattern */
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(0 0% 3.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 3.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 3.9%);
+  --primary: hsl(0 0% 9%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(0 0% 96.1%);
+  --secondary-foreground: hsl(0 0% 9%);
+  --muted: hsl(0 0% 96.1%);
+  --muted-foreground: hsl(0 0% 45.1%);
+  --accent: hsl(0 0% 96.1%);
+  --accent-foreground: hsl(0 0% 9%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 89.8%);
+  --input: hsl(0 0% 89.8%);
+  --ring: hsl(0 0% 3.9%);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(0 0% 3.9%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(0 0% 3.9%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(0 0% 3.9%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(0 0% 9%);
+  --secondary: hsl(0 0% 14.9%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(0 0% 14.9%);
+  --muted-foreground: hsl(0 0% 63.9%);
+  --accent: hsl(0 0% 14.9%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 14.9%);
+  --input: hsl(0 0% 14.9%);
+  --ring: hsl(0 0% 83.1%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  html,
+  body {
+    @apply overflow-x-hidden bg-gray-50 text-gray-900;
+    @apply dark:bg-gray-900 dark:text-gray-100;
+  }
+
+  /* Prevent background scroll when a dialog (popup) is open */
+  html.dialog-open,
+  html.dialog-open body {
+    overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  /* Smooth color transitions for theme switching */
+  *,
+  *::before,
+  *::after {
+    @apply transition-colors duration-200;
+  }
+
+  /* Pull-to-refresh (pulltorefreshjs): lighter text in dark mode */
+  .dark .ptr,
+  .dark .ptr--text,
+  .dark .ptr--instruction,
+  .dark .ptr--icon {
+    color: rgb(209 213 219) !important;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Hover lift effect for cards */
+  .hover-lift {
+    @apply transition-all duration-200;
+  }
+  .hover-lift:hover {
+    @apply -translate-y-0.5 shadow-md;
+  }
+
+  /* Staggered fade-in for list items */
+  .stagger-fade-in > * {
+    animation: fadeIn 0.2s ease-out;
+    animation-fill-mode: both;
+  }
+  .stagger-fade-in > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-fade-in > *:nth-child(2) {
+    animation-delay: 30ms;
+  }
+  .stagger-fade-in > *:nth-child(3) {
+    animation-delay: 60ms;
+  }
+  .stagger-fade-in > *:nth-child(4) {
+    animation-delay: 90ms;
+  }
+  .stagger-fade-in > *:nth-child(5) {
+    animation-delay: 120ms;
+  }
+  .stagger-fade-in > *:nth-child(n + 6) {
+    animation-delay: 150ms;
+  }
+}
