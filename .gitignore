@@ -1,0 +1,12 @@
+.nuxt-screens/
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.DS_Store
+
+# Claude Code local state
+.agents/
+.claude/
+skills-lock.json
