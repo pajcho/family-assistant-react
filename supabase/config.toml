@@ -7,3 +7,15 @@ major_version = 17
 
 [db.migrations]
 enabled = true
+
+# subscribe-push is called from the client with a user JWT — keep the
+# default verify_jwt = true so RLS protects the upsert.
+#
+# send-due-pushes is called from pg_cron, not from a user session, so
+# there's no client JWT to verify. We turn verify_jwt off and instead
+# require a shared CRON_SECRET in the X-Cron-Secret header (both the
+# function and the cron job read it from Supabase secrets / Postgres
+# settings). Anything without the matching secret is rejected before
+# touching the DB.
+[functions.send-due-pushes]
+verify_jwt = false
