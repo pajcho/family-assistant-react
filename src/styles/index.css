@@ -91,6 +91,18 @@
     border-color: var(--color-border);
   }
 
+  /* Tailwind v4 also dropped the default `cursor: pointer` for <button>.
+     Re-add it for interactive elements (skip when disabled). Covers
+     shadcn Button, DropdownMenu / Dialog / Drawer triggers, dashboard
+     card-item rows, theme toggle pills, month-chip buttons, etc. */
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  summary:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   html,
   body {
     @apply overflow-x-hidden bg-gray-50 text-gray-900;
