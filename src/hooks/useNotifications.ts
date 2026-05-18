@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { vapidPublicKeyToUint8Array } from "@/lib/pwa-config";
 
 /**
  * Wraps the Web Notifications + Push API into a hook with React-friendly
- * state. During the validation phase (no backend yet) the settings page
- * uses this to subscribe, then displays the resulting subscription JSON
- * so the user can hand it to a one-off `web-push send-notification` call
- * from the terminal. Once the Edge Function lands, the same hook will
- * POST the subscription to `subscribe-push` instead.
+ * state. On subscribe we (1) request permission, (2) ask the browser's
+ * PushManager for a subscription against our VAPID public key, then
+ * (3) POST that subscription to the `subscribe-push` Edge Function which
+ * upserts it into `push_subscriptions` keyed by endpoint.
+ *
+ * If the server upsert fails we tear the browser subscription back down
+ * — better to leave the device unsubscribed than to have the browser
+ * think we're subscribed while the server has no record.
  *
  * iOS gotchas:
  *   • Permission can only be requested *inside an installed PWA* —
@@ -115,7 +119,23 @@ export function useNotifications(): UseNotifications {
           userVisibleOnly: true,
           applicationServerKey: vapidPublicKeyToUint8Array(),
         }));
-      setSubscription(serialiseSubscription(sub));
+      const serialised = serialiseSubscription(sub);
+
+      // Persist the subscription to Supabase. If this fails we tear down
+      // the browser-side subscription so the two sides stay consistent.
+      const { error: invokeError } = await supabase.functions.invoke("subscribe-push", {
+        body: {
+          endpoint: serialised.endpoint,
+          keys: serialised.keys,
+          userAgent: navigator.userAgent,
+        },
+      });
+      if (invokeError) {
+        await sub.unsubscribe().catch(() => {});
+        setError(`Server greška: ${invokeError.message}`);
+        return;
+      }
+      setSubscription(serialised);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -130,7 +150,15 @@ export function useNotifications(): UseNotifications {
     try {
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
-      if (existing) await existing.unsubscribe();
+      if (existing) {
+        // Delete the server row before tearing down the browser
+        // subscription. RLS on `push_subscriptions` lets users delete
+        // only their own rows. We tolerate a delete failure (e.g.
+        // offline) — the cron will eventually drop the row when it
+        // sees 410 Gone.
+        await supabase.from("push_subscriptions").delete().eq("endpoint", existing.endpoint);
+        await existing.unsubscribe();
+      }
       setSubscription(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
