@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
 import type { Event } from "@/types/database";
 
@@ -14,6 +15,7 @@ export type EventFormPayload = {
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
+  remind_minutes_before: number | null;
 };
 
 export type EventFormProps = {
@@ -31,6 +33,7 @@ type FormState = {
   start_time: string | null;
   end_time: string | null;
   notes: string;
+  remind_minutes_before: number | null;
 };
 
 function initialState(event: Event | null | undefined): FormState {
@@ -44,6 +47,7 @@ function initialState(event: Event | null | undefined): FormState {
     start_time: event?.start_time ?? null,
     end_time: event?.end_time ?? null,
     notes: event?.notes ?? "",
+    remind_minutes_before: event?.remind_minutes_before ?? null,
   };
 }
 
@@ -71,13 +75,18 @@ export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFo
     if (!form.name.trim() || !form.date) return;
     const startTime = (form.start_time ?? "").trim();
     const endTime = (form.end_time ?? "").trim();
+    const resolvedStart = form.allDay ? null : startTime || null;
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim() || null,
       date: form.date,
-      start_time: form.allDay ? null : startTime || null,
+      start_time: resolvedStart,
       end_time: form.allDay ? null : endTime || null,
       notes: form.notes.trim() || null,
+      // Reminders only fire when there's a wall-clock start_time to
+      // anchor the offset against — clear the field if the user toggled
+      // back to all-day or removed the start time after picking one.
+      remind_minutes_before: resolvedStart ? form.remind_minutes_before : null,
     });
   };
 
@@ -124,26 +133,38 @@ export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFo
         </Label>
       </div>
       {!form.allDay && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="start_time">Početak (opciono)</Label>
-            <TimePicker
-              id="start_time"
-              value={form.start_time}
-              onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
-              placeholder="00:00"
-            />
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start_time">Početak (opciono)</Label>
+              <TimePicker
+                id="start_time"
+                value={form.start_time}
+                onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
+                placeholder="00:00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end_time">Završetak (opciono)</Label>
+              <TimePicker
+                id="end_time"
+                value={form.end_time}
+                onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
+                placeholder="00:00"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="end_time">Završetak (opciono)</Label>
-            <TimePicker
-              id="end_time"
-              value={form.end_time}
-              onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
-              placeholder="00:00"
-            />
-          </div>
-        </div>
+          {form.start_time ? (
+            <div className="space-y-2">
+              <Label htmlFor="reminder">Podsetnik</Label>
+              <ReminderSelect
+                id="reminder"
+                value={form.remind_minutes_before}
+                onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+              />
+            </div>
+          ) : null}
+        </>
       )}
       <div className="space-y-2">
         <Label htmlFor="notes">Napomene (poklon, itd.)</Label>

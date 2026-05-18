@@ -1,15 +1,20 @@
 // supabase/functions/send-due-pushes/index.ts
 //
-// Cron-triggered every minute. For each user with digest preferences:
-//   - Compute the current minute in their timezone.
-//   - If that matches their morning_time or evening_time AND they
-//     haven't already received that digest for the local date, build a
-//     summary of the relevant items and Web-Push it to every device
-//     they have in `push_subscriptions`.
-//   - Dead subscriptions (410 / 404 from the push service) are deleted.
-//   - Idempotency is enforced via `notification_log` — the row is
-//     inserted *before* the push goes out, so a concurrent retry of
-//     this function can never double-send.
+// Cron-triggered every minute. Two independent dispatch paths:
+//
+//   1. Digests — for each user with `morning_enabled` / `evening_enabled`,
+//      check if the current minute in their timezone matches their
+//      configured time and (if so + nothing logged for today) send a
+//      summary push.
+//
+//   2. Per-event reminders — for each `events` row with a non-null
+//      `remind_minutes_before` AND `start_time`, compute the wall-clock
+//      reminder time. Every family member with a push subscription gets
+//      the reminder when their local clock hits that minute.
+//
+// Idempotency for both paths via `notification_log` UNIQUE(user_id,
+// kind, ref_id). Dead subscriptions (410 / 404) are deleted on the way
+// out so we don't keep round-tripping to nonexistent push endpoints.
 //
 // Manual testing knobs (only when X-Cron-Secret matches):
 //   ?force=morning   → ignore the time check, always try the morning digest
@@ -89,6 +94,12 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Per-event reminders run on every tick regardless of force= mode —
+  // they don't have a "force" semantic; the reminder time is encoded
+  // on the event itself.
+  const reminderResults = await processEventReminders(supabase);
+  results.push(...reminderResults);
+
   return Response.json({ ok: true, force, processed: results });
 });
 
@@ -141,10 +152,7 @@ async function processDigest(
       .eq("due_date", targetDate)
       .eq("is_paid", false)
       .eq("is_paused", false),
-    supabase
-      .from("birthdays")
-      .select("id, name, birth_date")
-      .eq("family_id", profile.family_id),
+    supabase.from("birthdays").select("id, name, birth_date").eq("family_id", profile.family_id),
   ]);
 
   const events = (eventsRes.data ?? []) as { id: string; name: string }[];
@@ -158,7 +166,8 @@ async function processDigest(
   }
 
   const counts: string[] = [];
-  if (events.length) counts.push(`${events.length} ${plural(events.length, "događaj", "događaja")}`);
+  if (events.length)
+    counts.push(`${events.length} ${plural(events.length, "događaj", "događaja")}`);
   if (payments.length)
     counts.push(`${payments.length} ${plural(payments.length, "plaćanje", "plaćanja")}`);
   if (birthdays.length)
@@ -200,6 +209,172 @@ async function processDigest(
   }
 
   return { user_id: pref.user_id, kind, ref_id: targetDate, sent, dead, body };
+}
+
+// ---------------------------------------------------------------------------
+// Per-event reminders
+// ---------------------------------------------------------------------------
+
+interface EventRow {
+  id: string;
+  family_id: string;
+  name: string;
+  date: string;
+  start_time: string;
+  remind_minutes_before: number;
+}
+
+async function processEventReminders(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<unknown[]> {
+  // Pull events whose date is within ±1 day of UTC "today". The actual
+  // fire time is timezone-dependent so this is a deliberately wide
+  // filter — the per-event check below narrows down to the exact
+  // minute in each recipient's local clock.
+  const utcDate = new Date().toISOString().slice(0, 10);
+  const window = [addDays(utcDate, -1), utcDate, addDays(utcDate, 1)];
+
+  const { data: events, error } = await supabase
+    .from("events")
+    .select("id, family_id, name, date, start_time, remind_minutes_before")
+    .not("remind_minutes_before", "is", null)
+    .not("start_time", "is", null)
+    .in("date", window);
+  if (error) return [{ kind: "event_reminder", error: error.message }];
+
+  const out: unknown[] = [];
+  for (const ev of (events ?? []) as EventRow[]) {
+    out.push(...(await dispatchEventReminder(supabase, ev)));
+  }
+  return out;
+}
+
+async function dispatchEventReminder(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  ev: EventRow,
+): Promise<unknown[]> {
+  // Everyone in this family is a candidate recipient — the reminder is
+  // stored on the event itself, so it isn't tied to one user.
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("family_id", ev.family_id);
+  const memberIds = ((profiles ?? []) as { id: string }[]).map((p) => p.id);
+  if (memberIds.length === 0) return [];
+
+  const fire = eventLocalFireTime(ev.date, ev.start_time, ev.remind_minutes_before);
+  const out: unknown[] = [];
+
+  for (const userId of memberIds) {
+    // Resolve the user's timezone (default if they never opened settings).
+    const { data: pref } = await supabase
+      .from("notification_preferences")
+      .select("timezone")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const tz = (pref as { timezone?: string } | null)?.timezone ?? "Europe/Belgrade";
+
+    if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
+
+    // Idempotent: claim the slot before sending. UNIQUE(user_id, kind,
+    // ref_id) means a parallel cron retry can't double-fire.
+    const { error: logError } = await supabase
+      .from("notification_log")
+      .insert({ user_id: userId, kind: "event_reminder", ref_id: ev.id });
+    if (logError) {
+      if (logError.code === "23505") {
+        out.push({
+          user_id: userId,
+          kind: "event_reminder",
+          event_id: ev.id,
+          status: "already_sent",
+        });
+        continue;
+      }
+      out.push({
+        user_id: userId,
+        kind: "event_reminder",
+        event_id: ev.id,
+        error: logError.message,
+      });
+      continue;
+    }
+
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth")
+      .eq("user_id", userId);
+    const subList = (subs ?? []) as PushSub[];
+
+    if (subList.length === 0) {
+      out.push({
+        user_id: userId,
+        kind: "event_reminder",
+        event_id: ev.id,
+        status: "no_subscriptions",
+      });
+      continue;
+    }
+
+    const startHHMM = ev.start_time.slice(0, 5);
+    const payload = JSON.stringify({
+      title: ev.name,
+      body: `Počinje za ${ev.remind_minutes_before} min (u ${startHHMM}).`,
+      url: "/events",
+      tag: `event-reminder-${ev.id}`,
+    });
+
+    let sent = 0;
+    let dead = 0;
+    for (const sub of subList) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        sent++;
+      } catch (e) {
+        // deno-lint-ignore no-explicit-any
+        const status = (e as any)?.statusCode as number | undefined;
+        if (status === 404 || status === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          dead++;
+        }
+      }
+    }
+    out.push({ user_id: userId, kind: "event_reminder", event_id: ev.id, sent, dead });
+  }
+  return out;
+}
+
+/**
+ * Given an event's date + start_time + offset, return the wall-clock
+ * date+time of the reminder. Handles day-rollover when an event near
+ * midnight has an offset that crosses the previous day boundary
+ * (e.g. event at 00:15 with `remind_minutes_before=30` → previous-day 23:45).
+ */
+function eventLocalFireTime(
+  eventDate: string,
+  startTimeHHMMSS: string,
+  remindMinutesBefore: number,
+): { date: string; time: string } {
+  const [h, m] = startTimeHHMMSS.split(":").map(Number);
+  const totalMinutes = h * 60 + m - remindMinutesBefore;
+  if (totalMinutes >= 0) {
+    return {
+      date: eventDate,
+      time: `${pad2(Math.floor(totalMinutes / 60))}:${pad2(totalMinutes % 60)}`,
+    };
+  }
+  const prev = addDays(eventDate, -1);
+  const prevMinutes = 24 * 60 + totalMinutes;
+  return { date: prev, time: `${pad2(Math.floor(prevMinutes / 60))}:${pad2(prevMinutes % 60)}` };
+}
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
 }
 
 // --- helpers ---------------------------------------------------------------

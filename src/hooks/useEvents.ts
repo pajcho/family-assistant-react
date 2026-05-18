@@ -31,10 +31,14 @@ export type CreateEventInput = {
   start_time?: string | null;
   end_time?: string | null;
   notes?: string | null;
+  remind_minutes_before?: number | null;
 };
 
 export type UpdateEventInput = Partial<
-  Pick<Event, "name" | "description" | "date" | "start_time" | "end_time" | "notes">
+  Pick<
+    Event,
+    "name" | "description" | "date" | "start_time" | "end_time" | "notes" | "remind_minutes_before"
+  >
 >;
 
 // All-day events (null start_time) first per day, then by start_time.
