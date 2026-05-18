@@ -33,6 +33,9 @@ node_modules/.tmp/
 # TanStack Router generated tree
 src/routeTree.gen.ts
 
+# TanStack Router plugin cache
+.tanstack/
+
 # Reference screenshots (read-only scratch)
 .nuxt-screens/
 
