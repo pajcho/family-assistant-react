@@ -1,7 +1,14 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { TimePicker } from "@/components/ui/time-picker";
 import { useNotifications } from "@/hooks/useNotifications";
+import {
+  useNotificationPreferences,
+  type NotificationPreferencesInput,
+} from "@/hooks/useNotificationPreferences";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -17,6 +24,7 @@ function SettingsPage() {
         </p>
       </div>
       <NotificationsCard />
+      <DigestsCard />
     </div>
   );
 }
@@ -68,5 +76,106 @@ function NotificationsCard() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DigestsCard() {
+  const { prefs, isLoading, save, saving } = useNotificationPreferences();
+  // Local form state so toggling and typing time values feels instant
+  // — committed on "Sačuvaj". Resync whenever the upstream `prefs`
+  // change (initial load, post-save refetch, or a save from another tab).
+  const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
+  useEffect(() => setForm(prefs), [prefs]);
+
+  const dirty =
+    form.morning_enabled !== prefs.morning_enabled ||
+    form.morning_time !== prefs.morning_time ||
+    form.evening_enabled !== prefs.evening_enabled ||
+    form.evening_time !== prefs.evening_time;
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    save(form);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Dnevni pregledi</CardTitle>
+        <CardDescription>
+          Jutarnji pregled stiže ujutru sa svim događajima dana i dospelim plaćanjima. Večernji
+          pregled je kratak podsetnik za sutra.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-5">
+          <DigestRow
+            id="morning"
+            label="Jutarnji pregled"
+            enabled={form.morning_enabled}
+            time={form.morning_time}
+            onToggle={(v) => setForm((s) => ({ ...s, morning_enabled: v }))}
+            onTime={(t) => setForm((s) => ({ ...s, morning_time: t ?? s.morning_time }))}
+            disabled={isLoading || saving}
+          />
+          <DigestRow
+            id="evening"
+            label="Večernji pregled"
+            enabled={form.evening_enabled}
+            time={form.evening_time}
+            onToggle={(v) => setForm((s) => ({ ...s, evening_enabled: v }))}
+            onTime={(t) => setForm((s) => ({ ...s, evening_time: t ?? s.evening_time }))}
+            disabled={isLoading || saving}
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Vremenska zona: <span className="font-mono">{form.timezone}</span>
+          </p>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isLoading || saving || !dirty}>
+              {saving ? "Čuva…" : "Sačuvaj"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface DigestRowProps {
+  id: string;
+  label: string;
+  enabled: boolean;
+  time: string;
+  onToggle: (next: boolean) => void;
+  onTime: (next: string | null) => void;
+  disabled?: boolean;
+}
+
+function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: DigestRowProps) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] items-center gap-3 sm:gap-4">
+      <label htmlFor={`${id}-toggle`} className="flex cursor-pointer items-center gap-3">
+        <input
+          id={`${id}-toggle`}
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => onToggle(e.target.checked)}
+          disabled={disabled}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+      </label>
+      <div className="w-32">
+        <Label htmlFor={`${id}-time`} className="sr-only">
+          Vreme za {label}
+        </Label>
+        <TimePicker
+          id={`${id}-time`}
+          value={time}
+          onChange={(v) => onTime(v)}
+          disabled={disabled || !enabled}
+        />
+      </div>
+    </div>
   );
 }
