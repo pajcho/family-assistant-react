@@ -6,6 +6,22 @@ import {
 } from "@vite-pwa/assets-generator/config";
 
 /**
+ * The default `minimal2023Preset` adds 30% white padding around the apple
+ * touch icon (so on a dark home screen wallpaper you'd see a white square
+ * around our blue tile). Override to fill the full 180×180 with our brand
+ * blue — iOS applies its own rounded-corner mask on top, so the result
+ * matches the rounding of native app icons.
+ */
+const preset = {
+  ...minimal2023Preset,
+  apple: {
+    sizes: [180],
+    padding: 0,
+    resizeOptions: { background: "#2563EB", fit: "contain" as const },
+  },
+};
+
+/**
  * PWA asset pipeline.
  *
  * Source: `public/pwa-icon.svg` — a *square* version of the brand icon
@@ -19,7 +35,7 @@ import {
 export default defineConfig({
   headLinkOptions: { preset: "2023" },
   preset: combinePresetAndAppleSplashScreens(
-    minimal2023Preset,
+    preset,
     createAppleSplashScreens(
       {
         padding: 0.3,
