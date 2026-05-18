@@ -23,6 +23,7 @@ export interface Event {
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
+  remind_minutes_before: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ export interface Payment {
   is_paid: boolean;
   is_paused: boolean;
   paid_date: string | null;
+  remind_minutes_before: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,4 +79,47 @@ export interface Expense {
   sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Notification system (Phase 2)
+// ---------------------------------------------------------------------------
+
+export interface NotificationPreferences {
+  user_id: string;
+  morning_enabled: boolean;
+  /** "HH:MM" or "HH:MM:SS" — Postgres TIME column */
+  morning_time: string;
+  evening_enabled: boolean;
+  evening_time: string;
+  /** IANA timezone, e.g. "Europe/Belgrade" */
+  timezone: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+  last_used_at: string;
+}
+
+export type NotificationKind =
+  | "morning_digest"
+  | "evening_digest"
+  | "event_reminder"
+  | "payment_reminder";
+
+export interface NotificationLogRow {
+  id: string;
+  user_id: string;
+  kind: NotificationKind;
+  /** Date (YYYY-MM-DD) for digests, item UUID for reminders */
+  ref_id: string;
+  sent_at: string;
 }
