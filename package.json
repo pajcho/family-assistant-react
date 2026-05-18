@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -b",
+    "build": "vite build && tsc -b && pnpm run postbuild",
+    "postbuild": "cp dist/index.html dist/404.html && touch dist/.nojekyll",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
