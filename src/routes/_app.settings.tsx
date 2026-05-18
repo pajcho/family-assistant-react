@@ -51,9 +51,9 @@ function NotificationsCard() {
 
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="text-gray-500 dark:text-gray-400">Dozvola</dt>
-          <dd className="font-mono">{n.permission}</dd>
+          <dd>{permissionLabel(n.permission)}</dd>
           <dt className="text-gray-500 dark:text-gray-400">Ovaj uređaj</dt>
-          <dd className="font-mono">{n.isSubscribed ? "pretplaćen" : "nije pretplaćen"}</dd>
+          <dd>{n.isSubscribed ? "pretplaćen" : "nije pretplaćen"}</dd>
         </dl>
 
         {n.error ? <p className="text-sm text-red-600 dark:text-red-400">{n.error}</p> : null}
@@ -153,19 +153,17 @@ interface DigestRowProps {
 
 function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: DigestRowProps) {
   return (
-    <div className="grid grid-cols-[1fr_auto] items-center gap-3 sm:gap-4">
-      <label htmlFor={`${id}-toggle`} className="flex cursor-pointer items-center gap-3">
-        <input
-          id={`${id}-toggle`}
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => onToggle(e.target.checked)}
-          disabled={disabled}
-          className="h-4 w-4 rounded border-gray-300"
-        />
-        <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
-      </label>
-      <div className="w-32">
+    <label htmlFor={`${id}-toggle`} className="flex cursor-pointer items-center gap-3">
+      <input
+        id={`${id}-toggle`}
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => onToggle(e.target.checked)}
+        disabled={disabled}
+        className="h-4 w-4 rounded border-gray-300"
+      />
+      <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+      <div className="ml-auto w-32 shrink-0">
         <Label htmlFor={`${id}-time`} className="sr-only">
           Vreme za {label}
         </Label>
@@ -176,6 +174,17 @@ function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: Dig
           disabled={disabled || !enabled}
         />
       </div>
-    </div>
+    </label>
   );
+}
+
+function permissionLabel(p: NotificationPermission): string {
+  switch (p) {
+    case "granted":
+      return "dozvoljeno";
+    case "denied":
+      return "odbijeno";
+    default:
+      return "nije zatraženo";
+  }
 }
