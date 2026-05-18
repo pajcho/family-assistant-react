@@ -43,6 +43,11 @@ function applyDarkClass(isDark: boolean): void {
   const root = document.documentElement;
   if (isDark) root.classList.add("dark");
   else root.classList.remove("dark");
+  // Keep the iOS PWA status-bar tint in sync. The single unconditional
+  // <meta name="theme-color"> is set by the bootstrap script in index.html;
+  // we just patch its `content` on every theme flip.
+  const meta = document.head.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", isDark ? "#111827" : "#2563eb");
 }
 
 /**

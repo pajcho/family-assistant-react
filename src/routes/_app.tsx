@@ -1,5 +1,6 @@
 import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
 import { AppNav } from "@/components/layout/AppNav";
+import { IosInstallHint } from "@/components/common/IosInstallHint";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
+  // SW update toast lives in __root.tsx (covers login too). The iOS install
+  // banner only renders for authed users so we don't nag first-time visitors.
   return (
     <AuthGate>
       <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-900">
@@ -24,6 +27,7 @@ function AppLayout() {
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
+        <IosInstallHint />
       </div>
     </AuthGate>
   );

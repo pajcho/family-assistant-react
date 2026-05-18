@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { queryClient } from "@/lib/queryClient";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { usePwaUpdate } from "@/hooks/usePwaUpdate";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -20,6 +21,9 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
+  // SW registers at the root so the login page is also installable + cached.
+  // The hook surfaces a sonner toast when a deploy ships a new bundle.
+  usePwaUpdate();
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
