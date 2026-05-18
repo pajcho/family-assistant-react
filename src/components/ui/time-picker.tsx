@@ -51,7 +51,13 @@ export function TimePicker({
         onChange={handleChange}
         placeholder={placeholder}
         disabled={disabled}
-        className={cn("pr-9 pl-9", value ? "" : "text-muted-foreground")}
+        className={cn(
+          "pr-9 pl-9",
+          // Hide WebKit's native time-picker indicator so we render a single,
+          // consistent clock icon (matches the original Nuxt VueDatePicker look).
+          "[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+          value ? "" : "text-muted-foreground",
+        )}
       />
       {value && !disabled && (
         <button

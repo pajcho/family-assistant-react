@@ -134,7 +134,10 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
       )}
       {...props}
     >
-      <div className="flex max-h-[inherit] flex-col overflow-y-auto px-4 pb-4">{children}</div>
+      {/* 24px side padding mirrors Nuxt's px-6 dialog content. pt-2 lifts
+          the header off the drag handle, pb-6 gives the footer room above
+          the safe-area. */}
+      <div className="flex max-h-[inherit] flex-col overflow-y-auto px-6 pt-2 pb-6">{children}</div>
     </DrawerContent>
   );
 }
@@ -145,8 +148,10 @@ function ResponsiveDialogHeader({
 }: React.ComponentProps<typeof DialogHeader> & React.ComponentProps<typeof DrawerHeader>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogHeader");
   const Header = isDesktop ? DialogHeader : DrawerHeader;
-  // Drawer's default header pads itself; we're already inside a padded container, so reset.
-  const drawerClassName = isDesktop ? undefined : "p-0";
+  // Mirror Nuxt's DialogHeader: bottom border separator with comfortable
+  // gap to the body. The wrapper already handles horizontal padding, so
+  // p-0 here resets shadcn's default p-4.
+  const drawerClassName = isDesktop ? undefined : "p-0 pb-4 mb-4 border-b border-border";
   return <Header className={cn(drawerClassName, className)} {...props} />;
 }
 
@@ -156,8 +161,9 @@ function ResponsiveDialogTitle({
 }: React.ComponentProps<typeof DialogTitle> & React.ComponentProps<typeof DrawerTitle>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogTitle");
   const Title = isDesktop ? DialogTitle : DrawerTitle;
-  // Drawer's default title is base-size; bump to match Dialog's text-lg so headers feel consistent.
-  const drawerClassName = isDesktop ? undefined : "text-lg leading-none";
+  // Drawer's default title is base-size + centered; bump to text-lg and
+  // left-align to match Nuxt and Dialog desktop.
+  const drawerClassName = isDesktop ? undefined : "text-left text-lg leading-none";
   return <Title className={cn(drawerClassName, className)} {...props} />;
 }
 
