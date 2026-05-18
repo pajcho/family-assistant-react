@@ -4,6 +4,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  Cog6ToothIcon,
   HomeIcon,
   ShoppingBagIcon,
   UserGroupIcon,
@@ -60,13 +61,20 @@ export function AppNav() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <Link
+            to="/settings"
+            aria-label="Podešavanja"
+            className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md px-2 text-sm font-medium transition-all duration-150 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
+          >
+            <Cog6ToothIcon className="h-5 w-5" />
+          </Link>
           <button
             type="button"
             aria-label="Odjavi se"
             onClick={() => {
               void handleLogout();
             }}
-            className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-all duration-150 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
+            className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-all duration-150 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
           >
             <ArrowRightOnRectangleIcon className="h-5 w-5" />
             <span className="ml-2 hidden sm:inline">Odjavi se</span>

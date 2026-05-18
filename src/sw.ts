@@ -60,12 +60,73 @@ registerRoute(
   new StaleWhileRevalidate({ cacheName: "cross-origin-assets" }),
 );
 
-// --- Push notification stubs (filled in during phase 2) --------------------
+// --- Push notifications ----------------------------------------------------
+//
+// Expected payload shape (sent by the future Edge Function and by the
+// `web-push` CLI used to validate this end-to-end on a real iPhone):
+//
+//   { "title": "Morning summary",
+//     "body":  "3 events today, 2 payments due",
+//     "url":   "/" ,
+//     "tag":   "morning-digest-2026-05-18" }
+//
+// `tag` collapses repeats so the same digest doesn't pile up if the SW
+// receives the same message twice. `url` is the deep-link the app opens
+// when the user taps the notification.
 
-self.addEventListener("push", (_event) => {
-  // Will: parse payload JSON, call self.registration.showNotification()
+interface PushPayload {
+  title: string;
+  body?: string;
+  url?: string;
+  tag?: string;
+}
+
+const ICON_URL = new URL("pwa-192x192.png", self.registration.scope).href;
+const BADGE_URL = new URL("pwa-64x64.png", self.registration.scope).href;
+
+self.addEventListener("push", (event) => {
+  let payload: PushPayload;
+  try {
+    payload = event.data ? (event.data.json() as PushPayload) : { title: "Porodični Asistent" };
+  } catch {
+    // Fallback when the push has no JSON body — still surface *something*
+    // so the user knows a notification arrived, then we can debug.
+    payload = { title: "Porodični Asistent", body: event.data?.text() ?? "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body ?? "",
+      icon: ICON_URL,
+      badge: BADGE_URL,
+      tag: payload.tag,
+      data: { url: payload.url ?? "/" },
+    }),
+  );
 });
 
-self.addEventListener("notificationclick", (_event) => {
-  // Will: focus existing client or open one at the deep-link URL
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data as { url?: string } | undefined;
+  const targetPath = data?.url ?? "/";
+  const targetUrl = new URL(targetPath, self.registration.scope).href;
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      // Prefer focusing an already-open window over opening a new one,
+      // and navigate it to the deep link if it isn't already there.
+      for (const client of clients) {
+        if (client.url.startsWith(self.registration.scope)) {
+          await client.focus();
+          if (client.url !== targetUrl && "navigate" in client) {
+            await client.navigate(targetUrl).catch(() => {});
+          }
+          return;
+        }
+      }
+      await self.clients.openWindow(targetUrl);
+    })(),
+  );
 });
