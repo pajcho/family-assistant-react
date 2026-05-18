@@ -1,0 +1,9 @@
+# Minimal config for Supabase CLI (db push, link).
+# See https://supabase.com/docs/guides/cli/config
+project_id = "family-assistant"
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true
