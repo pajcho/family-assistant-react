@@ -30,7 +30,13 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
 };
 
-self.skipWaiting();
+// Don't skip waiting on install — that would make every new deploy take
+// over silently and the `useRegisterSW` "needRefresh" state would never
+// flip true. Instead, wait for the explicit `SKIP_WAITING` message that
+// `updateServiceWorker(true)` posts when the user taps the toast.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
 
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
