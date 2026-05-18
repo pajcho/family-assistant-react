@@ -39,8 +39,12 @@ export default defineConfig({
     createAppleSplashScreens(
       {
         padding: 0.3,
+        // Same brand blue for both schemes — the icon source already has
+        // a #2563EB tile, so matching the surround makes the splash read
+        // as one solid colour instead of "blue square on a dark canvas"
+        // when the user's phone is in dark mode.
         resizeOptions: { background: "#2563EB", fit: "contain" },
-        darkResizeOptions: { background: "#111827", fit: "contain" },
+        darkResizeOptions: { background: "#2563EB", fit: "contain" },
         linkMediaOptions: { log: true, addMediaScreen: true, basePath: "/", xhtml: false },
         png: { compressionLevel: 9, quality: 60 },
       },
