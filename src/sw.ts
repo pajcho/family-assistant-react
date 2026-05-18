@@ -107,7 +107,11 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data as { url?: string } | undefined;
-  const targetPath = data?.url ?? "/";
+  // Strip leading slashes so paths resolve *relative to the SW scope*
+  // (e.g. `/family-assistant-react/`) rather than the origin root. Without
+  // this, `"url": "/"` from a payload navigates to `pajcho.github.io/`
+  // — a 404 on GH Pages.
+  const targetPath = (data?.url ?? "").replace(/^\/+/, "");
   const targetUrl = new URL(targetPath, self.registration.scope).href;
   event.waitUntil(
     (async () => {
