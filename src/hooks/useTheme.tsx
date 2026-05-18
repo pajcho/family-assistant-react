@@ -45,6 +45,28 @@ function applyDarkClass(isDark: boolean): void {
   else root.classList.remove("dark");
 }
 
+/**
+ * Toggle the `.dark` class on <html> while suppressing transitions, so the
+ * 200ms transition-colors rule on `*` doesn't fire a cascading flicker on
+ * every theme switch. The `.theme-switching` class kills transitions; we
+ * remove it on the next animation frame after the browser has painted the
+ * new theme.
+ */
+function applyDarkClassNoTransition(isDark: boolean): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.classList.add("theme-switching");
+  applyDarkClass(isDark);
+  // Force a reflow so the class is applied before transitions resume.
+  // `void` discards the value the linter would otherwise flag.
+  void root.offsetHeight;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove("theme-switching");
+    });
+  });
+}
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
@@ -53,17 +75,16 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => readStoredMode());
   const [isDark, setIsDark] = useState<boolean>(() => resolveIsDark(readStoredMode()));
 
-  // Apply the `dark` class whenever the resolved boolean changes.
-  useEffect(() => {
-    applyDarkClass(isDark);
-  }, [isDark]);
-
   // React to OS-level scheme changes when in `auto` mode.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
-      if (mode === "auto") setIsDark(mql.matches);
+      if (mode === "auto") {
+        const nextIsDark = mql.matches;
+        applyDarkClassNoTransition(nextIsDark);
+        setIsDark(nextIsDark);
+      }
     };
     mql.addEventListener("change", onChange);
     return () => {
@@ -71,13 +92,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     };
   }, [mode]);
 
-  // Keep the resolved boolean in sync with the active mode.
-  useEffect(() => {
-    setIsDark(resolveIsDark(mode));
-  }, [mode]);
-
   const setMode = useCallback((next: ThemeMode) => {
     window.localStorage.setItem(STORAGE_KEY, next);
+    const nextIsDark = resolveIsDark(next);
+    // Flip the DOM class synchronously so the browser sees the new theme
+    // on the very next paint — no waiting for React's render cycle to
+    // propagate state through useEffect.
+    applyDarkClassNoTransition(nextIsDark);
+    setIsDark(nextIsDark);
     setModeState(next);
   }, []);
 

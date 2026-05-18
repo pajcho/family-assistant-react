@@ -6,6 +6,21 @@
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Porodični asistent</title>
+    <script>
+      // Apply the persisted theme synchronously, before React mounts, so
+      // the initial paint isn't a brief flash of the wrong theme (FOUC).
+      // Mirrors the logic in src/hooks/useTheme.tsx.
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme-mode");
+          var isDark =
+            stored === "dark" ||
+            ((!stored || stored === "auto") &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (isDark) document.documentElement.classList.add("dark");
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

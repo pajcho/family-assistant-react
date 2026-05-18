@@ -124,6 +124,17 @@
     @apply transition-colors duration-200;
   }
 
+  /* When useTheme.setMode flips the dark class, it briefly stamps this
+     class on <html> so the global transition-colors rule above doesn't
+     fire — eliminates the cascading flicker you'd otherwise see as every
+     element transitions independently over 200ms. */
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
+
   /* Pull-to-refresh (pulltorefreshjs): lighter text in dark mode */
   .dark .ptr,
   .dark .ptr--text,
