@@ -12,6 +12,8 @@ export type TimePickerProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  /** Render the inline clear (X) button when a value is set. Defaults to `true`. */
+  clearable?: boolean;
 };
 
 export function TimePicker({
@@ -21,6 +23,7 @@ export function TimePicker({
   id,
   className,
   disabled,
+  clearable = true,
 }: TimePickerProps) {
   const handleChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,11 +35,16 @@ export function TimePicker({
 
   const handleClear = React.useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
+      // stopPropagation prevents an ancestor <label htmlFor> from
+      // re-targeting this click at its associated control.
       e.preventDefault();
+      e.stopPropagation();
       onChange(null);
     },
     [onChange],
   );
+
+  const showClear = clearable && !!value && !disabled;
 
   return (
     <div className={cn("relative", className)}>
@@ -52,14 +60,22 @@ export function TimePicker({
         placeholder={placeholder}
         disabled={disabled}
         className={cn(
-          "pr-9 pl-9",
-          // Hide WebKit's native time-picker indicator so we render a single,
-          // consistent clock icon (matches the original Nuxt VueDatePicker look).
-          "[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+          "pl-9",
+          showClear ? "pr-9" : "pr-3",
+          // iOS Safari enforces a minimum content-based width on
+          // <input type="time"> and overlays its own picker indicator;
+          // `appearance-none` lets the field actually shrink to the
+          // container, and the calendar-picker-indicator overrides hide
+          // the native chevron so our clock + X are the only controls.
+          "appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+          // iOS Safari right-aligns the time value by default which can
+          // push the bordered box past its parent; force left so it
+          // honors `pl-9` and stays inside the container.
+          "[&::-webkit-date-and-time-value]:text-left",
           value ? "" : "text-muted-foreground",
         )}
       />
-      {value && !disabled && (
+      {showClear ? (
         <button
           type="button"
           aria-label="Obriši vreme"
@@ -71,7 +87,7 @@ export function TimePicker({
         >
           <XIcon className="size-4" />
         </button>
-      )}
+      ) : null}
     </div>
   );
 }

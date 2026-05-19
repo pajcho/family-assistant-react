@@ -37,8 +37,8 @@ function NotificationsCard() {
       <CardHeader>
         <CardTitle>Obaveštenja</CardTitle>
         <CardDescription>
-          Pretplati ovaj uređaj da bi primao podsetnike i jutarnji / večernji pregled. Pretplata se
-          čuva na serveru — možeš se pretplatiti na više uređaja istovremeno.
+          Omogući ovom uređaju da prima podsetnike i jutarnji / večernji pregled. Možeš omogućiti
+          notifikacije na više uređaja istovremeno.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -47,26 +47,28 @@ function NotificationsCard() {
             Ovaj uređaj / pregledač ne podržava push obaveštenja. Na iPhone-u prvo dodaj aplikaciju
             na početni ekran i otvori je odatle.
           </p>
+        ) : n.permission === "denied" ? (
+          // Once permission is denied, calling Notification.requestPermission()
+          // silently returns "denied" without re-prompting, so the button below
+          // won't recover the state — point the user at browser settings.
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Dozvola za obaveštenja je odbijena u pregledaču. Otvori postavke pregledača (ili
+            sistemske postavke za ovu aplikaciju na iPhone-u) i uključi obaveštenja, pa pokušaj
+            ponovo.
+          </p>
         ) : null}
-
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-gray-500 dark:text-gray-400">Dozvola</dt>
-          <dd>{permissionLabel(n.permission)}</dd>
-          <dt className="text-gray-500 dark:text-gray-400">Ovaj uređaj</dt>
-          <dd>{n.isSubscribed ? "pretplaćen" : "nije pretplaćen"}</dd>
-        </dl>
 
         {n.error ? <p className="text-sm text-red-600 dark:text-red-400">{n.error}</p> : null}
 
         <div className="flex flex-wrap gap-2">
           {!n.isSubscribed ? (
             <Button onClick={() => void n.subscribe()} disabled={!n.supported || n.pending}>
-              {n.pending ? "Pretplaćivanje…" : "Dozvoli i pretplati se"}
+              {n.pending ? "Uključivanje…" : "Uključi obaveštenja"}
             </Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => void n.unsubscribe()} disabled={n.pending}>
-                {n.pending ? "Otpisivanje…" : "Otpiši se"}
+                {n.pending ? "Isključivanje…" : "Isključi obaveštenja"}
               </Button>
               <Button variant="outline" onClick={() => void n.sendLocalTest()}>
                 Lokalni test
@@ -152,17 +154,25 @@ interface DigestRowProps {
 }
 
 function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: DigestRowProps) {
+  // Keep the checkbox + text inside the <label htmlFor>, but the
+  // TimePicker sits outside so its inline X (and the native time popup)
+  // don't bubble clicks back into the label and re-toggle the digest.
   return (
-    <label htmlFor={`${id}-toggle`} className="flex cursor-pointer items-center gap-3">
+    <div className="flex items-center gap-3">
       <input
         id={`${id}-toggle`}
         type="checkbox"
         checked={enabled}
         onChange={(e) => onToggle(e.target.checked)}
         disabled={disabled}
-        className="h-4 w-4 rounded border-gray-300"
+        className="h-4 w-4 cursor-pointer rounded border-gray-300"
       />
-      <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+      <label
+        htmlFor={`${id}-toggle`}
+        className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+      >
+        {label}
+      </label>
       <div className="ml-auto w-32 shrink-0">
         <Label htmlFor={`${id}-time`} className="sr-only">
           Vreme za {label}
@@ -172,19 +182,10 @@ function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: Dig
           value={time}
           onChange={(v) => onTime(v)}
           disabled={disabled || !enabled}
+          clearable={false}
         />
       </div>
-    </label>
+    </div>
   );
 }
 
-function permissionLabel(p: NotificationPermission): string {
-  switch (p) {
-    case "granted":
-      return "dozvoljeno";
-    case "denied":
-      return "odbijeno";
-    default:
-      return "nije zatraženo";
-  }
-}
