@@ -113,13 +113,9 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
     return (
       <DialogContent
         className={cn(
-          // `--visual-vh` is the JS-tracked actual visible height
-          // (visualViewport.height) — see the script in index.html.
-          // Falls back to 90vh when the variable isn't set (SSR / very
-          // old browsers). Keyboards aren't really an issue on
-          // desktop, but using the same unit keeps behaviour
-          // consistent if a desktop user is on an OS keyboard.
-          "max-h-[calc(var(--visual-vh,90vh)*0.9)] overflow-y-auto",
+          // Standard 90vh cap. Keyboard handling isn't really an issue
+          // on desktop, so we don't bother with the visual-vh dance.
+          "max-h-[90vh] overflow-y-auto",
           className,
         )}
         showCloseButton={showCloseButton}
@@ -133,13 +129,14 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
   return (
     <DrawerContent
       className={cn(
-        // The crucial iOS fix: size the drawer against the actual
-        // visible viewport instead of `vh`/`dvh` (neither of which
-        // shrinks with the on-screen keyboard on iOS). `--visual-vh`
-        // is updated by a visualViewport listener in index.html so the
-        // drawer follows the keyboard in real time. Fallback to 90vh
-        // keeps SSR / no-JS sensible.
-        "data-[vaul-drawer-direction=bottom]:max-h-[calc(var(--visual-vh,90vh)*0.9)]",
+        // When no keyboard is open the variable is unset and the
+        // fallback `90vh` wins — same shape the drawer has always had.
+        // When the inline script in index.html detects the iOS soft
+        // keyboard (visualViewport gap > 100px), it sets `--visual-vh`
+        // to the actual visible height and the drawer immediately
+        // shrinks to fit above the keyboard. No extra multiplier — the
+        // visual viewport already excludes the keyboard area.
+        "data-[vaul-drawer-direction=bottom]:max-h-[var(--visual-vh,90vh)]",
         className,
       )}
       {...props}
