@@ -98,10 +98,10 @@ function ProfileCard() {
         setEmail(user?.email ?? "");
         return;
       }
-      // Supabase sends a confirmation to the new address (and, depending on
-      // project settings, also to the old one). The session keeps the old
-      // email until the user clicks through, so we tell them what to expect.
-      toast.success("Poslat ti je email za potvrdu nove adrese.");
+      // "Secure email change" is turned OFF for this project — Supabase
+      // applies the new email immediately and `user.email` updates on
+      // the next auth state event without any confirmation step.
+      toast.success("Email izmenjen.");
     }
   };
 
@@ -116,8 +116,8 @@ function ProfileCard() {
       <CardHeader>
         <CardTitle>Lični podaci</CardTitle>
         <CardDescription>
-          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti — na
-          novu adresu šaljemo link za potvrdu.
+          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti i
+          primenjuje se odmah.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -171,7 +171,7 @@ function ProfileCard() {
               required
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Promena email-a zahteva potvrdu preko linka koji stiže na novu adresu.
+              Email se primenjuje odmah, bez dodatne potvrde.
             </p>
           </div>
 
