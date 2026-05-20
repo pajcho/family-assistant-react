@@ -92,6 +92,12 @@ export interface List {
    * via the Sparkles button in the full-page header.
    */
   smart_sort_enabled: boolean;
+  /**
+   * Per-list retention window for completed items, in hours. NULL means
+   * "never auto-delete" (the default). A pg_cron job purges items whose
+   * `completed_at` is older than this value.
+   */
+  auto_delete_completed_after_hours: number | null;
   created_at: string;
   updated_at: string;
 }

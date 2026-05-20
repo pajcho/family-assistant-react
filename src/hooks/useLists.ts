@@ -26,11 +26,14 @@ import { useProfile } from "@/hooks/useProfile";
 export type CreateListInput = {
   name: string;
   scope: ListScope;
+  /** Hours of retention for completed items; null = never auto-delete. */
+  auto_delete_completed_after_hours?: number | null;
 };
 
 export type UpdateListInput = {
   name?: string;
   scope?: ListScope;
+  auto_delete_completed_after_hours?: number | null;
 };
 
 export type CreateListItemInput = {

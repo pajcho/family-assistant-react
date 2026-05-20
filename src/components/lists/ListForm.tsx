@@ -10,6 +10,8 @@ import type { List, ListScope } from "@/types/database";
 export type ListFormPayload = {
   name: string;
   scope: ListScope;
+  /** Hours of retention for completed items; null = never auto-delete. */
+  auto_delete_completed_after_hours: number | null;
 };
 
 export type ListFormProps = {
@@ -22,12 +24,31 @@ export type ListFormProps = {
 type FormState = {
   name: string;
   scope: ListScope;
+  /** Stored as string for the controlled <select>; serialised at submit. */
+  autoDelete: string;
 };
+
+/**
+ * Retention options offered in the form. Keep this matched with the
+ * <option> values below — the empty string represents NULL (never).
+ */
+const AUTO_DELETE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "Nikad" },
+  { value: "1", label: "Posle 1 sata" },
+  { value: "6", label: "Posle 6 sati" },
+  { value: "24", label: "Posle 1 dana" },
+  { value: "72", label: "Posle 3 dana" },
+  { value: "168", label: "Posle 1 nedelje" },
+];
 
 function initialState(list: List | null | undefined): FormState {
   return {
     name: list?.name ?? "",
     scope: list?.scope ?? "family",
+    autoDelete:
+      list?.auto_delete_completed_after_hours != null
+        ? String(list.auto_delete_completed_after_hours)
+        : "",
   };
 }
 
@@ -43,7 +64,12 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    onSubmit({ name: form.name.trim(), scope: form.scope });
+    onSubmit({
+      name: form.name.trim(),
+      scope: form.scope,
+      auto_delete_completed_after_hours:
+        form.autoDelete === "" ? null : Number(form.autoDelete),
+    });
   };
 
   return (
@@ -78,6 +104,29 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
             onClick={() => setForm((s) => ({ ...s, scope: "personal" }))}
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="list-auto-delete">Auto-brisanje završenih stavki</Label>
+        {/* Native <select> keeps the component count small and gets us
+            free OS-level pickers on mobile (a bottom drawer on iOS, a
+            wheel on Android). The styling matches the <Input> primitive
+            so it doesn't look out of place next to the name field. */}
+        <select
+          id="list-auto-delete"
+          value={form.autoDelete}
+          onChange={(e) => setForm((s) => ({ ...s, autoDelete: e.target.value }))}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30"
+        >
+          {AUTO_DELETE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Korisno za duge liste poput šopinga — završene stavke same nestaju.
+        </p>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">

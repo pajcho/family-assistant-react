@@ -221,13 +221,21 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
 }
 
 function PageHeader({ onBack }: { onBack: () => void }) {
+  // Single button wrapping arrow + label so the whole row is a tap target.
+  // Previously the arrow alone was clickable, with the "Liste" text inert —
+  // easy to miss on a phone. The negative left margin keeps the icon
+  // visually flush with the page edge while the button itself has padding
+  // for a comfortable hit area.
   return (
-    <div className="-ml-2 flex items-center gap-1">
-      <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Nazad na liste">
-        <ArrowLeftIcon className="h-5 w-5" />
-      </Button>
-      <span className="text-sm text-gray-500 dark:text-gray-400">Liste</span>
-    </div>
+    <button
+      type="button"
+      onClick={onBack}
+      className="-ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      aria-label="Nazad na liste"
+    >
+      <ArrowLeftIcon className="h-5 w-5" />
+      <span>Liste</span>
+    </button>
   );
 }
 
