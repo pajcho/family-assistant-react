@@ -5,6 +5,7 @@ import { addMonth, isOverdue, subtractMonth } from "../date";
 import { daysUntilBirthday } from "../birthday";
 import { formatAmount } from "../format";
 import { getDisplayName, getInitials } from "../identity";
+import { parseUserAgent } from "../userAgent";
 
 describe("utils", () => {
   it("addMonth caps Jan 31 to last day of February (2026 is not a leap year)", () => {
@@ -65,6 +66,54 @@ describe("utils", () => {
 
     it("getDisplayName falls back to email when name missing", () => {
       expect(getDisplayName({ email: "nikola@gmail.com" })).toBe("nikola@gmail.com");
+    });
+  });
+
+  describe("parseUserAgent", () => {
+    it("recognises Chrome on macOS", () => {
+      const ua =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+      expect(parseUserAgent(ua)).toMatchObject({
+        browser: "Chrome",
+        os: "macOS",
+        label: "Chrome · macOS",
+      });
+    });
+
+    it("recognises Safari on iPhone (not Chrome, even with Safari/ in UA)", () => {
+      const ua =
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1";
+      expect(parseUserAgent(ua)).toMatchObject({
+        browser: "Safari",
+        os: "iPhone",
+        label: "Safari · iPhone",
+      });
+    });
+
+    it("recognises Firefox on Windows", () => {
+      const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0";
+      expect(parseUserAgent(ua)).toMatchObject({
+        browser: "Firefox",
+        os: "Windows",
+        label: "Firefox · Windows",
+      });
+    });
+
+    it("recognises Edge as Edge, not Chrome", () => {
+      const ua =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0";
+      expect(parseUserAgent(ua).browser).toBe("Edge");
+    });
+
+    it("recognises Android", () => {
+      const ua =
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+      expect(parseUserAgent(ua).os).toBe("Android");
+    });
+
+    it("returns fallback label for empty/null UA", () => {
+      expect(parseUserAgent(null).label).toBe("Nepoznat uređaj");
+      expect(parseUserAgent("").label).toBe("Nepoznat uređaj");
     });
   });
 });

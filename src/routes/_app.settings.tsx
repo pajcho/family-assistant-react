@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,14 @@ import {
   type NotificationPreferencesInput,
 } from "@/hooks/useNotificationPreferences";
 import { useProfile } from "@/hooks/useProfile";
+import {
+  usePushSubscriptions,
+  useTouchCurrentSubscription,
+} from "@/hooks/usePushSubscriptions";
 import { supabase } from "@/lib/supabase";
+import { srLocale } from "@/utils/date";
+import { parseUserAgent } from "@/utils/userAgent";
+import type { PushSubscriptionRow } from "@/types/database";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -39,8 +48,7 @@ function SettingsPage() {
           <ProfileCard />
         </TabsContent>
         <TabsContent value="notifications">
-          <NotificationsCard />
-          <DigestsCard />
+          <NotificationsTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -135,7 +143,7 @@ function ProfileCard() {
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={isLoading || isUpdating}
                 autoComplete="given-name"
-                placeholder="Nikola"
+                placeholder="Vaše ime"
               />
             </div>
             <div className="space-y-1.5">
@@ -146,7 +154,7 @@ function ProfileCard() {
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={isLoading || isUpdating}
                 autoComplete="family-name"
-                placeholder="Pajić"
+                placeholder="Vaše prezime"
               />
             </div>
           </div>
@@ -183,9 +191,32 @@ function ProfileCard() {
   );
 }
 
-function NotificationsCard() {
+function NotificationsTab() {
+  // `useNotifications` is reused by SessionsCard so the current-device
+  // row's X can route through `unsubscribe()` (which also tears down
+  // the local SW subscription) instead of just deleting the DB row.
   const n = useNotifications();
 
+  // Heartbeat: refresh `last_used_at` on this device's row each time
+  // the user lands on the notifications tab. Without this the column
+  // only updates on subscribe — meaning a device that's been quietly
+  // receiving pushes would still show "subscribed N months ago".
+  useTouchCurrentSubscription(n.subscription?.endpoint ?? null);
+
+  return (
+    <>
+      <NotificationsCard n={n} />
+      <SessionsCard n={n} />
+      <DigestsCard />
+    </>
+  );
+}
+
+interface NotificationsCardProps {
+  n: ReturnType<typeof useNotifications>;
+}
+
+function NotificationsCard({ n }: NotificationsCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -233,6 +264,119 @@ function NotificationsCard() {
       </CardContent>
     </Card>
   );
+}
+
+interface SessionsCardProps {
+  n: ReturnType<typeof useNotifications>;
+}
+
+function SessionsCard({ n }: SessionsCardProps) {
+  const { subscriptions, isLoading, remove, isRemoving, refresh } = usePushSubscriptions();
+  const currentEndpoint = n.subscription?.endpoint ?? null;
+
+  // Hide the card entirely when the user has zero sessions and isn't
+  // subscribed on this device — there's literally nothing to manage
+  // and showing an empty card would just be visual noise above the
+  // digests config.
+  if (!isLoading && subscriptions.length === 0 && !n.isSubscribed) {
+    return null;
+  }
+
+  const handleRevoke = async (row: PushSubscriptionRow) => {
+    if (row.endpoint === currentEndpoint) {
+      // Current device → route through `unsubscribe()` so the local
+      // SW subscription is torn down alongside the DB row. Re-fetch
+      // the list afterwards so the row disappears immediately.
+      await n.unsubscribe();
+      await refresh();
+      return;
+    }
+    await remove(row.id);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Aktivne sesije</CardTitle>
+        <CardDescription>
+          Uređaji na kojima si uključio/la obaveštenja. Klikom na X isključuješ sesiju samo za taj
+          uređaj — ostali nastavljaju da rade.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+        ) : subscriptions.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Trenutno nema aktivnih sesija. Uključi obaveštenja iznad da bi ovaj uređaj počeo da
+            prima podsetnike.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+            {subscriptions.map((row) => (
+              <SessionRow
+                key={row.id}
+                row={row}
+                isCurrent={row.endpoint === currentEndpoint}
+                disabled={isRemoving || n.pending}
+                onRevoke={() => void handleRevoke(row)}
+              />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface SessionRowProps {
+  row: PushSubscriptionRow;
+  isCurrent: boolean;
+  disabled: boolean;
+  onRevoke: () => void;
+}
+
+function SessionRow({ row, isCurrent, disabled, onRevoke }: SessionRowProps) {
+  const { label } = parseUserAgent(row.user_agent);
+  const lastSeen = formatLastSeen(row.last_used_at);
+  return (
+    <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+            {label}
+          </span>
+          {isCurrent ? (
+            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+              ovaj uređaj
+            </span>
+          ) : null}
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">{lastSeen}</div>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Isključi sesiju"
+        disabled={disabled}
+        onClick={onRevoke}
+      >
+        <XMarkIcon className="h-4 w-4" />
+      </Button>
+    </li>
+  );
+}
+
+function formatLastSeen(iso: string | null | undefined): string {
+  if (!iso) return "Aktivna pre nepoznato";
+  try {
+    const date = parseISO(iso);
+    const ago = formatDistanceToNow(date, { addSuffix: true, locale: srLocale });
+    return `Aktivna ${ago}`;
+  } catch {
+    return "Aktivna pre nepoznato";
+  }
 }
 
 function DigestsCard() {
