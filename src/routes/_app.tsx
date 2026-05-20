@@ -1,6 +1,8 @@
 import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
 import { AppNav } from "@/components/layout/AppNav";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
+import { cn } from "@/lib/cn";
 
 /**
  * Protected layout route. All authenticated pages (dashboard, events,
@@ -17,6 +19,14 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
+  // When the on-screen keyboard opens we hide the bottom nav (see
+  // MobileBottomNav) — at that moment the `pb-32` clearance we reserve
+  // for the nav is just empty space that iOS leaves visible above the
+  // keyboard after scrolling the focused input into view. Drop the
+  // padding while the keyboard is up so the page collapses to the
+  // input's natural bottom.
+  const keyboardOpen = useIsKeyboardOpen();
+
   // SW update toast lives in __root.tsx (covers login too). The iOS install
   // banner lives on the login route — once you're signed in you've already
   // committed to the app, so the prompt would just be visual noise.
@@ -33,11 +43,17 @@ function AppLayout() {
             Mobile: leave room at the bottom for the fixed
             <MobileBottomNav>. The bar is ~64px + the iPhone home-indicator
             safe-area inset (~34px on devices with a notch), so we reserve
-            `pb-32` (128px) — `pb-24` was just barely above the bar and the
-            last card visually touched it once scrolled to the bottom. The
-            bottom-nav clearance flips at `md` (768px) to stay in step with
-            AppNav's mobile cutoff. */}
-        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 pb-32 sm:px-6 md:pb-6 lg:px-8">
+            `pb-32` (128px). When the keyboard is open, the nav is hidden
+            and the padding collapses to `pb-6` so iOS doesn't leave the
+            reserved area as visible whitespace above the keyboard. The
+            bottom-nav clearance flips at `md` (768px) to stay in step
+            with AppNav's mobile cutoff. */}
+        <main
+          className={cn(
+            "mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 sm:px-6 md:pb-6 lg:px-8",
+            keyboardOpen ? "pb-6" : "pb-32",
+          )}
+        >
           <Outlet />
         </main>
       </div>

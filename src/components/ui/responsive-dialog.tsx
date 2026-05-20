@@ -143,15 +143,15 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
   return (
     <DrawerContent
       className={cn(
-        // 90vh is the original shape. Trying to shrink this against
-        // visualViewport on iOS only made things worse: the drawer is
-        // `position: fixed; bottom: 0`, so reducing its max-height
-        // doesn't reposition it — iOS leaves the drawer at the bottom
-        // of the layout viewport (partially hidden behind the keyboard)
-        // and the user just sees more page background above it.
+        // 90vh is the cap. The `min-h-[60vh]` keeps short forms (e.g.
+        // the 3-field list form) from leaving a visible band of page
+        // background between the drawer's bottom and the iOS keyboard
+        // — without it, iOS Safari positions the short fixed-bottom
+        // drawer relative to the visualViewport bottom and the page
+        // shows through above the keyboard.
         // The keyboard-aware scroll of focused inputs is Vaul's job
         // (repositionInputs, on by default).
-        "data-[vaul-drawer-direction=bottom]:max-h-[90vh]",
+        "data-[vaul-drawer-direction=bottom]:max-h-[90vh] data-[vaul-drawer-direction=bottom]:min-h-[60vh]",
         className,
       )}
       {...props}
