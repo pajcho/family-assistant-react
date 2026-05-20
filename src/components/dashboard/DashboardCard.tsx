@@ -25,7 +25,7 @@ export const ACCENT_ICON: Record<DashboardAccent, string> = {
 export const ACCENT_MUTED_ICON = "text-gray-400 dark:text-gray-500";
 
 /** Allowed targets for the "Pogledaj sve" link. Matches the protected routes. */
-export type DashboardViewAllLink = "/events" | "/payments" | "/birthdays" | "/expenses";
+export type DashboardViewAllLink = "/events" | "/payments" | "/birthdays" | "/lists";
 
 export type DashboardCardProps = {
   /** Heroicon component (24/outline) rendered in the header. */

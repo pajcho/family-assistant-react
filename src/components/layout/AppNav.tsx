@@ -5,11 +5,11 @@ import {
   CakeIcon,
   CalendarIcon,
   ChevronDownIcon,
+  ClipboardDocumentListIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
   HomeIcon,
   MoonIcon,
-  ShoppingBagIcon,
   SunIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
@@ -39,7 +39,7 @@ import { getDisplayName } from "@/utils/identity";
  * Mobile (< sm): top header is logo + the same hamburger dropdown.
  * Navigation lives in a fixed bottom tab bar (Home / Events / Payments /
  * Birthdays) — the 4 most-used destinations. The dropdown additionally
- * surfaces the 5th nav item (Planned expenses) since it isn't in the bar.
+ * surfaces the 5th nav item (Lists) since it isn't in the bar.
  *
  * The dropdown is the single source of truth for theme/settings/logout on
  * every viewport so the chrome stays consistent. The "Stranice" section
@@ -59,7 +59,7 @@ const BOTTOM_NAV_ITEMS = [
 
 const DESKTOP_NAV_ITEMS = [
   ...BOTTOM_NAV_ITEMS,
-  { to: "/expenses", label: "Planirani troškovi", icon: ShoppingBagIcon },
+  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
 ] as const;
 
 export function AppNav() {

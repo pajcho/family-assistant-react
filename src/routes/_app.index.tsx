@@ -5,19 +5,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { DashboardBirthdayCard } from "@/components/dashboard/DashboardBirthdayCard";
 import { DashboardEventCard } from "@/components/dashboard/DashboardEventCard";
-import { DashboardExpenseCard } from "@/components/dashboard/DashboardExpenseCard";
+import { DashboardListsCard } from "@/components/dashboard/DashboardListsCard";
 import { DashboardPaymentCard } from "@/components/dashboard/DashboardPaymentCard";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
-import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
+import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import type { BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
 import type { EventFormPayload } from "@/components/events/EventForm";
-import type { ExpenseFormPayload } from "@/components/expenses/ExpenseForm";
+import type { ListFormPayload } from "@/components/lists/ListForm";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import { useCreateBirthday, useUpdateBirthday, useBirthdaysList } from "@/hooks/useBirthdays";
 import { useCreateEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
-import { useCreateExpense, useExpensesList, useUpdateExpense } from "@/hooks/useExpenses";
+import { useCreateList, useListsWithItems } from "@/hooks/useLists";
 import {
   hasPaymentHistory,
   useCreatePayment,
@@ -25,17 +25,15 @@ import {
   useUpdatePayment,
 } from "@/hooks/usePayments";
 import { useProfile } from "@/hooks/useProfile";
-import type { Birthday, Event, Expense, Payment } from "@/types/database";
+import type { Birthday, Event, ListWithItems, Payment } from "@/types/database";
 
 /**
- * Dashboard route — replaces the Phase 1A stub with the full 2×2 card grid.
+ * Dashboard route — a 2×2 card grid: events, payments, birthdays, lists.
  *
- * Mirrors `pages/index.vue` from the Nuxt source: a `PullToRefresh` wrapper
- * around the family-name header + an animated grid of four cards (events,
- * payments, birthdays, expenses). Each card owns its own detail popup; the
- * dashboard owns the per-feature add/edit form dialogs and threads them in
- * via `onAdd` / `onEdit` callbacks so all four form dialogs live in one
- * place (matches the Vue page's structure).
+ * Each card owns its own detail popup; the dashboard owns the per-feature
+ * add/edit form dialogs and threads them in via `onAdd` / `onEdit`
+ * callbacks. The Lists card uses a thinner contract (only `onAdd`) since
+ * list interactions belong on the /lists page, not a modal.
  *
  * Pull-to-refresh invalidates every list query so a downward drag on mobile
  * refreshes the whole dashboard. Realtime subscriptions in each hook handle
@@ -54,12 +52,12 @@ function DashboardPage() {
   const eventsQuery = useEventsList();
   const paymentsQuery = usePaymentsList();
   const birthdaysQuery = useBirthdaysList();
-  const expensesQuery = useExpensesList();
+  const listsQuery = useListsWithItems();
 
   const events: Event[] = eventsQuery.data ?? [];
   const payments: Payment[] = paymentsQuery.data ?? [];
   const birthdays: Birthday[] = birthdaysQuery.data ?? [];
-  const expenses: Expense[] = expensesQuery.data ?? [];
+  const lists: ListWithItems[] = listsQuery.data ?? [];
 
   // Mutations — only the create/update side; deletes happen on feature pages.
   const createEvent = useCreateEvent();
@@ -68,8 +66,7 @@ function DashboardPage() {
   const updatePayment = useUpdatePayment();
   const createBirthday = useCreateBirthday();
   const updateBirthday = useUpdateBirthday();
-  const createExpense = useCreateExpense();
-  const updateExpense = useUpdateExpense();
+  const createList = useCreateList();
 
   // Per-feature dialog state. Each card surfaces an `onAdd` + `onEdit` that
   // drives this state; submit handlers route to create vs update based on
@@ -87,9 +84,8 @@ function DashboardPage() {
   const [editingBirthday, setEditingBirthday] = React.useState<Birthday | null>(null);
   const [birthdayError, setBirthdayError] = React.useState<string | null>(null);
 
-  const [expenseDialogOpen, setExpenseDialogOpen] = React.useState(false);
-  const [editingExpense, setEditingExpense] = React.useState<Expense | null>(null);
-  const [expenseError, setExpenseError] = React.useState<string | null>(null);
+  const [listDialogOpen, setListDialogOpen] = React.useState(false);
+  const [listError, setListError] = React.useState<string | null>(null);
 
   /* --- Add openers ------------------------------------------------------- */
 
@@ -112,10 +108,9 @@ function DashboardPage() {
     setBirthdayDialogOpen(true);
   };
 
-  const openAddExpense = () => {
-    setEditingExpense(null);
-    setExpenseError(null);
-    setExpenseDialogOpen(true);
+  const openAddList = () => {
+    setListError(null);
+    setListDialogOpen(true);
   };
 
   /* --- Edit openers ------------------------------------------------------ */
@@ -142,11 +137,6 @@ function DashboardPage() {
     setBirthdayDialogOpen(true);
   };
 
-  const openEditExpense = (expense: Expense) => {
-    setEditingExpense(expense);
-    setExpenseError(null);
-    setExpenseDialogOpen(true);
-  };
 
   /* --- Submit handlers --------------------------------------------------- */
 
@@ -207,21 +197,13 @@ function DashboardPage() {
     }
   };
 
-  const handleExpenseSubmit = async (payload: ExpenseFormPayload) => {
-    setExpenseError(null);
+  const handleListSubmit = async (payload: ListFormPayload) => {
+    setListError(null);
     try {
-      if (editingExpense) {
-        await updateExpense.mutateAsync({ id: editingExpense.id, payload });
-      } else {
-        await createExpense.mutateAsync(payload);
-      }
-      setExpenseDialogOpen(false);
-      setEditingExpense(null);
+      await createList.mutateAsync(payload);
+      setListDialogOpen(false);
     } catch (err) {
-      const fallback = editingExpense
-        ? "Greška pri ažuriranju troška"
-        : "Greška pri kreiranju troška";
-      setExpenseError(err instanceof Error && err.message ? err.message : fallback);
+      setListError(err instanceof Error && err.message ? err.message : "Greška pri kreiranju liste");
     }
   };
 
@@ -235,7 +217,7 @@ function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ["events", familyId] }),
       queryClient.invalidateQueries({ queryKey: ["payments", familyId] }),
       queryClient.invalidateQueries({ queryKey: ["birthdays", familyId] }),
-      queryClient.invalidateQueries({ queryKey: ["expenses", familyId] }),
+      queryClient.invalidateQueries({ queryKey: ["lists", familyId] }),
     ]);
   }, [queryClient, familyId]);
 
@@ -266,11 +248,10 @@ function DashboardPage() {
     }
   };
 
-  const handleExpenseDialogOpenChange = (open: boolean) => {
-    setExpenseDialogOpen(open);
+  const handleListDialogOpenChange = (open: boolean) => {
+    setListDialogOpen(open);
     if (!open) {
-      setEditingExpense(null);
-      setExpenseError(null);
+      setListError(null);
     }
   };
 
@@ -301,11 +282,7 @@ function DashboardPage() {
               onAdd={openAddBirthday}
               onEdit={openEditBirthday}
             />
-            <DashboardExpenseCard
-              expenses={expenses}
-              onAdd={openAddExpense}
-              onEdit={openEditExpense}
-            />
+            <DashboardListsCard lists={lists} onAdd={openAddList} />
           </div>
         )}
 
@@ -343,14 +320,14 @@ function DashboardPage() {
           }}
         />
 
-        <ExpenseFormDialog
-          open={expenseDialogOpen}
-          onOpenChange={handleExpenseDialogOpenChange}
-          expense={editingExpense}
-          error={expenseError}
-          saving={createExpense.isPending || updateExpense.isPending}
+        <ListFormDialog
+          open={listDialogOpen}
+          onOpenChange={handleListDialogOpenChange}
+          list={null}
+          error={listError}
+          saving={createList.isPending}
           onSubmit={(payload) => {
-            void handleExpenseSubmit(payload);
+            void handleListSubmit(payload);
           }}
         />
       </div>

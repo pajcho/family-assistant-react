@@ -5,6 +5,7 @@ import {
   startOfDay,
   parseISO,
   format,
+  formatDistanceToNow,
   isBefore,
   isAfter,
   isValid,
@@ -148,4 +149,27 @@ export function isDateTodayOrFuture(dateStr: string): boolean {
 /** Days from today to date (positive = future). */
 export function daysFromToday(dateStr: string): number {
   return differenceInDays(parseDate(dateStr), startOfToday());
+}
+
+/**
+ * "pre 2 minuta" / "pre 1 sat" — Serbian-Latin relative phrasing for an
+ * ISO timestamp. Used in audit / activity displays where the exact date
+ * is less interesting than how recent it is.
+ */
+export function formatRelative(iso: string | Date | null | undefined): string {
+  if (!iso) return "—";
+  const date = typeof iso === "string" ? parseISO(iso) : iso;
+  if (!isValid(date)) return "—";
+  return formatDistanceToNow(date, { locale: srLocale, addSuffix: true });
+}
+
+/**
+ * DD.MM.YYYY HH:mm — full timestamp for audit panels and tooltips. Falls
+ * back to "—" on parse failure so a single bad row can't blow up a render.
+ */
+export function formatDateTime(iso: string | Date | null | undefined): string {
+  if (!iso) return "—";
+  const date = typeof iso === "string" ? parseISO(iso) : iso;
+  if (!isValid(date)) return "—";
+  return format(date, "dd.MM.yyyy HH:mm", { locale: srLocale });
 }

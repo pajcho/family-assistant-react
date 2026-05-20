@@ -2,6 +2,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Targets devices whose primary pointer is a mouse / trackpad (`pointer:
+   fine`). Use it to gate UI that only makes sense with hover + precise
+   clicks — e.g. the inline edit/delete icons on list rows, which we hide
+   on touch devices since swipe gestures cover the same actions there. */
+@custom-variant pointer-fine (@media (pointer: fine));
+
 /* shadcn/ui design tokens — neutral base, v4 @theme inline pattern */
 :root {
   --background: hsl(0 0% 100%);

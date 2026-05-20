@@ -174,7 +174,12 @@ function ResponsiveDialogDescription({
   React.ComponentProps<typeof DrawerDescription>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogDescription");
   const Description = isDesktop ? DialogDescription : DrawerDescription;
-  return <Description className={className} {...props} />;
+  // Vaul's drawer-header centers descendants on bottom-direction drawers
+  // (mobile). We already override the title's text-align; without the
+  // matching override here the description still pulls toward the centre,
+  // which clashes with the rest of the app's left-aligned typography.
+  const drawerClassName = isDesktop ? undefined : "text-left";
+  return <Description className={cn(drawerClassName, className)} {...props} />;
 }
 
 function ResponsiveDialogFooter({

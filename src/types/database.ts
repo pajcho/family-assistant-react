@@ -74,17 +74,39 @@ export interface Birthday {
   updated_at: string;
 }
 
-export interface Expense {
+export type ListScope = "personal" | "family";
+
+export interface List {
   id: string;
   family_id: string;
+  /** Creator of the list — also used as the access guard for personal scope. */
+  owner_id: string;
+  /** Who last modified the list (metadata or items inside it). */
+  updated_by_id: string | null;
   name: string;
-  description: string | null;
-  amount: number;
-  is_paid: boolean;
-  paid_date: string | null;
+  scope: ListScope;
   sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ListItem {
+  id: string;
+  list_id: string;
+  family_id: string;
+  name: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  sort_order: number;
+  created_by_id: string | null;
+  updated_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A list returned together with its items via the nested `select` query. */
+export interface ListWithItems extends List {
+  list_items: ListItem[];
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Protected layout route. All authenticated pages (dashboard, events,
- * payments, birthdays, expenses) sit under `_app` so they share <AppNav/>
+ * payments, birthdays, lists) sit under `_app` so they share <AppNav/>
  * and the centered <main> container.
  *
  * Auth gating happens at render time via `<AuthGate>`. We can't use
