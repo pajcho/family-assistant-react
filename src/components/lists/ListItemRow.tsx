@@ -86,23 +86,49 @@ export function ListItemRow({ item, onToggle, onRename, onDelete }: ListItemRowP
     );
   }
 
+  // Touch-target sizing
+  // ------------------
+  // The row used `items-center gap-2 py-1.5` which produced a ~32px-tall row
+  // with only ~8px between the checkbox and the edit-button. On phones any
+  // tap-bias to the right of the 20px checkbox landed in the button and
+  // opened the inline-edit input — annoying when you meant to check off
+  // an item. The new layout:
+  //
+  //   <div items-stretch>     ← children share full row height
+  //     <label>               ← catches checkbox-area taps incl. right buffer
+  //       <input checkbox />
+  //     </label>
+  //     <button name>         ← starts after the label, no gap to bridge
+  //   </div>
+  //
+  // Mobile gets py-3 on each region (label + button) which yields a 44px-tall
+  // row hitting Apple's HIG floor, plus a 12px right-padding inside the label
+  // so a near-miss to the right of the checkbox still toggles. Mouse devices
+  // stay compact via the pointer-fine variant (py-1.5 + minimal padding).
   return (
-    <div className="group flex items-center gap-2 rounded-md bg-white px-2 py-1.5 hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/50">
-      {/* Use a real <input type="checkbox"> for accessibility + native a11y */}
-      <input
-        type="checkbox"
-        checked={item.is_completed}
-        onChange={() => onToggle(item)}
+    <div className="group flex items-stretch rounded-md bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/50">
+      <label
+        className="flex shrink-0 cursor-pointer items-center py-3 pl-3 pr-4 pointer-fine:py-1.5 pointer-fine:pl-2 pointer-fine:pr-2"
         aria-label={
           item.is_completed ? `Vrati "${item.name}" u aktivne` : `Završi "${item.name}"`
         }
-        className="h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-      />
+      >
+        {/* Use a real <input type="checkbox"> for accessibility + native a11y.
+            Wrapping it in a <label> means clicks anywhere inside the label
+            (including the generous mobile padding) proxy through to the
+            checkbox — no extra JS needed. */}
+        <input
+          type="checkbox"
+          checked={item.is_completed}
+          onChange={() => onToggle(item)}
+          className="h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
+        />
+      </label>
       <button
         type="button"
         onClick={beginEdit}
         className={cn(
-          "min-w-0 flex-1 truncate text-left text-sm",
+          "min-w-0 flex-1 truncate py-3 pr-3 text-left text-sm pointer-fine:py-1.5 pointer-fine:pr-2",
           item.is_completed
             ? "text-gray-400 line-through dark:text-gray-500"
             : "text-gray-900 dark:text-gray-100",
@@ -114,7 +140,7 @@ export function ListItemRow({ item, onToggle, onRename, onDelete }: ListItemRowP
           operations via tap-to-edit + swipe gestures, so the icons would
           just be visual noise. The `pointer-fine` variant is defined in
           src/styles/index.css and maps to `@media (pointer: fine)`. */}
-      <div className="hidden shrink-0 items-center gap-0.5 pointer-fine:flex pointer-fine:opacity-0 pointer-fine:transition-opacity pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100">
+      <div className="hidden shrink-0 items-center gap-0.5 pr-1 pointer-fine:flex pointer-fine:opacity-0 pointer-fine:transition-opacity pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100">
         <Button
           size="icon-xs"
           variant="ghost"

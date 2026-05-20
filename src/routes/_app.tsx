@@ -31,11 +31,13 @@ function AppLayout() {
             backstop for the same problem.
 
             Mobile: leave room at the bottom for the fixed
-            <MobileBottomNav>. The bar is ~56px + the iPhone home-
-            indicator safe-area inset, so `pb-24` keeps the last row of
-            content comfortably above it. The bottom-nav clearance flips
-            at `md` (768px) to stay in step with AppNav's mobile cutoff. */}
-        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 pb-24 sm:px-6 md:pb-6 lg:px-8">
+            <MobileBottomNav>. The bar is ~64px + the iPhone home-indicator
+            safe-area inset (~34px on devices with a notch), so we reserve
+            `pb-32` (128px) — `pb-24` was just barely above the bar and the
+            last card visually touched it once scrolled to the bottom. The
+            bottom-nav clearance flips at `md` (768px) to stay in step with
+            AppNav's mobile cutoff. */}
+        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 pb-32 sm:px-6 md:pb-6 lg:px-8">
           <Outlet />
         </main>
       </div>
