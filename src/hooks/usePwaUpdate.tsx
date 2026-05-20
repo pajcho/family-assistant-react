@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { toast } from "sonner";
 
@@ -11,8 +11,22 @@ import { toast } from "sonner";
  * stays until they dismiss or refresh.
  *
  * Mount this hook ONCE inside the authenticated app shell.
+ *
+ * Update detection: vite-plugin-pwa only checks for a new sw.js at
+ * registration time. For a long-lived PWA (iOS home-screen install
+ * stays "open" for days at a time), that means a freshly deployed
+ * version is invisible until the user closes and reopens the app. We
+ * widen the trigger surface by:
+ *   1. polling via `registration.update()` every UPDATE_INTERVAL_MS
+ *   2. forcing a check whenever the document becomes visible again —
+ *      iOS suspends background tabs / PWAs, so coming back into focus
+ *      is the natural moment to look for a new deploy.
  */
+const UPDATE_INTERVAL_MS = 30 * 60 * 1000;
+
 export function usePwaUpdate(): void {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -20,7 +34,36 @@ export function usePwaUpdate(): void {
     onRegisterError(error) {
       console.error("[pwa] SW registration failed", error);
     },
+    onRegisteredSW(_swUrl, registration) {
+      // Hold onto the registration so the polling + focus effect below
+      // can call `.update()` on it.
+      registrationRef.current = registration ?? null;
+    },
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => {
+      const reg = registrationRef.current;
+      if (!reg) return;
+      void reg.update().catch(() => {
+        // Network blip / SW gone — nothing actionable, ignore.
+      });
+    };
+
+    const interval = window.setInterval(check, UPDATE_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", check);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
 
   useEffect(() => {
     if (!needRefresh) return;
