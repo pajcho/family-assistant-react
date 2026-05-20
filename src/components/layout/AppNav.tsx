@@ -2,9 +2,9 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRightOnRectangleIcon,
   BanknotesIcon,
-  Bars3Icon,
   CakeIcon,
   CalendarIcon,
+  ChevronDownIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
   HomeIcon,
@@ -16,6 +16,7 @@ import {
 
 import { cn } from "@/lib/cn";
 import { AppNavLink } from "@/components/layout/AppNavLink";
+import { UserAvatar } from "@/components/layout/UserAvatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useTheme, type ThemeMode } from "@/hooks/useTheme";
+import { getDisplayName } from "@/utils/identity";
 
 /**
  * App chrome.
@@ -85,7 +88,8 @@ export function AppNav() {
 }
 
 function AppMenu() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const { mode, setMode } = useTheme();
 
@@ -94,18 +98,47 @@ function AppMenu() {
     await navigate({ to: "/login" });
   };
 
+  const identity = {
+    firstName: profile?.first_name ?? null,
+    lastName: profile?.last_name ?? null,
+    email: user?.email ?? null,
+  };
+  const displayName = getDisplayName(identity);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Meni"
-          className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
+          aria-label="Korisnički meni"
+          // Avatar doubles as the dropdown trigger — visually distinct from
+          // a hamburger so the affordance reads as "your account / menu".
+          // The chevron is the explicit "this opens a dropdown" hint and
+          // sits next to the name on wider viewports where there's room.
+          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full pl-0.5 pr-1.5 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
         >
-          <Bars3Icon className="h-6 w-6" />
+          <UserAvatar {...identity} className="h-8 w-8" />
+          <span className="hidden max-w-[12rem] truncate text-sm font-medium lg:inline">
+            {displayName}
+          </span>
+          <ChevronDownIcon className="hidden h-4 w-4 text-gray-500 dark:text-gray-400 lg:inline" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-60">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-64">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <UserAvatar {...identity} className="h-9 w-9" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+              {displayName}
+            </div>
+            {user?.email && displayName !== user.email ? (
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                {user.email}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs font-normal text-gray-500 dark:text-gray-400">
           Tema
         </DropdownMenuLabel>

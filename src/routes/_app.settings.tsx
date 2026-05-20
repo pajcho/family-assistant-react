@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimePicker } from "@/components/ui/time-picker";
+import { UserAvatar } from "@/components/layout/UserAvatar";
+import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import {
   useNotificationPreferences,
   type NotificationPreferencesInput,
 } from "@/hooks/useNotificationPreferences";
+import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -20,12 +27,159 @@ function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Podešavanja</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Upravljanje obaveštenjima i podsetnicima.
+          Lični podaci i obaveštenja na jednom mestu.
         </p>
       </div>
-      <NotificationsCard />
-      <DigestsCard />
+      <Tabs defaultValue="profile" className="gap-6">
+        <TabsList className="w-full max-w-sm">
+          <TabsTrigger value="profile">Profil</TabsTrigger>
+          <TabsTrigger value="notifications">Obaveštenja</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+          <ProfileCard />
+        </TabsContent>
+        <TabsContent value="notifications">
+          <NotificationsCard />
+          <DigestsCard />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function ProfileCard() {
+  const { user } = useAuth();
+  const { profile, isLoading, updateProfile, isUpdating } = useProfile();
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailChanging, setEmailChanging] = useState(false);
+
+  // Resync the form whenever the upstream row updates (initial load,
+  // post-save refetch, or another tab editing the same profile).
+  useEffect(() => {
+    setFirstName(profile?.first_name ?? "");
+    setLastName(profile?.last_name ?? "");
+  }, [profile?.first_name, profile?.last_name]);
+
+  useEffect(() => {
+    setEmail(user?.email ?? "");
+  }, [user?.email]);
+
+  const namesDirty =
+    (profile?.first_name ?? "") !== firstName.trim() ||
+    (profile?.last_name ?? "") !== lastName.trim();
+  const emailDirty = (user?.email ?? "") !== email.trim();
+
+  const submitProfile = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (namesDirty) {
+      await updateProfile({
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+      });
+    }
+    if (emailDirty) {
+      setEmailChanging(true);
+      const { error } = await supabase.auth.updateUser({ email: email.trim() });
+      setEmailChanging(false);
+      if (error) {
+        toast.error(error.message);
+        // Roll back the local value so the form reflects what Supabase still has.
+        setEmail(user?.email ?? "");
+        return;
+      }
+      // Supabase sends a confirmation to the new address (and, depending on
+      // project settings, also to the old one). The session keeps the old
+      // email until the user clicks through, so we tell them what to expect.
+      toast.success("Poslat ti je email za potvrdu nove adrese.");
+    }
+  };
+
+  const identity = {
+    firstName,
+    lastName,
+    email: user?.email ?? null,
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Lični podaci</CardTitle>
+        <CardDescription>
+          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti — na
+          novu adresu šaljemo link za potvrdu.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submitProfile} className="space-y-5">
+          <div className="flex items-center gap-4">
+            <UserAvatar {...identity} className="h-14 w-14 text-base" />
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                {firstName || lastName ? `${firstName} ${lastName}`.trim() : user?.email}
+              </div>
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                {user?.email}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="first-name">Ime</Label>
+              <Input
+                id="first-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={isLoading || isUpdating}
+                autoComplete="given-name"
+                placeholder="Nikola"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="last-name">Prezime</Label>
+              <Input
+                id="last-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={isLoading || isUpdating}
+                autoComplete="family-name"
+                placeholder="Pajić"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={emailChanging}
+              autoComplete="email"
+              required
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Promena email-a zahteva potvrdu preko linka koji stiže na novu adresu.
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={
+                isLoading || isUpdating || emailChanging || (!namesDirty && !emailDirty)
+              }
+            >
+              {isUpdating || emailChanging ? "Čuva…" : "Sačuvaj"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -188,4 +342,3 @@ function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: Dig
     </div>
   );
 }
-

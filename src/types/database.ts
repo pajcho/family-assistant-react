@@ -8,7 +8,13 @@ export interface Family {
 export interface Profile {
   id: string;
   family_id: string;
+  /**
+   * Computed by a Postgres trigger from `first_name` + `last_name` —
+   * still present on the row but the UI no longer writes to it directly.
+   */
   full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;

@@ -4,6 +4,7 @@ import { addDays, format } from "date-fns";
 import { addMonth, isOverdue, subtractMonth } from "../date";
 import { daysUntilBirthday } from "../birthday";
 import { formatAmount } from "../format";
+import { getDisplayName, getInitials } from "../identity";
 
 describe("utils", () => {
   it("addMonth caps Jan 31 to last day of February (2026 is not a leap year)", () => {
@@ -32,5 +33,38 @@ describe("utils", () => {
 
   it("isOverdue returns true for a date well in the past", () => {
     expect(isOverdue("2020-01-01")).toBe(true);
+  });
+
+  describe("identity", () => {
+    it("getInitials returns first+last letter when both names set", () => {
+      expect(getInitials({ firstName: "Nikola", lastName: "Pajic" })).toBe("NP");
+    });
+
+    it("getInitials returns single letter when only first name set", () => {
+      expect(getInitials({ firstName: "Nikola", lastName: null })).toBe("N");
+    });
+
+    it("getInitials splits email on dots when no name set", () => {
+      expect(getInitials({ email: "nikola.pajic@gmail.com" })).toBe("NP");
+    });
+
+    it("getInitials splits email on dashes/underscores", () => {
+      expect(getInitials({ email: "nikola-pajic@gmail.com" })).toBe("NP");
+      expect(getInitials({ email: "nikola_pajic@gmail.com" })).toBe("NP");
+    });
+
+    it("getInitials returns single email letter when no separators", () => {
+      expect(getInitials({ email: "nikola@gmail.com" })).toBe("N");
+    });
+
+    it("getDisplayName prefers full name over email", () => {
+      expect(
+        getDisplayName({ firstName: "Nikola", lastName: "Pajic", email: "x@y.com" }),
+      ).toBe("Nikola Pajic");
+    });
+
+    it("getDisplayName falls back to email when name missing", () => {
+      expect(getDisplayName({ email: "nikola@gmail.com" })).toBe("nikola@gmail.com");
+    });
   });
 });
