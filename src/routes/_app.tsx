@@ -28,8 +28,14 @@ function AppLayout() {
             a child that's wider than its container can briefly bleed
             outside in iOS Safari (seen as a sliver of the previous page
             after navigation). `overflow-x-hidden` is a defence-in-depth
-            backstop for the same problem. */}
-        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
+            backstop for the same problem.
+
+            Mobile: leave room at the bottom for the fixed
+            <MobileBottomNav>. The bar is ~56px + the iPhone home-
+            indicator safe-area inset, so `pb-24` keeps the last row of
+            content comfortably above it. The bottom-nav clearance flips
+            at `md` (768px) to stay in step with AppNav's mobile cutoff. */}
+        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 pb-24 sm:px-6 md:pb-6 lg:px-8">
           <Outlet />
         </main>
       </div>
