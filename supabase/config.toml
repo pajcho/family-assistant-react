@@ -20,3 +20,8 @@ enabled = true
 # touching the DB.
 [functions.send-due-pushes]
 verify_jwt = false
+
+# notify-on-create is invoked by AFTER INSERT triggers via pg_net, not by
+# a user session. Same X-Cron-Secret pattern as send-due-pushes.
+[functions.notify-on-create]
+verify_jwt = false

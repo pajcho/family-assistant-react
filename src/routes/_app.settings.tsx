@@ -227,6 +227,7 @@ function NotificationsTab() {
     <>
       <NotificationsCard n={n} />
       <SessionsCard n={n} />
+      <FamilyCreateNotificationsCard />
       <DigestsCard />
     </>
   );
@@ -416,6 +417,109 @@ async function readFunctionsError(error: unknown): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Per-entity toggles for "instant" pushes when another family member
+ * creates a list / event / payment / birthday. Backed by 4 boolean
+ * columns on `notification_preferences`; share the same hook as the
+ * digests card so all opt-ins save together. Defaults to opted-in for
+ * every kind — turning notifications on means you probably want to
+ * know when your partner adds something.
+ */
+function FamilyCreateNotificationsCard() {
+  const { prefs, isLoading, save, saving } = useNotificationPreferences();
+  const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
+  useEffect(() => setForm(prefs), [prefs]);
+
+  const dirty =
+    form.notify_on_list_create !== prefs.notify_on_list_create ||
+    form.notify_on_event_create !== prefs.notify_on_event_create ||
+    form.notify_on_payment_create !== prefs.notify_on_payment_create ||
+    form.notify_on_birthday_create !== prefs.notify_on_birthday_create;
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    save(form);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Obaveštenja porodice</CardTitle>
+        <CardDescription>
+          Stigne ti push čim neko drugi iz porodice doda novu stavku. Isključi pojedinačno tipove
+          koje te ne zanimaju.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-4">
+          <FamilyCreateRow
+            id="list"
+            label="Nova lista"
+            checked={form.notify_on_list_create}
+            onChange={(v) => setForm((s) => ({ ...s, notify_on_list_create: v }))}
+            disabled={isLoading || saving}
+          />
+          <FamilyCreateRow
+            id="event"
+            label="Novi događaj"
+            checked={form.notify_on_event_create}
+            onChange={(v) => setForm((s) => ({ ...s, notify_on_event_create: v }))}
+            disabled={isLoading || saving}
+          />
+          <FamilyCreateRow
+            id="payment"
+            label="Novo plaćanje"
+            checked={form.notify_on_payment_create}
+            onChange={(v) => setForm((s) => ({ ...s, notify_on_payment_create: v }))}
+            disabled={isLoading || saving}
+          />
+          <FamilyCreateRow
+            id="birthday"
+            label="Novi rođendan"
+            checked={form.notify_on_birthday_create}
+            onChange={(v) => setForm((s) => ({ ...s, notify_on_birthday_create: v }))}
+            disabled={isLoading || saving}
+          />
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isLoading || saving || !dirty}>
+              {saving ? "Čuva…" : "Sačuvaj"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface FamilyCreateRowProps {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}
+
+function FamilyCreateRow({ id, label, checked, onChange, disabled }: FamilyCreateRowProps) {
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        id={`notify-${id}-toggle`}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+      />
+      <label
+        htmlFor={`notify-${id}-toggle`}
+        className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+      >
+        {label}
+      </label>
+    </div>
+  );
 }
 
 function DigestsCard() {

@@ -134,6 +134,15 @@ export interface NotificationPreferences {
   evening_time: string;
   /** IANA timezone, e.g. "Europe/Belgrade" */
   timezone: string;
+  /**
+   * Instant per-entity-create push opt-ins. Default true on the column
+   * so existing notification-enabled users start receiving these out of
+   * the box; the settings UI lets them turn each kind off.
+   */
+  notify_on_list_create: boolean;
+  notify_on_event_create: boolean;
+  notify_on_payment_create: boolean;
+  notify_on_birthday_create: boolean;
   created_at: string;
   updated_at: string;
 }
