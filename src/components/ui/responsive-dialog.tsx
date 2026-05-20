@@ -113,8 +113,12 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
     return (
       <DialogContent
         className={cn(
-          // Make the body scroll inside the dialog if content is taller than the viewport.
-          "max-h-[90vh] overflow-y-auto",
+          // Make the body scroll inside the dialog if content is taller
+          // than the viewport. `dvh` (dynamic viewport height) shrinks
+          // when the iOS soft keyboard appears, keeping the focused
+          // input visible inside the dialog rather than letting the
+          // dialog overflow behind the keyboard.
+          "max-h-[90dvh] overflow-y-auto",
           className,
         )}
         showCloseButton={showCloseButton}
@@ -128,8 +132,11 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
   return (
     <DrawerContent
       className={cn(
-        // Override shadcn's default 80vh with the plan-mandated 90vh, and let the body scroll.
-        "data-[vaul-drawer-direction=bottom]:max-h-[90vh]",
+        // `dvh` so the drawer never extends below the visible viewport
+        // when the iOS keyboard slides up. With plain `vh` the drawer's
+        // bottom third ends up hidden behind the keyboard and the
+        // focused input scrolls off the top.
+        "data-[vaul-drawer-direction=bottom]:max-h-[90dvh]",
         className,
       )}
       {...props}
