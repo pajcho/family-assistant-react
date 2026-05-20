@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { toast } from "sonner";
 
-import { useReorderListItems } from "@/hooks/useLists";
+import { useToggleSmartSort } from "@/hooks/useLists";
 import {
   CATEGORY_LABEL,
   CATEGORY_ORDER,
@@ -12,40 +11,32 @@ import {
 import type { ListWithItems } from "@/types/database";
 
 /**
- * Smart-sort entry point for a single list.
+ * Smart-sort surface for a single list.
  *
- * Given the live list (with items), it:
- *   • flags `isShopping` so the UI knows whether to render the button
- *   • exposes `sortItems()` which renumbers `sort_order` so items group
- *     by supermarket aisle in `CATEGORY_ORDER`
+ *   • `isShopping` — should the toggle button even be shown? Combines a
+ *     name-pattern hit with a content-ratio check so personal todo lists
+ *     don't get the button at all.
+ *   • `enabled`    — current state of the persistent toggle, sourced from
+ *     `list.smart_sort_enabled`. Drives whether the UI renders category
+ *     headers and whether `useCreateListItem` / `useUpdateListItem`
+ *     trigger auto-resort on item changes.
+ *   • `toggle()`   — flips the flag (and, when turning on, runs an
+ *     initial sort so the list is immediately grouped by aisle).
  *
- * The within-category order is preserved — i.e. if the user had "Mleko"
- * before "Sir" before sorting, they stay in that order inside the dairy
- * group. That's important because shoppers often mentally pair items
- * (e.g. yoghurt + the specific brand of granola next to it) and we don't
- * want to scramble those associations.
- *
- * Detection AND categorisation share `useMemo` against the items array,
- * so re-renders without item changes don't re-run the keyword loop.
+ * The actual reorder mutation lives in `useToggleSmartSort` so multiple
+ * UI surfaces (full-page header today, anywhere else tomorrow) share a
+ * single source of behaviour.
  */
 export interface UseSmartSortResult {
   isShopping: boolean;
-  /** Diagnostics — what fraction of items were recognised as groceries. */
+  enabled: boolean;
   recognisedRatio: number;
-  sortItems: () => Promise<void>;
+  toggle: () => Promise<void>;
   isPending: boolean;
 }
 
 export function useSmartSort(list: ListWithItems): UseSmartSortResult {
-  const reorder = useReorderListItems();
-
-  // Categorise once per items array. Each entry pairs the item with its
-  // resolved category so downstream code (sort, header rendering) doesn't
-  // re-run the keyword loop.
-  const annotated = useMemo(
-    () => list.list_items.map((item) => ({ item, category: categorize(item.name) })),
-    [list.list_items],
-  );
+  const toggleMutation = useToggleSmartSort();
 
   const itemNames = useMemo(
     () => list.list_items.map((i) => i.name),
@@ -56,79 +47,40 @@ export function useSmartSort(list: ListWithItems): UseSmartSortResult {
     [list.name, itemNames],
   );
 
-  const sortItems = async () => {
-    if (annotated.length === 0) return;
-
-    // Sort primarily by CATEGORY_ORDER index, secondarily by the item's
-    // current sort_order so within-category order is preserved (stable
-    // sort property of Array.prototype.sort is relied on; spec-mandated
-    // since ES2019).
-    const sorted = [...annotated].sort((a, b) => {
-      const aIdx = CATEGORY_ORDER.indexOf(a.category);
-      const bIdx = CATEGORY_ORDER.indexOf(b.category);
-      if (aIdx !== bIdx) return aIdx - bIdx;
-      return a.item.sort_order - b.item.sort_order;
-    });
-
-    const updates = sorted.map((entry, idx) => ({
-      id: entry.item.id,
-      sort_order: idx + 1, // 1-indexed, matches the rest of the codebase
-    }));
-
-    await reorder.mutateAsync(updates);
-
-    const distinct = new Set(annotated.map((a) => a.category));
-    const ostalo = distinct.has("other");
-    const groceryCount = distinct.size - (ostalo ? 1 : 0);
-    toast.success(
-      groceryCount > 0
-        ? `Sortirano u ${groceryCount} ${groceryCount === 1 ? "kategoriju" : "kategorija"}`
-        : "Sortirano",
-    );
-  };
-
   return {
     isShopping,
+    enabled: list.smart_sort_enabled,
     recognisedRatio,
-    sortItems,
-    isPending: reorder.isPending,
+    toggle: () =>
+      toggleMutation.mutateAsync({ list, enabled: !list.smart_sort_enabled }),
+    isPending: toggleMutation.isPending,
   };
 }
 
 /**
- * Walk the (already-sorted) items and detect whether they form clean
- * contiguous groups by category. Used by the renderer to decide whether
- * to inject category headers — we only want headers when they actually
- * structure the data, not when categories interleave.
- *
- * Returns the categorised items, plus a flag indicating clean-grouping.
- * O(n) — no map allocations beyond a `Set` of already-seen categories.
+ * Group items by category, preserving their existing order. The renderer
+ * relies on the list's `smart_sort_enabled` flag (and the corresponding
+ * auto-resort on insert/rename) to guarantee items are already in the
+ * right order — this function just walks them and emits one entry per
+ * (category, items) run.
  */
-export interface CategorisedItems {
-  entries: Array<{ item: ListWithItems["list_items"][number]; category: GroceryCategory }>;
-  cleanGrouped: boolean;
+export interface CategoryGroup {
+  category: GroceryCategory;
+  items: ListWithItems["list_items"];
 }
 
-export function categoriseInOrder(items: ListWithItems["list_items"]): CategorisedItems {
-  const entries = items.map((item) => ({ item, category: categorize(item.name) }));
-
-  let cleanGrouped = true;
-  const seen = new Set<GroceryCategory>();
-  let previous: GroceryCategory | null = null;
-  for (const { category } of entries) {
-    if (category !== previous) {
-      // Crossing into a new (or revisited) category.
-      if (seen.has(category)) {
-        // We've already left this category before — items are interleaved.
-        cleanGrouped = false;
-        break;
-      }
-      if (previous !== null) seen.add(previous);
-      previous = category;
+export function groupByCategory(items: ListWithItems["list_items"]): CategoryGroup[] {
+  const groups: CategoryGroup[] = [];
+  for (const item of items) {
+    const category = categorize(item.name);
+    const tail = groups[groups.length - 1];
+    if (tail && tail.category === category) {
+      tail.items.push(item);
+    } else {
+      groups.push({ category, items: [item] });
     }
   }
-
-  return { entries, cleanGrouped };
+  return groups;
 }
 
-export { CATEGORY_LABEL };
+export { CATEGORY_LABEL, CATEGORY_ORDER };

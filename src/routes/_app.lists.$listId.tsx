@@ -185,11 +185,11 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
           onToggleItem={handleToggleItem}
           onRenameItem={handleRenameItem}
           onDeleteItem={handleDeleteItem}
-          // Show inline category headers on shopping lists. ListBody
-          // additionally checks that items are *clean-grouped* before
-          // injecting headers, so this just opts in — if someone adds a
-          // new item mid-shop it won't briefly show malformed grouping.
-          showCategoryHeaders={smartSort.isShopping}
+          // Headers visible only while the user has explicitly turned
+          // smart-sort ON. `smartSort.isShopping` (detection) is the
+          // gate for the *toggle button*; `smartSort.enabled` (persisted
+          // flag) is the gate for actually grouping items.
+          showCategoryHeaders={smartSort.enabled}
         />
       </div>
 
@@ -277,6 +277,31 @@ function ListHeader({
         </div>
       </div>
 
+      {/* Top-level smart-sort toggle. Only rendered when the categoriser
+          flagged the list as a shopping list — non-shopping lists never
+          see the affordance. Active state colours the icon and tints the
+          background so the on/off state is obvious at a glance. */}
+      {smartSort.isShopping ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={
+            smartSort.enabled ? "Isključi pametno sortiranje" : "Uključi pametno sortiranje"
+          }
+          aria-pressed={smartSort.enabled}
+          disabled={smartSort.isPending}
+          onClick={() => {
+            void smartSort.toggle();
+          }}
+          className={cn(
+            smartSort.enabled &&
+              "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60",
+          )}
+        >
+          <SparklesIcon className="h-5 w-5" />
+        </Button>
+      ) : null}
+
       <Button variant="ghost" size="icon-sm" aria-label="Detalji liste" onClick={onShowInfo}>
         <InformationCircleIcon className="h-5 w-5" />
       </Button>
@@ -292,17 +317,6 @@ function ListHeader({
             <PencilIcon className="h-4 w-4" />
             Izmeni listu
           </DropdownMenuItem>
-          {smartSort.isShopping ? (
-            <DropdownMenuItem
-              disabled={smartSort.isPending}
-              onSelect={() => {
-                void smartSort.sortItems();
-              }}
-            >
-              <SparklesIcon className="h-4 w-4" />
-              Pametno sortiraj
-            </DropdownMenuItem>
-          ) : null}
           {completed > 0 ? (
             <>
               <DropdownMenuSeparator />

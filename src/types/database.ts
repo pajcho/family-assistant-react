@@ -86,6 +86,12 @@ export interface List {
   name: string;
   scope: ListScope;
   sort_order: number;
+  /**
+   * When true, the per-list UI keeps the items grouped by aisle (smart
+   * sort) and triggers a re-sort after any item insert or rename. Toggled
+   * via the Sparkles button in the full-page header.
+   */
+  smart_sort_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -101,6 +101,7 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "cvekl", "kupus", "karfiol", "brokol", "spanac", "zelje", "persun",
     "celer", "misir", "bundev", "tikvic", "patlid", "rotkvic", "mrkv",
     "asparag", "gljiv", "pecurk", "rukol", "kelj", "luk", "cesnj",
+    "sampinjon", "vrganj", "praziluk", "blitv",
     // Group nouns
     "voce", "povrc",
   ],
@@ -117,6 +118,12 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "rib", "lososa", "losos", "tuna", "sardin", "oslic", "orad",
     "pastrm", "skus", "smudj", "lokard", "bakalar", "polovin",
     "mljev", "burgers",
+    // Serbian charcuterie / grilled meat that doesn't share a stem with
+    // the generic "meso" / "kobasic" entries above. Skip "vesalic" here
+    // because clothes hangers share that stem — the household entry uses
+    // the multi-word "vesalic za odecu" form to disambiguate.
+    "cevap", "kulen", "suhomesnat", "pasteta", "pljeskavic", "kajmac",
+    "razn", "ragu", "krmenadl",
   ],
   bakery: [
     "hleb", "lepinj", "kifl", "baget", "cabat", "sendvic",
@@ -130,6 +137,8 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "vanil", "preliv", "ajvar", "pesto", "mahun", "pasulj", "griz",
     "biber", "soja sos", "musardin", "tahini", "kvasc", "instant kafa",
     "konzerv", "pasta od",
+    "namaz", "puter od kik", "tartar", "ketchup", "marmalad", "kis",
+    "vegeta", "zacin", "lovor", "muskatni orasc",
     // "pasta" alone is too ambiguous (matches pasta-za-zube), so leave it
     // out and lean on "spaget" / "makaron".
   ],
@@ -146,8 +155,9 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "cokolad", "bombon", "kreker", "cips", "sladoled", "zvak",
     "palacin", "biskvit", "keks", "lizalic", "med", "dzem", "marmelad",
     "kinder", "nutella", "praline", "plazma", "eurokrem", "manner",
-    "haribo", "milka", "mljev", "wafer", "grickalic", "smoki",
-    "stapic", "perec",
+    "haribo", "milka", "wafer", "grickalic", "smoki",
+    "stapic", "perec", "grisin",
+    "kikiriki", "lesnik", "badem", "orah", "kokice", "tortilj cips",
   ],
   cleaning: [
     "deterdz", "omeks", "perilic", "fairy", "ariel", "persil",
@@ -167,6 +177,8 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "aluminij", "celofan", "tanjir", "casa", "kasik", "vilj",
     "noz", "paklic", "paketic", "kese za smec", "papirne maramic",
     "kuhinjske krpe",
+    "cackalic", "salvet", "tabletice", "upaljac", "sibic",
+    "pribor za", "konop", "stipaljk", "vesalic za odecu",
   ],
 };
 
@@ -219,6 +231,25 @@ export function categorize(name: string): GroceryCategory {
     }
   }
   return "other";
+}
+
+/**
+ * Order a list of items by category (per `CATEGORY_ORDER`) and break ties
+ * by the items' existing `sort_order`, so smart-sort is stable: running it
+ * twice produces the same result, and within-category order doesn't
+ * scramble between runs. Exported so the auto-resort path inside
+ * `useCreateListItem` / `useUpdateListItem` can reuse the same comparator
+ * as the explicit smart-sort action.
+ */
+export function applyCategorySort<T extends { name: string; sort_order: number }>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const aCat = CATEGORY_ORDER.indexOf(categorize(a.name));
+    const bCat = CATEGORY_ORDER.indexOf(categorize(b.name));
+    if (aCat !== bCat) return aCat - bCat;
+    return a.sort_order - b.sort_order;
+  });
 }
 
 export interface IsShoppingListResult {

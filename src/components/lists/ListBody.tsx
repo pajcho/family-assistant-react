@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { ListItemRow } from "@/components/lists/ListItemRow";
 import { SwipeableListItem } from "@/components/lists/SwipeableListItem";
-import { categoriseInOrder, CATEGORY_LABEL } from "@/hooks/useSmartSort";
+import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
 import type { ListItem, ListWithItems } from "@/types/database";
 
 export type ListBodyProps = {
@@ -16,10 +16,12 @@ export type ListBodyProps = {
   onRenameItem: (item: ListItem, name: string) => void;
   onDeleteItem: (item: ListItem) => void;
   /**
-   * When true, the renderer is allowed to inject category headers between
-   * grouped items (provided the items are actually clean-grouped). The
-   * full-page route flips this on for shopping lists; the grid card on
-   * /lists keeps it off so cards stay compact.
+   * When true, the renderer groups active items under their category
+   * header. We trust the flag rather than re-checking that items are
+   * actually grouped: `useCreateListItem` / `useUpdateListItem` auto-
+   * resort whenever this is on, so the items in the cache are always in
+   * aisle order by the time we render. The grid card on /lists keeps
+   * this off to stay compact.
    */
   showCategoryHeaders?: boolean;
 };
@@ -59,13 +61,13 @@ export function ListBody({
   // Categorise active items only. Completed items are tucked away under
   // the collapse and don't need to participate in category grouping —
   // a "Voće i povrće" header above a single struck-through "Jabuke" entry
-  // would just be visual noise. We compute via `categoriseInOrder` so the
-  // grouping flag stays in sync with the actual on-screen order.
-  const activeCategorised = React.useMemo(
-    () => (showCategoryHeaders ? categoriseInOrder(active) : null),
+  // would just be visual noise. Items are guaranteed to be in category
+  // order whenever `showCategoryHeaders` is on (the parent list's
+  // `smart_sort_enabled` flag drives auto-resort on every change).
+  const activeGroups = React.useMemo(
+    () => (showCategoryHeaders ? groupByCategory(active) : null),
     [showCategoryHeaders, active],
   );
-  const renderHeaders = activeCategorised?.cleanGrouped ?? false;
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,13 +112,11 @@ export function ListBody({
               ? "Lista je prazna. Dodajte prvu stavku ispod."
               : "Sve stavke su završene."}
           </p>
-        ) : renderHeaders && activeCategorised ? (
-          // Headers branch — items are confirmed clean-grouped, so we can
-          // inject a small category header each time the category changes.
-          // We walk the entries linearly and emit a fresh <ul> per group so
-          // the headers sit between groups (instead of an item) — that
-          // keeps screen readers + semantics tidy.
-          <CategorizedItems entries={activeCategorised.entries} renderRow={renderRow} />
+        ) : activeGroups ? (
+          // Headers branch — a fresh `<ul>` per category so the headings
+          // sit between sibling lists rather than as fake list items
+          // (cleaner for assistive tech).
+          <CategorizedItems groups={activeGroups} renderRow={renderRow} />
         ) : (
           <ul className="space-y-0.5">{active.map((item) => renderRow(item))}</ul>
         )}
@@ -172,28 +172,17 @@ export function ListBody({
 }
 
 /**
- * Render categorised items with inline group headers. Splits into one
- * `<ul>` per category so the heading sits between sibling lists rather
- * than as a fake list item (cleaner for assistive tech).
+ * Render categorised items with inline group headers. Receives the
+ * already-grouped data from `groupByCategory` (we do that work in a
+ * memo upstream so the grouping isn't recomputed on every render).
  */
 function CategorizedItems({
-  entries,
+  groups,
   renderRow,
 }: {
-  entries: ReturnType<typeof categoriseInOrder>["entries"];
+  groups: ReturnType<typeof groupByCategory>;
   renderRow: (item: ListItem) => React.ReactNode;
 }) {
-  // Group entries by category, preserving order.
-  const groups: Array<{ category: keyof typeof CATEGORY_LABEL; items: ListItem[] }> = [];
-  for (const { item, category } of entries) {
-    const tail = groups[groups.length - 1];
-    if (tail && tail.category === category) {
-      tail.items.push(item);
-    } else {
-      groups.push({ category, items: [item] });
-    }
-  }
-
   return (
     <div className="space-y-2">
       {groups.map((g) => (

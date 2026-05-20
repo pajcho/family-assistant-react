@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import type { List, ListItem, ListScope, ListWithItems } from "@/types/database";
+import { applyCategorySort } from "@/lib/groceryCategorize";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -191,36 +192,66 @@ export function useDeleteList() {
   });
 }
 
+/**
+ * Reorder every item in `list` by category order. Used by both the
+ * explicit smart-sort action and the auto-resort path on insert/rename.
+ * Runs the bulk update in parallel; partial failure throws the first
+ * error so callers don't see a half-sorted state silently.
+ */
+async function applySmartSortToList(list: ListWithItems): Promise<void> {
+  const sorted = applyCategorySort(list.list_items);
+  const updates = sorted.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabase.from("list_items").update({ sort_order: u.sort_order }).eq("id", u.id),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+}
+
 export function useCreateListItem() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: CreateListItemInput): Promise<ListItem> => {
-      // Append the new item at the end of its list. We compute the next
-      // sort_order against the parent list rather than globally so each
-      // list keeps a contiguous, low-numbered sequence.
-      const { data: maxData } = await supabase
-        .from("list_items")
-        .select("sort_order")
-        .eq("list_id", payload.list_id)
-        .order("sort_order", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const nextOrder = ((maxData as { sort_order: number } | null)?.sort_order ?? 0) + 1;
+      // Look up the parent list from the cache so we can:
+      //   • compute next sort_order without an extra round-trip
+      //   • detect whether the list has smart-sort enabled and resort
+      //     after the insert so the new item lands in its aisle
+      const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      const parent = cached?.find((l) => l.id === payload.list_id);
+      const maxOrder = parent?.list_items.reduce(
+        (max, item) => (item.sort_order > max ? item.sort_order : max),
+        0,
+      ) ?? 0;
 
       const { data, error } = await supabase
         .from("list_items")
         .insert({
           list_id: payload.list_id,
           name: payload.name,
-          sort_order: nextOrder,
+          sort_order: maxOrder + 1,
           // family_id is filled in by the BEFORE INSERT trigger
         })
         .select()
         .single();
       if (error) throw new Error(error.message);
-      return data as ListItem;
+      const newItem = data as ListItem;
+
+      // Auto-resort when the list is in smart-sort mode. Doing it inside
+      // the same `mutationFn` means the cache only invalidates once at
+      // the end, so the user never sees the "stuck at the bottom" flash
+      // between the insert and the resort.
+      if (parent?.smart_sort_enabled) {
+        await applySmartSortToList({
+          ...parent,
+          list_items: [...parent.list_items, newItem],
+        });
+      }
+
+      return newItem;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
@@ -253,7 +284,27 @@ export function useUpdateListItem() {
         .select()
         .single();
       if (error) throw new Error(error.message);
-      return data as ListItem;
+      const updated = data as ListItem;
+
+      // If the row was renamed AND its parent list is in smart-sort mode,
+      // the item's category may have changed (e.g. "Mleko" → "Hleb" jumps
+      // from dairy to bakery). Re-sort so it lands in the new aisle.
+      // Toggling completed doesn't trigger this — completed items live in
+      // the collapsed section regardless of category.
+      if (args.payload.name !== undefined) {
+        const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+        const parent = cached?.find((l) => l.id === updated.list_id);
+        if (parent?.smart_sort_enabled) {
+          await applySmartSortToList({
+            ...parent,
+            list_items: parent.list_items.map((it) =>
+              it.id === updated.id ? updated : it,
+            ),
+          });
+        }
+      }
+
+      return updated;
     },
     onMutate: async (args) => {
       // Optimistic: ticking a checkbox should feel instant. We patch the
@@ -335,6 +386,45 @@ export function useReorderListItems() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri sortiranju");
+    },
+  });
+}
+
+/**
+ * Toggle `lists.smart_sort_enabled` for one list. When turning ON, also
+ * runs an initial bulk sort so the items are immediately in aisle order;
+ * subsequent inserts/renames stay sorted thanks to the auto-resort path
+ * inside `useCreateListItem` / `useUpdateListItem`. When turning OFF,
+ * items keep their current sort_order — we don't scramble back to insert
+ * order because that would be jarring.
+ */
+export function useToggleSmartSort() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { list: ListWithItems; enabled: boolean }): Promise<void> => {
+      const { list, enabled } = args;
+      const { error } = await supabase
+        .from("lists")
+        .update({ smart_sort_enabled: enabled })
+        .eq("id", list.id);
+      if (error) throw new Error(error.message);
+
+      if (enabled) {
+        await applySmartSortToList(list);
+      }
+    },
+    onSuccess: (_, args) => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+      if (args.enabled) {
+        toast.success("Pametno sortiranje uključeno");
+      } else {
+        toast.success("Pametno sortiranje isključeno");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri promeni sortiranja");
     },
   });
 }
