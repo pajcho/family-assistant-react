@@ -24,7 +24,12 @@ function AppLayout() {
     <AuthGate>
       <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-900">
         <AppNav />
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* `w-full` clamps the inner column to the viewport — without it,
+            a child that's wider than its container can briefly bleed
+            outside in iOS Safari (seen as a sliver of the previous page
+            after navigation). `overflow-x-hidden` is a defence-in-depth
+            backstop for the same problem. */}
+        <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>

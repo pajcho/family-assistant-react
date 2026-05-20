@@ -69,23 +69,35 @@ export function DashboardCardItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
+        // items-start (not items-center) so the right-side value aligns
+        // with the title even when the description wraps to a second
+        // line. `min-w-0` on the parent so children can shrink and
+        // wrap instead of pushing the row past the viewport.
+        "flex w-full min-w-0 items-start justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
         ROW_BG[accent],
         completed && "opacity-50",
       )}
     >
-      <span className={cn("flex min-w-0 flex-1 items-center gap-2", completed && "opacity-50")}>
-        <span className="truncate font-medium text-gray-900 dark:text-gray-100">{label}</span>
+      <span className={cn("flex min-w-0 flex-1 flex-col gap-0.5", completed && "opacity-50")}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 font-medium break-words text-gray-900 dark:text-gray-100">
+            {label}
+          </span>
+          {BadgeIcon ? (
+            <span className={cn("shrink-0", BADGE_ICON_COLOR[accent])} title={badgeIconTitle}>
+              <BadgeIcon className="h-4 w-4" />
+            </span>
+          ) : null}
+        </span>
         {description ? (
-          <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400">{description}</span>
-        ) : null}
-        {BadgeIcon ? (
-          <span className={cn("shrink-0", BADGE_ICON_COLOR[accent])} title={badgeIconTitle}>
-            <BadgeIcon className="h-4 w-4" />
+          <span className="text-xs break-words text-gray-500 dark:text-gray-400">
+            {description}
           </span>
         ) : null}
       </span>
-      <span className={cn(VALUE_TEXT[accent], completed && "opacity-50")}>{value}</span>
+      <span className={cn("shrink-0 whitespace-nowrap", VALUE_TEXT[accent], completed && "opacity-50")}>
+        {value}
+      </span>
     </button>
   );
 }
