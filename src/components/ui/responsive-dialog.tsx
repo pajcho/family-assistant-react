@@ -113,12 +113,13 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
     return (
       <DialogContent
         className={cn(
-          // Make the body scroll inside the dialog if content is taller
-          // than the viewport. `dvh` (dynamic viewport height) shrinks
-          // when the iOS soft keyboard appears, keeping the focused
-          // input visible inside the dialog rather than letting the
-          // dialog overflow behind the keyboard.
-          "max-h-[90dvh] overflow-y-auto",
+          // `--visual-vh` is the JS-tracked actual visible height
+          // (visualViewport.height) — see the script in index.html.
+          // Falls back to 90vh when the variable isn't set (SSR / very
+          // old browsers). Keyboards aren't really an issue on
+          // desktop, but using the same unit keeps behaviour
+          // consistent if a desktop user is on an OS keyboard.
+          "max-h-[calc(var(--visual-vh,90vh)*0.9)] overflow-y-auto",
           className,
         )}
         showCloseButton={showCloseButton}
@@ -132,11 +133,13 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
   return (
     <DrawerContent
       className={cn(
-        // `dvh` so the drawer never extends below the visible viewport
-        // when the iOS keyboard slides up. With plain `vh` the drawer's
-        // bottom third ends up hidden behind the keyboard and the
-        // focused input scrolls off the top.
-        "data-[vaul-drawer-direction=bottom]:max-h-[90dvh]",
+        // The crucial iOS fix: size the drawer against the actual
+        // visible viewport instead of `vh`/`dvh` (neither of which
+        // shrinks with the on-screen keyboard on iOS). `--visual-vh`
+        // is updated by a visualViewport listener in index.html so the
+        // drawer follows the keyboard in real time. Fallback to 90vh
+        // keeps SSR / no-JS sensible.
+        "data-[vaul-drawer-direction=bottom]:max-h-[calc(var(--visual-vh,90vh)*0.9)]",
         className,
       )}
       {...props}

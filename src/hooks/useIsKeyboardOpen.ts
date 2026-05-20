@@ -4,47 +4,66 @@ import * as React from "react";
  * Returns true while a software keyboard (or any equivalent input
  * accessory) is occupying screen real estate.
  *
- * Implementation
- * --------------
- * iOS Safari keeps `position: fixed` elements visible above the keyboard
- * by adjusting their bottom inset — which means our `MobileBottomNav`
- * stays drawn between the form and the keyboard, eating valuable
- * vertical space exactly when the user can least afford it.
+ * Two parallel signals are OR'd together because each one fails for
+ * different reasons on different browsers:
  *
- * The cleanest signal we have is `window.visualViewport`: when the
- * keyboard slides up, `visualViewport.height` shrinks below
- * `window.innerHeight` by ~keyboard-height. We treat a gap above
- * `THRESHOLD_PX` as "keyboard is open" — small accessory bars (find-
- * in-page, etc.) take ~50px which we want to ignore, so 150 is a
- * comfortable floor that still captures every real soft keyboard.
+ *   1. `visualViewport.height` < `window.innerHeight` by more than
+ *      `THRESHOLD_PX` (150). Works on iOS Safari, but iOS 17+ with
+ *      `interactive-widget=resizes-content` (set in index.html) makes
+ *      the two heights match — at which point this signal returns
+ *      false even though the keyboard is open.
  *
- * Listens to both `resize` (orientation change, keyboard open/close)
- * and `scroll` on the visual viewport because iOS sometimes only
- * fires one or the other depending on user interaction.
+ *   2. `document.activeElement` is a text-entry control (input,
+ *      textarea, or contenteditable). Always-reliable proxy: the
+ *      keyboard is visible when a text field has focus. Falls back
+ *      gracefully when the user dismisses the keyboard via the
+ *      accessory bar while still focused (the page hasn't told us
+ *      either way, so the nav stays hidden a beat longer — better
+ *      than flickering back on top of the keyboard).
  *
- * Returns `false` on SSR and on browsers without `visualViewport`
- * (older Safari, some embedded webviews). That's the safe default —
- * keep the nav visible if we can't tell.
+ * The two-signal approach means the nav slides out even on iOS 17+
+ * (where signal 1 stops firing because the layout viewport itself
+ * resizes) AND on Android Chrome (where signal 2 might lag while
+ * focus shifts).
  */
 export function useIsKeyboardOpen(): boolean {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-    const vv = window.visualViewport;
+    if (typeof window === "undefined") return;
     const THRESHOLD_PX = 150;
 
-    const update = () => {
-      const heightDiff = window.innerHeight - vv.height;
-      setOpen(heightDiff > THRESHOLD_PX);
+    const isTextEntry = (el: Element | null): boolean => {
+      if (!el) return false;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA") return true;
+      if (tag === "INPUT") {
+        // Skip pure-button inputs (checkbox, radio, button, submit…)
+        // which don't open the keyboard.
+        const type = (el as HTMLInputElement).type;
+        const skip = new Set(["button", "submit", "reset", "checkbox", "radio", "range", "file", "color"]);
+        return !skip.has(type);
+      }
+      return (el as HTMLElement).isContentEditable === true;
     };
 
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
+    const compute = () => {
+      const vv = window.visualViewport;
+      const viewportSays = vv ? window.innerHeight - vv.height > THRESHOLD_PX : false;
+      const focusSays = isTextEntry(document.activeElement);
+      setOpen(viewportSays || focusSays);
+    };
+
+    compute();
+    window.visualViewport?.addEventListener("resize", compute);
+    window.visualViewport?.addEventListener("scroll", compute);
+    document.addEventListener("focusin", compute);
+    document.addEventListener("focusout", compute);
     return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
+      window.visualViewport?.removeEventListener("resize", compute);
+      window.visualViewport?.removeEventListener("scroll", compute);
+      document.removeEventListener("focusin", compute);
+      document.removeEventListener("focusout", compute);
     };
   }, []);
 

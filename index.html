@@ -2,7 +2,18 @@
 <html lang="sr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      `interactive-widget=resizes-content` (iOS 16.4+, Chrome 108+) makes
+      the layout viewport itself shrink when the on-screen keyboard
+      opens, instead of letting the keyboard cover fixed elements. With
+      it, vh / 100% / fixed-bottom all follow the keyboard automatically.
+      Older Safari falls back gracefully (extra token is ignored) and
+      the visual-vh fallback script below keeps things working there too.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Porodični kalendar, plaćanja i podsetnici" />
@@ -434,6 +445,30 @@
           meta.setAttribute("content", isDark ? "#111827" : "#2563eb");
           head.appendChild(meta);
         } catch (_) {}
+      })();
+
+      // Visual viewport tracking — exposes the *visible* (keyboard-
+      // adjusted) viewport height as a CSS variable. On iOS Safari,
+      // `vh` / `dvh` don't shrink with the on-screen keyboard;
+      // `visualViewport.height` does. CSS uses `--visual-vh` to size
+      // anything that needs to live above the keyboard (drawer, etc.).
+      //
+      // The viewport directive `interactive-widget=resizes-content`
+      // above does the same job declaratively on iOS 16.4+ / Chrome
+      // 108+, so this script is the belt-and-suspenders for older
+      // Safari (and platforms where the directive isn't honoured).
+      (function () {
+        function setVisualVH() {
+          var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+          document.documentElement.style.setProperty("--visual-vh", h + "px");
+        }
+        setVisualVH();
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", setVisualVH);
+          window.visualViewport.addEventListener("scroll", setVisualVH);
+        }
+        window.addEventListener("resize", setVisualVH);
+        window.addEventListener("orientationchange", setVisualVH);
       })();
     </script>
   </head>

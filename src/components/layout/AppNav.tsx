@@ -254,21 +254,24 @@ function ThemeButton({ active, onClick, ariaLabel, activeColor, icon: Icon }: Th
 }
 
 function MobileBottomNav() {
-  // iOS Safari floats `position: fixed` elements above the on-screen
-  // keyboard, so without this dance the nav would sit between the
-  // form field and the keyboard, eating a row of valuable space. We
-  // slide it off-screen via translate3d while the keyboard is open
-  // (animated for free since we already have transition-transform).
+  // iOS Safari auto-elevates `position: fixed` elements above the
+  // on-screen keyboard, so the nav ends up sandwiched between the form
+  // and the keyboard — exactly the space we want to give the user
+  // back. We outright unmount the nav while the keyboard is open;
+  // `display: none` via Tailwind `hidden` works regardless of whether
+  // iOS would have raised the element or `interactive-widget=resizes-
+  // content` would have re-bottomed it. The `useIsKeyboardOpen` hook
+  // combines visualViewport tracking with focusin/focusout so we
+  // catch every browser + every iOS version that handles the keyboard
+  // differently.
   const keyboardOpen = useIsKeyboardOpen();
+  if (keyboardOpen) return null;
+
   return (
     <nav
-      aria-hidden={keyboardOpen}
       // `pb-[env(safe-area-inset-bottom)]` keeps the row above the iPhone
       // home indicator when launched from the home screen as a PWA.
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md transition-transform duration-200 ease-out md:hidden dark:border-gray-700/80 dark:bg-gray-800/95",
-        keyboardOpen && "translate-y-full",
-      )}
+      className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden dark:border-gray-700/80 dark:bg-gray-800/95"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5 pb-1.5">
         {BOTTOM_NAV_ITEMS.map((item) => (
