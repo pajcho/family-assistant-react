@@ -100,6 +100,11 @@ Deno.serve(async (req) => {
   const reminderResults = await processEventReminders(supabase);
   results.push(...reminderResults);
 
+  // Per-payment reminders work like event reminders but anchor on
+  // `due_date - remind_days_before` at each recipient's `morning_time`.
+  const paymentResults = await processPaymentReminders(supabase);
+  results.push(...paymentResults);
+
   return Response.json({ ok: true, force, processed: results });
 });
 
@@ -347,6 +352,168 @@ async function dispatchEventReminder(
     out.push({ user_id: userId, kind: "event_reminder", event_id: ev.id, sent, dead });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Per-payment reminders
+// ---------------------------------------------------------------------------
+
+interface PaymentRow {
+  id: string;
+  family_id: string;
+  name: string;
+  amount: number;
+  due_date: string;
+  remind_days_before: number;
+}
+
+async function processPaymentReminders(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<unknown[]> {
+  // Pull unpaid / unpaused payments whose due_date is close enough to
+  // potentially fire today. We keep the window generous (covers the
+  // longest preset + a day of tz buffer) and narrow the actual fire
+  // decision per-user below.
+  const utcToday = new Date().toISOString().slice(0, 10);
+  const windowStart = addDays(utcToday, -1);
+  const windowEnd = addDays(utcToday, 14);
+
+  const { data: payments, error } = await supabase
+    .from("payments")
+    .select("id, family_id, name, amount, due_date, remind_days_before")
+    .not("remind_days_before", "is", null)
+    .eq("is_paid", false)
+    .eq("is_paused", false)
+    .gte("due_date", windowStart)
+    .lte("due_date", windowEnd);
+  if (error) return [{ kind: "payment_reminder", error: error.message }];
+
+  const out: unknown[] = [];
+  for (const pay of (payments ?? []) as PaymentRow[]) {
+    out.push(...(await dispatchPaymentReminder(supabase, pay)));
+  }
+  return out;
+}
+
+async function dispatchPaymentReminder(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  pay: PaymentRow,
+): Promise<unknown[]> {
+  // Payments are family-scoped — everyone in the family gets the
+  // reminder. The fire time is anchored on each recipient's
+  // `morning_time` (in their tz), so two members in different zones can
+  // see the same reminder at different absolute instants.
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("family_id", pay.family_id);
+  const memberIds = ((profiles ?? []) as { id: string }[]).map((p) => p.id);
+  if (memberIds.length === 0) return [];
+
+  const fireDate = addDays(pay.due_date, -pay.remind_days_before);
+  const out: unknown[] = [];
+
+  for (const userId of memberIds) {
+    // morning_time + timezone live on notification_preferences. If the
+    // user never opened the settings page we still want a sane fallback
+    // (08:00 Europe/Belgrade matches the table defaults).
+    const { data: pref } = await supabase
+      .from("notification_preferences")
+      .select("morning_time, timezone")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const tz = (pref as { timezone?: string } | null)?.timezone ?? "Europe/Belgrade";
+    const fireHHMM =
+      ((pref as { morning_time?: string } | null)?.morning_time ?? "08:00").slice(0, 5);
+
+    if (localDateISO(tz) !== fireDate || localTime(tz) !== fireHHMM) continue;
+
+    // ref_id ties the log row to (payment, occurrence). For recurring
+    // payments, when due_date rolls forward the ref_id changes, so the
+    // next occurrence gets its own log row and can fire again.
+    const refId = `${pay.id}:${pay.due_date}`;
+    const { error: logError } = await supabase
+      .from("notification_log")
+      .insert({ user_id: userId, kind: "payment_reminder", ref_id: refId });
+    if (logError) {
+      if (logError.code === "23505") {
+        out.push({
+          user_id: userId,
+          kind: "payment_reminder",
+          payment_id: pay.id,
+          status: "already_sent",
+        });
+        continue;
+      }
+      out.push({
+        user_id: userId,
+        kind: "payment_reminder",
+        payment_id: pay.id,
+        error: logError.message,
+      });
+      continue;
+    }
+
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth")
+      .eq("user_id", userId);
+    const subList = (subs ?? []) as PushSub[];
+
+    if (subList.length === 0) {
+      out.push({
+        user_id: userId,
+        kind: "payment_reminder",
+        payment_id: pay.id,
+        status: "no_subscriptions",
+      });
+      continue;
+    }
+
+    const body = paymentReminderBody(pay);
+    const payload = JSON.stringify({
+      title: pay.name,
+      body,
+      url: "/payments",
+      tag: `payment-reminder-${pay.id}-${pay.due_date}`,
+    });
+
+    let sent = 0;
+    let dead = 0;
+    for (const sub of subList) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        sent++;
+      } catch (e) {
+        // deno-lint-ignore no-explicit-any
+        const status = (e as any)?.statusCode as number | undefined;
+        if (status === 404 || status === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          dead++;
+        }
+      }
+    }
+    out.push({ user_id: userId, kind: "payment_reminder", payment_id: pay.id, sent, dead });
+  }
+  return out;
+}
+
+function paymentReminderBody(pay: PaymentRow): string {
+  const amount = formatAmount(pay.amount);
+  if (pay.remind_days_before === 0) return `Dospeva danas: ${amount} RSD.`;
+  if (pay.remind_days_before === 1) return `Dospeva sutra: ${amount} RSD.`;
+  return `Dospeva za ${pay.remind_days_before} dana: ${amount} RSD.`;
+}
+
+function formatAmount(amount: number): string {
+  // Serbian thousands separator is ".", and these amounts are always
+  // whole-RSD in this app — keep formatting minimal and locale-correct.
+  return new Intl.NumberFormat("sr-RS", { maximumFractionDigits: 0 }).format(amount);
 }
 
 /**

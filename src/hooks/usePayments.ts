@@ -49,6 +49,7 @@ export type CreatePaymentInput = {
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
   remaining_occurrences?: number | null;
+  remind_days_before?: number | null;
 };
 
 export type UpdatePaymentInput = Partial<
@@ -62,6 +63,7 @@ export type UpdatePaymentInput = Partial<
     | "recurrence_period"
     | "remaining_occurrences"
     | "is_paused"
+    | "remind_days_before"
   >
 >;
 

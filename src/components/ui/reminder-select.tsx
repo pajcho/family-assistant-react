@@ -8,28 +8,47 @@ import { cn } from "@/lib/cn";
  * give us the iOS / Android system picker for free, which is what
  * users expect on mobile (and is hard to beat with a custom dropdown).
  *
- * Value space is "minutes before start_time" or `null` for off.
- * Phase 2 scope intentionally restricts the options to 5 / 15 / 30 —
- * those are the cases users actually asked for. Adding "1 hr / 1 day"
- * later just means appending entries to OPTIONS.
+ * Value space depends on the caller: for events it's "minutes before
+ * start_time"; for payments it's "days before due_date" (since payments
+ * carry no time-of-day, the reminder fires at the user's morning_time).
+ * Callers pass their own `options` so this component stays unaware of
+ * the unit semantics.
  */
 
-const OPTIONS: ReadonlyArray<{ value: number | null; label: string }> = [
+export type ReminderOption = { value: number | null; label: string };
+
+export const EVENT_REMINDER_OPTIONS: ReadonlyArray<ReminderOption> = [
   { value: null, label: "Bez podsetnika" },
   { value: 5, label: "5 minuta ranije" },
   { value: 15, label: "15 minuta ranije" },
   { value: 30, label: "30 minuta ranije" },
 ];
 
+export const PAYMENT_REMINDER_OPTIONS: ReadonlyArray<ReminderOption> = [
+  { value: null, label: "Bez podsetnika" },
+  { value: 0, label: "Na dan dospeća" },
+  { value: 1, label: "Dan pre" },
+  { value: 3, label: "3 dana pre" },
+  { value: 7, label: "Nedelju dana pre" },
+];
+
 export type ReminderSelectProps = {
   value: number | null;
   onChange: (value: number | null) => void;
+  options?: ReadonlyArray<ReminderOption>;
   id?: string;
   className?: string;
   disabled?: boolean;
 };
 
-export function ReminderSelect({ value, onChange, id, className, disabled }: ReminderSelectProps) {
+export function ReminderSelect({
+  value,
+  onChange,
+  options = EVENT_REMINDER_OPTIONS,
+  id,
+  className,
+  disabled,
+}: ReminderSelectProps) {
   const handleChange = React.useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const next = e.target.value;
@@ -56,7 +75,7 @@ export function ReminderSelect({ value, onChange, id, className, disabled }: Rem
           value == null ? "text-muted-foreground" : "",
         )}
       >
-        {OPTIONS.map((opt) => (
+        {options.map((opt) => (
           <option key={opt.value ?? "none"} value={opt.value ?? ""}>
             {opt.label}
           </option>

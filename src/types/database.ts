@@ -43,7 +43,7 @@ export interface Payment {
   is_paid: boolean;
   is_paused: boolean;
   paid_date: string | null;
-  remind_minutes_before: number | null;
+  remind_days_before: number | null;
   created_at: string;
   updated_at: string;
 }

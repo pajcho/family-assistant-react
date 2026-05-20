@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { cn } from "@/lib/cn";
 
@@ -17,6 +18,7 @@ export type PaymentFormPayload = {
   recurrence_period: RecurrencePeriod;
   remaining_occurrences?: number | null;
   is_paused?: boolean;
+  remind_days_before: number | null;
 };
 
 export type PaymentFormProps = {
@@ -38,6 +40,7 @@ type FormState = {
   /** kept as string for consistent controlled-input behavior */
   remaining_occurrences: string;
   is_paused: boolean;
+  remind_days_before: number | null;
 };
 
 function initialState(payment: Payment | null | undefined): FormState {
@@ -50,6 +53,7 @@ function initialState(payment: Payment | null | undefined): FormState {
     remaining_occurrences:
       payment?.remaining_occurrences != null ? String(payment.remaining_occurrences) : "4",
     is_paused: payment?.is_paused ?? false,
+    remind_days_before: payment?.remind_days_before ?? null,
   };
 }
 
@@ -101,6 +105,7 @@ export function PaymentForm({
       recurrence_period: form.recurrence_period,
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
       is_paused: isRecurring ? form.is_paused : false,
+      remind_days_before: form.remind_days_before,
     });
   };
 
@@ -224,6 +229,15 @@ export function PaymentForm({
           ) : null}
         </div>
       ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="payment-reminder">Podsetnik</Label>
+        <ReminderSelect
+          id="payment-reminder"
+          value={form.remind_days_before}
+          onChange={(value) => setForm((s) => ({ ...s, remind_days_before: value }))}
+          options={PAYMENT_REMINDER_OPTIONS}
+        />
+      </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Otkaži
