@@ -72,11 +72,25 @@ type RootProps = React.ComponentProps<typeof Dialog> & React.ComponentProps<type
 function ResponsiveDialog({ children, ...props }: RootProps) {
   const isDesktop = useIsDesktop();
   const ctxValue = React.useMemo<ResponsiveDialogContextValue>(() => ({ isDesktop }), [isDesktop]);
-  const Root = isDesktop ? Dialog : Drawer;
 
+  // Vaul's default `repositionInputs={true}` translates the entire drawer
+  // upward by the on-screen keyboard's height when an input is focused.
+  // The math overshoots on tall drawers in iOS Safari — the focused
+  // field ends up above the viewport while later fields remain visible.
+  // Disabling it hands the job back to Safari's native scroll-into-view
+  // (which only scrolls the inner overflow-y:auto container, no transform
+  // on the drawer itself). Chromium isn't affected: it doesn't apply the
+  // translation either way, and the inner scroll handles the keyboard
+  // case the same way.
   return (
     <ResponsiveDialogContext.Provider value={ctxValue}>
-      <Root {...props}>{children}</Root>
+      {isDesktop ? (
+        <Dialog {...props}>{children}</Dialog>
+      ) : (
+        <Drawer repositionInputs={false} {...props}>
+          {children}
+        </Drawer>
+      )}
     </ResponsiveDialogContext.Provider>
   );
 }
