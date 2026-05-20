@@ -101,7 +101,14 @@ function ProfileCard() {
       }>("update-user-email", {
         body: { email: email.trim() },
       });
-      const errorMessage = error?.message ?? data?.error ?? null;
+      const errorMessage = error
+        ? // FunctionsHttpError wraps non-2xx responses in a generic "Edge
+          // Function returned a non-2xx status code" message and stashes
+          // the actual response on `error.context`. Pull the real GoTrue
+          // message (e.g. "email already in use") out of the body so we
+          // can show it instead of the generic wrapper text.
+          ((await readFunctionsError(error)) ?? error.message)
+        : (data?.error ?? null);
       if (errorMessage) {
         toast.error(errorMessage);
         // Roll back the local value so the form reflects what Supabase still has.
@@ -389,6 +396,25 @@ function formatLastSeen(iso: string | null | undefined): string {
     return `Aktivna ${ago}`;
   } catch {
     return "Aktivna pre nepoznato";
+  }
+}
+
+/**
+ * supabase-js wraps every non-2xx Edge Function response in a generic
+ * `FunctionsHttpError` whose `message` is just "Edge Function returned
+ * a non-2xx status code". The real GoTrue/server message is on the
+ * raw `Response` exposed via `error.context`. Pull it out so the toast
+ * shows something actionable (e.g. "email already in use") rather than
+ * the wrapper string.
+ */
+async function readFunctionsError(error: unknown): Promise<string | null> {
+  const ctx = (error as { context?: Response | unknown }).context;
+  if (!ctx || typeof (ctx as Response).json !== "function") return null;
+  try {
+    const body = (await (ctx as Response).json()) as { error?: unknown };
+    return typeof body?.error === "string" ? body.error : null;
+  } catch {
+    return null;
   }
 }
 
