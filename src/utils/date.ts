@@ -13,10 +13,14 @@ import {
   differenceInDays,
   type Locale,
 } from "date-fns";
-import { sr } from "date-fns/locale";
+import { srLatn } from "date-fns/locale";
 
-/** Serbian locale for date-fns format. */
-export const srLocale: Locale = sr;
+/**
+ * Serbian (Latin) locale for date-fns. The app is fully Latin-script —
+ * the default `sr` import renders relative phrases like "pre 1 dan" in
+ * Cyrillic, which doesn't match the rest of the UI.
+ */
+export const srLocale: Locale = srLatn;
 
 /** Parse YYYY-MM-DD string to Date at start of day (local time). */
 export function parseDate(dateStr: string): Date {
