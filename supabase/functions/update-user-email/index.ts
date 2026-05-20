@@ -70,6 +70,31 @@ Deno.serve(async (req) => {
   const email = body.email?.trim();
   if (!email) return json({ error: "missing_email" }, 400);
 
+  // Pre-check uniqueness explicitly. The admin endpoint's catch-all
+  // for "email already taken" is the unhelpful "Error updating user"
+  // — by checking ourselves we can return a specific, user-readable
+  // message. `listUsers` doesn't accept an email filter directly, so
+  // paginate until we find a match. With ≤ a few users in a family
+  // app this costs one page; the loop is just a safety net.
+  let collisionUserId: string | null = null;
+  const normalised = email.toLowerCase();
+  for (let page = 1; page <= 10; page++) {
+    const { data, error: pageError } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 100,
+    });
+    if (pageError || !data) break;
+    const match = data.users.find((u) => u.email?.toLowerCase() === normalised);
+    if (match) {
+      collisionUserId = match.id;
+      break;
+    }
+    if (data.users.length < 100) break;
+  }
+  if (collisionUserId && collisionUserId !== userId) {
+    return json({ error: "Email već koristi drugi korisnik." }, 409);
+  }
+
   // `email_confirm: true` marks the new email as already verified —
   // without it GoTrue would leave the row in an unconfirmed state
   // and our auth flow would lock the user out.
