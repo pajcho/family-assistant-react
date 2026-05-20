@@ -2,6 +2,7 @@ import {
   ArrowsPointingOutIcon,
   EllipsisVerticalIcon,
   PencilIcon,
+  SparklesIcon,
   TrashIcon,
   UserGroupIcon,
   UserIcon,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ListBody } from "@/components/lists/ListBody";
+import { useSmartSort } from "@/hooks/useSmartSort";
 import { cn } from "@/lib/cn";
 import type { ListItem, ListWithItems } from "@/types/database";
 
@@ -43,6 +45,12 @@ export function ListCard({
 }: ListCardProps) {
   const active = list.list_items.filter((i) => !i.is_completed);
   const completed = list.list_items.filter((i) => i.is_completed);
+
+  // The "Pametno sortiraj" menu item only appears when the categoriser
+  // recognises this as a shopping list (by name pattern OR by content
+  // ratio). For non-shopping lists the hook still runs but `isShopping`
+  // stays false and the menu item is skipped — no flicker.
+  const smartSort = useSmartSort(list);
 
   const ScopeIcon = list.scope === "family" ? UserGroupIcon : UserIcon;
   const scopeLabel = list.scope === "family" ? "Porodica" : "Lično";
@@ -97,6 +105,17 @@ export function ListCard({
               <PencilIcon className="h-4 w-4" />
               Izmeni listu
             </DropdownMenuItem>
+            {smartSort.isShopping ? (
+              <DropdownMenuItem
+                disabled={smartSort.isPending}
+                onSelect={() => {
+                  void smartSort.sortItems();
+                }}
+              >
+                <SparklesIcon className="h-4 w-4" />
+                Pametno sortiraj
+              </DropdownMenuItem>
+            ) : null}
             {completed.length > 0 ? (
               <>
                 <DropdownMenuSeparator />

@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { ListItemRow } from "@/components/lists/ListItemRow";
 import { SwipeableListItem } from "@/components/lists/SwipeableListItem";
+import { categoriseInOrder, CATEGORY_LABEL } from "@/hooks/useSmartSort";
 import type { ListItem, ListWithItems } from "@/types/database";
 
 export type ListBodyProps = {
@@ -14,6 +15,13 @@ export type ListBodyProps = {
   onToggleItem: (item: ListItem) => void;
   onRenameItem: (item: ListItem, name: string) => void;
   onDeleteItem: (item: ListItem) => void;
+  /**
+   * When true, the renderer is allowed to inject category headers between
+   * grouped items (provided the items are actually clean-grouped). The
+   * full-page route flips this on for shopping lists; the grid card on
+   * /lists keeps it off so cards stay compact.
+   */
+  showCategoryHeaders?: boolean;
 };
 
 /**
@@ -23,6 +31,7 @@ export type ListBodyProps = {
  *   • the show/hide-completed toggle state
  *   • the per-item delete confirmation dialog (so swipe-left and the
  *     desktop trash button both route through the same prompt)
+ *   • optional inline category headers (post-smart-sort visualisation)
  *
  * Each row is wrapped in `SwipeableListItem` regardless of viewport. The
  * gesture works fine with mouse on desktop; the hidden inline action
@@ -36,6 +45,7 @@ export function ListBody({
   onToggleItem,
   onRenameItem,
   onDeleteItem,
+  showCategoryHeaders = false,
 }: ListBodyProps) {
   const [draft, setDraft] = React.useState("");
   const [showCompleted, setShowCompleted] = React.useState(false);
@@ -45,6 +55,17 @@ export function ListBody({
 
   const active = list.list_items.filter((i) => !i.is_completed);
   const completed = list.list_items.filter((i) => i.is_completed);
+
+  // Categorise active items only. Completed items are tucked away under
+  // the collapse and don't need to participate in category grouping —
+  // a "Voće i povrće" header above a single struck-through "Jabuke" entry
+  // would just be visual noise. We compute via `categoriseInOrder` so the
+  // grouping flag stays in sync with the actual on-screen order.
+  const activeCategorised = React.useMemo(
+    () => (showCategoryHeaders ? categoriseInOrder(active) : null),
+    [showCategoryHeaders, active],
+  );
+  const renderHeaders = activeCategorised?.cleanGrouped ?? false;
 
   const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -64,6 +85,22 @@ export function ListBody({
     setPendingDelete(null);
   };
 
+  /** Wraps a single item row with its swipe gesture handlers. */
+  const renderRow = (item: ListItem) => (
+    <SwipeableListItem
+      key={item.id}
+      onSwipeRight={() => onToggleItem(item)}
+      onSwipeLeft={() => requestDelete(item)}
+    >
+      <ListItemRow
+        item={item}
+        onToggle={onToggleItem}
+        onRename={onRenameItem}
+        onDelete={requestDelete}
+      />
+    </SwipeableListItem>
+  );
+
   return (
     <>
       <div className="px-2 py-2">
@@ -73,23 +110,15 @@ export function ListBody({
               ? "Lista je prazna. Dodajte prvu stavku ispod."
               : "Sve stavke su završene."}
           </p>
+        ) : renderHeaders && activeCategorised ? (
+          // Headers branch — items are confirmed clean-grouped, so we can
+          // inject a small category header each time the category changes.
+          // We walk the entries linearly and emit a fresh <ul> per group so
+          // the headers sit between groups (instead of an item) — that
+          // keeps screen readers + semantics tidy.
+          <CategorizedItems entries={activeCategorised.entries} renderRow={renderRow} />
         ) : (
-          <ul className="space-y-0.5">
-            {active.map((item) => (
-              <SwipeableListItem
-                key={item.id}
-                onSwipeRight={() => onToggleItem(item)}
-                onSwipeLeft={() => requestDelete(item)}
-              >
-                <ListItemRow
-                  item={item}
-                  onToggle={onToggleItem}
-                  onRename={onRenameItem}
-                  onDelete={requestDelete}
-                />
-              </SwipeableListItem>
-            ))}
-          </ul>
+          <ul className="space-y-0.5">{active.map((item) => renderRow(item))}</ul>
         )}
 
         {completed.length > 0 ? (
@@ -107,22 +136,7 @@ export function ListBody({
               {showCompleted ? "Sakrij završene" : `Prikaži završene (${completed.length})`}
             </button>
             {showCompleted ? (
-              <ul className="mt-1 space-y-0.5">
-                {completed.map((item) => (
-                  <SwipeableListItem
-                    key={item.id}
-                    onSwipeRight={() => onToggleItem(item)}
-                    onSwipeLeft={() => requestDelete(item)}
-                  >
-                    <ListItemRow
-                      item={item}
-                      onToggle={onToggleItem}
-                      onRename={onRenameItem}
-                      onDelete={requestDelete}
-                    />
-                  </SwipeableListItem>
-                ))}
-              </ul>
+              <ul className="mt-1 space-y-0.5">{completed.map((item) => renderRow(item))}</ul>
             ) : null}
           </div>
         ) : null}
@@ -154,5 +168,42 @@ export function ListBody({
         onConfirm={confirmDelete}
       />
     </>
+  );
+}
+
+/**
+ * Render categorised items with inline group headers. Splits into one
+ * `<ul>` per category so the heading sits between sibling lists rather
+ * than as a fake list item (cleaner for assistive tech).
+ */
+function CategorizedItems({
+  entries,
+  renderRow,
+}: {
+  entries: ReturnType<typeof categoriseInOrder>["entries"];
+  renderRow: (item: ListItem) => React.ReactNode;
+}) {
+  // Group entries by category, preserving order.
+  const groups: Array<{ category: keyof typeof CATEGORY_LABEL; items: ListItem[] }> = [];
+  for (const { item, category } of entries) {
+    const tail = groups[groups.length - 1];
+    if (tail && tail.category === category) {
+      tail.items.push(item);
+    } else {
+      groups.push({ category, items: [item] });
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {groups.map((g) => (
+        <div key={g.category}>
+          <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {CATEGORY_LABEL[g.category]}
+          </h3>
+          <ul className="space-y-0.5">{g.items.map((item) => renderRow(item))}</ul>
+        </div>
+      ))}
+    </div>
   );
 }

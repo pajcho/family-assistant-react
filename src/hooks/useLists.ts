@@ -304,6 +304,42 @@ export function useDeleteListItem() {
 }
 
 /**
+ * Bulk-update the `sort_order` of multiple list_items in parallel. Used by
+ * the smart-sort feature on shopping lists, but generic enough to back
+ * future drag-to-reorder UI.
+ */
+export interface ListItemReorderInput {
+  id: string;
+  sort_order: number;
+}
+
+export function useReorderListItems() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updates: ListItemReorderInput[]): Promise<void> => {
+      // Fire all updates in parallel — same pattern as `useReorderExpenses`
+      // had before the expenses feature was removed. Each call goes through
+      // RLS individually, so a partial failure surfaces the first error.
+      const results = await Promise.all(
+        updates.map((u) =>
+          supabase.from("list_items").update({ sort_order: u.sort_order }).eq("id", u.id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw new Error(failed.error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri sortiranju");
+    },
+  });
+}
+
+/**
  * Bulk-delete every completed item in a single list. Used by the "Clear
  * completed" action inside each list card.
  */

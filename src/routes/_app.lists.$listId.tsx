@@ -5,6 +5,7 @@ import {
   EllipsisVerticalIcon,
   InformationCircleIcon,
   PencilIcon,
+  SparklesIcon,
   TrashIcon,
   UserGroupIcon,
   UserIcon,
@@ -22,6 +23,7 @@ import {
 import { ListBody } from "@/components/lists/ListBody";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import { ListInfoPanel } from "@/components/lists/ListInfoPanel";
+import { useSmartSort } from "@/hooks/useSmartSort";
 import type { ListFormPayload } from "@/components/lists/ListForm";
 import {
   useClearCompletedItems,
@@ -56,9 +58,47 @@ export const Route = createFileRoute("/_app/lists/$listId")({
 function ListDetailPage() {
   const { listId } = useParams({ from: "/_app/lists/$listId" });
   const navigate = useNavigate();
-
   const listsQuery = useListsWithItems();
   const list = (listsQuery.data ?? []).find((l) => l.id === listId) ?? null;
+
+  const goBack = () => {
+    void navigate({ to: "/lists" });
+  };
+
+  // Loading / not-found states render minimal chrome. We keep the back
+  // button visible in both so the user can always escape without using
+  // the browser chrome. Once `list` is non-null we drop into the inner
+  // component, which can safely call hooks (`useSmartSort`) that need
+  // a real list object — keeps the hook order stable across loading
+  // and loaded states.
+  if (listsQuery.isLoading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader onBack={goBack} />
+        <p className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</p>
+      </div>
+    );
+  }
+
+  if (!list) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader onBack={goBack} />
+        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-gray-700 dark:text-gray-300">Lista nije pronađena.</p>
+          <Button variant="outline" onClick={goBack} className="mt-4">
+            Nazad na liste
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <ListDetailLoaded list={list} onBack={goBack} />;
+}
+
+function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () => void }) {
+  const navigate = useNavigate();
 
   const updateList = useUpdateList();
   const deleteList = useDeleteList();
@@ -66,6 +106,7 @@ function ListDetailPage() {
   const updateItem = useUpdateListItem();
   const deleteItem = useDeleteListItem();
   const clearCompleted = useClearCompletedItems();
+  const smartSort = useSmartSort(list);
 
   // Edit-list dialog state.
   const [formOpen, setFormOpen] = React.useState(false);
@@ -77,17 +118,12 @@ function ListDetailPage() {
   // Info-panel state (creator + last-editor + per-item activity).
   const [infoOpen, setInfoOpen] = React.useState(false);
 
-  const goBack = () => {
-    void navigate({ to: "/lists" });
-  };
-
   const openEdit = () => {
     setFormError(null);
     setFormOpen(true);
   };
 
   const handleEditSubmit = async (payload: ListFormPayload) => {
-    if (!list) return;
     setFormError(null);
     try {
       await updateList.mutateAsync({ id: list.id, payload });
@@ -103,7 +139,6 @@ function ListDetailPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!list) return;
     try {
       await deleteList.mutateAsync(list.id);
       setDeleteOpen(false);
@@ -130,34 +165,9 @@ function ListDetailPage() {
     deleteItem.mutate(item.id);
   };
 
-  // Loading / not-found states. We keep the back button visible in both
-  // so the user can always escape without using the browser chrome.
-  if (listsQuery.isLoading) {
-    return (
-      <div className="animate-fade-in">
-        <PageHeader onBack={goBack} />
-        <p className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</p>
-      </div>
-    );
-  }
-
-  if (!list) {
-    return (
-      <div className="animate-fade-in">
-        <PageHeader onBack={goBack} />
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-gray-700 dark:text-gray-300">Lista nije pronađena.</p>
-          <Button variant="outline" onClick={goBack} className="mt-4">
-            Nazad na liste
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="animate-fade-in">
-      <PageHeader onBack={goBack} />
+      <PageHeader onBack={onBack} />
 
       <ListHeader
         list={list}
@@ -165,6 +175,7 @@ function ListDetailPage() {
         onDelete={() => setDeleteOpen(true)}
         onClearCompleted={() => clearCompleted.mutate(list.id)}
         onShowInfo={() => setInfoOpen(true)}
+        smartSort={smartSort}
       />
 
       <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -174,6 +185,11 @@ function ListDetailPage() {
           onToggleItem={handleToggleItem}
           onRenameItem={handleRenameItem}
           onDeleteItem={handleDeleteItem}
+          // Show inline category headers on shopping lists. ListBody
+          // additionally checks that items are *clean-grouped* before
+          // injecting headers, so this just opts in — if someone adds a
+          // new item mid-shop it won't briefly show malformed grouping.
+          showCategoryHeaders={smartSort.isShopping}
         />
       </div>
 
@@ -221,12 +237,14 @@ function ListHeader({
   onDelete,
   onClearCompleted,
   onShowInfo,
+  smartSort,
 }: {
   list: ListWithItems;
   onEdit: () => void;
   onDelete: () => void;
   onClearCompleted: () => void;
   onShowInfo: () => void;
+  smartSort: ReturnType<typeof useSmartSort>;
 }) {
   const active = list.list_items.filter((i) => !i.is_completed).length;
   const completed = list.list_items.filter((i) => i.is_completed).length;
@@ -274,6 +292,17 @@ function ListHeader({
             <PencilIcon className="h-4 w-4" />
             Izmeni listu
           </DropdownMenuItem>
+          {smartSort.isShopping ? (
+            <DropdownMenuItem
+              disabled={smartSort.isPending}
+              onSelect={() => {
+                void smartSort.sortItems();
+              }}
+            >
+              <SparklesIcon className="h-4 w-4" />
+              Pametno sortiraj
+            </DropdownMenuItem>
+          ) : null}
           {completed > 0 ? (
             <>
               <DropdownMenuSeparator />
