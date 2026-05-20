@@ -90,19 +90,31 @@ function ProfileCard() {
     }
     if (emailDirty) {
       setEmailChanging(true);
-      const { error } = await supabase.auth.updateUser({ email: email.trim() });
-      setEmailChanging(false);
-      if (error) {
-        toast.error(error.message);
+      // Custom Edge Function instead of `supabase.auth.updateUser({ email })`:
+      // the standard call sends a confirmation link via Supabase's default
+      // mailer (poor deliverability, often spam-filtered). The Edge Function
+      // uses the service-role admin API to set the email directly. GoTrue
+      // still validates uniqueness + format and we relay those errors.
+      const { data, error } = await supabase.functions.invoke<{
+        ok?: boolean;
+        error?: string;
+      }>("update-user-email", {
+        body: { email: email.trim() },
+      });
+      const errorMessage = error?.message ?? data?.error ?? null;
+      if (errorMessage) {
+        toast.error(errorMessage);
         // Roll back the local value so the form reflects what Supabase still has.
         setEmail(user?.email ?? "");
+        setEmailChanging(false);
         return;
       }
-      // Supabase always sends a confirmation link to the new address
-      // before applying the change. "Secure email change" off (the
-      // project's setting) only suppresses the confirmation on the
-      // OLD address — the new address still has to click through.
-      toast.success("Poslat ti je link za potvrdu na novu adresu.");
+      // The JWT still carries the old email until the session refreshes —
+      // force a refresh so `useAuth().user.email` reflects the new value
+      // and the form's `emailDirty` flag resets without a reload.
+      await supabase.auth.refreshSession();
+      setEmailChanging(false);
+      toast.success("Email izmenjen.");
     }
   };
 
@@ -117,8 +129,8 @@ function ProfileCard() {
       <CardHeader>
         <CardTitle>Lični podaci</CardTitle>
         <CardDescription>
-          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti — na
-          novu adresu šaljemo link za potvrdu.
+          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti i
+          primenjuje se odmah.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -172,7 +184,7 @@ function ProfileCard() {
               required
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Promena email-a zahteva potvrdu preko linka koji stiže na novu adresu.
+              Email se primenjuje odmah, bez dodatne potvrde.
             </p>
           </div>
 

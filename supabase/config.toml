@@ -8,15 +8,6 @@ major_version = 17
 [db.migrations]
 enabled = true
 
-# Email changes apply immediately without a confirmation link, matching
-# the prod project's "Secure email change" = off setting. We don't have
-# a real email provider wired up, so requiring confirmation would just
-# trap the change in Mailpit (local) or hit Supabase's deliverability-
-# poor default sender (prod). For a closed family app the trade-off is
-# fine — the only risk is "user typos their own email", which the user
-# can fix by editing again or asking the other family member.
-[auth.email]
-double_confirm_changes = false
 
 # subscribe-push is called from the client with a user JWT — keep the
 # default verify_jwt = true so RLS protects the upsert.
