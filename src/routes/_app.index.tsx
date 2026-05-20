@@ -277,12 +277,17 @@ function DashboardPage() {
                 void openEditPayment(payment);
               }}
             />
+            {/* Lists card sits above Birthdays — on mobile (single column)
+                it appears earlier in scroll order; on desktop (two-col
+                grid) it occupies the bottom-left slot. Reflects the
+                day-to-day usage pattern: shopping comes up more often
+                than birthdays. */}
+            <DashboardListsCard lists={lists} onAdd={openAddList} />
             <DashboardBirthdayCard
               birthdays={birthdays}
               onAdd={openAddBirthday}
               onEdit={openEditBirthday}
             />
-            <DashboardListsCard lists={lists} onAdd={openAddList} />
           </div>
         )}
 

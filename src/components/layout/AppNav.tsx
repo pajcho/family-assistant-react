@@ -39,7 +39,7 @@ import { getDisplayName } from "@/utils/identity";
  * Mobile (< sm): top header is logo + the same hamburger dropdown.
  * Navigation lives in a fixed bottom tab bar (Home / Events / Payments /
  * Birthdays) — the 4 most-used destinations. The dropdown additionally
- * surfaces the 5th nav item (Lists) since it isn't in the bar.
+ * surfaces the 5th nav item (Rođendani) since it isn't in the bar.
  *
  * The dropdown is the single source of truth for theme/settings/logout on
  * every viewport so the chrome stays consistent. The "Stranice" section
@@ -50,16 +50,22 @@ import { getDisplayName } from "@/utils/identity";
  * collide with the iPhone home indicator when running as an installed PWA.
  */
 
+// Bottom bar is mobile-only and limited to 4 slots. Lists usage now
+// outpaces birthday checks day-to-day (shopping is a near-daily activity
+// vs. a few birthdays a year), so Liste replaces Rođendani here. The
+// desktop top bar still surfaces both — it has the horizontal room.
 const BOTTOM_NAV_ITEMS = [
   { to: "/", label: "Početna", icon: HomeIcon },
   { to: "/events", label: "Događaji", icon: CalendarIcon },
   { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
-  { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
+  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
 ] as const;
 
+// Desktop adds Rođendani; the mobile dropdown ("Stranice") also pulls
+// from this array so birthdays remain one tap away on phones.
 const DESKTOP_NAV_ITEMS = [
   ...BOTTOM_NAV_ITEMS,
-  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
+  { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ] as const;
 
 export function AppNav() {
