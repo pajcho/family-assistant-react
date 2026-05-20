@@ -436,35 +436,6 @@
         } catch (_) {}
       })();
 
-      // Visual viewport tracking — only kicks in when the on-screen
-      // keyboard is actually open. On iOS Safari `vh` / `dvh` don't
-      // shrink with the soft keyboard, but `visualViewport.height`
-      // does. When the gap between layout and visual viewport exceeds
-      // the threshold we publish `--visual-vh` so CSS (the
-      // ResponsiveDialog drawer) can size against the visible area.
-      //
-      // While no keyboard is open we deliberately leave the variable
-      // UNSET so CSS falls back to its regular `vh`/`dvh` units. That
-      // avoids a class of bug where a momentarily-off visualViewport
-      // reading at page load locks the drawer to a too-small size.
-      (function () {
-        function syncVisualVH() {
-          var vv = window.visualViewport;
-          if (!vv) return;
-          var gap = window.innerHeight - vv.height;
-          if (gap > 100) {
-            document.documentElement.style.setProperty("--visual-vh", vv.height + "px");
-          } else {
-            document.documentElement.style.removeProperty("--visual-vh");
-          }
-        }
-        if (window.visualViewport) {
-          window.visualViewport.addEventListener("resize", syncVisualVH);
-          window.visualViewport.addEventListener("scroll", syncVisualVH);
-        }
-        window.addEventListener("resize", syncVisualVH);
-        window.addEventListener("orientationchange", syncVisualVH);
-      })();
     </script>
   </head>
   <body>

@@ -129,14 +129,15 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
   return (
     <DrawerContent
       className={cn(
-        // When no keyboard is open the variable is unset and the
-        // fallback `90vh` wins — same shape the drawer has always had.
-        // When the inline script in index.html detects the iOS soft
-        // keyboard (visualViewport gap > 100px), it sets `--visual-vh`
-        // to the actual visible height and the drawer immediately
-        // shrinks to fit above the keyboard. No extra multiplier — the
-        // visual viewport already excludes the keyboard area.
-        "data-[vaul-drawer-direction=bottom]:max-h-[var(--visual-vh,90vh)]",
+        // 90vh is the original shape. Trying to shrink this against
+        // visualViewport on iOS only made things worse: the drawer is
+        // `position: fixed; bottom: 0`, so reducing its max-height
+        // doesn't reposition it — iOS leaves the drawer at the bottom
+        // of the layout viewport (partially hidden behind the keyboard)
+        // and the user just sees more page background above it.
+        // The keyboard-aware scroll of focused inputs is Vaul's job
+        // (repositionInputs, on by default).
+        "data-[vaul-drawer-direction=bottom]:max-h-[90vh]",
         className,
       )}
       {...props}
