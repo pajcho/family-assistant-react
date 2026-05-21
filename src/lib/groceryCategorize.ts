@@ -156,7 +156,7 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "palacin", "biskvit", "keks", "lizalic", "med", "dzem", "marmelad",
     "kinder", "nutella", "praline", "plazma", "eurokrem", "manner",
     "haribo", "milka", "wafer", "grickalic", "smoki",
-    "stapic", "perec", "grisin",
+    "stapic", "perec", "grisin", "brusket",
     "kikiriki", "lesnik", "badem", "orah", "kokice", "tortilj cips",
   ],
   cleaning: [
@@ -166,11 +166,12 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "rukavice", "wc sredstv", "wc gel", "domestos", "ker",
   ],
   hygiene: [
-    "toaletn", "sampon", "regenerator", "tus gel", "gel za tus", "sapun",
+    "toalet", "sampon", "regenerator", "tus gel", "gel za tus", "sapun",
     "dezodor", "parfem", "cesalj", "britvic", "pasta za zube",
     "cetkic", "peskir", "ulosc", "tampon", "pelen", "vat", "higij",
     "krema", "krema za", "deo", "dezodorans", "parfemi", "ulosci",
     "maramic za bebe", "vlazn maramic", "ostrij", "nivea", "dove",
+    "ubrus",
   ],
   household: [
     "baterij", "sijalic", "kesa", "vrecic", "fenjer", "svec",
@@ -179,6 +180,7 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "kuhinjske krpe",
     "cackalic", "salvet", "tabletice", "upaljac", "sibic",
     "pribor za", "konop", "stipaljk", "vesalic za odecu",
+    "stampac", "trak", "seletejp", "selotejp", "lepak", "lepk",
   ],
 };
 
