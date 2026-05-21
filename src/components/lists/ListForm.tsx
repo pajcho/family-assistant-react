@@ -114,12 +114,16 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
         {/* Native <select> keeps the component count small and gets us
             free OS-level pickers on mobile (a bottom drawer on iOS, a
             wheel on Android). The styling matches the <Input> primitive
-            so it doesn't look out of place next to the name field. */}
+            so it doesn't look out of place next to the name field.
+            `text-base md:text-sm` is load-bearing on iOS: Safari auto-zooms
+            any focused form control whose computed font-size is < 16px,
+            and the zoom is especially jarring when transitioning from the
+            name input (keyboard up) into the select. */}
         <select
           id="list-auto-delete"
           value={form.autoDelete}
           onChange={(e) => setForm((s) => ({ ...s, autoDelete: e.target.value }))}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30"
+          className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-base shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:border-input dark:bg-input/30"
         >
           {AUTO_DELETE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
