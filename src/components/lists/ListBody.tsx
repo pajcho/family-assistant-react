@@ -152,6 +152,18 @@ export function ListBody({
           placeholder="Dodaj stavku…"
           className="h-9 flex-1"
           aria-label={`Dodaj stavku u "${list.name}"`}
+          // On long lists the add-item input sits at the bottom of a
+          // tall scrollable page; iOS Safari doesn't always scroll it
+          // above the keyboard on its own. Wait for the keyboard
+          // animation to settle (~300ms) so visualViewport reflects
+          // the new available area, then explicitly scroll the input
+          // into the middle of the visible area.
+          onFocus={(e) => {
+            const input = e.currentTarget;
+            setTimeout(() => {
+              input.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 300);
+          }}
         />
         <Button type="submit" size="icon-sm" disabled={!draft.trim()} aria-label="Dodaj">
           <PlusIcon className="h-4 w-4" />

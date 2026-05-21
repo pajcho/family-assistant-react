@@ -76,13 +76,16 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <Label htmlFor="list-name">Naziv liste *</Label>
+        {/* No `autoFocus` here — on iOS the keyboard pops up the
+            instant the drawer slides in, before the user has even
+            seen the form. They tap the field themselves when they
+            want to type. Matches BirthdayForm / EventForm. */}
         <Input
           id="list-name"
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
           required
           placeholder="npr. Šoping, Lične obaveze"
-          autoFocus
         />
       </div>
 
