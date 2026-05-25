@@ -14,7 +14,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -430,8 +429,25 @@ function SortableActiveRow({
   const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
+
+  // Strip scaleX/scaleY from the transform string.
+  //
+  // The default `CSS.Transform.toString` from `@dnd-kit/utilities` emits
+  //   `translate3d(x, y, 0) scaleX(sx) scaleY(sy)`
+  // and dnd-kit picks a non-1 scale on the dragged item to match its
+  // current "over" slot's size. When a sortable list has rows of varying
+  // heights (e.g. one row has a description preview underneath the
+  // title, another doesn't), the dragged row visibly squishes or
+  // stretches as it crosses those neighbours — which reads as "the
+  // dragged text takes on the style of whatever was underneath", and at
+  // small scales the squished text can even look slanted.
+  //
+  // We only want the translate; the row's natural height (and natural
+  // text rendering) is what we want to preserve while it's being moved.
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform
+      ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`
+      : undefined,
     transition,
     opacity: isDragging ? 0.6 : undefined,
     // Lift the dragging row above its neighbours so the shadow + outline
