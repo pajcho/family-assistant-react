@@ -4,6 +4,7 @@ import { UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 import type { List, ListScope } from "@/types/database";
 
@@ -12,6 +13,8 @@ export type ListFormPayload = {
   scope: ListScope;
   /** Hours of retention for completed items; null = never auto-delete. */
   auto_delete_completed_after_hours: number | null;
+  /** Optional free-text description, Markdown supported. Empty string normalised to null. */
+  description: string | null;
 };
 
 export type ListFormProps = {
@@ -26,6 +29,7 @@ type FormState = {
   scope: ListScope;
   /** Stored as string for the controlled <select>; serialised at submit. */
   autoDelete: string;
+  description: string;
 };
 
 /**
@@ -49,6 +53,7 @@ function initialState(list: List | null | undefined): FormState {
       list?.auto_delete_completed_after_hours != null
         ? String(list.auto_delete_completed_after_hours)
         : "",
+    description: list?.description ?? "",
   };
 }
 
@@ -64,11 +69,14 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim()) return;
+    const trimmedDescription = form.description.trim();
     onSubmit({
       name: form.name.trim(),
       scope: form.scope,
-      auto_delete_completed_after_hours:
-        form.autoDelete === "" ? null : Number(form.autoDelete),
+      auto_delete_completed_after_hours: form.autoDelete === "" ? null : Number(form.autoDelete),
+      // Whitespace-only descriptions collapse to NULL so the preview row
+      // doesn't render a blank line under the title.
+      description: trimmedDescription === "" ? null : trimmedDescription,
     });
   };
 
@@ -87,6 +95,21 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
           required
           placeholder="npr. Šoping, Lične obaveze"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="list-description">Opis (opciono)</Label>
+        <Textarea
+          id="list-description"
+          value={form.description}
+          onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+          placeholder="Kratak opis liste, Markdown podržan…"
+          rows={3}
+        />
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Možete koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
+          <code className="font-mono"> - stavka</code>, linkovi).
+        </p>
       </div>
 
       <div className="space-y-2">
