@@ -55,8 +55,70 @@ export function ListBody({
   // Delete-confirm state, used by both swipe-left and the desktop trash button.
   const [pendingDelete, setPendingDelete] = React.useState<ListItem | null>(null);
 
-  const active = list.list_items.filter((i) => !i.is_completed);
-  const completed = list.list_items.filter((i) => i.is_completed);
+  // When the user ticks an item, the optimistic update in `useUpdateListItem`
+  // flips is_completed → true immediately, which would otherwise yank the row
+  // out of the active list with no visual confirmation. We keep the id here
+  // for ~600ms so the row stays in the active section (now rendered with the
+  // strike-through styling driven by is_completed) before sliding into the
+  // collapsed completed section. Pure presentation; the mutation still fires
+  // straight away so persistence and remote sync are unaffected.
+  const [pendingHideIds, setPendingHideIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const hideTimersRef = React.useRef<Map<string, number>>(new Map());
+
+  React.useEffect(() => {
+    return () => {
+      for (const handle of hideTimersRef.current.values()) {
+        window.clearTimeout(handle);
+      }
+      hideTimersRef.current.clear();
+    };
+  }, []);
+
+  const handleToggle = (item: ListItem) => {
+    const becomingCompleted = !item.is_completed;
+    const existing = hideTimersRef.current.get(item.id);
+    if (existing !== undefined) {
+      window.clearTimeout(existing);
+      hideTimersRef.current.delete(item.id);
+    }
+    if (becomingCompleted) {
+      setPendingHideIds((prev) => {
+        if (prev.has(item.id)) return prev;
+        const next = new Set(prev);
+        next.add(item.id);
+        return next;
+      });
+      const handle = window.setTimeout(() => {
+        setPendingHideIds((prev) => {
+          if (!prev.has(item.id)) return prev;
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+        hideTimersRef.current.delete(item.id);
+      }, 600);
+      hideTimersRef.current.set(item.id, handle);
+    } else {
+      // Un-checking from the completed section — drop any leftover hide
+      // entry so the item doesn't double-render.
+      setPendingHideIds((prev) => {
+        if (!prev.has(item.id)) return prev;
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+    onToggleItem(item);
+  };
+
+  const active = list.list_items.filter(
+    (i) => !i.is_completed || pendingHideIds.has(i.id),
+  );
+  const completed = list.list_items.filter(
+    (i) => i.is_completed && !pendingHideIds.has(i.id),
+  );
 
   // Categorise active items only. Completed items are tucked away under
   // the collapse and don't need to participate in category grouping —
@@ -91,12 +153,12 @@ export function ListBody({
   const renderRow = (item: ListItem) => (
     <SwipeableListItem
       key={item.id}
-      onSwipeRight={() => onToggleItem(item)}
+      onSwipeRight={() => handleToggle(item)}
       onSwipeLeft={() => requestDelete(item)}
     >
       <ListItemRow
         item={item}
-        onToggle={onToggleItem}
+        onToggle={handleToggle}
         onRename={onRenameItem}
         onDelete={requestDelete}
       />

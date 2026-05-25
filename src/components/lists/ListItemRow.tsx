@@ -124,18 +124,30 @@ export function ListItemRow({ item, onToggle, onRename, onDelete }: ListItemRowP
           className="h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
         />
       </label>
-      <button
-        type="button"
-        onClick={beginEdit}
-        className={cn(
-          "min-w-0 flex-1 truncate py-3 pr-3 text-left text-sm pointer-fine:py-1.5 pointer-fine:pr-2",
-          item.is_completed
-            ? "text-gray-400 line-through dark:text-gray-500"
-            : "text-gray-900 dark:text-gray-100",
-        )}
-      >
-        {item.name}
-      </button>
+      {/* Hit-target scoping
+          ------------------
+          The text-edit trigger used to be `flex-1`, which made the entire
+          empty area to the right of the text open the inline edit form on
+          tap — easy to hit by accident on mobile when you meant to scroll
+          or were just reaching past the row. The wrapper now owns the
+          flex-1 stretch (and its right padding stays inert), while the
+          button shrinks to text width so only the visible label is a tap
+          target. `items-stretch` on the wrapper lets the button still fill
+          the row vertically so above/below the text remains forgiving. */}
+      <div className="flex min-w-0 flex-1 items-stretch pr-3 pointer-fine:pr-2">
+        <button
+          type="button"
+          onClick={beginEdit}
+          className={cn(
+            "flex max-w-full items-center truncate py-3 text-left text-sm pointer-fine:py-1.5",
+            item.is_completed
+              ? "text-gray-400 line-through dark:text-gray-500"
+              : "text-gray-900 dark:text-gray-100",
+          )}
+        >
+          {item.name}
+        </button>
+      </div>
       {/* Inline action buttons — mouse-only. Touch users get the same
           operations via tap-to-edit + swipe gestures, so the icons would
           just be visual noise. The `pointer-fine` variant is defined in
