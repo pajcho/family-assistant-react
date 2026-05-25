@@ -1,12 +1,28 @@
 import * as React from "react";
 import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { ListItemDialog, type ListItemDialogPayload } from "@/components/lists/ListItemDialog";
-import { ListItemRow } from "@/components/lists/ListItemRow";
+import { ListItemRow, type DragHandleBindings } from "@/components/lists/ListItemRow";
 import { SwipeableListItem } from "@/components/lists/SwipeableListItem";
+import { useReorderListItems } from "@/hooks/useLists";
 import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
 import type { ListItem, ListWithItems } from "@/types/database";
 
@@ -188,6 +204,57 @@ export function ListBody({
     </SwipeableListItem>
   );
 
+  // ---------------------------------------------------------------------------
+  // Drag-to-reorder
+  // ---------------------------------------------------------------------------
+  // Available only when smart sort is OFF — when smart sort is on the
+  // visual order is derived from category, so manual drag would either
+  // be discarded by the next render or surprise the user.
+  //
+  // The drag handle lives inside `ListItemRow`; only the active section
+  // participates in sorting (completed rows render via plain `renderRow`
+  // with no handle).
+  const reorderable = !list.smart_sort_enabled;
+  const reorderItems = useReorderListItems();
+
+  // PointerSensor with a small activation distance: a quick tap on the
+  // handle (e.g. the user adjusting focus) won't start a drag, but any
+  // real pull will. Covers both mouse and touch — the pointer events spec
+  // unifies them.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active: dragActive, over } = event;
+    if (!over || dragActive.id === over.id) return;
+
+    const oldIndex = active.findIndex((i) => i.id === dragActive.id);
+    const newIndex = active.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Build the new global order: reordered active items in their new
+    // positions, then completed items keeping their relative order. We
+    // renumber every row from 1 so sort_order stays dense — completed
+    // items therefore get fresh values too, but their visual order in
+    // the completed section is preserved.
+    const reorderedActive = arrayMove(active, oldIndex, newIndex);
+    const finalOrder = [...reorderedActive, ...completed];
+    const updates = finalOrder.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+    reorderItems.mutate(updates);
+  };
+
+  /** Like `renderRow` but with the drag handle wired up through `useSortable`. */
+  const renderSortableActiveRow = (item: ListItem) => (
+    <SortableActiveRow
+      key={item.id}
+      item={item}
+      onToggle={handleToggle}
+      onOpen={(it) => setEditingItem(it)}
+      onDelete={requestDelete}
+      onSwipeRight={() => handleToggle(item)}
+      onSwipeLeft={() => requestDelete(item)}
+    />
+  );
+
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) setEditingItem(null);
   };
@@ -217,8 +284,23 @@ export function ListBody({
         ) : activeGroups ? (
           // Headers branch — a fresh `<ul>` per category so the headings
           // sit between sibling lists rather than as fake list items
-          // (cleaner for assistive tech).
+          // (cleaner for assistive tech). Drag is intentionally not wired
+          // up here because the visual order is derived from category.
           <CategorizedItems groups={activeGroups} renderRow={renderRow} />
+        ) : reorderable ? (
+          // Sortable flat list — only when smart sort is OFF. We pass
+          // active item ids to `SortableContext` and render each row via
+          // `SortableActiveRow`, which wires the per-row `useSortable`
+          // bindings into the drag handle inside `ListItemRow`.
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={active.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+              <ul className="space-y-0.5">{active.map(renderSortableActiveRow)}</ul>
+            </SortableContext>
+          </DndContext>
         ) : (
           <ul className="space-y-0.5">{active.map((item) => renderRow(item))}</ul>
         )}
@@ -314,6 +396,69 @@ function CategorizedItems({
           <ul className="space-y-0.5">{g.items.map((item) => renderRow(item))}</ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Sortable wrapper for one active row. Calls `useSortable` per item and
+ * threads the resulting drag bindings into `ListItemRow` via its
+ * `dragHandle` prop. The outer `<div>` carries the transform that
+ * dnd-kit uses to animate the row during a drag — kept as a div rather
+ * than a `<li>` so we don't double up with the `<li>` that
+ * `SwipeableListItem` renders internally.
+ *
+ * SwipeableListItem owns pointer events on touch devices; the drag
+ * handle in `ListItemRow` stops `pointerdown` propagation so the swipe
+ * gesture doesn't try to interpret a drag pull as a horizontal swipe.
+ */
+function SortableActiveRow({
+  item,
+  onToggle,
+  onOpen,
+  onDelete,
+  onSwipeRight,
+  onSwipeLeft,
+}: {
+  item: ListItem;
+  onToggle: (item: ListItem) => void;
+  onOpen: (item: ListItem) => void;
+  onDelete: (item: ListItem) => void;
+  onSwipeRight: () => void;
+  onSwipeLeft: () => void;
+}) {
+  const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : undefined,
+    // Lift the dragging row above its neighbours so the shadow + outline
+    // don't get clipped by sibling rows during the translate animation.
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? "relative" : undefined,
+  };
+  const dragHandle: DragHandleBindings = { listeners, attributes };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SwipeableListItem
+        onSwipeRight={onSwipeRight}
+        onSwipeLeft={onSwipeLeft}
+        // Suppress swipe gestures while a drag is in progress — touch
+        // devices would otherwise see a long pointer trail as both a
+        // drag (via dnd-kit) and a swipe (via SwipeableListItem).
+        disabled={isDragging}
+      >
+        <ListItemRow
+          item={item}
+          onToggle={onToggle}
+          onOpen={onOpen}
+          onDelete={onDelete}
+          dragHandle={dragHandle}
+        />
+      </SwipeableListItem>
     </div>
   );
 }

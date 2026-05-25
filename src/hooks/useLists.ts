@@ -61,12 +61,22 @@ async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
     .eq("family_id", familyId)
     .order("updated_at", { ascending: false });
   if (error) return [];
-  // Items inside each list stay in sort_order. Postgres can't order nested
-  // rows via this client API, so we do it here.
-  return ((data as ListWithItems[]) ?? []).map((list) => ({
-    ...list,
-    list_items: [...(list.list_items ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-  }));
+  // Item ordering
+  // -------------
+  // `sort_order` is the single source of truth — assigned at insert time
+  // (append at the end) and rewritten by `useReorderListItems` when the
+  // user drags rows around.
+  //
+  // Smart sort is a *view-time projection* layered on top: when the list
+  // has `smart_sort_enabled = true`, we re-arrange the items into aisle
+  // order client-side, without ever touching the persisted sort_order.
+  // Toggling smart sort off therefore reveals the user's underlying
+  // manual order again — non-destructive.
+  return ((data as ListWithItems[]) ?? []).map((list) => {
+    const byManualOrder = [...(list.list_items ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+    const list_items = list.smart_sort_enabled ? applyCategorySort(byManualOrder) : byManualOrder;
+    return { ...list, list_items };
+  });
 }
 
 export function useListsWithItems() {
@@ -199,34 +209,17 @@ export function useDeleteList() {
   });
 }
 
-/**
- * Reorder every item in `list` by category order. Used by both the
- * explicit smart-sort action and the auto-resort path on insert/rename.
- * Runs the bulk update in parallel; partial failure throws the first
- * error so callers don't see a half-sorted state silently.
- */
-async function applySmartSortToList(list: ListWithItems): Promise<void> {
-  const sorted = applyCategorySort(list.list_items);
-  const updates = sorted.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
-  const results = await Promise.all(
-    updates.map((u) =>
-      supabase.from("list_items").update({ sort_order: u.sort_order }).eq("id", u.id),
-    ),
-  );
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw new Error(failed.error.message);
-}
-
 export function useCreateListItem() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: CreateListItemInput): Promise<ListItem> => {
-      // Look up the parent list from the cache so we can:
-      //   • compute next sort_order without an extra round-trip
-      //   • detect whether the list has smart-sort enabled and resort
-      //     after the insert so the new item lands in its aisle
+      // Look up the parent list from the cache so we can compute next
+      // sort_order (append-at-end) without an extra round-trip. Smart
+      // sort is applied client-side at fetch time, so we don't need to
+      // touch sort_order again after the insert — the new item appears
+      // in its aisle automatically when the cache refreshes.
       const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
       const parent = cached?.find((l) => l.id === payload.list_id);
       const maxOrder =
@@ -247,20 +240,7 @@ export function useCreateListItem() {
         .select()
         .single();
       if (error) throw new Error(error.message);
-      const newItem = data as ListItem;
-
-      // Auto-resort when the list is in smart-sort mode. Doing it inside
-      // the same `mutationFn` means the cache only invalidates once at
-      // the end, so the user never sees the "stuck at the bottom" flash
-      // between the insert and the resort.
-      if (parent?.smart_sort_enabled) {
-        await applySmartSortToList({
-          ...parent,
-          list_items: [...parent.list_items, newItem],
-        });
-      }
-
-      return newItem;
+      return data as ListItem;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
@@ -293,25 +273,11 @@ export function useUpdateListItem() {
         .select()
         .single();
       if (error) throw new Error(error.message);
-      const updated = data as ListItem;
-
-      // If the row was renamed AND its parent list is in smart-sort mode,
-      // the item's category may have changed (e.g. "Mleko" → "Hleb" jumps
-      // from dairy to bakery). Re-sort so it lands in the new aisle.
-      // Toggling completed doesn't trigger this — completed items live in
-      // the collapsed section regardless of category.
-      if (args.payload.name !== undefined) {
-        const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
-        const parent = cached?.find((l) => l.id === updated.list_id);
-        if (parent?.smart_sort_enabled) {
-          await applySmartSortToList({
-            ...parent,
-            list_items: parent.list_items.map((it) => (it.id === updated.id ? updated : it)),
-          });
-        }
-      }
-
-      return updated;
+      // Smart sort is applied client-side at fetch time, so a rename that
+      // changes the item's category (e.g. "Mleko" → "Hleb") simply lands
+      // in the right aisle on the next render — no sort_order rewrite
+      // needed.
+      return data as ListItem;
     },
     onMutate: async (args) => {
       // Optimistic: ticking a checkbox should feel instant. We patch the
@@ -388,22 +354,54 @@ export function useReorderListItems() {
       const failed = results.find((r) => r.error);
       if (failed?.error) throw new Error(failed.error.message);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    onMutate: async (updates) => {
+      // Optimistic: drag-to-reorder should feel instant. We patch every
+      // item's sort_order in the cached list-with-items array and re-sort
+      // so the visual order matches the user's drop position before the
+      // N PATCH round-trips even land. The realtime subscription will
+      // then race in and reconcile.
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      if (previous) {
+        const sortMap = new Map(updates.map((u) => [u.id, u.sort_order]));
+        const next = previous.map((list) => {
+          if (!list.list_items.some((item) => sortMap.has(item.id))) return list;
+          const patched = list.list_items
+            .map((item) =>
+              sortMap.has(item.id) ? { ...item, sort_order: sortMap.get(item.id) as number } : item,
+            )
+            .sort((a, b) => a.sort_order - b.sort_order);
+          // Smart sort is a view-time projection that re-runs on every
+          // render via `fetchListsWithItems`. We don't apply it here —
+          // drag-to-reorder is only exposed when smart sort is OFF, so
+          // the manual order is what the user expects to see.
+          return { ...list, list_items: patched };
+        });
+        queryClient.setQueryData(["lists", familyId], next);
+      }
+      return { previous };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(["lists", familyId], ctx.previous);
+      }
       toast.error(error.message || "Greška pri sortiranju");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     },
   });
 }
 
 /**
- * Toggle `lists.smart_sort_enabled` for one list. When turning ON, also
- * runs an initial bulk sort so the items are immediately in aisle order;
- * subsequent inserts/renames stay sorted thanks to the auto-resort path
- * inside `useCreateListItem` / `useUpdateListItem`. When turning OFF,
- * items keep their current sort_order — we don't scramble back to insert
- * order because that would be jarring.
+ * Toggle `lists.smart_sort_enabled` for one list.
+ *
+ * Smart sort is purely a view-time projection — `fetchListsWithItems`
+ * applies the category sort client-side when the flag is on. Toggling
+ * the flag is therefore a single boolean write with no follow-up bulk
+ * update, and turning the flag back off non-destructively restores the
+ * user's underlying manual order (the same order surfaced by the new
+ * drag-to-reorder UI when smart sort is off).
  */
 export function useToggleSmartSort() {
   const { familyId } = useProfile();
@@ -411,16 +409,11 @@ export function useToggleSmartSort() {
 
   return useMutation({
     mutationFn: async (args: { list: ListWithItems; enabled: boolean }): Promise<void> => {
-      const { list, enabled } = args;
       const { error } = await supabase
         .from("lists")
-        .update({ smart_sort_enabled: enabled })
-        .eq("id", list.id);
+        .update({ smart_sort_enabled: args.enabled })
+        .eq("id", args.list.id);
       if (error) throw new Error(error.message);
-
-      if (enabled) {
-        await applySmartSortToList(list);
-      }
     },
     onSuccess: (_, args) => {
       void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });

@@ -20,6 +20,7 @@
   "dependencies": {
     "@dnd-kit/core": "latest",
     "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "^3.2.2",
     "@heroicons/react": "latest",
     "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "latest",
