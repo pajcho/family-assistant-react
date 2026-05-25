@@ -110,8 +110,11 @@ function ListsPage() {
     updateItem.mutate({ id: item.id, payload: { is_completed: !item.is_completed } });
   };
 
-  const handleRenameItem = (item: ListItem, name: string) => {
-    updateItem.mutate({ id: item.id, payload: { name } });
+  const handleUpdateItem = (
+    item: ListItem,
+    payload: { name: string; description: string | null },
+  ) => {
+    updateItem.mutate({ id: item.id, payload });
   };
 
   const handleDeleteItem = (item: ListItem) => {
@@ -208,7 +211,7 @@ function ListsPage() {
                 onDelete={confirmDelete}
                 onAddItem={handleAddItem}
                 onToggleItem={handleToggleItem}
-                onRenameItem={handleRenameItem}
+                onUpdateItem={handleUpdateItem}
                 onDeleteItem={handleDeleteItem}
                 onClearCompleted={handleClearCompleted}
                 collapsed={collapsed.isCollapsed(list.id)}

@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { MarkdownText } from "@/components/common/MarkdownText";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -160,8 +161,11 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
     updateItem.mutate({ id: item.id, payload: { is_completed: !item.is_completed } });
   };
 
-  const handleRenameItem = (item: ListItem, name: string) => {
-    updateItem.mutate({ id: item.id, payload: { name } });
+  const handleUpdateItem = (
+    item: ListItem,
+    payload: { name: string; description: string | null },
+  ) => {
+    updateItem.mutate({ id: item.id, payload });
   };
 
   const handleDeleteItem = (item: ListItem) => {
@@ -181,12 +185,18 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
         smartSort={smartSort}
       />
 
+      {list.description && list.description.trim() ? (
+        <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <MarkdownText content={list.description} />
+        </div>
+      ) : null}
+
       <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <ListBody
           list={list}
           onAddItem={handleAddItem}
           onToggleItem={handleToggleItem}
-          onRenameItem={handleRenameItem}
+          onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
           // Headers visible only while the user has explicitly turned
           // smart-sort ON. `smartSort.isShopping` (detection) is the

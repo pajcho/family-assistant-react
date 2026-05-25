@@ -4,6 +4,7 @@ import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from "@heroicons/react/24/ou
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Input } from "@/components/ui/input";
+import { ListItemDialog, type ListItemDialogPayload } from "@/components/lists/ListItemDialog";
 import { ListItemRow } from "@/components/lists/ListItemRow";
 import { SwipeableListItem } from "@/components/lists/SwipeableListItem";
 import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
@@ -13,7 +14,13 @@ export type ListBodyProps = {
   list: ListWithItems;
   onAddItem: (listId: string, name: string) => void;
   onToggleItem: (item: ListItem) => void;
-  onRenameItem: (item: ListItem, name: string) => void;
+  /**
+   * Apply edits from the item popup (name + optional description).
+   * Replaces the old `onRenameItem` — the same callback now ferries the
+   * whole payload so the parent doesn't need separate rename / update
+   * paths.
+   */
+  onUpdateItem: (item: ListItem, payload: ListItemDialogPayload) => void;
   onDeleteItem: (item: ListItem) => void;
   /**
    * When true, the renderer groups active items under their category
@@ -45,7 +52,7 @@ export function ListBody({
   list,
   onAddItem,
   onToggleItem,
-  onRenameItem,
+  onUpdateItem,
   onDeleteItem,
   showCategoryHeaders = false,
 }: ListBodyProps) {
@@ -55,6 +62,28 @@ export function ListBody({
   // Delete-confirm state, used by both swipe-left and the desktop trash button.
   const [pendingDelete, setPendingDelete] = React.useState<ListItem | null>(null);
 
+  // Item-popup state. When non-null the `ListItemDialog` is open and renders
+  // the editor for this item. The popup replaces the previous inline rename
+  // affordance — tapping any row's text or its pencil icon flips this on.
+  const [editingItem, setEditingItem] = React.useState<ListItem | null>(null);
+
+  // Keep the dialog's `item` in sync with realtime updates: if the cache
+  // refetches (e.g. someone else edits the same item) we want the popup to
+  // reflect the latest server state instead of stale fields the user
+  // opened the dialog with. We match by id and refresh the local pointer.
+  React.useEffect(() => {
+    if (!editingItem) return;
+    const fresh = list.list_items.find((it) => it.id === editingItem.id);
+    if (!fresh) {
+      // Item was deleted (locally or remotely) — close the popup.
+      setEditingItem(null);
+      return;
+    }
+    if (fresh !== editingItem) {
+      setEditingItem(fresh);
+    }
+  }, [list.list_items, editingItem]);
+
   // When the user ticks an item, the optimistic update in `useUpdateListItem`
   // flips is_completed → true immediately, which would otherwise yank the row
   // out of the active list with no visual confirmation. We keep the id here
@@ -62,9 +91,7 @@ export function ListBody({
   // strike-through styling driven by is_completed) before sliding into the
   // collapsed completed section. Pure presentation; the mutation still fires
   // straight away so persistence and remote sync are unaffected.
-  const [pendingHideIds, setPendingHideIds] = React.useState<Set<string>>(
-    () => new Set(),
-  );
+  const [pendingHideIds, setPendingHideIds] = React.useState<Set<string>>(() => new Set());
   const hideTimersRef = React.useRef<Map<string, number>>(new Map());
 
   React.useEffect(() => {
@@ -113,12 +140,8 @@ export function ListBody({
     onToggleItem(item);
   };
 
-  const active = list.list_items.filter(
-    (i) => !i.is_completed || pendingHideIds.has(i.id),
-  );
-  const completed = list.list_items.filter(
-    (i) => i.is_completed && !pendingHideIds.has(i.id),
-  );
+  const active = list.list_items.filter((i) => !i.is_completed || pendingHideIds.has(i.id));
+  const completed = list.list_items.filter((i) => i.is_completed && !pendingHideIds.has(i.id));
 
   // Categorise active items only. Completed items are tucked away under
   // the collapse and don't need to participate in category grouping —
@@ -159,11 +182,28 @@ export function ListBody({
       <ListItemRow
         item={item}
         onToggle={handleToggle}
-        onRename={onRenameItem}
+        onOpen={(it) => setEditingItem(it)}
         onDelete={requestDelete}
       />
     </SwipeableListItem>
   );
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) setEditingItem(null);
+  };
+
+  const handleDialogSubmit = (item: ListItem, payload: ListItemDialogPayload) => {
+    onUpdateItem(item, payload);
+    setEditingItem(null);
+  };
+
+  // From within the dialog: route through the same confirm flow that
+  // swipe-left and the desktop trash button use. We close the popup
+  // first so the confirm dialog can take focus over the same spot.
+  const handleDialogDelete = (item: ListItem) => {
+    setEditingItem(null);
+    setPendingDelete(item);
+  };
 
   return (
     <>
@@ -240,6 +280,13 @@ export function ListBody({
         title="Obriši stavku"
         message={pendingDelete ? `Obrisati stavku "${pendingDelete.name}"?` : ""}
         onConfirm={confirmDelete}
+      />
+
+      <ListItemDialog
+        item={editingItem}
+        onOpenChange={handleDialogOpenChange}
+        onSubmit={handleDialogSubmit}
+        onDelete={handleDialogDelete}
       />
     </>
   );

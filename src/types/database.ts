@@ -84,6 +84,8 @@ export interface List {
   /** Who last modified the list (metadata or items inside it). */
   updated_by_id: string | null;
   name: string;
+  /** Optional free-text description. Markdown is rendered in the list's popup / detail page. */
+  description: string | null;
   scope: ListScope;
   sort_order: number;
   /**
@@ -107,6 +109,8 @@ export interface ListItem {
   list_id: string;
   family_id: string;
   name: string;
+  /** Optional free-text description. Markdown is rendered inside the item popup. */
+  description: string | null;
   is_completed: boolean;
   completed_at: string | null;
   sort_order: number;

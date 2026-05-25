@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ListBody } from "@/components/lists/ListBody";
+import { previewLine } from "@/components/common/MarkdownText";
 import { cn } from "@/lib/cn";
 import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
 import type { ListItem, ListWithItems } from "@/types/database";
@@ -31,7 +32,8 @@ export type ListCardProps = {
   onDelete: (list: ListWithItems) => void;
   onAddItem: (listId: string, name: string) => void;
   onToggleItem: (item: ListItem) => void;
-  onRenameItem: (item: ListItem, name: string) => void;
+  /** Apply edits from the per-item popup (name + optional description). */
+  onUpdateItem: (item: ListItem, payload: { name: string; description: string | null }) => void;
   onDeleteItem: (item: ListItem) => void;
   onClearCompleted: (listId: string) => void;
   /**
@@ -50,7 +52,7 @@ export function ListCard({
   onDelete,
   onAddItem,
   onToggleItem,
-  onRenameItem,
+  onUpdateItem,
   onDeleteItem,
   onClearCompleted,
   collapsed = false,
@@ -156,6 +158,11 @@ export function ListCard({
                 : `${active.length} ${active.length === 1 ? "stavka" : "stavki"}`}
             </span>
           </div>
+          {list.description && previewLine(list.description) ? (
+            <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+              {previewLine(list.description)}
+            </p>
+          ) : null}
         </div>
 
         {/* Open-full-page button — primary affordance for the "I'm shopping,
@@ -225,7 +232,7 @@ export function ListCard({
             list={list}
             onAddItem={onAddItem}
             onToggleItem={onToggleItem}
-            onRenameItem={onRenameItem}
+            onUpdateItem={onUpdateItem}
             onDeleteItem={onDeleteItem}
           />
         </div>

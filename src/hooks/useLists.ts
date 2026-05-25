@@ -28,22 +28,26 @@ export type CreateListInput = {
   scope: ListScope;
   /** Hours of retention for completed items; null = never auto-delete. */
   auto_delete_completed_after_hours?: number | null;
+  description?: string | null;
 };
 
 export type UpdateListInput = {
   name?: string;
   scope?: ListScope;
   auto_delete_completed_after_hours?: number | null;
+  description?: string | null;
 };
 
 export type CreateListItemInput = {
   list_id: string;
   name: string;
+  description?: string | null;
 };
 
 export type UpdateListItemInput = {
   name?: string;
   is_completed?: boolean;
+  description?: string | null;
 };
 
 async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
@@ -77,8 +81,7 @@ export function useListsWithItems() {
 
   useEffect(() => {
     if (!familyId) return;
-    const invalidate = () =>
-      queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     const channel = supabase
       .channel(`lists-${familyId}`)
       .on(
@@ -138,6 +141,7 @@ export function useCreateList() {
           name: payload.name,
           scope: payload.scope,
           sort_order: nextOrder,
+          description: payload.description ?? null,
         })
         .select()
         .single();
@@ -225,10 +229,11 @@ export function useCreateListItem() {
       //     after the insert so the new item lands in its aisle
       const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
       const parent = cached?.find((l) => l.id === payload.list_id);
-      const maxOrder = parent?.list_items.reduce(
-        (max, item) => (item.sort_order > max ? item.sort_order : max),
-        0,
-      ) ?? 0;
+      const maxOrder =
+        parent?.list_items.reduce(
+          (max, item) => (item.sort_order > max ? item.sort_order : max),
+          0,
+        ) ?? 0;
 
       const { data, error } = await supabase
         .from("list_items")
@@ -236,6 +241,7 @@ export function useCreateListItem() {
           list_id: payload.list_id,
           name: payload.name,
           sort_order: maxOrder + 1,
+          description: payload.description ?? null,
           // family_id is filled in by the BEFORE INSERT trigger
         })
         .select()
@@ -300,9 +306,7 @@ export function useUpdateListItem() {
         if (parent?.smart_sort_enabled) {
           await applySmartSortToList({
             ...parent,
-            list_items: parent.list_items.map((it) =>
-              it.id === updated.id ? updated : it,
-            ),
+            list_items: parent.list_items.map((it) => (it.id === updated.id ? updated : it)),
           });
         }
       }
