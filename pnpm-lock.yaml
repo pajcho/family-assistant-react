@@ -47,9 +47,6 @@ importers:
       lucide-react:
         specifier: ^1.16.0
         version: 1.16.0(react@19.2.6)
-      pulltorefreshjs:
-        specifier: latest
-        version: 0.1.22
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -90,9 +87,6 @@ importers:
       '@types/node':
         specifier: latest
         version: 25.9.1
-      '@types/pulltorefreshjs':
-        specifier: latest
-        version: 0.1.7
       '@types/react':
         specifier: latest
         version: 19.2.15
@@ -2609,9 +2603,6 @@ packages:
   '@types/node@25.9.1':
     resolution: {integrity: sha512-xfrlY7UD5rMJk3ZVJP8BNzS28J36YJg+xp+LPXV1TdWxr8uMH5A860QNxYDGQe/ylDSgjxE52Q9VnO7p75tJxg==}
 
-  '@types/pulltorefreshjs@0.1.7':
-    resolution: {integrity: sha512-Y0g/yfuycIvpvUmP97n5NE2+HDAOwfREGVERjhMWw2Y0ODh5wvbflcQ5gXPZ+ihgoq+BQZjA1DL8apw2wAsJXA==}
-
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
@@ -3783,9 +3774,6 @@ packages:
 
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
-
-  pulltorefreshjs@0.1.22:
-    resolution: {integrity: sha512-haxNVEHnS4NCQA7NeG7TSV69z4uqy/N7nfPRuc4dPWe8H6ygUrMjdNeohE+6v0lVVX/ukSjbLYwPUGUYtFKfvQ==}
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -6853,8 +6841,6 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
-  '@types/pulltorefreshjs@0.1.7': {}
-
   '@types/react-dom@19.2.3(@types/react@19.2.15)':
     dependencies:
       '@types/react': 19.2.15
@@ -8297,8 +8283,6 @@ snapshots:
       react-is: 17.0.2
 
   property-information@7.1.0: {}
-
-  pulltorefreshjs@0.1.22: {}
 
   punycode@2.3.1: {}
 
