@@ -1,9 +1,22 @@
-import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import type { DraggableAttributes } from "@dnd-kit/core";
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
 import { Button } from "@/components/ui/button";
 import { previewLine } from "@/components/common/MarkdownText";
 import { cn } from "@/lib/cn";
 import type { ListItem } from "@/types/database";
+
+/**
+ * Bindings forwarded from `useSortable` so this row can host a drag
+ * handle. Only the listeners/attributes for the handle button are
+ * needed — the row's outer ref + transform are applied by the parent
+ * `SortableRow` wrapper.
+ */
+export type DragHandleBindings = {
+  listeners: SyntheticListenerMap | undefined;
+  attributes: DraggableAttributes;
+};
 
 export type ListItemRowProps = {
   item: ListItem;
@@ -11,6 +24,12 @@ export type ListItemRowProps = {
   /** Open the full edit/view dialog for this item (replaces the old inline edit). */
   onOpen: (item: ListItem) => void;
   onDelete: (item: ListItem) => void;
+  /**
+   * When provided, the row renders a drag handle on its right side and
+   * forwards the dnd-kit listeners onto that button. Omit to render a
+   * non-draggable row (smart-sort mode, completed items, etc.).
+   */
+  dragHandle?: DragHandleBindings;
 };
 
 /**
@@ -40,7 +59,7 @@ export type ListItemRowProps = {
  * touchscreen tablet with a 1024px viewport still gets the touch UX, and
  * a desktop with a narrow window still gets the buttons.
  */
-export function ListItemRow({ item, onToggle, onOpen, onDelete }: ListItemRowProps) {
+export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: ListItemRowProps) {
   // Reduce the (possibly multi-line, possibly Markdown) description to a
   // single trimmed line for the row preview. Empty after stripping ⇒ no
   // preview row, which keeps the gap between checkbox + label tight.
@@ -113,6 +132,36 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete }: ListItemRowPro
           <TrashIcon className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
         </Button>
       </div>
+      {/* Drag handle — only rendered when the list is reorderable
+          (smart-sort off + active section). Lives in its own slot so it
+          stays visible on touch devices where the pencil/trash buttons
+          are hidden; on desktop it joins the hover/focus reveal so the
+          row stays clean by default. The listeners come from the parent
+          `SortableRow`'s `useSortable()` call — attaching them only to
+          the handle button (not the row body) keeps tap-to-open, swipe
+          gestures, and the checkbox label all working untouched. */}
+      {dragHandle ? (
+        <div className="flex shrink-0 items-center pr-2 pointer-fine:opacity-0 pointer-fine:transition-opacity pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100">
+          <button
+            type="button"
+            aria-label={`Premesti "${item.name}"`}
+            className="flex h-8 w-8 cursor-grab touch-none items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            {...dragHandle.attributes}
+            {...dragHandle.listeners}
+            // Stop the pointerdown from reaching `SwipeableListItem`, which
+            // is the row's outer `<li>` on touch devices and would
+            // otherwise see the drag's pointer-move stream as a possible
+            // horizontal swipe. dnd-kit's own handler still fires because
+            // we re-invoke it after stopping propagation.
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              dragHandle.listeners?.onPointerDown?.(e);
+            }}
+          >
+            <Bars3Icon className="h-5 w-5" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
