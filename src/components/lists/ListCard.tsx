@@ -161,12 +161,7 @@ export function ListCard({
         {/* Open-full-page button — primary affordance for the "I'm shopping,
             give me just this list" use case. The dropdown still covers edit
             and delete; this is the one-tap shortcut. */}
-        <Button
-          asChild
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Otvori listu "${list.name}"`}
-        >
+        <Button asChild variant="ghost" size="icon-sm" aria-label={`Otvori listu "${list.name}"`}>
           <Link to="/lists/$listId" params={{ listId: list.id }}>
             <ArrowsPointingOutIcon className="h-5 w-5" />
           </Link>

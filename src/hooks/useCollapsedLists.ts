@@ -64,10 +64,7 @@ export function useCollapsedLists(): UseCollapsedListsResult {
     persist(collapsedIds);
   }, [collapsedIds]);
 
-  const isCollapsed = React.useCallback(
-    (id: string) => collapsedIds.has(id),
-    [collapsedIds],
-  );
+  const isCollapsed = React.useCallback((id: string) => collapsedIds.has(id), [collapsedIds]);
 
   const toggle = React.useCallback((id: string) => {
     setCollapsedIds((prev) => {
