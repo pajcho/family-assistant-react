@@ -1,12 +1,13 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { ChevronDoubleDownIcon, ChevronDoubleUpIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ListCard } from "@/components/lists/ListCard";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
+import { useCollapsedLists } from "@/hooks/useCollapsedLists";
 import {
   useClearCompletedItems,
   useCreateList,
@@ -33,8 +34,11 @@ function ListsPage() {
   const updateItem = useUpdateListItem();
   const deleteItem = useDeleteListItem();
   const clearCompleted = useClearCompletedItems();
+  const collapsed = useCollapsedLists();
 
   const lists: ListWithItems[] = listsQuery.data ?? [];
+  const allListIds = React.useMemo(() => lists.map((l) => l.id), [lists]);
+  const allCollapsed = collapsed.isAllCollapsed(allListIds);
 
   // List form dialog state.
   const [formOpen, setFormOpen] = React.useState(false);
@@ -134,10 +138,39 @@ function ListsPage() {
             Šoping, obaveze i sve ostalo. Porodične liste vide svi članovi u realnom vremenu.
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <PlusIcon className="mr-2 h-5 w-5" />
-          Dodaj listu
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+          {/* Bulk-collapse toggle. We only show it once there are at
+              least two lists — with one list there's nothing to bulk-
+              operate on, and the chevron on that single card already
+              covers it. The label flips between "Razvij" and "Skupi"
+              based on whether everything is currently collapsed. */}
+          {lists.length > 1 ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (allCollapsed) collapsed.expandAll();
+                else collapsed.collapseAll(allListIds);
+              }}
+              aria-pressed={allCollapsed}
+            >
+              {allCollapsed ? (
+                <>
+                  <ChevronDoubleDownIcon className="mr-2 h-5 w-5" />
+                  Razvij sve
+                </>
+              ) : (
+                <>
+                  <ChevronDoubleUpIcon className="mr-2 h-5 w-5" />
+                  Skupi sve
+                </>
+              )}
+            </Button>
+          ) : null}
+          <Button onClick={openAdd}>
+            <PlusIcon className="mr-2 h-5 w-5" />
+            Dodaj listu
+          </Button>
+        </div>
       </div>
 
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
@@ -178,6 +211,8 @@ function ListsPage() {
                 onRenameItem={handleRenameItem}
                 onDeleteItem={handleDeleteItem}
                 onClearCompleted={handleClearCompleted}
+                collapsed={collapsed.isCollapsed(list.id)}
+                onToggleCollapsed={collapsed.toggle}
               />
             </div>
           ))}

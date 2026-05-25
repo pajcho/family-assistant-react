@@ -1,11 +1,13 @@
 import * as React from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
   EllipsisVerticalIcon,
   InformationCircleIcon,
   PencilIcon,
   SparklesIcon,
+  TableCellsIcon,
   TrashIcon,
   UserGroupIcon,
   UserIcon,
@@ -35,6 +37,7 @@ import {
   useUpdateListItem,
 } from "@/hooks/useLists";
 import { cn } from "@/lib/cn";
+import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
 import type { ListItem, ListWithItems } from "@/types/database";
 
 export const Route = createFileRoute("/_app/lists/$listId")({
@@ -324,6 +327,23 @@ function ListHeader({
           <DropdownMenuItem onSelect={onEdit}>
             <PencilIcon className="h-4 w-4" />
             Izmeni listu
+          </DropdownMenuItem>
+          {/* Export entries — mirror the ListCard menu so users get the
+              same affordance on both surfaces. Disabled on empty lists. */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => exportListAsMarkdown(list)}
+            disabled={list.list_items.length === 0}
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            Eksportuj (Markdown)
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => exportListAsCsv(list)}
+            disabled={list.list_items.length === 0}
+          >
+            <TableCellsIcon className="h-4 w-4" />
+            Eksportuj (CSV)
           </DropdownMenuItem>
           {completed > 0 ? (
             <>
