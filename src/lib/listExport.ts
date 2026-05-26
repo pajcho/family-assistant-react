@@ -68,6 +68,23 @@ function slugify(name: string): string {
   return slug || "lista";
 }
 
+/**
+ * Indent every line of a (possibly multi-line, possibly Markdown)
+ * description so it nests under a preceding `- [ ] ...` task-list line
+ * per GFM's lazy-continuation rules. Two spaces lines the content up
+ * with the start of the task text (column 3, after `- `).
+ *
+ * We do not transform the markdown beyond indentation — any inline
+ * formatting (bold/italic/links) survives untouched, so the export
+ * stays faithful to what the user typed in the popup.
+ */
+function indentDescription(description: string): string[] {
+  return description
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => `  ${line}`);
+}
+
 function buildMarkdown(list: ListWithItems): string {
   const active = list.list_items.filter((i) => !i.is_completed);
   const completed = list.list_items.filter((i) => i.is_completed);
@@ -79,6 +96,14 @@ function buildMarkdown(list: ListWithItems): string {
   lines.push(`> ${SCOPE_LABEL[list.scope]} · Eksportovano: ${exportedAt}`);
   lines.push("");
 
+  // List-level description (if any). Inserted as-is between the
+  // metadata blockquote and the first section heading so it shows up
+  // in any markdown viewer with its full formatting intact.
+  if (list.description && list.description.trim()) {
+    lines.push(list.description.trim());
+    lines.push("");
+  }
+
   lines.push(`## Aktivne (${active.length})`);
   lines.push("");
   if (active.length === 0) {
@@ -86,6 +111,9 @@ function buildMarkdown(list: ListWithItems): string {
   } else {
     for (const item of active) {
       lines.push(`- [ ] ${item.name}`);
+      if (item.description && item.description.trim()) {
+        lines.push(...indentDescription(item.description));
+      }
     }
   }
   lines.push("");
@@ -98,6 +126,9 @@ function buildMarkdown(list: ListWithItems): string {
     for (const item of completed) {
       const stamp = formatStamp(item.completed_at);
       lines.push(stamp ? `- [x] ${item.name} — završeno ${stamp}` : `- [x] ${item.name}`);
+      if (item.description && item.description.trim()) {
+        lines.push(...indentDescription(item.description));
+      }
     }
   }
   lines.push("");
@@ -111,18 +142,36 @@ function csvField(value: string): string {
 }
 
 function buildCsv(list: ListWithItems): string {
-  const header = ["Stavka", "Status", "Kreirano", "Završeno"].map(csvField).join(",");
+  // Per-list metadata header — two-column key/value rows above the
+  // items table. CSV doesn't have a "metadata section" standard, but
+  // every common viewer (Excel, Numbers, LibreOffice) is happy with a
+  // few extra rows above the table proper, and parsers that read by
+  // header name (e.g. Python's `csv.DictReader` pointed at the right
+  // row) can skip ahead. We include "Opis" only when it's non-empty
+  // so the metadata stays terse for lists that don't use it.
+  const metaRows: string[] = [];
+  metaRows.push([csvField("Lista"), csvField(list.name)].join(","));
+  metaRows.push([csvField("Pristup"), csvField(SCOPE_LABEL[list.scope])].join(","));
+  if (list.description && list.description.trim()) {
+    metaRows.push([csvField("Opis"), csvField(list.description.trim())].join(","));
+  }
+  // Blank line separates the metadata block from the items table so
+  // spreadsheets render it as a visual gap.
+  metaRows.push("");
+
+  const header = ["Stavka", "Opis", "Status", "Kreirano", "Završeno"].map(csvField).join(",");
   const rows = list.list_items.map((item) => {
     const status = item.is_completed ? "Završena" : "Aktivna";
     return [
       csvField(item.name),
+      csvField(item.description?.trim() ?? ""),
       csvField(status),
       csvField(formatStamp(item.created_at)),
       csvField(formatStamp(item.completed_at)),
     ].join(",");
   });
   // UTF-8 BOM keeps Excel from mojibake-ing Š/Č/Ć/Ž/Đ on Windows.
-  return "﻿" + [header, ...rows].join("\r\n") + "\r\n";
+  return "﻿" + [...metaRows, header, ...rows].join("\r\n") + "\r\n";
 }
 
 /**
