@@ -222,11 +222,19 @@ export function WeekGrid({
       ref={scrollContainerRef}
       className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
     >
-      <div>
-        {/* Day headers — sticky so they stay visible while scrolling vertically.
+      {/* `min-w-max` makes the inner wrapper size to its content (1876px on
+          mobile, 7×fr on sm+). Without it, the wrapper inherits the
+          scroller's viewport width and the inner grid overflows it — which
+          breaks sticky-left positioning because the sticky element's
+          containing block ends short of the scroll edges. */}
+      <div className="min-w-max">
+        {/* Day headers — sticky on top so they stay visible while scrolling
+            vertically. z-20 (above the body's sticky-left gutter z-10) so
+            the top-left intersection cleanly shows the header's empty
+            placeholder, not the gutter's first hour label.
             Mobile uses fixed 260px columns so multi-person blocks (siblings
             in the same termin) have room; sm+ flexes back to 1fr / 7. */}
-        <div className="sticky top-0 z-10 grid grid-cols-[56px_repeat(7,260px)] border-b border-gray-200 bg-white sm:grid-cols-[56px_repeat(7,minmax(0,1fr))] dark:border-gray-700 dark:bg-gray-800">
+        <div className="sticky top-0 z-20 grid grid-cols-[56px_repeat(7,260px)] border-b border-gray-200 bg-white sm:grid-cols-[56px_repeat(7,minmax(0,1fr))] dark:border-gray-700 dark:bg-gray-800">
           <div className="px-2 py-2 text-[10px] uppercase tracking-wide text-muted-foreground" />
           {dayHeaders.map((dh, dow) => (
             <div
@@ -251,8 +259,13 @@ export function WeekGrid({
           className="grid grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]"
           style={{ height: `${totalHeightPx}px` }}
         >
-          {/* Time gutter */}
-          <div className="relative">
+          {/* Time gutter — sticky-left so hour labels stay pinned while the
+              user scrolls horizontally between days. bg matches the card
+              so day columns scrolling under it are fully obscured. z-10 sits
+              below the header (z-20) so the top-left intersection stays
+              clean. `sticky` also serves as the positioning context for the
+              absolute hour labels (no extra `relative` needed). */}
+          <div className="sticky left-0 z-10 bg-white dark:bg-gray-800">
             {hourLabels.map((hl) => (
               <div
                 key={hl.label}
