@@ -194,15 +194,44 @@ export function WeekGrid({
     };
   });
 
+  // Auto-scroll the grid so today's column is in view when the week changes.
+  // Mobile uses wide fixed-width columns that overflow the viewport, so
+  // without this the user lands on Monday and has to swipe to "today". When
+  // today isn't in the displayed week (user clicked next/prev week) we
+  // leave the scroll at the start.
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const todayDayIndex = dayHeaders.findIndex((dh) => isToday(dh.dateStr));
+  React.useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (todayDayIndex < 0) {
+      container.scrollLeft = 0;
+      return;
+    }
+    const todayCell = container.querySelector<HTMLElement>(
+      `[data-day-index="${todayDayIndex}"]`,
+    );
+    if (!todayCell) return;
+    // Align today's column near the left edge so the user gets it + the
+    // next day in view, not the gutter-and-half-of-today thing.
+    container.scrollLeft = Math.max(0, todayCell.offsetLeft - 56);
+  }, [todayDayIndex, weekStart]);
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-      <div className="min-w-[640px]">
-        {/* Day headers — sticky so they stay visible while scrolling vertically. */}
-        <div className="sticky top-0 z-10 grid grid-cols-[56px_repeat(7,minmax(0,1fr))] border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div
+      ref={scrollContainerRef}
+      className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+    >
+      <div>
+        {/* Day headers — sticky so they stay visible while scrolling vertically.
+            Mobile uses fixed 260px columns so multi-person blocks (siblings
+            in the same termin) have room; sm+ flexes back to 1fr / 7. */}
+        <div className="sticky top-0 z-10 grid grid-cols-[56px_repeat(7,260px)] border-b border-gray-200 bg-white sm:grid-cols-[56px_repeat(7,minmax(0,1fr))] dark:border-gray-700 dark:bg-gray-800">
           <div className="px-2 py-2 text-[10px] uppercase tracking-wide text-muted-foreground" />
-          {dayHeaders.map((dh) => (
+          {dayHeaders.map((dh, dow) => (
             <div
               key={dh.dateStr}
+              data-day-index={dow}
               className={cn(
                 "border-l border-gray-200 px-2 py-2 text-center dark:border-gray-700",
                 isToday(dh.dateStr) && "bg-blue-50 dark:bg-blue-950/30",
@@ -219,7 +248,7 @@ export function WeekGrid({
         {/* Body — grid with the same column template; each cell is a relatively-
             positioned column the blocks layer on top of. */}
         <div
-          className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]"
+          className="grid grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]"
           style={{ height: `${totalHeightPx}px` }}
         >
           {/* Time gutter */}
