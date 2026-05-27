@@ -1,6 +1,8 @@
 import { addDays, format, parseISO, startOfDay } from "date-fns";
 import type {
   Activity,
+  ActivityOverride,
+  ActivityOverrideAction,
   ActivitySchedule,
   SchoolShift,
   SchoolShiftAnchor,
@@ -189,12 +191,45 @@ export interface ResolvedActivityBlock {
   date: string;
   /** 0..6 Monday-first — convenience for the grid column. */
   dayOfWeek: number;
-  /** "HH:MM" (seconds stripped if present). */
+  /**
+   * Effective times after applying any reschedule override. The grid uses
+   * these for layout. The original times (used by the action menu and the
+   * "ranije X" tooltip) live on `override.original*` when present.
+   */
   startTime: string;
   endTime: string;
   weekPattern: WeekPattern;
   /** 1 = each matching week. >1 means the block fires every N weeks. */
   recurrenceIntervalWeeks: number;
+  /**
+   * Set when this occurrence has an override for `date`. The block always
+   * stays in the output (even when canceled) so the grid can render a
+   * "this was supposed to happen" ghost instead of silently dropping it.
+   */
+  override?: {
+    id: string;
+    action: ActivityOverrideAction;
+    /** For reschedules: the time before the override moved it. */
+    originalStartTime: string;
+    originalEndTime: string;
+    note: string | null;
+    /**
+     * When the override moves the termin to a different date, set on the
+     * ghost block at the *original* date (pointing where it went). The
+     * `movedFrom` counterpart is set on the full block at the new date.
+     */
+    movedTo?: string;
+    movedFrom?: string;
+    /**
+     * On a moved-away ghost the block's `startTime`/`endTime` show the
+     * ORIGINAL rule times (so the ghost reads as the slot the termin
+     * left). These two fields carry the override's new times so the
+     * action dialog can prefill the reschedule form with them. Only set
+     * for moved-away ghosts.
+     */
+    rescheduledStartTime?: string;
+    rescheduledEndTime?: string;
+  };
 }
 
 /**
@@ -209,12 +244,18 @@ export function resolveWeekBlocks(args: {
   activities: ReadonlyArray<Activity>;
   schedule: ReadonlyArray<ActivitySchedule>;
   shiftAnchorsByPersonId: ReadonlyMap<string, SchoolShiftAnchor>;
+  overrides?: ReadonlyArray<ActivityOverride>;
 }): ResolvedActivityBlock[] {
-  const { weekStart, activities, schedule, shiftAnchorsByPersonId } = args;
+  const { weekStart, activities, schedule, shiftAnchorsByPersonId, overrides = [] } = args;
   const activitiesById = new Map(activities.map((a) => [a.id, a]));
+  const scheduleById = new Map(schedule.map((s) => [s.id, s]));
+  // Indexed by `${schedule_id}|${date}` for O(1) lookup as we walk rules.
+  const overridesByKey = new Map<string, ActivityOverride>();
+  for (const o of overrides) overridesByKey.set(`${o.schedule_id}|${o.date}`, o);
 
   const blocks: ResolvedActivityBlock[] = [];
 
+  // ─── Pass 1: walk rules, emit blocks on their original dates ────────────
   for (const rule of schedule) {
     const activity = activitiesById.get(rule.activity_id);
     if (!activity) continue;
@@ -242,16 +283,105 @@ export function resolveWeekBlocks(args: {
       if (!shouldFireOnShift(rule.week_pattern, shift)) continue;
     }
 
+    // Override application — done AFTER the rule decides this occurrence
+    // fires, so a dormant override (from a past shift / season) silently
+    // skips and reactivates only when the rule fires again.
+    const baseStart = normalizeTime(rule.start_time);
+    const baseEnd = normalizeTime(rule.end_time);
+    const override = overridesByKey.get(`${rule.id}|${occurrenceDate}`);
+    const movedToDifferentDay =
+      override?.action === "reschedule" &&
+      !!override.override_date &&
+      override.override_date !== occurrenceDate;
+
+    let effectiveStart = baseStart;
+    let effectiveEnd = baseEnd;
+    let overrideInfo: ResolvedActivityBlock["override"] | undefined;
+    if (override) {
+      // Same-day reschedule swaps times in place. A date-shifting
+      // reschedule leaves the original-day block as a ghost (it shows
+      // "↗ pomereno na X" so the user can see *where* the termin went
+      // from the original slot) — Pass 2 emits the full block at the
+      // new date.
+      if (
+        override.action === "reschedule" &&
+        !movedToDifferentDay &&
+        override.override_start_time &&
+        override.override_end_time
+      ) {
+        effectiveStart = normalizeTime(override.override_start_time);
+        effectiveEnd = normalizeTime(override.override_end_time);
+      }
+      overrideInfo = {
+        id: override.id,
+        action: override.action,
+        originalStartTime: baseStart,
+        originalEndTime: baseEnd,
+        note: override.note,
+        movedTo: movedToDifferentDay ? (override.override_date as string) : undefined,
+        rescheduledStartTime:
+          movedToDifferentDay && override.override_start_time
+            ? normalizeTime(override.override_start_time)
+            : undefined,
+        rescheduledEndTime:
+          movedToDifferentDay && override.override_end_time
+            ? normalizeTime(override.override_end_time)
+            : undefined,
+      };
+    }
+
     blocks.push({
       scheduleId: rule.id,
       activityId: activity.id,
       personId: activity.person_id,
       date: occurrenceDate,
       dayOfWeek: rule.day_of_week,
-      startTime: normalizeTime(rule.start_time),
-      endTime: normalizeTime(rule.end_time),
+      startTime: effectiveStart,
+      endTime: effectiveEnd,
       weekPattern: rule.week_pattern,
       recurrenceIntervalWeeks: interval,
+      override: overrideInfo,
+    });
+  }
+
+  // ─── Pass 2: emit moved-here blocks for overrides whose target date ─────
+  //            lands in this week (even if the original date is elsewhere).
+  const weekEnd = format(addDays(parseISO(weekStart + "T12:00:00"), 6), "yyyy-MM-dd");
+  for (const override of overrides) {
+    if (override.action !== "reschedule") continue;
+    if (!override.override_date) continue;
+    if (override.override_date === override.date) continue;
+    if (override.override_date < weekStart || override.override_date > weekEnd) continue;
+    if (!override.override_start_time || !override.override_end_time) continue;
+
+    const rule = scheduleById.get(override.schedule_id);
+    if (!rule) continue;
+    const activity = activitiesById.get(rule.activity_id);
+    if (!activity) continue;
+    // Respect activity-level paused / season window on the *target* date so
+    // a moved termin doesn't appear after the activity has been paused.
+    if (!isActivityActiveOn(activity, override.override_date)) continue;
+
+    blocks.push({
+      scheduleId: rule.id,
+      activityId: activity.id,
+      personId: activity.person_id,
+      date: override.override_date,
+      dayOfWeek: toMondayFirstDow(
+        parseISO(override.override_date + "T12:00:00").getDay(),
+      ),
+      startTime: normalizeTime(override.override_start_time),
+      endTime: normalizeTime(override.override_end_time),
+      weekPattern: rule.week_pattern,
+      recurrenceIntervalWeeks: Math.max(1, Math.floor(rule.recurrence_interval_weeks)),
+      override: {
+        id: override.id,
+        action: override.action,
+        originalStartTime: normalizeTime(rule.start_time),
+        originalEndTime: normalizeTime(rule.end_time),
+        note: override.note,
+        movedFrom: override.date,
+      },
     });
   }
 

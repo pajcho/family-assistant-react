@@ -144,6 +144,37 @@ export interface ActivitySchedule {
   updated_at: string;
 }
 
+export type ActivityOverrideAction = "cancel" | "reschedule";
+
+/**
+ * Per-occurrence override on a schedule rule. Lookup key is
+ * `(schedule_id, date)` (UNIQUE in the DB). The resolver applies overrides
+ * AFTER deciding whether the underlying rule fires that day — if the rule
+ * is silent (shift flipped, season ended, activity paused), the override
+ * lies dormant in the database and reactivates when conditions return.
+ */
+export interface ActivityOverride {
+  id: string;
+  schedule_id: string;
+  family_id: string;
+  /** YYYY-MM-DD — the day the rule WOULD have fired. The override is keyed by this. */
+  date: string;
+  action: ActivityOverrideAction;
+  /** Required for `'reschedule'`. NULL for `'cancel'`. */
+  override_start_time: string | null;
+  override_end_time: string | null;
+  /**
+   * For reschedules that move the termin to a DIFFERENT day. NULL when the
+   * reschedule keeps the same day and only changes times. When set, the
+   * resolver renders a ghost "moved away" marker on the original `date`
+   * and a full block on `override_date`.
+   */
+  override_date: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SchoolShiftAnchor {
   /** Primary key — one row per person. */
   person_id: string;

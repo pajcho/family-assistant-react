@@ -260,21 +260,39 @@ export function WeekGrid({
                 const widthPct = 100 / block.totalLanes;
                 const leftPct = (block.lane - 1) * widthPct;
 
+                const isCanceled = block.override?.action === "cancel";
+                const isRescheduled = block.override?.action === "reschedule";
+                const isMovedAway = !!block.override?.movedTo;
+                const isMovedHere = !!block.override?.movedFrom;
+                const isSameDayReschedule = isRescheduled && !isMovedAway && !isMovedHere;
+                // Both canceled and moved-away render as ghost outlines —
+                // they're a "this slot is empty for a reason" marker rather
+                // than an active block.
+                const isGhost = isCanceled || isMovedAway;
+
                 return (
                   <button
                     type="button"
-                    key={block.scheduleId}
+                    key={`${block.scheduleId}-${block.date}`}
                     onClick={() => onBlockClick?.(block)}
                     style={{
                       top: `${block.topPx}px`,
                       height: `${block.heightPx}px`,
                       left: `calc(${leftPct}% + 2px)`,
                       width: `calc(${widthPct}% - 4px)`,
-                      backgroundColor: `${color}1F`, // ~12% opacity
+                      backgroundColor: isGhost ? "transparent" : `${color}1F`,
                       borderLeftColor: color,
                     }}
                     className={cn(
-                      "absolute overflow-hidden rounded-md border border-transparent border-l-4",
+                      "absolute overflow-hidden rounded-md border border-transparent",
+                      // Ghost variants: muted opacity + dashed 1px gray frame
+                      // on top/right/bottom + thinner 2px left accent (color
+                      // still applied via inline style.borderLeftColor). Reads
+                      // as "this slot is reserved but not active" without
+                      // dominating the column.
+                      isGhost
+                        ? "border-gray-300 border-l-2 border-dashed text-gray-500 opacity-70 dark:border-gray-600 dark:text-gray-400"
+                        : "border-l-4",
                       "px-1.5 py-0.5 text-left text-[10px] leading-tight",
                       "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                       "transition-[filter]",
@@ -282,9 +300,62 @@ export function WeekGrid({
                     aria-label={
                       activity ? `${activity.name} — ${block.startTime}` : "Aktivnost"
                     }
+                    title={
+                      isCanceled
+                        ? `Otkazano · ranije ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                        : isMovedAway
+                          ? `Pomereno na ${block.override?.movedTo} ${block.override?.rescheduledStartTime}–${block.override?.rescheduledEndTime}`
+                          : isMovedHere
+                            ? `Pomereno sa ${block.override?.movedFrom} ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                            : isSameDayReschedule
+                              ? `Pomereno · ranije ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                              : undefined
+                    }
                   >
                     <div className="flex items-center gap-1">
-                      <span className="tabular-nums opacity-70">{block.startTime}</span>
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          isCanceled ? "line-through opacity-70" : "opacity-70",
+                        )}
+                      >
+                        {block.startTime}
+                      </span>
+                      {isSameDayReschedule ? (
+                        <span
+                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          title="Pomereno"
+                        >
+                          ↻
+                        </span>
+                      ) : null}
+                      {isMovedAway ? (
+                        <span
+                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          title="Pomereno u drugi dan"
+                        >
+                          ↗
+                        </span>
+                      ) : null}
+                      {isMovedHere ? (
+                        <span
+                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          title="Premešten sa drugog dana"
+                        >
+                          ↘
+                        </span>
+                      ) : null}
+                      {isCanceled ? (
+                        <span
+                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          style={{ backgroundColor: "#dc2626", color: "white" }}
+                        >
+                          ✕
+                        </span>
+                      ) : null}
                       {block.weekPattern !== "every" ? (
                         <span
                           className="rounded-sm px-1 text-[8px] font-semibold uppercase"
@@ -303,7 +374,16 @@ export function WeekGrid({
                         </span>
                       ) : null}
                     </div>
-                    <div className="truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+                    <div
+                      className={cn(
+                        "truncate text-[11px] font-medium",
+                        isCanceled
+                          ? "text-gray-500 line-through dark:text-gray-400"
+                          : isMovedAway
+                            ? "text-gray-500 dark:text-gray-400"
+                            : "text-gray-900 dark:text-gray-100",
+                      )}
+                    >
                       {activity?.name ?? "Aktivnost"}
                     </div>
                   </button>

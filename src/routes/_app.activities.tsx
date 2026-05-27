@@ -12,11 +12,13 @@ import { addDays, format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
+import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
 import { ColorAssignmentPopover } from "@/components/activities/ColorAssignmentPopover";
 import { PersonChip } from "@/components/activities/PersonChip";
 import { ShiftControls } from "@/components/activities/ShiftControls";
 import { WeekGrid } from "@/components/activities/WeekGrid";
 import type { ActivityFormPayload } from "@/components/activities/ActivityForm";
+import type { ResolvedActivityBlock } from "@/utils/activity";
 import {
   useActivities,
   useCreateActivity,
@@ -67,6 +69,12 @@ function ActivitiesPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [toDelete, setToDelete] = React.useState<Activity | null>(null);
+
+  // Per-occurrence action menu (cancel / reschedule / restore / jump to edit).
+  // Opened by clicking a block in the grid — the previous behavior of
+  // jumping straight to the activity-edit dialog now lives inside this
+  // menu as the "Izmeni aktivnost" option.
+  const [actionBlock, setActionBlock] = React.useState<ResolvedActivityBlock | null>(null);
 
   const createActivity = useCreateActivity();
   const updateActivity = useUpdateActivity();
@@ -148,9 +156,8 @@ function ActivitiesPage() {
     }
   };
 
-  const handleBlockClick = (activityId: string) => {
-    const activity = activitiesById.get(activityId);
-    if (activity) openEdit(activity);
+  const handleBlockClick = (block: ResolvedActivityBlock) => {
+    setActionBlock(block);
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -250,7 +257,7 @@ function ActivitiesPage() {
           blocks={week.blocks}
           activitiesById={activitiesById}
           peopleById={peopleById}
-          onBlockClick={(block) => handleBlockClick(block.activityId)}
+          onBlockClick={handleBlockClick}
         />
       )}
 
@@ -298,6 +305,17 @@ function ActivitiesPage() {
         onConfirm={() => {
           void handleDeleteConfirm();
         }}
+      />
+
+      <BlockActionDialog
+        open={!!actionBlock}
+        onOpenChange={(open) => {
+          if (!open) setActionBlock(null);
+        }}
+        block={actionBlock}
+        activity={actionBlock ? activitiesById.get(actionBlock.activityId) : undefined}
+        person={actionBlock ? peopleById.get(actionBlock.personId) : undefined}
+        onEditActivity={openEdit}
       />
     </div>
   );

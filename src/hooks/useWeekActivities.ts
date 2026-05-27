@@ -7,6 +7,7 @@ import {
 } from "@/utils/activity";
 import type { SchoolShift } from "@/types/database";
 import { useActivities } from "@/hooks/useActivities";
+import { useActivityOverrides } from "@/hooks/useActivityOverrides";
 import { useActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 
@@ -37,12 +38,14 @@ export function useWeekActivities(
 ): UseWeekActivitiesResult {
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
+  const overridesQuery = useActivityOverrides();
   const { byPersonId: shiftAnchorsByPerson, isLoading: shiftsLoading, data: shiftAnchorsData } =
     useSchoolShiftAnchors();
 
   const blocks = useMemo(() => {
     const activities = activitiesQuery.data ?? [];
     const schedule = scheduleQuery.data ?? [];
+    const overrides = overridesQuery.data ?? [];
 
     const filteredActivities =
       personFilter && personFilter.size > 0
@@ -56,8 +59,16 @@ export function useWeekActivities(
       activities: filteredActivities,
       schedule: filteredSchedule,
       shiftAnchorsByPersonId: shiftAnchorsByPerson,
+      overrides,
     });
-  }, [activitiesQuery.data, scheduleQuery.data, shiftAnchorsByPerson, weekStart, personFilter]);
+  }, [
+    activitiesQuery.data,
+    scheduleQuery.data,
+    overridesQuery.data,
+    shiftAnchorsByPerson,
+    weekStart,
+    personFilter,
+  ]);
 
   const shiftsByPerson = useMemo(() => {
     const map = new Map<string, SchoolShift>();
@@ -71,6 +82,10 @@ export function useWeekActivities(
     weekStart,
     blocks,
     shiftsByPerson,
-    isLoading: activitiesQuery.isLoading || scheduleQuery.isLoading || shiftsLoading,
+    isLoading:
+      activitiesQuery.isLoading ||
+      scheduleQuery.isLoading ||
+      shiftsLoading ||
+      overridesQuery.isLoading,
   };
 }
