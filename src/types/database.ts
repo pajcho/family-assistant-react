@@ -34,7 +34,7 @@ export interface Event {
   updated_at: string;
 }
 
-export type RecurrencePeriod = "monthly" | "limited" | "one-time";
+export type RecurrencePeriod = "monthly" | "weekly" | "limited" | "one-time";
 
 export interface Payment {
   id: string;
@@ -45,6 +45,13 @@ export interface Payment {
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
+  /**
+   * "Every N periods" knob — meaningful for `monthly` (every N months) and
+   * `weekly` (every N weeks). `one-time` and `limited` ignore this and always
+   * behave as if interval = 1. Column is NOT NULL with a default of 1 in the
+   * DB so old rows back-fill correctly.
+   */
+  recurrence_interval: number;
   remaining_occurrences: number | null;
   is_paid: boolean;
   is_paused: boolean;
