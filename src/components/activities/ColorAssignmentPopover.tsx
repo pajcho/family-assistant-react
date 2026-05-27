@@ -15,7 +15,6 @@ import {
   useDeleteFamilyMember,
   useUpdateProfileColor,
 } from "@/hooks/useFamilyMembers";
-import { useProfile } from "@/hooks/useProfile";
 import type { Profile } from "@/types/database";
 import { PROFILE_COLOR_PALETTE, fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
@@ -36,7 +35,6 @@ export type ColorAssignmentPopoverProps = {
  * member form is filled out.
  */
 export function ColorAssignmentPopover({ members }: ColorAssignmentPopoverProps) {
-  const { profile: currentProfile } = useProfile();
   const updateColor = useUpdateProfileColor();
   const deleteMember = useDeleteFamilyMember();
 
@@ -73,7 +71,12 @@ export function ColorAssignmentPopover({ members }: ColorAssignmentPopoverProps)
                 email: null,
               }) || "Bez imena";
             const currentColor = person.color ?? fallbackColorForProfile(person.id);
-            const isSelf = currentProfile?.id === person.id;
+            // Hide the trash for any profile that has its own Supabase
+            // login — those are real auth users (yourself + your partner)
+            // and the matching RLS policy refuses to delete them anyway.
+            // Household-only members (children added via "+ Dodaj člana")
+            // have `has_login=false` and stay deletable.
+            const canDelete = person.has_login === false;
             return (
               <li key={person.id} className="space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -86,7 +89,7 @@ export function ColorAssignmentPopover({ members }: ColorAssignmentPopoverProps)
                   {person.color == null ? (
                     <span className="text-[10px] text-muted-foreground">(auto)</span>
                   ) : null}
-                  {!isSelf ? (
+                  {canDelete ? (
                     <button
                       type="button"
                       aria-label={`Obriši ${name}`}

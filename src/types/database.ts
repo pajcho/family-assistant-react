@@ -22,6 +22,13 @@ export interface Profile {
    * deterministic placeholder derived from the id.
    */
   color: string | null;
+  /**
+   * True iff this profile's `id` matches a row in `auth.users` — i.e. the
+   * person has their own Supabase login. Derived at query time by the
+   * `profiles_with_login` view; not stored on the row itself. Optional
+   * here because not every read path goes through the view.
+   */
+  has_login?: boolean;
   created_at: string;
   updated_at: string;
 }
