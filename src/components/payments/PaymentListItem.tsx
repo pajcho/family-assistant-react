@@ -19,6 +19,7 @@ import {
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { formatDate, isOverdue } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
+import { recurrenceLabel } from "@/utils/payment";
 
 /* --- Discriminated union of list-item shapes (mirrors Vue source) ---------- */
 
@@ -45,6 +46,7 @@ export type UpcomingRowItem = {
   due_date: string;
   description: string | null;
   recurrence_period: RecurrencePeriod | null;
+  recurrence_interval: number;
   remaining_occurrences: number | null;
 };
 
@@ -101,8 +103,10 @@ function StatusMeta({ item }: { item: PaymentListItemUnion }) {
     return (
       <>
         <span className="font-medium text-sky-600 dark:text-sky-400">Nadolazeće</span>
-        {item.recurrence_period === "monthly" ? (
-          <span className="text-gray-500 dark:text-gray-400">Mesečno</span>
+        {item.recurrence_period === "monthly" || item.recurrence_period === "weekly" ? (
+          <span className="text-gray-500 dark:text-gray-400">
+            {recurrenceLabel(item.recurrence_period, item.recurrence_interval)}
+          </span>
         ) : null}
         {item.recurrence_period === "limited" && item.remaining_occurrences != null ? (
           <span className="text-gray-500 dark:text-gray-400">
@@ -123,8 +127,12 @@ function StatusMeta({ item }: { item: PaymentListItemUnion }) {
       </span>
     );
   }
-  if (item.recurrence_period === "monthly") {
-    return <span className="text-amber-600 dark:text-amber-400">Mesečno</span>;
+  if (item.recurrence_period === "monthly" || item.recurrence_period === "weekly") {
+    return (
+      <span className="text-amber-600 dark:text-amber-400">
+        {recurrenceLabel(item.recurrence_period, item.recurrence_interval)}
+      </span>
+    );
   }
   if (item.recurrence_period === "limited") {
     return (

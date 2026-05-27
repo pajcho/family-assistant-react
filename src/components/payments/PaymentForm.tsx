@@ -16,6 +16,8 @@ export type PaymentFormPayload = {
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod;
+  /** "Every N periods" — always present, defaults to 1 for one-time/limited. */
+  recurrence_interval: number;
   remaining_occurrences?: number | null;
   is_paused?: boolean;
   remind_days_before: number | null;
@@ -23,7 +25,7 @@ export type PaymentFormPayload = {
 
 export type PaymentFormProps = {
   payment?: Payment | null;
-  /** When true, the recurrence radios become disabled (history exists). */
+  /** When true, the recurrence type select becomes disabled (history exists). */
   hasHistory?: boolean;
   saving?: boolean;
   onSubmit: (payload: PaymentFormPayload) => void;
@@ -37,11 +39,83 @@ type FormState = {
   amount: string;
   due_date: string | null;
   recurrence_period: RecurrencePeriod;
+  recurrence_interval: number;
   /** kept as string for consistent controlled-input behavior */
   remaining_occurrences: string;
   is_paused: boolean;
   remind_days_before: number | null;
 };
+
+const RECURRENCE_OPTIONS: ReadonlyArray<{ value: RecurrencePeriod; label: string }> = [
+  { value: "one-time", label: "Jednokratno" },
+  { value: "weekly", label: "Nedeljno" },
+  { value: "monthly", label: "Mesečno" },
+  { value: "limited", label: "Ograničeno" },
+];
+
+const WEEKLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 1, label: "Svake nedelje" },
+  { value: 2, label: "Svake 2 nedelje" },
+  { value: 3, label: "Svake 3 nedelje" },
+  { value: 4, label: "Svake 4 nedelje" },
+];
+
+const MONTHLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 1, label: "Svakog meseca" },
+  { value: 2, label: "Svaka 2 meseca" },
+  { value: 3, label: "Svaka 3 meseca" },
+  { value: 6, label: "Svakih 6 meseci" },
+];
+
+/** Tailwind chrome that matches `<Input>` — reused for both native selects below. */
+const SELECT_CHROME =
+  "h-9 w-full min-w-0 cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50";
+
+function NativeSelect<T extends string | number>({
+  id,
+  value,
+  onChange,
+  options,
+  disabled,
+  parse,
+}: {
+  id?: string;
+  value: T;
+  onChange: (next: T) => void;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  disabled?: boolean;
+  parse: (raw: string) => T;
+}) {
+  return (
+    <div className="relative">
+      <select
+        id={id}
+        value={String(value)}
+        onChange={(e) => onChange(parse(e.target.value))}
+        disabled={disabled}
+        className={SELECT_CHROME}
+      >
+        {options.map((opt) => (
+          <option key={String(opt.value)} value={String(opt.value)}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground opacity-60"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </div>
+  );
+}
 
 function initialState(payment: Payment | null | undefined): FormState {
   return {
@@ -50,6 +124,7 @@ function initialState(payment: Payment | null | undefined): FormState {
     amount: payment?.amount != null ? String(payment.amount) : "",
     due_date: payment?.due_date ?? null,
     recurrence_period: (payment?.recurrence_period ?? "one-time") as RecurrencePeriod,
+    recurrence_interval: payment?.recurrence_interval ?? 1,
     remaining_occurrences:
       payment?.remaining_occurrences != null ? String(payment.remaining_occurrences) : "4",
     is_paused: payment?.is_paused ?? false,
@@ -58,15 +133,13 @@ function initialState(payment: Payment | null | undefined): FormState {
 }
 
 /**
- * Direct port of `components/payments/PaymentForm.vue` from the sibling Nuxt app.
- *
- * Layout (matches `.nuxt-screens/11-payment-edit-dialog-dark-mobile.png`):
+ * Layout:
  *   • Naziv / Opis — full width
- *   • Iznos (RSD) + Datum dospeća — `grid-cols-2` (2-column at all widths,
- *     just like the Vue source, which uses `grid grid-cols-2 gap-4` with no
- *     responsive prefix)
- *   • Tip — inline radios (Jednokratno / Mesečno / Ograničeno). Disabled
- *     when `hasHistory` is true.
+ *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`
+ *   • Tip — native select (Jednokratno / Nedeljno / Mesečno / Ograničeno).
+ *     Disabled when `hasHistory` is true.
+ *   • Ponavljanje — native select shown only for `weekly` / `monthly`. Lets
+ *     the user pick "every N weeks" / "every N months".
  *   • Preostalo uplata — only when `recurrence_period === 'limited'`
  *   • Pauziraj plaćanje — only when editing a recurring (non one-time) payment
  *   • Right-aligned footer (Otkaži / Sačuvaj izmene | Dodaj)
@@ -80,8 +153,6 @@ export function PaymentForm({
 }: PaymentFormProps) {
   const [form, setForm] = React.useState<FormState>(() => initialState(payment));
 
-  // Reseed when the parent swaps `payment` (matches Vue's
-  // `watch(() => props.payment, ..., { immediate: true })`).
   React.useEffect(() => {
     setForm(initialState(payment));
   }, [payment]);
@@ -89,6 +160,21 @@ export function PaymentForm({
   const isEdit = !!payment?.id;
   const isRecurring = form.recurrence_period !== "one-time";
   const showPauseToggle = isEdit && isRecurring;
+  const showIntervalSelect =
+    form.recurrence_period === "weekly" || form.recurrence_period === "monthly";
+
+  const intervalOptions =
+    form.recurrence_period === "weekly" ? WEEKLY_INTERVAL_OPTIONS : MONTHLY_INTERVAL_OPTIONS;
+
+  const handleRecurrenceChange = (next: RecurrencePeriod) => {
+    setForm((s) => ({
+      ...s,
+      recurrence_period: next,
+      // Always reset to 1 — weekly/monthly intervals don't share a scale, and
+      // for one-time/limited the interval is ignored on submit anyway.
+      recurrence_interval: 1,
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,13 +189,12 @@ export function PaymentForm({
       due_date: form.due_date,
       is_recurring: isRecurring,
       recurrence_period: form.recurrence_period,
+      recurrence_interval: showIntervalSelect ? form.recurrence_interval : 1,
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
       is_paused: isRecurring ? form.is_paused : false,
       remind_days_before: form.remind_days_before,
     });
   };
-
-  const radioGroupName = React.useId();
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -155,49 +240,36 @@ export function PaymentForm({
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label>Tip</Label>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={radioGroupName}
-              value="one-time"
-              checked={form.recurrence_period === "one-time"}
-              onChange={() => setForm((s) => ({ ...s, recurrence_period: "one-time" }))}
-              disabled={hasHistory}
-            />
-            <span className={cn(hasHistory && "text-gray-400")}>Jednokratno</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={radioGroupName}
-              value="monthly"
-              checked={form.recurrence_period === "monthly"}
-              onChange={() => setForm((s) => ({ ...s, recurrence_period: "monthly" }))}
-              disabled={hasHistory}
-            />
-            <span className={cn(hasHistory && "text-gray-400")}>Mesečno</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={radioGroupName}
-              value="limited"
-              checked={form.recurrence_period === "limited"}
-              onChange={() => setForm((s) => ({ ...s, recurrence_period: "limited" }))}
-              disabled={hasHistory}
-            />
-            <span className={cn(hasHistory && "text-gray-400")}>Ograničeno</span>
-          </label>
+      <div className={cn("grid gap-4", showIntervalSelect ? "grid-cols-2" : "grid-cols-1")}>
+        <div className="space-y-2">
+          <Label htmlFor="recurrence_period">Tip</Label>
+          <NativeSelect
+            id="recurrence_period"
+            value={form.recurrence_period}
+            onChange={handleRecurrenceChange}
+            options={RECURRENCE_OPTIONS}
+            disabled={hasHistory}
+            parse={(raw) => raw as RecurrencePeriod}
+          />
         </div>
-        {hasHistory ? (
-          <p className="text-xs text-amber-600">
-            Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
-          </p>
+        {showIntervalSelect ? (
+          <div className="space-y-2">
+            <Label htmlFor="recurrence_interval">Ponavljanje</Label>
+            <NativeSelect
+              id="recurrence_interval"
+              value={form.recurrence_interval}
+              onChange={(next) => setForm((s) => ({ ...s, recurrence_interval: next }))}
+              options={intervalOptions}
+              parse={(raw) => Number(raw)}
+            />
+          </div>
         ) : null}
       </div>
+      {hasHistory ? (
+        <p className="text-xs text-amber-600">
+          Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
+        </p>
+      ) : null}
       {form.recurrence_period === "limited" ? (
         <div className="space-y-2">
           <Label htmlFor="remaining">Preostalo uplata</Label>

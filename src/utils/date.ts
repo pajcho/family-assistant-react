@@ -59,10 +59,14 @@ export function isDateInRange(dateStr: string, from: Date, to: Date): boolean {
   return !isBefore(date, fromStart) && !isAfter(date, toEnd);
 }
 
-/** Add one month. Day is capped to last day of target month (e.g. Jan 31 → Feb 28). */
-export function addMonth(dateStr: string): string {
+/**
+ * Add `count` months. Day is capped to the last day of the target month
+ * (e.g. Jan 31 + 1m → Feb 28). `count` defaults to 1 so existing
+ * `addMonth(date)` callers keep working without passing a step.
+ */
+export function addMonth(dateStr: string, count = 1): string {
   const date = parseISO(dateStr + "T12:00:00");
-  const next = addMonths(date, 1);
+  const next = addMonths(date, count);
   const day = getDate(date);
   const lastDay = getDate(lastDayOfMonth(next));
   const safeDay = Math.min(day, lastDay);
@@ -70,14 +74,28 @@ export function addMonth(dateStr: string): string {
   return format(next, "yyyy-MM-dd");
 }
 
-/** Subtract one month. Day is capped to last day of target month. */
-export function subtractMonth(dateStr: string): string {
+/** Subtract `count` months. Day is capped to the last day of the target month. */
+export function subtractMonth(dateStr: string, count = 1): string {
   const date = parseISO(dateStr + "T12:00:00");
-  const prev = subMonths(date, 1);
+  const prev = subMonths(date, count);
   const day = getDate(date);
   const lastDay = getDate(lastDayOfMonth(prev));
   const safeDay = Math.min(day, lastDay);
   prev.setDate(safeDay);
+  return format(prev, "yyyy-MM-dd");
+}
+
+/** Add `count` weeks (count * 7 days). No day-capping needed — week arithmetic never overflows a month. */
+export function addWeek(dateStr: string, count = 1): string {
+  const date = parseISO(dateStr + "T12:00:00");
+  const next = addDays(date, 7 * count);
+  return format(next, "yyyy-MM-dd");
+}
+
+/** Subtract `count` weeks. */
+export function subtractWeek(dateStr: string, count = 1): string {
+  const date = parseISO(dateStr + "T12:00:00");
+  const prev = addDays(date, -7 * count);
   return format(prev, "yyyy-MM-dd");
 }
 
@@ -105,6 +123,65 @@ export function getLimitedMonths(dueDateStr: string, remaining: number): string[
     currentMonthStr = addMonth(currentMonthStr);
   }
   return months;
+}
+
+/**
+ * True if a monthly payment with `recurrence_interval = interval` fires inside
+ * `monthYYYYMM`. The first occurrence is the due-date month itself; subsequent
+ * ones land every `interval` months after. Used to suppress upcoming rows in
+ * "off" months when interval > 1 (e.g. quarterly payment in Apr → no upcoming
+ * row in May/Jun, only in Jul).
+ */
+export function isMonthlyOccurrenceMonth(
+  dueDateStr: string,
+  monthYYYYMM: string,
+  interval: number,
+): boolean {
+  const safeInterval = Math.max(1, Math.floor(interval));
+  const [dueYear, dueMonthNum] = dueDateStr.slice(0, 7).split("-").map(Number);
+  const [selYear, selMonthNum] = monthYYYYMM.split("-").map(Number);
+  const diff = (selYear - dueYear) * 12 + (selMonthNum - dueMonthNum);
+  if (diff < 0) return false;
+  return diff % safeInterval === 0;
+}
+
+/**
+ * Enumerate the weekly occurrences of a payment that fall inside `monthYYYYMM`.
+ * A weekly payment with interval `N` has occurrences at `dueDate`, `dueDate + 7N`,
+ * `dueDate + 14N`, … — we walk forward (or backward when the requested month
+ * is in the past relative to the due date) and collect the ones that match.
+ *
+ * Used by the payments page to generate upcoming rows for each occurrence in
+ * the selected month, and by the per-month summary to total unpaid amounts.
+ */
+export function getWeeklyOccurrencesInMonth(
+  dueDateStr: string,
+  monthYYYYMM: string,
+  interval: number,
+): string[] {
+  const safeInterval = Math.max(1, Math.floor(interval));
+  const [year, month] = monthYYYYMM.split("-").map(Number);
+  const monthStart = `${monthYYYYMM}-01`;
+  const lastDay = getDate(lastDayOfMonth(new Date(year, month - 1, 1)));
+  const monthEnd = `${monthYYYYMM}-${String(lastDay).padStart(2, "0")}`;
+
+  let current = dueDateStr;
+  // If due date is past the requested month, rewind until we're at or before
+  // the month start. Bounded — `safeInterval >= 1` guarantees progress.
+  while (current > monthEnd) {
+    current = subtractWeek(current, safeInterval);
+  }
+  // Then fast-forward into the month.
+  while (current < monthStart) {
+    current = addWeek(current, safeInterval);
+  }
+
+  const results: string[] = [];
+  while (current <= monthEnd) {
+    results.push(current);
+    current = addWeek(current, safeInterval);
+  }
+  return results;
 }
 
 /** Same calendar day in current month (for unpausing when due_date is in the past). */

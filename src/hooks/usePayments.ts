@@ -4,7 +4,14 @@ import { toast } from "sonner";
 import type { Payment, PaymentHistory, RecurrencePeriod } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
-import { addMonth, dueDateInCurrentMonth, isDateBeforeToday, subtractMonth } from "@/utils/date";
+import {
+  addMonth,
+  addWeek,
+  dueDateInCurrentMonth,
+  isDateBeforeToday,
+  subtractMonth,
+  subtractWeek,
+} from "@/utils/date";
 
 /**
  * Payments data hooks — direct port of `composables/usePayments.ts` from the
@@ -48,6 +55,7 @@ export type CreatePaymentInput = {
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
+  recurrence_interval?: number;
   remaining_occurrences?: number | null;
   remind_days_before?: number | null;
 };
@@ -61,6 +69,7 @@ export type UpdatePaymentInput = Partial<
     | "due_date"
     | "is_recurring"
     | "recurrence_period"
+    | "recurrence_interval"
     | "remaining_occurrences"
     | "is_paused"
     | "remind_days_before"
@@ -310,13 +319,14 @@ export function useDeletePayment() {
  * Multi-step "mark as paid":
  *   1. Read the live `payments` row.
  *   2. Insert a `payment_history` row capturing the snapshot.
- *   3. Update the live row based on `recurrence_period`:
+ *   3. Update the live row based on `recurrence_period` + `recurrence_interval`:
  *      - one-time / non-recurring → `is_paid: true, paid_date: today`.
- *      - monthly → roll `due_date` forward one month (keep `is_paid: false`).
+ *      - monthly → roll `due_date` forward `interval` months.
+ *      - weekly → roll `due_date` forward `interval * 7` days.
  *      - limited → decrement `remaining_occurrences`; if it hits 0, finalize
  *        with `is_paid: true, paid_date: today, remaining_occurrences: 0`
- *        (do NOT advance `due_date`); otherwise advance `due_date` and keep
- *        `is_paid: false`.
+ *        (do NOT advance `due_date`); otherwise advance `due_date` by one
+ *        month and keep `is_paid: false`. Limited ignores `recurrence_interval`.
  *
  * Not transactional — supabase-js doesn't expose Postgres transactions.
  * If any step fails the toast surfaces it and realtime re-syncs state.
@@ -337,6 +347,7 @@ export function useMarkPaymentPaid() {
       const now = new Date().toISOString();
       const period = row.recurrence_period as RecurrencePeriod | null;
       const isRecurring = row.is_recurring === true;
+      const interval = Math.max(1, Number(row.recurrence_interval ?? 1));
 
       // Insert into payment_history before updating
       const { error: historyErr } = await supabase.from("payment_history").insert({
@@ -363,7 +374,20 @@ export function useMarkPaymentPaid() {
           .update({
             is_paid: false,
             paid_date: null,
-            due_date: addMonth(row.due_date),
+            due_date: addMonth(row.due_date, interval),
+          })
+          .eq("id", id);
+        if (error) throw new Error(error.message);
+        return;
+      }
+
+      if (period === "weekly") {
+        const { error } = await supabase
+          .from("payments")
+          .update({
+            is_paid: false,
+            paid_date: null,
+            due_date: addWeek(row.due_date, interval),
           })
           .eq("id", id);
         if (error) throw new Error(error.message);
@@ -500,6 +524,7 @@ export function useUndoLastPayment() {
       // 4. Revert payment state based on type
       const period = payment.recurrence_period as RecurrencePeriod | null;
       const isRecurring = payment.is_recurring === true;
+      const interval = Math.max(1, Number(payment.recurrence_interval ?? 1));
 
       // Check if due_date was already reverted (history due_date matches current payment due_date)
       // This can happen if previous undo attempt failed to delete history but succeeded in reverting
@@ -518,12 +543,26 @@ export function useUndoLastPayment() {
       }
 
       if (period === "monthly") {
-        // Monthly: move due_date back one month (only if not already reverted)
+        // Monthly: move due_date back by interval months (only if not already reverted)
         if (!alreadyReverted) {
           const { error } = await supabase
             .from("payments")
             .update({
-              due_date: subtractMonth(payment.due_date),
+              due_date: subtractMonth(payment.due_date, interval),
+            })
+            .eq("id", paymentId);
+          if (error) throw new Error(error.message);
+        }
+        return;
+      }
+
+      if (period === "weekly") {
+        // Weekly: move due_date back by interval weeks (only if not already reverted)
+        if (!alreadyReverted) {
+          const { error } = await supabase
+            .from("payments")
+            .update({
+              due_date: subtractWeek(payment.due_date, interval),
             })
             .eq("id", paymentId);
           if (error) throw new Error(error.message);

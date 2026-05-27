@@ -16,6 +16,7 @@ import { useMarkPaymentPaid } from "@/hooks/usePayments";
 import type { Payment } from "@/types/database";
 import { addDays, formatDate, isDateInRange, isOverdue, startOfToday } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
+import { recurrenceLabel } from "@/utils/payment";
 
 /**
  * "Predstojeća plaćanja" dashboard card. Direct port of
@@ -39,10 +40,13 @@ export type DashboardPaymentCardProps = {
   onEdit: (payment: Payment) => void;
 };
 
-function recurrenceLabel(payment: Payment): string {
-  if (payment.recurrence_period === "monthly") return "Mesečno plaćanje";
+function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
-  return "Jednokratno plaćanje";
+  const base = recurrenceLabel(payment.recurrence_period, payment.recurrence_interval);
+  if (payment.recurrence_period === "one-time" || payment.recurrence_period == null) {
+    return "Jednokratno plaćanje";
+  }
+  return `${base} plaćanje`;
 }
 
 export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPaymentCardProps) {
@@ -149,7 +153,7 @@ export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPayme
                     {selectedPayment.name}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {recurrenceLabel(selectedPayment)}
+                    {paymentSubtitle(selectedPayment)}
                   </p>
                 </div>
               </div>
