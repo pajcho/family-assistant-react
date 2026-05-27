@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Event } from "@/types/database";
@@ -74,6 +74,9 @@ export function useEventsList(filters: EventListFilters = {}) {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
   const { from, to } = filters;
+  // Unique per hook invocation so the page + dashboard widget can each
+  // subscribe without colliding on the same Supabase channel name.
+  const channelKey = useId();
 
   const query = useQuery({
     queryKey: ["events", familyId, { from, to }],
@@ -84,7 +87,7 @@ export function useEventsList(filters: EventListFilters = {}) {
   useEffect(() => {
     if (!familyId) return;
     const channel = supabase
-      .channel(`events-${familyId}`)
+      .channel(`events-${familyId}-${channelKey}`)
       .on(
         "postgres_changes",
         {
@@ -99,7 +102,7 @@ export function useEventsList(filters: EventListFilters = {}) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [familyId, queryClient]);
+  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

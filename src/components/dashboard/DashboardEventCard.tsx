@@ -1,18 +1,11 @@
 import * as React from "react";
 import { CalendarIcon } from "@heroicons/react/24/outline";
 
-import { Button } from "@/components/ui/button";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardCardItem } from "@/components/dashboard/DashboardCardItem";
+import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
 import type { Event } from "@/types/database";
-import { addDays, daysFromToday, formatDate, isDateInRange, startOfToday } from "@/utils/date";
+import { addDays, daysFromToday, isDateInRange, startOfToday } from "@/utils/date";
 import { formatEventTimeRange, isEventEnded } from "@/utils/event";
 
 /**
@@ -58,12 +51,6 @@ export function DashboardEventCard({ events, onAdd, onEdit }: DashboardEventCard
     setDetailOpen(true);
   };
 
-  const handleEdit = () => {
-    if (!selectedEvent) return;
-    setDetailOpen(false);
-    onEdit(selectedEvent);
-  };
-
   return (
     <>
       <DashboardCard
@@ -89,63 +76,12 @@ export function DashboardEventCard({ events, onAdd, onEdit }: DashboardEventCard
         ))}
       </DashboardCard>
 
-      <ResponsiveDialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Detalji događaja</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          {selectedEvent ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                  <CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {selectedEvent.name}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDate(selectedEvent.date)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Vreme:</dt>
-                    <dd className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatEventTimeRange(selectedEvent)}
-                    </dd>
-                  </div>
-                  {selectedEvent.description ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Opis:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {selectedEvent.description}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {selectedEvent.notes ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Napomene:</dt>
-                      <dd className="text-right font-medium text-amber-700 dark:text-amber-400">
-                        {selectedEvent.notes}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </div>
-            </div>
-          ) : null}
-          <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Zatvori
-            </Button>
-            <Button onClick={handleEdit}>Izmeni</Button>
-          </ResponsiveDialogFooter>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <EventDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        event={selectedEvent}
+        onEdit={onEdit}
+      />
     </>
   );
 }

@@ -16,6 +16,12 @@ export interface Profile {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  /**
+   * Hex color (e.g. "#3b82f6") used to render this person's activities and
+   * other per-person UI. Null = no color picked yet; the UI falls back to a
+   * deterministic placeholder derived from the id.
+   */
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +83,113 @@ export interface Birthday {
   name: string;
   description: string | null;
   birth_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Activities (recurring weekly schedule per family member)
+// ---------------------------------------------------------------------------
+
+export type SchoolShift = "morning" | "afternoon";
+
+/**
+ * `'every'` — runs on each matching week (default; combined with
+ *             `recurrence_interval_weeks` for "every N weeks" patterns).
+ * `'A'`     — only on weeks when the activity's person is in the MORNING shift.
+ * `'B'`     — only on weeks when the activity's person is in the AFTERNOON shift.
+ *
+ * A/B is implicitly bound to the person's `school_shift_anchors` row. If the
+ * person has no anchor, A/B rules are skipped (the UI prevents creating them).
+ */
+export type WeekPattern = "every" | "A" | "B";
+
+export interface Activity {
+  id: string;
+  family_id: string;
+  /** Whose activity — FK to profiles.id. Required (no shared/family-wide activities yet). */
+  person_id: string;
+  name: string;
+  description: string | null;
+  /** Optional season window (e.g., school year). NULL = open-ended on that side. */
+  active_from: string | null;
+  active_to: string | null;
+  /** Pause without deleting (holidays, illness). */
+  is_paused: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ActivitySchedule {
+  id: string;
+  activity_id: string;
+  /** Denormalized for RLS / fast week queries. */
+  family_id: string;
+  /** 0 = Monday, 6 = Sunday (UI is Monday-first). */
+  day_of_week: number;
+  /** "HH:MM" or "HH:MM:SS" — Postgres TIME column. */
+  start_time: string;
+  end_time: string;
+  week_pattern: WeekPattern;
+  /**
+   * "Every N weeks". 1 = each matching week (default). 2 = every other week,
+   * 3 = every 3rd, etc. Anchor for the modulo is the activity's `active_from`
+   * (Monday-normalized), falling back to the activity's `created_at`. A/B
+   * patterns ignore this on the UI level (forced back to 1) but the
+   * resolver applies it defensively if combined.
+   */
+  recurrence_interval_weeks: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ActivityOverrideAction = "cancel" | "reschedule";
+
+/**
+ * Per-occurrence override on a schedule rule. Lookup key is
+ * `(schedule_id, date)` (UNIQUE in the DB). The resolver applies overrides
+ * AFTER deciding whether the underlying rule fires that day — if the rule
+ * is silent (shift flipped, season ended, activity paused), the override
+ * lies dormant in the database and reactivates when conditions return.
+ */
+export interface ActivityOverride {
+  id: string;
+  schedule_id: string;
+  family_id: string;
+  /** YYYY-MM-DD — the day the rule WOULD have fired. The override is keyed by this. */
+  date: string;
+  action: ActivityOverrideAction;
+  /** Required for `'reschedule'`. NULL for `'cancel'`. */
+  override_start_time: string | null;
+  override_end_time: string | null;
+  /**
+   * For reschedules that move the termin to a DIFFERENT day. NULL when the
+   * reschedule keeps the same day and only changes times. When set, the
+   * resolver renders a ghost "moved away" marker on the original `date`
+   * and a full block on `override_date`.
+   */
+  override_date: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SchoolShiftAnchor {
+  /** Primary key — one row per person. */
+  person_id: string;
+  family_id: string;
+  /** Monday of the anchor week. The UI normalizes to Monday before insert. */
+  anchor_week_start: string;
+  anchor_shift: SchoolShift;
+  /** "Every N weeks the shift flips". Default 1 = true week-by-week alternation. */
+  flip_interval_weeks: number;
+  /**
+   * Whether the shift actually rotates. False for 1st/2nd-grade kids who
+   * stay in `anchor_shift` all year — the derivation skips the flip math
+   * and returns the anchor straight back.
+   */
+  is_alternating: boolean;
   created_at: string;
   updated_at: string;
 }

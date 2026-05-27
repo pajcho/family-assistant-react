@@ -1,6 +1,7 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { DashboardTodayCard } from "@/components/dashboard/DashboardTodayCard";
 import { DashboardBirthdayCard } from "@/components/dashboard/DashboardBirthdayCard";
 import { DashboardEventCard } from "@/components/dashboard/DashboardEventCard";
 import { DashboardListsCard } from "@/components/dashboard/DashboardListsCard";
@@ -246,6 +247,17 @@ function DashboardPage() {
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
       ) : (
         <div className="stagger-fade-in mt-6 grid gap-4 sm:grid-cols-2">
+          {/* Hero spot for "Danas" — spans both columns on sm+ because the
+              daily question is the most-checked thing on the dashboard and
+              the chronological list reads better wide than narrow. */}
+          <div className="sm:col-span-2">
+            <DashboardTodayCard
+              onEditEvent={openEditEvent}
+              onEditPayment={(payment) => {
+                void openEditPayment(payment);
+              }}
+            />
+          </div>
           <DashboardEventCard events={events} onAdd={openAddEvent} onEdit={openEditEvent} />
           <DashboardPaymentCard
             payments={payments}

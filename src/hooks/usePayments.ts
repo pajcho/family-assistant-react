@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Payment, PaymentHistory, RecurrencePeriod } from "@/types/database";
@@ -159,11 +159,14 @@ export async function getLastHistoryEntry(paymentId: string): Promise<PaymentHis
  */
 function usePaymentsRealtime(familyId: string | null): void {
   const queryClient = useQueryClient();
+  // Unique per hook invocation so multiple consumers of `usePaymentsList`
+  // (dashboard widgets + page) don't collide on the same channel name.
+  const channelKey = useId();
 
   useEffect(() => {
     if (!familyId) return;
     const channel = supabase
-      .channel(`payments-${familyId}`)
+      .channel(`payments-${familyId}-${channelKey}`)
       .on(
         "postgres_changes",
         {
@@ -194,7 +197,7 @@ function usePaymentsRealtime(familyId: string | null): void {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [familyId, queryClient]);
+  }, [familyId, queryClient, channelKey]);
 }
 
 export function usePaymentsList(filters: PaymentListFilters = {}) {
