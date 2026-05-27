@@ -615,12 +615,23 @@ interface PrefsTzRow {
   timezone: string;
 }
 
+interface ProfileLiteRow {
+  id: string;
+  family_id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+const FAMILY_TZ_DEFAULT = "Europe/Belgrade";
+
 async function processActivityReminders(
   // deno-lint-ignore no-explicit-any
   supabase: any,
 ): Promise<unknown[]> {
   // One round trip for each table — small datasets per family, plenty fast.
-  const [actsRes, schedRes, partsRes, ovRes, anchorsRes, prefsRes] =
+  // Profile + push-subscription bulk pulls let us dispatch each reminder
+  // to every push-subscribed family member without per-occurrence queries.
+  const [actsRes, schedRes, partsRes, ovRes, anchorsRes, prefsRes, profilesRes, subsRes] =
     await Promise.all([
       supabase
         .from("activities")
@@ -646,6 +657,8 @@ async function processActivityReminders(
           "person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating",
         ),
       supabase.from("notification_preferences").select("user_id, timezone"),
+      supabase.from("profiles").select("id, family_id, first_name, last_name"),
+      supabase.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth"),
     ]);
 
   const activities = (actsRes.data ?? []) as ActivityRow[];
@@ -656,11 +669,26 @@ async function processActivityReminders(
   const overrides = (ovRes.data ?? []) as ActivityOverrideRow[];
   const anchors = (anchorsRes.data ?? []) as ShiftAnchorRow[];
   const prefs = (prefsRes.data ?? []) as PrefsTzRow[];
+  const profiles = (profilesRes.data ?? []) as ProfileLiteRow[];
+  const subs = (subsRes.data ?? []) as (PushSub & { user_id: string })[];
 
   const activityById = new Map(activities.map((a) => [a.id, a]));
   const ruleById = new Map(schedule.map((r) => [r.id, r]));
   const anchorByPerson = new Map(anchors.map((a) => [a.person_id, a]));
   const tzByUser = new Map(prefs.map((p) => [p.user_id, p.timezone]));
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profilesByFamily = new Map<string, ProfileLiteRow[]>();
+  for (const p of profiles) {
+    const arr = profilesByFamily.get(p.family_id);
+    if (arr) arr.push(p);
+    else profilesByFamily.set(p.family_id, [p]);
+  }
+  const subsByUser = new Map<string, (PushSub & { user_id: string })[]>();
+  for (const s of subs) {
+    const arr = subsByUser.get(s.user_id);
+    if (arr) arr.push(s);
+    else subsByUser.set(s.user_id, [s]);
+  }
   // Index for O(1) override lookup by (schedule_id, date, person_id).
   const overrideKey = (sid: string, date: string, pid: string) =>
     `${sid}|${date}|${pid}`;
@@ -675,31 +703,54 @@ async function processActivityReminders(
     else personsByActivity.set(p.activity_id, [p.person_id]);
   }
 
+  // Pick a "family timezone" for day-of-week / today computations. Any
+  // auth user's tz works because we assume family members share locale;
+  // falls back to Belgrade so kid-only activities still resolve.
+  function familyTz(familyId: string): string {
+    const familyProfiles = profilesByFamily.get(familyId) ?? [];
+    for (const p of familyProfiles) {
+      const tz = tzByUser.get(p.id);
+      if (tz) return tz;
+    }
+    return FAMILY_TZ_DEFAULT;
+  }
+
   const out: unknown[] = [];
 
-  // Pass 1 — walk rules × participants for occurrences whose original
-  // date is today (in the participant's timezone).
+  // Pass 1 — walk rules × participants. We use the family's timezone
+  // for the day-of-week and override lookup (the rule's day-of-week
+  // is in the family's wall clock, not any individual user's), then
+  // dispatch to every push-subscribed user in the family with the
+  // per-recipient tz check happening inside the dispatch helper.
   for (const rule of schedule) {
     const activity = activityById.get(rule.activity_id);
     if (!activity) continue;
     const persons = personsByActivity.get(activity.id);
     if (!persons || persons.length === 0) continue;
 
+    const tz = familyTz(activity.family_id);
+    const familyToday = localDateISO(tz);
+
     for (const personId of persons) {
-      const tz = tzByUser.get(personId);
-      if (!tz) continue; // participant never opened settings → no tz
-      const localToday = localDateISO(tz);
-      if (!matchesRuleOnDate(activity, rule, anchorByPerson.get(personId), localToday, personId)) {
+      if (
+        !matchesRuleOnDate(
+          activity,
+          rule,
+          anchorByPerson.get(personId),
+          familyToday,
+          personId,
+        )
+      ) {
         continue;
       }
 
-      const override = overrideByKey.get(overrideKey(rule.id, localToday, personId));
+      const override = overrideByKey.get(overrideKey(rule.id, familyToday, personId));
       let effectiveStart = rule.start_time.slice(0, 5);
       if (override) {
         if (override.action === "cancel") continue;
         if (override.action === "reschedule") {
           const movedAway =
-            !!override.override_date && override.override_date !== localToday;
+            !!override.override_date && override.override_date !== familyToday;
           if (movedAway) continue; // fires on a different day; pass 2 handles it
           if (override.override_start_time) {
             effectiveStart = override.override_start_time.slice(0, 5);
@@ -707,27 +758,24 @@ async function processActivityReminders(
         }
       }
 
-      const fire = eventLocalFireTime(
-        localToday,
-        effectiveStart,
-        activity.remind_minutes_before,
-      );
-      if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
-
       out.push(
-        ...(await sendActivityReminder(
+        ...(await dispatchActivityReminder(
           supabase,
+          activity,
           personId,
           rule.id,
-          localToday,
-          activity,
+          familyToday,
           effectiveStart,
+          profileById,
+          profilesByFamily,
+          subsByUser,
+          tzByUser,
         )),
       );
     }
   }
 
-  // Pass 2 — moved-here overrides whose new date is today in the user's tz.
+  // Pass 2 — moved-here overrides whose new date is today in the family tz.
   for (const ov of overrides) {
     if (ov.action !== "reschedule") continue;
     if (!ov.override_date) continue;
@@ -740,10 +788,9 @@ async function processActivityReminders(
     if (!activity) continue;
     if (!activity.remind_minutes_before) continue;
 
-    const tz = tzByUser.get(ov.person_id);
-    if (!tz) continue;
-    const localToday = localDateISO(tz);
-    if (ov.override_date !== localToday) continue;
+    const tz = familyTz(activity.family_id);
+    const familyToday = localDateISO(tz);
+    if (ov.override_date !== familyToday) continue;
 
     if (activity.active_from && ov.override_date < activity.active_from) continue;
     if (activity.active_to && ov.override_date > activity.active_to) continue;
@@ -753,21 +800,19 @@ async function processActivityReminders(
     if (!persons?.includes(ov.person_id)) continue;
 
     const effectiveStart = ov.override_start_time.slice(0, 5);
-    const fire = eventLocalFireTime(
-      ov.override_date,
-      effectiveStart,
-      activity.remind_minutes_before,
-    );
-    if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
 
     out.push(
-      ...(await sendActivityReminder(
+      ...(await dispatchActivityReminder(
         supabase,
+        activity,
         ov.person_id,
         rule.id,
         ov.override_date,
-        activity,
         effectiveStart,
+        profileById,
+        profilesByFamily,
+        subsByUser,
+        tzByUser,
       )),
     );
   }
@@ -815,84 +860,117 @@ function matchesRuleOnDate(
   return true;
 }
 
-async function sendActivityReminder(
+/**
+ * Send the reminder to every push-subscribed family member. The
+ * participant is who the activity is FOR (often a kid without a login);
+ * the recipients are whoever in the family actually has push subscriptions
+ * (typically the parents). Each recipient gets their own idempotency log
+ * row keyed by user_id + ref_id so the UNIQUE constraint allows multiple
+ * parents to receive the same occurrence.
+ *
+ * Body wording flips based on whether the recipient is also the
+ * participant — "Trening fudbala" for self, "Lucija • Trening fudbala"
+ * for a parent receiving a kid's reminder.
+ */
+async function dispatchActivityReminder(
   // deno-lint-ignore no-explicit-any
   supabase: any,
-  userId: string,
+  activity: ActivityRow,
+  participantPersonId: string,
   scheduleId: string,
   occurrenceDate: string,
-  activity: ActivityRow,
   effectiveStart: string,
+  profileById: ReadonlyMap<string, ProfileLiteRow>,
+  profilesByFamily: ReadonlyMap<string, ProfileLiteRow[]>,
+  subsByUser: ReadonlyMap<string, (PushSub & { user_id: string })[]>,
+  tzByUser: ReadonlyMap<string, string>,
 ): Promise<unknown[]> {
-  const refId = `${scheduleId}:${occurrenceDate}:${userId}`;
+  const refId = `${scheduleId}:${occurrenceDate}:${participantPersonId}`;
+  const familyProfiles = profilesByFamily.get(activity.family_id) ?? [];
+  const out: unknown[] = [];
 
-  const { error: logError } = await supabase
-    .from("notification_log")
-    .insert({ user_id: userId, kind: "activity_reminder", ref_id: refId });
-  if (logError) {
-    if (logError.code === "23505") {
-      return [
-        {
-          user_id: userId,
+  const participant = profileById.get(participantPersonId);
+  const participantName = participant
+    ? [participant.first_name, participant.last_name].filter(Boolean).join(" ").trim()
+    : "";
+
+  for (const recipient of familyProfiles) {
+    const recipientId = recipient.id;
+    const subList = subsByUser.get(recipientId);
+    if (!subList || subList.length === 0) continue; // no push → not a recipient
+
+    const recipientTz = tzByUser.get(recipientId) ?? FAMILY_TZ_DEFAULT;
+    const fire = eventLocalFireTime(
+      occurrenceDate,
+      effectiveStart,
+      activity.remind_minutes_before,
+    );
+    if (
+      localDateISO(recipientTz) !== fire.date ||
+      localTime(recipientTz) !== fire.time
+    ) {
+      continue;
+    }
+
+    const { error: logError } = await supabase
+      .from("notification_log")
+      .insert({ user_id: recipientId, kind: "activity_reminder", ref_id: refId });
+    if (logError) {
+      if (logError.code === "23505") {
+        out.push({
+          user_id: recipientId,
           kind: "activity_reminder",
           ref_id: refId,
           status: "already_sent",
-        },
-      ];
-    }
-    return [
-      {
-        user_id: userId,
+        });
+        continue;
+      }
+      out.push({
+        user_id: recipientId,
         kind: "activity_reminder",
         ref_id: refId,
         error: logError.message,
-      },
-    ];
-  }
+      });
+      continue;
+    }
 
-  const { data: subs } = await supabase
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .eq("user_id", userId);
-  const subList = (subs ?? []) as PushSub[];
+    const isForSelf = recipientId === participantPersonId;
+    const title =
+      isForSelf || !participantName ? activity.name : `${participantName} • ${activity.name}`;
+    const payload = JSON.stringify({
+      title,
+      body: `Počinje za ${activity.remind_minutes_before} min (u ${effectiveStart}).`,
+      url: "/activities",
+      tag: `activity-reminder-${refId}-${recipientId}`,
+    });
 
-  if (subList.length === 0) {
-    return [
-      {
-        user_id: userId,
-        kind: "activity_reminder",
-        ref_id: refId,
-        status: "no_subscriptions",
-      },
-    ];
-  }
-
-  const payload = JSON.stringify({
-    title: activity.name,
-    body: `Počinje za ${activity.remind_minutes_before} min (u ${effectiveStart}).`,
-    url: "/activities",
-    tag: `activity-reminder-${refId}`,
-  });
-
-  let sent = 0;
-  let dead = 0;
-  for (const sub of subList) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload,
-      );
-      sent++;
-    } catch (e) {
-      // deno-lint-ignore no-explicit-any
-      const status = (e as any)?.statusCode as number | undefined;
-      if (status === 404 || status === 410) {
-        await supabase.from("push_subscriptions").delete().eq("id", sub.id);
-        dead++;
+    let sent = 0;
+    let dead = 0;
+    for (const sub of subList) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        sent++;
+      } catch (e) {
+        // deno-lint-ignore no-explicit-any
+        const status = (e as any)?.statusCode as number | undefined;
+        if (status === 404 || status === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          dead++;
+        }
       }
     }
+    out.push({
+      user_id: recipientId,
+      kind: "activity_reminder",
+      ref_id: refId,
+      sent,
+      dead,
+    });
   }
-  return [{ user_id: userId, kind: "activity_reminder", ref_id: refId, sent, dead }];
+  return out;
 }
 
 // --- activity resolver helpers (ported from src/utils/activity.ts) ---------
