@@ -251,7 +251,12 @@ function DashboardPage() {
               daily question is the most-checked thing on the dashboard and
               the chronological list reads better wide than narrow. */}
           <div className="sm:col-span-2">
-            <DashboardTodayCard />
+            <DashboardTodayCard
+              onEditEvent={openEditEvent}
+              onEditPayment={(payment) => {
+                void openEditPayment(payment);
+              }}
+            />
           </div>
           <DashboardEventCard events={events} onAdd={openAddEvent} onEdit={openEditEvent} />
           <DashboardPaymentCard
