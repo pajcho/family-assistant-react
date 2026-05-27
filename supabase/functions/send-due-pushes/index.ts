@@ -105,6 +105,13 @@ Deno.serve(async (req) => {
   const paymentResults = await processPaymentReminders(supabase);
   results.push(...paymentResults);
 
+  // Per-activity reminders — same idea as event reminders but the
+  // "occurrence" is computed by walking weekly schedule rules per
+  // participant (respecting A/B shift patterns, every-N-week intervals,
+  // active-from/to seasons, and per-person overrides).
+  const activityResults = await processActivityReminders(supabase);
+  results.push(...activityResults);
+
   return Response.json({ ok: true, force, processed: results });
 });
 
@@ -542,6 +549,384 @@ function eventLocalFireTime(
 
 function pad2(n: number): string {
   return n.toString().padStart(2, "0");
+}
+
+// ---------------------------------------------------------------------------
+// Per-activity reminders
+// ---------------------------------------------------------------------------
+//
+// Activities are weekly recurring schedules with multi-person participants
+// and per-occurrence overrides. To decide if a reminder fires *now*, we
+// replicate the frontend resolver inline (Deno can't import frontend
+// utils) and then match against each participant's local clock.
+//
+// Idempotency key extends the event_reminder pattern with the date and
+// person — `<schedule_id>:<YYYY-MM-DD>:<person_id>` — so the same rule
+// firing in different weeks logs independently and each participant
+// claims their own slot.
+
+interface ActivityRow {
+  id: string;
+  family_id: string;
+  name: string;
+  active_from: string | null;
+  active_to: string | null;
+  is_paused: boolean;
+  remind_minutes_before: number;
+  created_at: string;
+}
+
+interface ScheduleRuleRow {
+  id: string;
+  activity_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  week_pattern: "every" | "A" | "B";
+  recurrence_interval_weeks: number;
+}
+
+interface ParticipantRow {
+  activity_id: string;
+  person_id: string;
+}
+
+interface ActivityOverrideRow {
+  id: string;
+  schedule_id: string;
+  person_id: string;
+  date: string;
+  action: "cancel" | "reschedule";
+  override_start_time: string | null;
+  override_end_time: string | null;
+  override_date: string | null;
+}
+
+interface ShiftAnchorRow {
+  person_id: string;
+  anchor_week_start: string;
+  anchor_shift: "morning" | "afternoon";
+  flip_interval_weeks: number;
+  is_alternating: boolean;
+}
+
+interface PrefsTzRow {
+  user_id: string;
+  timezone: string;
+}
+
+async function processActivityReminders(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<unknown[]> {
+  // One round trip for each table — small datasets per family, plenty fast.
+  const [actsRes, schedRes, partsRes, ovRes, anchorsRes, prefsRes] =
+    await Promise.all([
+      supabase
+        .from("activities")
+        .select(
+          "id, family_id, name, active_from, active_to, is_paused, remind_minutes_before, created_at",
+        )
+        .not("remind_minutes_before", "is", null)
+        .eq("is_paused", false),
+      supabase
+        .from("activity_schedule")
+        .select(
+          "id, activity_id, day_of_week, start_time, end_time, week_pattern, recurrence_interval_weeks",
+        ),
+      supabase.from("activity_participants").select("activity_id, person_id"),
+      supabase
+        .from("activity_overrides")
+        .select(
+          "id, schedule_id, person_id, date, action, override_start_time, override_end_time, override_date",
+        ),
+      supabase
+        .from("school_shift_anchors")
+        .select(
+          "person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating",
+        ),
+      supabase.from("notification_preferences").select("user_id, timezone"),
+    ]);
+
+  const activities = (actsRes.data ?? []) as ActivityRow[];
+  if (activities.length === 0) return [];
+
+  const schedule = (schedRes.data ?? []) as ScheduleRuleRow[];
+  const participants = (partsRes.data ?? []) as ParticipantRow[];
+  const overrides = (ovRes.data ?? []) as ActivityOverrideRow[];
+  const anchors = (anchorsRes.data ?? []) as ShiftAnchorRow[];
+  const prefs = (prefsRes.data ?? []) as PrefsTzRow[];
+
+  const activityById = new Map(activities.map((a) => [a.id, a]));
+  const ruleById = new Map(schedule.map((r) => [r.id, r]));
+  const anchorByPerson = new Map(anchors.map((a) => [a.person_id, a]));
+  const tzByUser = new Map(prefs.map((p) => [p.user_id, p.timezone]));
+  // Index for O(1) override lookup by (schedule_id, date, person_id).
+  const overrideKey = (sid: string, date: string, pid: string) =>
+    `${sid}|${date}|${pid}`;
+  const overrideByKey = new Map<string, ActivityOverrideRow>();
+  for (const o of overrides) {
+    overrideByKey.set(overrideKey(o.schedule_id, o.date, o.person_id), o);
+  }
+  const personsByActivity = new Map<string, string[]>();
+  for (const p of participants) {
+    const arr = personsByActivity.get(p.activity_id);
+    if (arr) arr.push(p.person_id);
+    else personsByActivity.set(p.activity_id, [p.person_id]);
+  }
+
+  const out: unknown[] = [];
+
+  // Pass 1 — walk rules × participants for occurrences whose original
+  // date is today (in the participant's timezone).
+  for (const rule of schedule) {
+    const activity = activityById.get(rule.activity_id);
+    if (!activity) continue;
+    const persons = personsByActivity.get(activity.id);
+    if (!persons || persons.length === 0) continue;
+
+    for (const personId of persons) {
+      const tz = tzByUser.get(personId);
+      if (!tz) continue; // participant never opened settings → no tz
+      const localToday = localDateISO(tz);
+      if (!matchesRuleOnDate(activity, rule, anchorByPerson.get(personId), localToday, personId)) {
+        continue;
+      }
+
+      const override = overrideByKey.get(overrideKey(rule.id, localToday, personId));
+      let effectiveStart = rule.start_time.slice(0, 5);
+      if (override) {
+        if (override.action === "cancel") continue;
+        if (override.action === "reschedule") {
+          const movedAway =
+            !!override.override_date && override.override_date !== localToday;
+          if (movedAway) continue; // fires on a different day; pass 2 handles it
+          if (override.override_start_time) {
+            effectiveStart = override.override_start_time.slice(0, 5);
+          }
+        }
+      }
+
+      const fire = eventLocalFireTime(
+        localToday,
+        effectiveStart,
+        activity.remind_minutes_before,
+      );
+      if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
+
+      out.push(
+        ...(await sendActivityReminder(
+          supabase,
+          personId,
+          rule.id,
+          localToday,
+          activity,
+          effectiveStart,
+        )),
+      );
+    }
+  }
+
+  // Pass 2 — moved-here overrides whose new date is today in the user's tz.
+  for (const ov of overrides) {
+    if (ov.action !== "reschedule") continue;
+    if (!ov.override_date) continue;
+    if (ov.override_date === ov.date) continue; // same-day handled in pass 1
+    if (!ov.override_start_time) continue;
+
+    const rule = ruleById.get(ov.schedule_id);
+    if (!rule) continue;
+    const activity = activityById.get(rule.activity_id);
+    if (!activity) continue;
+    if (!activity.remind_minutes_before) continue;
+
+    const tz = tzByUser.get(ov.person_id);
+    if (!tz) continue;
+    const localToday = localDateISO(tz);
+    if (ov.override_date !== localToday) continue;
+
+    if (activity.active_from && ov.override_date < activity.active_from) continue;
+    if (activity.active_to && ov.override_date > activity.active_to) continue;
+    // Participant might have been removed from the activity after the
+    // override was set — same silent-skip-and-reactivate semantic.
+    const persons = personsByActivity.get(activity.id);
+    if (!persons?.includes(ov.person_id)) continue;
+
+    const effectiveStart = ov.override_start_time.slice(0, 5);
+    const fire = eventLocalFireTime(
+      ov.override_date,
+      effectiveStart,
+      activity.remind_minutes_before,
+    );
+    if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
+
+    out.push(
+      ...(await sendActivityReminder(
+        supabase,
+        ov.person_id,
+        rule.id,
+        ov.override_date,
+        activity,
+        effectiveStart,
+      )),
+    );
+  }
+
+  return out;
+}
+
+/**
+ * Returns true if `rule` fires on `localDate` for `personId`, ignoring any
+ * override row (override application happens after this check so a cancel
+ * can still see the underlying "would have fired" state).
+ */
+function matchesRuleOnDate(
+  activity: ActivityRow,
+  rule: ScheduleRuleRow,
+  shiftAnchor: ShiftAnchorRow | undefined,
+  localDate: string,
+  _personId: string,
+): boolean {
+  // Day-of-week
+  const localDow = mondayFirstDowFor(localDate);
+  if (rule.day_of_week !== localDow) return false;
+
+  // Active window
+  if (activity.active_from && localDate < activity.active_from) return false;
+  if (activity.active_to && localDate > activity.active_to) return false;
+
+  // Every-N-weeks modulo against the activity's anchor (Monday of
+  // active_from or created_at).
+  const interval = Math.max(1, Math.floor(rule.recurrence_interval_weeks || 1));
+  if (interval > 1) {
+    const anchorSource = (activity.active_from ?? activity.created_at).slice(0, 10);
+    const diff = weeksBetweenMondays(mondayOfWeek(anchorSource), mondayOfWeek(localDate));
+    if (diff < 0 || diff % interval !== 0) return false;
+  }
+
+  // A/B pattern via this person's shift anchor.
+  if (rule.week_pattern !== "every") {
+    if (!shiftAnchor) return false;
+    const shift = deriveShiftForWeek(shiftAnchor, mondayOfWeek(localDate));
+    if (rule.week_pattern === "A" && shift !== "morning") return false;
+    if (rule.week_pattern === "B" && shift !== "afternoon") return false;
+  }
+
+  return true;
+}
+
+async function sendActivityReminder(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  userId: string,
+  scheduleId: string,
+  occurrenceDate: string,
+  activity: ActivityRow,
+  effectiveStart: string,
+): Promise<unknown[]> {
+  const refId = `${scheduleId}:${occurrenceDate}:${userId}`;
+
+  const { error: logError } = await supabase
+    .from("notification_log")
+    .insert({ user_id: userId, kind: "activity_reminder", ref_id: refId });
+  if (logError) {
+    if (logError.code === "23505") {
+      return [
+        {
+          user_id: userId,
+          kind: "activity_reminder",
+          ref_id: refId,
+          status: "already_sent",
+        },
+      ];
+    }
+    return [
+      {
+        user_id: userId,
+        kind: "activity_reminder",
+        ref_id: refId,
+        error: logError.message,
+      },
+    ];
+  }
+
+  const { data: subs } = await supabase
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
+    .eq("user_id", userId);
+  const subList = (subs ?? []) as PushSub[];
+
+  if (subList.length === 0) {
+    return [
+      {
+        user_id: userId,
+        kind: "activity_reminder",
+        ref_id: refId,
+        status: "no_subscriptions",
+      },
+    ];
+  }
+
+  const payload = JSON.stringify({
+    title: activity.name,
+    body: `Počinje za ${activity.remind_minutes_before} min (u ${effectiveStart}).`,
+    url: "/activities",
+    tag: `activity-reminder-${refId}`,
+  });
+
+  let sent = 0;
+  let dead = 0;
+  for (const sub of subList) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload,
+      );
+      sent++;
+    } catch (e) {
+      // deno-lint-ignore no-explicit-any
+      const status = (e as any)?.statusCode as number | undefined;
+      if (status === 404 || status === 410) {
+        await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+        dead++;
+      }
+    }
+  }
+  return [{ user_id: userId, kind: "activity_reminder", ref_id: refId, sent, dead }];
+}
+
+// --- activity resolver helpers (ported from src/utils/activity.ts) ---------
+
+function mondayFirstDowFor(yyyymmdd: string): number {
+  // JS Date.getUTCDay returns 0=Sun..6=Sat; the frontend uses 0=Mon..6=Sun.
+  const d = new Date(yyyymmdd + "T12:00:00Z");
+  return (d.getUTCDay() + 6) % 7;
+}
+
+function mondayOfWeek(yyyymmdd: string): string {
+  const d = new Date(yyyymmdd + "T12:00:00Z");
+  const dow = (d.getUTCDay() + 6) % 7; // 0=Mon
+  d.setUTCDate(d.getUTCDate() - dow);
+  return d.toISOString().slice(0, 10);
+}
+
+function weeksBetweenMondays(fromMondayISO: string, toMondayISO: string): number {
+  const from = Date.parse(fromMondayISO + "T12:00:00Z");
+  const to = Date.parse(toMondayISO + "T12:00:00Z");
+  return Math.round((to - from) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function deriveShiftForWeek(
+  anchor: ShiftAnchorRow,
+  targetMondayISO: string,
+): "morning" | "afternoon" {
+  if (!anchor.is_alternating) return anchor.anchor_shift;
+  const interval = Math.max(1, Math.floor(anchor.flip_interval_weeks || 1));
+  const diff = weeksBetweenMondays(anchor.anchor_week_start, targetMondayISO);
+  const flips = Math.floor(diff / interval);
+  const flipsMod = ((flips % 2) + 2) % 2;
+  if (flipsMod === 0) return anchor.anchor_shift;
+  return anchor.anchor_shift === "morning" ? "afternoon" : "morning";
 }
 
 // --- helpers ---------------------------------------------------------------

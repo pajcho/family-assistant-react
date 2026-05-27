@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/cn";
 import type { Activity, ActivitySchedule, Profile, WeekPattern } from "@/types/database";
@@ -27,6 +28,7 @@ export type ActivityFormPayload = {
   active_from: string | null;
   active_to: string | null;
   is_paused: boolean;
+  remind_minutes_before: number | null;
   notes: string | null;
   rules: ScheduleRuleDraft[];
 };
@@ -172,6 +174,7 @@ type FormState = {
   active_from: string | null;
   active_to: string | null;
   is_paused: boolean;
+  remind_minutes_before: number | null;
   notes: string;
   rules: ScheduleRuleDraft[];
 };
@@ -208,6 +211,7 @@ function initialState(
     active_from: activity?.active_from ?? null,
     active_to: activity?.active_to ?? null,
     is_paused: activity?.is_paused ?? false,
+    remind_minutes_before: activity?.remind_minutes_before ?? null,
     notes: activity?.notes ?? "",
     rules,
   };
@@ -285,6 +289,7 @@ export function ActivityForm({
       active_from: form.active_from,
       active_to: form.active_to,
       is_paused: form.is_paused,
+      remind_minutes_before: form.remind_minutes_before,
       notes: form.notes.trim() || null,
       rules: validRules,
     });
@@ -490,6 +495,19 @@ export function ActivityForm({
           <span className="text-sm text-gray-700 dark:text-gray-200">Pauziraj aktivnost</span>
         </label>
       ) : null}
+
+      <div className="space-y-2">
+        <Label htmlFor="activity-reminder">Podsetnik</Label>
+        <ReminderSelect
+          id="activity-reminder"
+          value={form.remind_minutes_before}
+          onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+          options={EVENT_REMINDER_OPTIONS}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Svaki učesnik dobija push obaveštenje. Otkazani i pomereni termini se preskaču.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="notes">Beleške</Label>
