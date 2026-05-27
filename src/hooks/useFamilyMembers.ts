@@ -23,8 +23,12 @@ import { useProfile } from "@/hooks/useProfile";
  */
 
 async function fetchFamilyMembers(familyId: string): Promise<Profile[]> {
+  // Read through the `profiles_with_login` view so each row carries the
+  // derived `has_login` boolean. Underlying RLS on `profiles` still
+  // applies (the view uses `security_invoker = true`), so this returns
+  // exactly the same rows as a direct `profiles` query would.
   const { data, error } = await supabase
-    .from("profiles")
+    .from("profiles_with_login")
     .select("*")
     .eq("family_id", familyId);
   if (error) return [];
