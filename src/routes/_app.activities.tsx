@@ -25,6 +25,10 @@ import {
   useDeleteActivity,
   useUpdateActivity,
 } from "@/hooks/useActivities";
+import {
+  useActivityParticipants,
+  useReplaceActivityParticipants,
+} from "@/hooks/useActivityParticipants";
 import { useActivitySchedule, useReplaceActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
@@ -80,15 +84,30 @@ function ActivitiesPage() {
   const updateActivity = useUpdateActivity();
   const deleteActivity = useDeleteActivity();
   const replaceSchedule = useReplaceActivitySchedule();
+  const replaceParticipants = useReplaceActivityParticipants();
+  const participantsQuery = useActivityParticipants();
 
   const activities = activitiesQuery.data ?? [];
   const schedule = scheduleQuery.data ?? [];
+  const participants = participantsQuery.data ?? [];
 
   const activitiesById = React.useMemo(
     () => new Map(activities.map((a) => [a.id, a])),
     [activities],
   );
   const peopleById = React.useMemo(() => new Map(members.map((p) => [p.id, p])), [members]);
+
+  // Person ids per activity — used by AllActivitiesList for the chip
+  // strip and by the edit dialog to prefill `existingPersonIds`.
+  const personIdsByActivity = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const p of participants) {
+      const arr = map.get(p.activity_id);
+      if (arr) arr.push(p.person_id);
+      else map.set(p.activity_id, [p.person_id]);
+    }
+    return map;
+  }, [participants]);
 
   const togglePerson = (personId: string) => {
     setPersonFilter((prev) => {
@@ -120,7 +139,7 @@ function ActivitiesPage() {
   const handleSubmit = async (payload: ActivityFormPayload) => {
     setFormError(null);
     try {
-      const { rules, ...activityPayload } = payload;
+      const { rules, person_ids, ...activityPayload } = payload;
       let activityId: string;
       if (editing) {
         await updateActivity.mutateAsync({ id: editing.id, payload: activityPayload });
@@ -130,6 +149,7 @@ function ActivitiesPage() {
         activityId = created.id;
       }
       await replaceSchedule.mutateAsync({ activityId, rules });
+      await replaceParticipants.mutateAsync({ activityId, personIds: person_ids });
       setDialogOpen(false);
       setEditing(null);
     } catch (err) {
@@ -171,12 +191,17 @@ function ActivitiesPage() {
   const editingRules = editing
     ? schedule.filter((rule) => rule.activity_id === editing.id)
     : undefined;
+  const editingPersonIds = editing ? personIdsByActivity.get(editing.id) : undefined;
 
   const rangeLabel = formatWeekRange(weekStart);
   const isCurrentWeek = weekStart === getThisWeekStart();
-  const isLoading = activitiesQuery.isLoading || scheduleQuery.isLoading;
+  const isLoading =
+    activitiesQuery.isLoading || scheduleQuery.isLoading || participantsQuery.isLoading;
   const saving =
-    createActivity.isPending || updateActivity.isPending || replaceSchedule.isPending;
+    createActivity.isPending ||
+    updateActivity.isPending ||
+    replaceSchedule.isPending ||
+    replaceParticipants.isPending;
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -272,6 +297,7 @@ function ActivitiesPage() {
         <AllActivitiesList
           activities={activities}
           scheduleCountByActivity={countSchedule(schedule)}
+          personIdsByActivity={personIdsByActivity}
           peopleById={peopleById}
           onEdit={openEdit}
           onDelete={confirmDelete}
@@ -283,9 +309,10 @@ function ActivitiesPage() {
         onOpenChange={handleDialogOpenChange}
         activity={editing}
         existingRules={editingRules}
+        existingPersonIds={editingPersonIds}
         people={members}
         peopleWithShift={peopleWithShift}
-        defaultPersonId={editing?.person_id ?? profile?.id ?? null}
+        defaultPersonId={profile?.id ?? null}
         error={formError}
         saving={saving}
         onSubmit={(payload) => {
@@ -340,6 +367,7 @@ function formatWeekRange(weekStart: string): string {
 interface AllActivitiesListProps {
   activities: ReadonlyArray<Activity>;
   scheduleCountByActivity: ReadonlyMap<string, number>;
+  personIdsByActivity: ReadonlyMap<string, string[]>;
   peopleById: ReadonlyMap<string, Profile>;
   onEdit: (activity: Activity) => void;
   onDelete: (activity: Activity) => void;
@@ -348,6 +376,7 @@ interface AllActivitiesListProps {
 function AllActivitiesList({
   activities,
   scheduleCountByActivity,
+  personIdsByActivity,
   peopleById,
   onEdit,
   onDelete,
@@ -359,15 +388,19 @@ function AllActivitiesList({
       </h2>
       <ul className="divide-y divide-gray-100 dark:divide-gray-700">
         {activities.map((activity) => {
-          const person = peopleById.get(activity.person_id);
-          const color = person?.color ?? fallbackColorForProfile(activity.person_id);
-          const personName = person
-            ? getDisplayName({
-                firstName: person.first_name,
-                lastName: person.last_name,
-                email: null,
-              }) || "Bez imena"
-            : "—";
+          const personIds = personIdsByActivity.get(activity.id) ?? [];
+          const personNames = personIds
+            .map((id) => {
+              const p = peopleById.get(id);
+              return p
+                ? getDisplayName({
+                    firstName: p.first_name,
+                    lastName: p.last_name,
+                    email: null,
+                  }) || "Bez imena"
+                : "—";
+            })
+            .join(", ");
           const count = scheduleCountByActivity.get(activity.id) ?? 0;
           return (
             <li
@@ -377,11 +410,24 @@ function AllActivitiesList({
                 activity.is_paused && "opacity-60",
               )}
             >
-              <span
-                className="inline-block size-2.5 rounded-full"
-                style={{ backgroundColor: color }}
-                aria-hidden="true"
-              />
+              <span className="flex shrink-0 -space-x-1">
+                {personIds.length === 0 ? (
+                  <span className="inline-block size-2.5 rounded-full bg-gray-300" aria-hidden />
+                ) : (
+                  personIds.map((id) => {
+                    const p = peopleById.get(id);
+                    const color = p?.color ?? fallbackColorForProfile(id);
+                    return (
+                      <span
+                        key={id}
+                        className="inline-block size-2.5 rounded-full ring-1 ring-white dark:ring-gray-800"
+                        style={{ backgroundColor: color }}
+                        aria-hidden="true"
+                      />
+                    );
+                  })
+                )}
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                   {activity.name}
@@ -392,7 +438,7 @@ function AllActivitiesList({
                   ) : null}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {personName} ·{" "}
+                  {personNames || "Bez učesnika"} ·{" "}
                   {count === 0 ? "bez termina" : count === 1 ? "1 termin" : `${count} termina`}
                   {activity.active_from || activity.active_to ? (
                     <span>

@@ -3,6 +3,7 @@ import type {
   Activity,
   ActivityOverride,
   ActivityOverrideAction,
+  ActivityParticipant,
   ActivitySchedule,
   SchoolShift,
   SchoolShiftAnchor,
@@ -243,22 +244,47 @@ export function resolveWeekBlocks(args: {
   weekStart: string;
   activities: ReadonlyArray<Activity>;
   schedule: ReadonlyArray<ActivitySchedule>;
+  participants: ReadonlyArray<ActivityParticipant>;
   shiftAnchorsByPersonId: ReadonlyMap<string, SchoolShiftAnchor>;
   overrides?: ReadonlyArray<ActivityOverride>;
 }): ResolvedActivityBlock[] {
-  const { weekStart, activities, schedule, shiftAnchorsByPersonId, overrides = [] } = args;
+  const {
+    weekStart,
+    activities,
+    schedule,
+    participants,
+    shiftAnchorsByPersonId,
+    overrides = [],
+  } = args;
   const activitiesById = new Map(activities.map((a) => [a.id, a]));
   const scheduleById = new Map(schedule.map((s) => [s.id, s]));
-  // Indexed by `${schedule_id}|${date}` for O(1) lookup as we walk rules.
+
+  // Person ids per activity. Empty array = no participants → no blocks for
+  // that activity (defensive — the UI prevents activities with zero
+  // participants).
+  const personsByActivity = new Map<string, string[]>();
+  for (const p of participants) {
+    const arr = personsByActivity.get(p.activity_id);
+    if (arr) arr.push(p.person_id);
+    else personsByActivity.set(p.activity_id, [p.person_id]);
+  }
+
+  // Indexed by `${schedule_id}|${date}|${person_id}` — per-person key
+  // matches the new UNIQUE constraint so each participant has their own
+  // override slot for the same occurrence.
   const overridesByKey = new Map<string, ActivityOverride>();
-  for (const o of overrides) overridesByKey.set(`${o.schedule_id}|${o.date}`, o);
+  for (const o of overrides) {
+    overridesByKey.set(`${o.schedule_id}|${o.date}|${o.person_id}`, o);
+  }
 
   const blocks: ResolvedActivityBlock[] = [];
 
-  // ─── Pass 1: walk rules, emit blocks on their original dates ────────────
+  // ─── Pass 1: walk rules × participants, emit blocks on the original date ─
   for (const rule of schedule) {
     const activity = activitiesById.get(rule.activity_id);
     if (!activity) continue;
+    const persons = personsByActivity.get(activity.id);
+    if (!persons || persons.length === 0) continue;
 
     const occurrenceDate = format(
       addDays(parseISO(weekStart + "T12:00:00"), rule.day_of_week),
@@ -276,76 +302,74 @@ export function resolveWeekBlocks(args: {
       if (diff < 0 || diff % interval !== 0) continue;
     }
 
-    // A/B resolution — needs the person's anchor. `'every'` skips the lookup.
-    if (rule.week_pattern !== "every") {
-      const anchor = shiftAnchorsByPersonId.get(activity.person_id);
-      const shift = anchor ? deriveShiftForWeek(anchor, weekStart) : null;
-      if (!shouldFireOnShift(rule.week_pattern, shift)) continue;
-    }
-
-    // Override application — done AFTER the rule decides this occurrence
-    // fires, so a dormant override (from a past shift / season) silently
-    // skips and reactivates only when the rule fires again.
     const baseStart = normalizeTime(rule.start_time);
     const baseEnd = normalizeTime(rule.end_time);
-    const override = overridesByKey.get(`${rule.id}|${occurrenceDate}`);
-    const movedToDifferentDay =
-      override?.action === "reschedule" &&
-      !!override.override_date &&
-      override.override_date !== occurrenceDate;
 
-    let effectiveStart = baseStart;
-    let effectiveEnd = baseEnd;
-    let overrideInfo: ResolvedActivityBlock["override"] | undefined;
-    if (override) {
-      // Same-day reschedule swaps times in place. A date-shifting
-      // reschedule leaves the original-day block as a ghost (it shows
-      // "↗ pomereno na X" so the user can see *where* the termin went
-      // from the original slot) — Pass 2 emits the full block at the
-      // new date.
-      if (
-        override.action === "reschedule" &&
-        !movedToDifferentDay &&
-        override.override_start_time &&
-        override.override_end_time
-      ) {
-        effectiveStart = normalizeTime(override.override_start_time);
-        effectiveEnd = normalizeTime(override.override_end_time);
+    for (const personId of persons) {
+      // A/B resolution — uses THIS person's shift anchor. Two siblings on
+      // the same rule can resolve to different shifts (different schools,
+      // different cycles), so we check per person.
+      if (rule.week_pattern !== "every") {
+        const anchor = shiftAnchorsByPersonId.get(personId);
+        const shift = anchor ? deriveShiftForWeek(anchor, weekStart) : null;
+        if (!shouldFireOnShift(rule.week_pattern, shift)) continue;
       }
-      overrideInfo = {
-        id: override.id,
-        action: override.action,
-        originalStartTime: baseStart,
-        originalEndTime: baseEnd,
-        note: override.note,
-        movedTo: movedToDifferentDay ? (override.override_date as string) : undefined,
-        rescheduledStartTime:
-          movedToDifferentDay && override.override_start_time
-            ? normalizeTime(override.override_start_time)
-            : undefined,
-        rescheduledEndTime:
-          movedToDifferentDay && override.override_end_time
-            ? normalizeTime(override.override_end_time)
-            : undefined,
-      };
-    }
 
-    blocks.push({
-      scheduleId: rule.id,
-      activityId: activity.id,
-      personId: activity.person_id,
-      date: occurrenceDate,
-      dayOfWeek: rule.day_of_week,
-      startTime: effectiveStart,
-      endTime: effectiveEnd,
-      weekPattern: rule.week_pattern,
-      recurrenceIntervalWeeks: interval,
-      override: overrideInfo,
-    });
+      const override = overridesByKey.get(`${rule.id}|${occurrenceDate}|${personId}`);
+      const movedToDifferentDay =
+        override?.action === "reschedule" &&
+        !!override.override_date &&
+        override.override_date !== occurrenceDate;
+
+      let effectiveStart = baseStart;
+      let effectiveEnd = baseEnd;
+      let overrideInfo: ResolvedActivityBlock["override"] | undefined;
+      if (override) {
+        if (
+          override.action === "reschedule" &&
+          !movedToDifferentDay &&
+          override.override_start_time &&
+          override.override_end_time
+        ) {
+          effectiveStart = normalizeTime(override.override_start_time);
+          effectiveEnd = normalizeTime(override.override_end_time);
+        }
+        overrideInfo = {
+          id: override.id,
+          action: override.action,
+          originalStartTime: baseStart,
+          originalEndTime: baseEnd,
+          note: override.note,
+          movedTo: movedToDifferentDay ? (override.override_date as string) : undefined,
+          rescheduledStartTime:
+            movedToDifferentDay && override.override_start_time
+              ? normalizeTime(override.override_start_time)
+              : undefined,
+          rescheduledEndTime:
+            movedToDifferentDay && override.override_end_time
+              ? normalizeTime(override.override_end_time)
+              : undefined,
+        };
+      }
+
+      blocks.push({
+        scheduleId: rule.id,
+        activityId: activity.id,
+        personId,
+        date: occurrenceDate,
+        dayOfWeek: rule.day_of_week,
+        startTime: effectiveStart,
+        endTime: effectiveEnd,
+        weekPattern: rule.week_pattern,
+        recurrenceIntervalWeeks: interval,
+        override: overrideInfo,
+      });
+    }
   }
 
-  // ─── Pass 2: emit moved-here blocks for overrides whose target date ─────
-  //            lands in this week (even if the original date is elsewhere).
+  // ─── Pass 2: emit moved-here blocks for per-person overrides whose ──────
+  //            target date lands in this week (even if the original date is
+  //            elsewhere). Each override is naturally per-person now.
   const weekEnd = format(addDays(parseISO(weekStart + "T12:00:00"), 6), "yyyy-MM-dd");
   for (const override of overrides) {
     if (override.action !== "reschedule") continue;
@@ -358,14 +382,17 @@ export function resolveWeekBlocks(args: {
     if (!rule) continue;
     const activity = activitiesById.get(rule.activity_id);
     if (!activity) continue;
-    // Respect activity-level paused / season window on the *target* date so
-    // a moved termin doesn't appear after the activity has been paused.
+    // Sanity check: only emit if this person is still a participant on the
+    // activity. If they were removed after the override was created, skip
+    // — same silent-skip-and-reactivate semantic we use elsewhere.
+    const persons = personsByActivity.get(activity.id);
+    if (!persons?.includes(override.person_id)) continue;
     if (!isActivityActiveOn(activity, override.override_date)) continue;
 
     blocks.push({
       scheduleId: rule.id,
       activityId: activity.id,
-      personId: activity.person_id,
+      personId: override.person_id,
       date: override.override_date,
       dayOfWeek: toMondayFirstDow(
         parseISO(override.override_date + "T12:00:00").getDay(),

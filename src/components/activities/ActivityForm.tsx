@@ -13,14 +13,15 @@ import { getDisplayName } from "@/utils/identity";
 
 /**
  * Form payload — the parent page splits this into:
- *   • create/update activity (everything except `rules`)
- *   • replace schedule rules in one batch (just `rules`)
+ *   • create/update activity (everything except `rules` and `person_ids`)
+ *   • replace schedule rules in one batch (`rules`)
+ *   • replace participants in one batch (`person_ids`)
  *
- * Both calls are awaited in sequence; failures bubble back as toasts via
+ * All calls are awaited in sequence; failures bubble back as toasts via
  * the mutation hooks.
  */
 export type ActivityFormPayload = {
-  person_id: string;
+  person_ids: string[];
   name: string;
   description: string | null;
   active_from: string | null;
@@ -42,9 +43,11 @@ export type ActivityFormProps = {
   activity?: Activity | null;
   /** Existing schedule rules for `activity` — empty list when adding new. */
   existingRules?: ReadonlyArray<ActivitySchedule>;
-  /** Family members to pick from in the "Osoba" select. */
+  /** Current participants — empty when adding a new activity. */
+  existingPersonIds?: ReadonlyArray<string>;
+  /** Family members to pick from in the "Učesnici" checkbox list. */
   people: ReadonlyArray<Profile>;
-  /** Person ids that have a school shift anchor. A/B is enabled only for them. */
+  /** Person ids that have an alternating school-shift anchor. A/B opens up when at least one selected participant qualifies. */
   peopleWithShift: ReadonlySet<string>;
   /** Default person to preselect when creating (e.g. current user's id). */
   defaultPersonId?: string | null;
@@ -163,7 +166,7 @@ function emptyRule(): ScheduleRuleDraft {
 }
 
 type FormState = {
-  person_id: string;
+  person_ids: string[];
   name: string;
   description: string;
   active_from: string | null;
@@ -176,6 +179,7 @@ type FormState = {
 function initialState(
   activity: Activity | null | undefined,
   existingRules: ReadonlyArray<ActivitySchedule> | undefined,
+  existingPersonIds: ReadonlyArray<string> | undefined,
   fallbackPersonId: string,
 ): FormState {
   const rules =
@@ -190,8 +194,15 @@ function initialState(
         }))
       : [emptyRule()];
 
+  const person_ids =
+    existingPersonIds && existingPersonIds.length > 0
+      ? [...existingPersonIds]
+      : fallbackPersonId
+        ? [fallbackPersonId]
+        : [];
+
   return {
-    person_id: activity?.person_id ?? fallbackPersonId,
+    person_ids,
     name: activity?.name ?? "",
     description: activity?.description ?? "",
     active_from: activity?.active_from ?? null,
@@ -205,6 +216,7 @@ function initialState(
 export function ActivityForm({
   activity,
   existingRules,
+  existingPersonIds,
   people,
   peopleWithShift,
   defaultPersonId,
@@ -214,17 +226,21 @@ export function ActivityForm({
 }: ActivityFormProps) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
   const [form, setForm] = React.useState<FormState>(() =>
-    initialState(activity, existingRules, fallbackPersonId),
+    initialState(activity, existingRules, existingPersonIds, fallbackPersonId),
   );
 
   // Reset whenever the dialog opens with a different activity. The
-  // `existingRules` identity also flips for the same id once they load.
+  // `existingRules` / `existingPersonIds` identities also flip for the
+  // same id once they load.
   React.useEffect(() => {
-    setForm(initialState(activity, existingRules, fallbackPersonId));
-  }, [activity, existingRules, fallbackPersonId]);
+    setForm(initialState(activity, existingRules, existingPersonIds, fallbackPersonId));
+  }, [activity, existingRules, existingPersonIds, fallbackPersonId]);
 
   const isEdit = !!activity?.id;
-  const personHasShift = peopleWithShift.has(form.person_id);
+  // A/B opens up when at least one selected participant has an alternating
+  // shift. For everyone else the resolver silently skips the A/B rule for
+  // their block, which is the right semantic for mixed-shift activities.
+  const personHasShift = form.person_ids.some((id) => peopleWithShift.has(id));
   const [showSeason, setShowSeason] = React.useState<boolean>(
     !!(activity?.active_from || activity?.active_to),
   );
@@ -248,14 +264,14 @@ export function ActivityForm({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = form.name.trim();
-    if (!trimmedName || !form.person_id) return;
+    if (!trimmedName || form.person_ids.length === 0) return;
 
     // Drop rules with invalid times (end <= start) silently — the row UI
     // already nudges with the inputs going red; submitting just skips them.
     const validRules = form.rules
       .filter((r) => r.start_time && r.end_time && r.end_time > r.start_time)
-      // When the chosen person lost their shift anchor, A/B rules don't
-      // make sense any more — coerce to 'every' so the row still survives.
+      // When no selected participant has a shift, A/B rules don't make
+      // sense — coerce to 'every' so the row still survives.
       .map((r) =>
         !personHasShift && r.week_pattern !== "every"
           ? { ...r, week_pattern: "every" as const, recurrence_interval_weeks: 1 }
@@ -263,7 +279,7 @@ export function ActivityForm({
       );
 
     onSubmit({
-      person_id: form.person_id,
+      person_ids: form.person_ids,
       name: trimmedName,
       description: form.description.trim() || null,
       active_from: form.active_from,
@@ -274,15 +290,17 @@ export function ActivityForm({
     });
   };
 
-  const personOptions = people.map((p) => ({
-    value: p.id,
-    label:
-      getDisplayName({
-        firstName: p.first_name,
-        lastName: p.last_name,
-        email: null,
-      }) || "Bez imena",
-  }));
+  const togglePerson = (personId: string) => {
+    setForm((s) => {
+      const set = new Set(s.person_ids);
+      if (set.has(personId)) set.delete(personId);
+      else set.add(personId);
+      // Preserve the family-members order so the visible chips don't
+      // jump around as the user clicks them.
+      const next = people.filter((p) => set.has(p.id)).map((p) => p.id);
+      return { ...s, person_ids: next };
+    });
+  };
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -297,14 +315,41 @@ export function ActivityForm({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="person">Osoba *</Label>
-        <NativeSelect
-          id="person"
-          value={form.person_id}
-          onChange={(next) => setForm((s) => ({ ...s, person_id: next }))}
-          options={personOptions}
-          parse={(raw) => raw}
-        />
+        <Label>Učesnici *</Label>
+        <div className="space-y-1 rounded-md border border-gray-200 p-2 dark:border-gray-700">
+          {people.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nema članova porodice.</p>
+          ) : (
+            people.map((person) => {
+              const name =
+                getDisplayName({
+                  firstName: person.first_name,
+                  lastName: person.last_name,
+                  email: null,
+                }) || "Bez imena";
+              const checked = form.person_ids.includes(person.id);
+              return (
+                <label
+                  key={person.id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePerson(person.id)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-900 dark:text-gray-100">{name}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+        {form.person_ids.length === 0 ? (
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            Izaberi bar jednog učesnika.
+          </p>
+        ) : null}
       </div>
       <div className="space-y-2">
         <Label htmlFor="description">Opis</Label>

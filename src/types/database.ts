@@ -114,8 +114,6 @@ export type WeekPattern = "every" | "A" | "B";
 export interface Activity {
   id: string;
   family_id: string;
-  /** Whose activity — FK to profiles.id. Required (no shared/family-wide activities yet). */
-  person_id: string;
   name: string;
   description: string | null;
   /** Optional season window (e.g., school year). NULL = open-ended on that side. */
@@ -126,6 +124,17 @@ export interface Activity {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Who attends a given activity. Junction table so siblings can share the
+ * same termin without duplicating the activity definition.
+ */
+export interface ActivityParticipant {
+  activity_id: string;
+  person_id: string;
+  family_id: string;
+  created_at: string;
 }
 
 export interface ActivitySchedule {
@@ -164,6 +173,12 @@ export interface ActivityOverride {
   id: string;
   schedule_id: string;
   family_id: string;
+  /**
+   * Who this override applies to. Same termin can have separate overrides
+   * for different participants — e.g. one sibling sick, the other still
+   * goes. UNIQUE constraint is on (schedule_id, date, person_id).
+   */
+  person_id: string;
   /** YYYY-MM-DD — the day the rule WOULD have fired. The override is keyed by this. */
   date: string;
   action: ActivityOverrideAction;

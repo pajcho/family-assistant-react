@@ -15,6 +15,7 @@ export type ActivityFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   activity: Activity | null;
   existingRules?: ReadonlyArray<ActivitySchedule>;
+  existingPersonIds?: ReadonlyArray<string>;
   people: ReadonlyArray<Profile>;
   peopleWithShift: ReadonlySet<string>;
   defaultPersonId?: string | null;
@@ -32,6 +33,7 @@ export function ActivityFormDialog({
   onOpenChange,
   activity,
   existingRules,
+  existingPersonIds,
   people,
   peopleWithShift,
   defaultPersonId,
@@ -55,6 +57,7 @@ export function ActivityFormDialog({
         <ActivityForm
           activity={activity}
           existingRules={existingRules}
+          existingPersonIds={existingPersonIds}
           people={people}
           peopleWithShift={peopleWithShift}
           defaultPersonId={defaultPersonId}

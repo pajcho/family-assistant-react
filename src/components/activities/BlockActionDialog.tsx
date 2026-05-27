@@ -101,6 +101,7 @@ export function BlockActionDialog({
     try {
       await upsertOverride.mutateAsync({
         schedule_id: block.scheduleId,
+        person_id: block.personId,
         date: originalDate,
         action: "cancel",
       });
@@ -183,6 +184,7 @@ export function BlockActionDialog({
               try {
                 await upsertOverride.mutateAsync({
                   schedule_id: block.scheduleId,
+                  person_id: block.personId,
                   date: originalDate,
                   action: "reschedule",
                   override_start_time: startTime,

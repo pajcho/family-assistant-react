@@ -17,6 +17,8 @@ import { useProfile } from "@/hooks/useProfile";
 
 export type UpsertOverrideInput = {
   schedule_id: string;
+  /** Whose override this is — same termin can have separate overrides per participant. */
+  person_id: string;
   /** Original date the rule would have fired on — the override's lookup key. */
   date: string;
   action: ActivityOverrideAction;
@@ -91,6 +93,7 @@ export function useUpsertActivityOverride() {
         .upsert(
           {
             schedule_id: payload.schedule_id,
+            person_id: payload.person_id,
             family_id: familyId,
             date: payload.date,
             action: payload.action,
@@ -110,7 +113,7 @@ export function useUpsertActivityOverride() {
                 : null,
             note: payload.note ?? null,
           },
-          { onConflict: "schedule_id,date" },
+          { onConflict: "schedule_id,date,person_id" },
         )
         .select()
         .single();

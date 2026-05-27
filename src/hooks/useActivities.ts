@@ -14,7 +14,6 @@ import { useProfile } from "@/hooks/useProfile";
  */
 
 export type CreateActivityInput = {
-  person_id: string;
   name: string;
   description?: string | null;
   active_from?: string | null;
@@ -26,7 +25,7 @@ export type CreateActivityInput = {
 export type UpdateActivityInput = Partial<
   Pick<
     Activity,
-    "person_id" | "name" | "description" | "active_from" | "active_to" | "is_paused" | "notes"
+    "name" | "description" | "active_from" | "active_to" | "is_paused" | "notes"
   >
 >;
 
@@ -138,9 +137,11 @@ export function useDeleteActivity() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["activities", familyId] });
-      // Schedule rows are FK-cascade-deleted in the DB, but the cached
-      // queries for those rules don't know that — invalidate too.
+      // Schedule + participants + overrides cascade-delete in the DB; the
+      // cached queries for those don't know that — invalidate too.
       void queryClient.invalidateQueries({ queryKey: ["activity_schedule", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["activity_participants", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["activity_overrides", familyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri brisanju aktivnosti");
