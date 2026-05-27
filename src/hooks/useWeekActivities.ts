@@ -8,6 +8,7 @@ import {
 import type { SchoolShift } from "@/types/database";
 import { useActivities } from "@/hooks/useActivities";
 import { useActivityOverrides } from "@/hooks/useActivityOverrides";
+import { useActivityParticipants } from "@/hooks/useActivityParticipants";
 import { useActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 
@@ -39,6 +40,7 @@ export function useWeekActivities(
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
   const overridesQuery = useActivityOverrides();
+  const participantsQuery = useActivityParticipants();
   const { byPersonId: shiftAnchorsByPerson, isLoading: shiftsLoading, data: shiftAnchorsData } =
     useSchoolShiftAnchors();
 
@@ -46,25 +48,28 @@ export function useWeekActivities(
     const activities = activitiesQuery.data ?? [];
     const schedule = scheduleQuery.data ?? [];
     const overrides = overridesQuery.data ?? [];
+    const participants = participantsQuery.data ?? [];
 
-    const filteredActivities =
-      personFilter && personFilter.size > 0
-        ? activities.filter((a) => personFilter.has(a.person_id))
-        : activities;
-    const allowedActivityIds = new Set(filteredActivities.map((a) => a.id));
-    const filteredSchedule = schedule.filter((rule) => allowedActivityIds.has(rule.activity_id));
-
-    return resolveWeekBlocks({
+    const allBlocks = resolveWeekBlocks({
       weekStart,
-      activities: filteredActivities,
-      schedule: filteredSchedule,
+      activities,
+      schedule,
+      participants,
       shiftAnchorsByPersonId: shiftAnchorsByPerson,
       overrides,
     });
+
+    // Person filter moved from activity-level to block-level: multi-person
+    // activities should partially show — if the chip filter keeps only
+    // Lucija, a shared "Engleski" still appears for Lucija (just without
+    // her sibling's block beside it).
+    if (!personFilter || personFilter.size === 0) return allBlocks;
+    return allBlocks.filter((b) => personFilter.has(b.personId));
   }, [
     activitiesQuery.data,
     scheduleQuery.data,
     overridesQuery.data,
+    participantsQuery.data,
     shiftAnchorsByPerson,
     weekStart,
     personFilter,
@@ -85,6 +90,7 @@ export function useWeekActivities(
     isLoading:
       activitiesQuery.isLoading ||
       scheduleQuery.isLoading ||
+      participantsQuery.isLoading ||
       shiftsLoading ||
       overridesQuery.isLoading,
   };
