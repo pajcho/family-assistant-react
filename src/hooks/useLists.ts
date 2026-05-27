@@ -50,6 +50,27 @@ export type UpdateListItemInput = {
   description?: string | null;
 };
 
+/**
+ * Re-apply the list's display order to its items.
+ *
+ * `sort_order` is the single source of truth — assigned at insert time
+ * (append at the end) and rewritten by `useReorderListItems` when the
+ * user drags rows around. Smart sort is a *view-time projection* on top:
+ * when `smart_sort_enabled = true` we re-arrange the items into aisle
+ * order client-side, without ever touching the persisted sort_order.
+ * Toggling smart sort off non-destructively restores the manual order.
+ *
+ * Extracted so the optimistic mutations (`useCreateListItem` etc.) can
+ * drop a placeholder into the cache and have it land in the same slot
+ * the next server-side fetch would put it in — no visible re-shuffle
+ * when the realtime invalidation catches up.
+ */
+function applyItemOrdering(list: ListWithItems): ListWithItems {
+  const byManualOrder = [...(list.list_items ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  const list_items = list.smart_sort_enabled ? applyCategorySort(byManualOrder) : byManualOrder;
+  return { ...list, list_items };
+}
+
 async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
   // Most-recently-active list first. The AFTER trigger on list_items bumps
   // the parent list's `updated_at`, so adding/checking/renaming any item
@@ -61,22 +82,7 @@ async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
     .eq("family_id", familyId)
     .order("updated_at", { ascending: false });
   if (error) return [];
-  // Item ordering
-  // -------------
-  // `sort_order` is the single source of truth — assigned at insert time
-  // (append at the end) and rewritten by `useReorderListItems` when the
-  // user drags rows around.
-  //
-  // Smart sort is a *view-time projection* layered on top: when the list
-  // has `smart_sort_enabled = true`, we re-arrange the items into aisle
-  // order client-side, without ever touching the persisted sort_order.
-  // Toggling smart sort off therefore reveals the user's underlying
-  // manual order again — non-destructive.
-  return ((data as ListWithItems[]) ?? []).map((list) => {
-    const byManualOrder = [...(list.list_items ?? [])].sort((a, b) => a.sort_order - b.sort_order);
-    const list_items = list.smart_sort_enabled ? applyCategorySort(byManualOrder) : byManualOrder;
-    return { ...list, list_items };
-  });
+  return ((data as ListWithItems[]) ?? []).map(applyItemOrdering);
 }
 
 export function useListsWithItems() {
@@ -209,24 +215,36 @@ export function useDeleteList() {
   });
 }
 
+/**
+ * Prefix used for the temporary id assigned to an optimistically-inserted
+ * row before the server returns the real UUID. Filtering on this prefix
+ * lets `mutationFn` ignore in-flight placeholders when it computes the
+ * next sort_order, so the value it sends to Postgres matches what
+ * `onMutate` already showed in the cache.
+ */
+const TEMP_ITEM_ID_PREFIX = "temp-";
+
 export function useCreateListItem() {
   const { familyId } = useProfile();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: CreateListItemInput): Promise<ListItem> => {
       // Look up the parent list from the cache so we can compute next
-      // sort_order (append-at-end) without an extra round-trip. Smart
-      // sort is applied client-side at fetch time, so we don't need to
-      // touch sort_order again after the insert — the new item appears
-      // in its aisle automatically when the cache refreshes.
+      // sort_order (append-at-end) without an extra round-trip. We skip
+      // any temp placeholder rows that `onMutate` may have just inserted
+      // for parallel creates — otherwise back-to-back submissions would
+      // race the cache and produce sparse / off-by-one sort_orders.
       const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
       const parent = cached?.find((l) => l.id === payload.list_id);
       const maxOrder =
-        parent?.list_items.reduce(
-          (max, item) => (item.sort_order > max ? item.sort_order : max),
-          0,
-        ) ?? 0;
+        parent?.list_items
+          .filter((item) => !item.id.startsWith(TEMP_ITEM_ID_PREFIX))
+          .reduce(
+            (max, item) => (item.sort_order > max ? item.sort_order : max),
+            0,
+          ) ?? 0;
 
       const { data, error } = await supabase
         .from("list_items")
@@ -242,11 +260,72 @@ export function useCreateListItem() {
       if (error) throw new Error(error.message);
       return data as ListItem;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    onMutate: async (payload) => {
+      // Optimistic: typing a name and pressing Enter should drop the row
+      // into the list instantly. We synthesise a placeholder with a temp
+      // id, the same sort_order `mutationFn` will compute, and re-run
+      // the list's ordering so the row appears in its final slot (incl.
+      // smart-sort aisle). `onSuccess` swaps the temp id for the real
+      // one so React keeps the same row mounted across the round-trip.
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      if (!previous) return { previous, tempId: null };
+
+      const parent = previous.find((l) => l.id === payload.list_id);
+      if (!parent) return { previous, tempId: null };
+
+      const maxOrder = parent.list_items.reduce(
+        (max, item) => (item.sort_order > max ? item.sort_order : max),
+        0,
+      );
+      const tempId = `${TEMP_ITEM_ID_PREFIX}${crypto.randomUUID()}`;
+      const nowIso = new Date().toISOString();
+      const optimistic: ListItem = {
+        id: tempId,
+        list_id: payload.list_id,
+        family_id: (familyId as string) ?? "",
+        name: payload.name,
+        description: payload.description ?? null,
+        is_completed: false,
+        completed_at: null,
+        sort_order: maxOrder + 1,
+        created_by_id: user?.id ?? null,
+        updated_by_id: user?.id ?? null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const next = previous.map((list) =>
+        list.id === payload.list_id
+          ? applyItemOrdering({ ...list, list_items: [...list.list_items, optimistic] })
+          : list,
+      );
+      queryClient.setQueryData(["lists", familyId], next);
+      return { previous, tempId };
     },
-    onError: (error: Error) => {
+    onSuccess: (data, _vars, ctx) => {
+      // Replace the placeholder with the real row in place so the React
+      // key is stable across the round-trip (no remount / flicker) and
+      // any racing realtime invalidation sees the final id, not a temp.
+      if (!ctx?.tempId) return;
+      const current = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      if (!current) return;
+      const replaced = current.map((list) =>
+        applyItemOrdering({
+          ...list,
+          list_items: list.list_items.map((it) => (it.id === ctx.tempId ? data : it)),
+        }),
+      );
+      queryClient.setQueryData(["lists", familyId], replaced);
+    },
+    onError: (error: Error, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(["lists", familyId], ctx.previous);
+      }
       toast.error(error.message || "Greška pri dodavanju stavke");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     },
   });
 }
@@ -318,11 +397,29 @@ export function useDeleteListItem() {
       const { error } = await supabase.from("list_items").delete().eq("id", id);
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    onMutate: async (id) => {
+      // Optimistic: confirm-dialog has already gathered intent, so yank
+      // the row out of the cache immediately. If the server rejects we
+      // restore the previous snapshot in `onError`.
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      if (previous) {
+        const next = previous.map((list) => ({
+          ...list,
+          list_items: list.list_items.filter((item) => item.id !== id),
+        }));
+        queryClient.setQueryData(["lists", familyId], next);
+      }
+      return { previous };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(["lists", familyId], ctx.previous);
+      }
       toast.error(error.message || "Greška pri brisanju stavke");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     },
   });
 }
@@ -446,11 +543,31 @@ export function useClearCompletedItems() {
         .eq("is_completed", true);
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    onMutate: async (listId) => {
+      // Optimistic: clear the completed section instantly so the count
+      // chip and the collapsible vanish without waiting for the bulk
+      // DELETE to round-trip. Same intent-already-confirmed rationale
+      // as `useDeleteListItem`.
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
+      if (previous) {
+        const next = previous.map((list) =>
+          list.id === listId
+            ? { ...list, list_items: list.list_items.filter((item) => !item.is_completed) }
+            : list,
+        );
+        queryClient.setQueryData(["lists", familyId], next);
+      }
+      return { previous };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(["lists", familyId], ctx.previous);
+      }
       toast.error(error.message || "Greška pri brisanju završenih stavki");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     },
   });
 }
