@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import type { Profile } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -58,4 +59,103 @@ export function useFamilyMembers(): UseFamilyMembersResult {
   }, [members]);
 
   return { members, byId, isLoading: query.isLoading };
+}
+
+/**
+ * Insert a new household-member profile that has no Supabase auth user
+ * behind it — used for children and other family members who never log in.
+ * Requires the FK from `profiles.id` to `auth.users.id` to be dropped
+ * (household_members migration) and the family-scoped INSERT policy.
+ */
+export type CreateFamilyMemberInput = {
+  first_name: string | null;
+  last_name: string | null;
+  color?: string | null;
+};
+
+export function useCreateFamilyMember() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CreateFamilyMemberInput): Promise<Profile> => {
+      if (!familyId) throw new Error("Nema porodice");
+      const { data, error } = await supabase
+        .from("profiles")
+        .insert({
+          family_id: familyId,
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          color: payload.color ?? null,
+        })
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return data as Profile;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri dodavanju člana");
+    },
+  });
+}
+
+/**
+ * Delete a household-member profile. RLS blocks deleting your own row
+ * (would orphan the auth session) — caller is expected to hide the delete
+ * button for the current user.
+ */
+export function useDeleteFamilyMember() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (profileId: string): Promise<void> => {
+      const { error } = await supabase.from("profiles").delete().eq("id", profileId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+      // Activities are FK-cascade-deleted in the DB; invalidate the cached
+      // query so the grid removes them without waiting for realtime.
+      void queryClient.invalidateQueries({ queryKey: ["activities", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["activity_schedule", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["school_shift_anchors", familyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri brisanju člana");
+    },
+  });
+}
+
+/**
+ * Update the `color` on any profile in the caller's family. Requires the
+ * "Users can update own family profiles" RLS policy added in the activities
+ * migration — without it the row-level guard rejects updates to other
+ * members' profiles (a parent setting up colors for child profiles).
+ */
+export function useUpdateProfileColor() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { profileId: string; color: string | null }): Promise<void> => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ color: args.color })
+        .eq("id", args.profileId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+      // The caller's own profile is also cached under "profile" — invalidate
+      // so the avatar / name display picks up the new color.
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri postavljanju boje");
+    },
+  });
 }

@@ -10,6 +10,7 @@ import {
   ComputerDesktopIcon,
   HomeIcon,
   MoonIcon,
+  Squares2X2Icon,
   SunIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
@@ -51,21 +52,25 @@ import { getDisplayName } from "@/utils/identity";
  * collide with the iPhone home indicator when running as an installed PWA.
  */
 
-// Bottom bar is mobile-only and limited to 4 slots. Lists usage now
-// outpaces birthday checks day-to-day (shopping is a near-daily activity
-// vs. a few birthdays a year), so Liste replaces Rođendani here. The
-// desktop top bar still surfaces both — it has the horizontal room.
+// Bottom bar is mobile-only and tight on width — keep it to the highest-
+// frequency destinations. Aktivnosti (recurring weekly schedule) is the
+// new daily-check feature so it goes in the bar; Plaćanja is monthly so
+// it falls back to the dropdown on phones. Desktop still has both inline.
 const BOTTOM_NAV_ITEMS = [
   { to: "/", label: "Početna", icon: HomeIcon },
+  { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
   { to: "/events", label: "Događaji", icon: CalendarIcon },
-  { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
   { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
 ] as const;
 
-// Desktop adds Rođendani; the mobile dropdown ("Stranice") also pulls
-// from this array so birthdays remain one tap away on phones.
+// Desktop adds Plaćanja + Rođendani; the mobile dropdown ("Stranice") also
+// pulls from this array so both remain one tap away on phones.
 const DESKTOP_NAV_ITEMS = [
-  ...BOTTOM_NAV_ITEMS,
+  { to: "/", label: "Početna", icon: HomeIcon },
+  { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
+  { to: "/events", label: "Događaji", icon: CalendarIcon },
+  { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
+  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ] as const;
 
