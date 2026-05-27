@@ -20,12 +20,19 @@ export type CreateActivityInput = {
   active_to?: string | null;
   is_paused?: boolean;
   notes?: string | null;
+  remind_minutes_before?: number | null;
 };
 
 export type UpdateActivityInput = Partial<
   Pick<
     Activity,
-    "name" | "description" | "active_from" | "active_to" | "is_paused" | "notes"
+    | "name"
+    | "description"
+    | "active_from"
+    | "active_to"
+    | "is_paused"
+    | "notes"
+    | "remind_minutes_before"
   >
 >;
 

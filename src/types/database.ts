@@ -121,6 +121,13 @@ export interface Activity {
   active_to: string | null;
   /** Pause without deleting (holidays, illness). */
   is_paused: boolean;
+  /**
+   * Minutes before each occurrence's start time to push a reminder. NULL
+   * disables it. Same shape as `events.remind_minutes_before` so the
+   * existing cron path (`send-due-pushes`) can fan out per-participant
+   * pushes that respect overrides.
+   */
+  remind_minutes_before: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -308,7 +315,8 @@ export type NotificationKind =
   | "morning_digest"
   | "evening_digest"
   | "event_reminder"
-  | "payment_reminder";
+  | "payment_reminder"
+  | "activity_reminder";
 
 export interface NotificationLogRow {
   id: string;
