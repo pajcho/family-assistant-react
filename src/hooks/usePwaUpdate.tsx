@@ -43,6 +43,11 @@ export function usePwaUpdate(): void {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // In dev the SW is rebuilt on every change, so `reg.update()` here would
+    // perpetually re-detect a "new" version and re-fire the toast below. The
+    // real update flow only matters for a production build — exercise it with
+    // `vite preview`, not `vite dev`.
+    if (!import.meta.env.PROD) return;
     const check = () => {
       const reg = registrationRef.current;
       if (!reg) return;
@@ -66,6 +71,10 @@ export function usePwaUpdate(): void {
   }, []);
 
   useEffect(() => {
+    // Scope the prompt to production: see the polling effect above — in dev
+    // `needRefresh` flips on every rebuild, so the toast would never stop
+    // reappearing.
+    if (!import.meta.env.PROD) return;
     if (!needRefresh) return;
     const id = toast("Nova verzija dostupna", {
       description: "Osveži aplikaciju da preuzmeš najnovije izmene.",
