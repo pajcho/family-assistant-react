@@ -339,7 +339,7 @@ export function WeekGrid({
                 if (block.kind === "school") {
                   return (
                     <SchoolBlock
-                      key={`school-${block.entryId}-${block.date}`}
+                      key={`school-${block.entryId}-${block.date}-${block.personId}`}
                       block={block}
                       color={color}
                       leftPct={leftPct}
@@ -364,7 +364,7 @@ export function WeekGrid({
                 return (
                   <button
                     type="button"
-                    key={`${block.scheduleId}-${block.date}`}
+                    key={`${block.scheduleId}-${block.date}-${block.personId}`}
                     onClick={() => onBlockClick?.(block)}
                     style={{
                       top: `${block.topPx}px`,
