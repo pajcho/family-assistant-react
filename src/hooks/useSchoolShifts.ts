@@ -20,8 +20,16 @@ export type SchoolShiftUpsertInput = {
   anchor_week_start: string;
   anchor_shift: SchoolShift;
   flip_interval_weeks?: number;
-  /** False for kids whose shift never rotates (1st/2nd grade). Default true. */
+  /** False only for a child with a single, never-changing timetable. Default true. */
   is_alternating?: boolean;
+  /**
+   * Pins the bell-schedule time band regardless of the rota. `'morning'` for
+   * 1st/2nd graders (subjects still rotate A↔B, but the clock stays morning).
+   * `null`/undefined = derive from the rota.
+   */
+  fixed_time_band?: SchoolShift | null;
+  /** Afternoon weeks use the 13:00 pred-čas band. Default true. */
+  afternoon_uses_predcas?: boolean;
 };
 
 async function fetchShiftAnchors(familyId: string): Promise<SchoolShiftAnchor[]> {
@@ -93,6 +101,8 @@ export function useUpsertSchoolShiftAnchor() {
             anchor_shift: payload.anchor_shift,
             flip_interval_weeks: payload.flip_interval_weeks ?? 1,
             is_alternating: payload.is_alternating ?? true,
+            fixed_time_band: payload.fixed_time_band ?? null,
+            afternoon_uses_predcas: payload.afternoon_uses_predcas ?? true,
           },
           { onConflict: "person_id" },
         )

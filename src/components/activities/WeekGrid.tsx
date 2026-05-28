@@ -1,5 +1,6 @@
 import * as React from "react";
 import { addDays, format, parseISO } from "date-fns";
+import { BookOpenIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
 import type { Activity, Profile } from "@/types/database";
@@ -9,17 +10,24 @@ import {
   timeToMinutes,
   type ResolvedActivityBlock,
 } from "@/utils/activity";
+import type { ResolvedSchoolBlock } from "@/utils/schoolTimetable";
 
 /**
  * Weekly schedule grid — 7 day columns × 30-minute time slots. Time gutter
  * on the left, blocks absolutely positioned inside their day column.
  *
+ * Renders two kinds of blocks in the same time-positioned layout:
+ *   • activities — trainings / music / etc. with explicit times (solid, in
+ *     the person's color).
+ *   • school     — class periods whose times are DERIVED from the bell
+ *     schedule. Drawn discreetly (lighter fill + a book glyph) so a full
+ *     school day doesn't visually drown out the extracurriculars.
+ * Both flow through the same lane-assignment sweep so an afternoon class that
+ * overlaps an evening training sits side-by-side rather than on top.
+ *
  * The visible time range adapts to the data: if all blocks fit between 7:00
  * and 21:00 we render the default window; otherwise we widen to cover the
  * earliest start - 1h and the latest end + 1h, clamped to [0:00, 24:00].
- *
- * Overlapping blocks in the same day are laid out side-by-side with equal
- * widths within their overlap group, using a simple interval-graph sweep.
  */
 
 const SLOT_HEIGHT_PX = 28;
@@ -32,28 +40,40 @@ const DEFAULT_END_MIN = 21 * 60;
 const GRID_TOP_PADDING_PX = 12;
 const GRID_BOTTOM_PADDING_PX = 12;
 
+/**
+ * Discriminated union over the two block kinds. Positioning only ever reads
+ * `dayOfWeek` / `startTime` / `endTime` / `personId`, which both shapes share;
+ * rendering branches on `kind`.
+ */
+export type GridBlock =
+  | ({ kind: "activity" } & ResolvedActivityBlock)
+  | ({ kind: "school" } & ResolvedSchoolBlock);
+
 export type WeekGridProps = {
   weekStart: string;
   blocks: ReadonlyArray<ResolvedActivityBlock>;
+  /** School class blocks (already filtered + toggled by the page). */
+  schoolBlocks?: ReadonlyArray<ResolvedSchoolBlock>;
   activitiesById: ReadonlyMap<string, Activity>;
   peopleById: ReadonlyMap<string, Profile>;
   onBlockClick?: (block: ResolvedActivityBlock) => void;
+  onSchoolBlockClick?: (block: ResolvedSchoolBlock) => void;
 };
 
-interface PositionedBlock extends ResolvedActivityBlock {
+type PositionedBlock = GridBlock & {
   topPx: number;
   heightPx: number;
   /** 1-based — out of `totalLanes` overlapping in this group. */
   lane: number;
   totalLanes: number;
-}
+};
 
 /**
  * Sweep overlapping blocks in a single day and assign each one a lane
  * index. Each group of mutually-overlapping blocks gets `totalLanes` =
  * the group size; non-overlapping blocks get lane=1, totalLanes=1.
  */
-function assignLanes(daysBlocks: ResolvedActivityBlock[]): PositionedBlock[] {
+function assignLanes(daysBlocks: GridBlock[]): PositionedBlock[] {
   const sorted = [...daysBlocks].sort((a, b) => {
     const aStart = timeToMinutes(a.startTime);
     const bStart = timeToMinutes(b.startTime);
@@ -61,7 +81,7 @@ function assignLanes(daysBlocks: ResolvedActivityBlock[]): PositionedBlock[] {
     return timeToMinutes(a.endTime) - timeToMinutes(b.endTime);
   });
 
-  type Active = { block: ResolvedActivityBlock; endMin: number; lane: number };
+  type Active = { block: GridBlock; endMin: number; lane: number };
   const result: PositionedBlock[] = [];
   let group: Active[] = [];
   let groupMaxEnd = -Infinity;
@@ -108,7 +128,7 @@ function assignLanes(daysBlocks: ResolvedActivityBlock[]): PositionedBlock[] {
 }
 
 function computeViewportRange(
-  blocks: ReadonlyArray<ResolvedActivityBlock>,
+  blocks: ReadonlyArray<GridBlock>,
 ): { startMin: number; endMin: number } {
   // No blocks → fall back to a reasonable default window so the grid still
   // renders (and the user has something to scan visually).
@@ -143,19 +163,34 @@ function isToday(dateStr: string): boolean {
 export function WeekGrid({
   weekStart,
   blocks,
+  schoolBlocks = [],
   activitiesById,
   peopleById,
   onBlockClick,
+  onSchoolBlockClick,
 }: WeekGridProps) {
-  const { startMin, endMin } = React.useMemo(() => computeViewportRange(blocks), [blocks]);
+  // Merge the two sources into one positioned stream so overlaps between a
+  // class and a training are laid out side-by-side, not stacked.
+  const allBlocks = React.useMemo<GridBlock[]>(
+    () => [
+      ...blocks.map((b) => ({ kind: "activity" as const, ...b })),
+      ...schoolBlocks.map((b) => ({ kind: "school" as const, ...b })),
+    ],
+    [blocks, schoolBlocks],
+  );
+
+  const { startMin, endMin } = React.useMemo(
+    () => computeViewportRange(allBlocks),
+    [allBlocks],
+  );
   const slotCount = (endMin - startMin) / SLOT_MINUTES;
   const totalHeightPx =
     slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
 
   // Group blocks per day-of-week then run the lane sweep.
   const positionedByDay = React.useMemo(() => {
-    const byDay: Record<number, ResolvedActivityBlock[]> = {};
-    for (const block of blocks) {
+    const byDay: Record<number, GridBlock[]> = {};
+    for (const block of allBlocks) {
       (byDay[block.dayOfWeek] ??= []).push(block);
     }
     const result: Record<number, PositionedBlock[]> = {};
@@ -169,7 +204,7 @@ export function WeekGrid({
       }));
     }
     return result;
-  }, [blocks, startMin]);
+  }, [allBlocks, startMin]);
 
   // Hour labels — one per full hour inside the viewport range. Top inset
   // matches the block positioning so labels and gridlines stay aligned.
@@ -296,11 +331,25 @@ export function WeekGrid({
               ))}
               {/* Blocks */}
               {(positionedByDay[dow] ?? []).map((block) => {
-                const activity = activitiesById.get(block.activityId);
-                const person = peopleById.get(block.personId);
-                const color = person?.color ?? fallbackColorForProfile(block.personId);
                 const widthPct = 100 / block.totalLanes;
                 const leftPct = (block.lane - 1) * widthPct;
+                const person = peopleById.get(block.personId);
+                const color = person?.color ?? fallbackColorForProfile(block.personId);
+
+                if (block.kind === "school") {
+                  return (
+                    <SchoolBlock
+                      key={`school-${block.entryId}-${block.date}`}
+                      block={block}
+                      color={color}
+                      leftPct={leftPct}
+                      widthPct={widthPct}
+                      onClick={onSchoolBlockClick}
+                    />
+                  );
+                }
+
+                const activity = activitiesById.get(block.activityId);
 
                 const isCanceled = block.override?.action === "cancel";
                 const isRescheduled = block.override?.action === "reschedule";
@@ -436,5 +485,60 @@ export function WeekGrid({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A single school class. Intentionally flatter and lighter than an activity
+ * block: faint tinted fill, a thin left accent in the child's color, and a
+ * book glyph so a packed 6-period day reads as "background structure" the
+ * trainings sit on top of.
+ */
+function SchoolBlock({
+  block,
+  color,
+  leftPct,
+  widthPct,
+  onClick,
+}: {
+  block: { kind: "school" } & ResolvedSchoolBlock & { topPx: number; heightPx: number };
+  color: string;
+  leftPct: number;
+  widthPct: number;
+  onClick?: (block: ResolvedSchoolBlock) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(block)}
+      style={{
+        top: `${block.topPx}px`,
+        height: `${block.heightPx}px`,
+        left: `calc(${leftPct}% + 2px)`,
+        width: `calc(${widthPct}% - 4px)`,
+        backgroundColor: `${color}12`,
+        borderLeftColor: color,
+      }}
+      className={cn(
+        // Solid (not dashed — dashed is reserved for canceled/ghost activity
+        // blocks) but lighter and thinner than an activity: faint fill + 2px
+        // colored left accent so a full school day reads as quiet background.
+        "absolute overflow-hidden rounded-md border border-gray-200 border-l-2",
+        "px-1.5 py-0.5 text-left text-[10px] leading-tight text-gray-700 dark:border-gray-700 dark:text-gray-200",
+        "hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+        "transition-[filter]",
+      )}
+      aria-label={`${block.subject} — ${block.startTime}`}
+      title={`${block.subject}${block.room ? ` · ${block.room}` : ""} · ${block.startTime}–${block.endTime}`}
+    >
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <BookOpenIcon className="h-2.5 w-2.5 shrink-0" />
+        <span className="tabular-nums">{block.startTime}</span>
+      </div>
+      <div className="truncate text-[11px] font-medium text-gray-800 dark:text-gray-100">
+        {block.subject}
+      </div>
+      {block.room ? <div className="truncate text-[9px] text-muted-foreground">{block.room}</div> : null}
+    </button>
   );
 }
