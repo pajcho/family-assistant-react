@@ -1,45 +1,46 @@
 import { useEffect, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { toast } from "sonner";
 
 /**
- * Registers the service worker and auto-applies new deploys.
+ * Listens for service-worker updates from vite-plugin-pwa.
  *
- * We use `registerType: "autoUpdate"` (+ skipWaiting/clientsClaim in
- * `src/sw.ts`): a freshly deployed SW takes control immediately and this
- * hook reloads the page once on `controllerchange` so the user always
- * runs assets that match the current database schema.
+ * When a new SW activates (because a fresh deploy went live), this surfaces
+ * a persistent sonner toast with a "Osveži" action. We deliberately don't
+ * silently reload — users may have unsaved input in a dialog. The toast
+ * stays until they dismiss or refresh.
  *
- * Why auto-reload instead of the old "tap Osveži" toast: a stale client
- * running old code against a migrated DB (e.g. an activity referencing a
- * dropped column) hard-crashes on load — before any update toast can be
- * tapped. Silent auto-update removes that deadlock. The reload only fires
- * when a NEW SW replaces an EXISTING controller, so a first-ever install
- * doesn't bounce a fresh page, and a `hasReloaded` guard prevents loops.
- *
- * Mount this hook ONCE inside the app shell.
+ * Mount this hook ONCE inside the authenticated app shell.
  *
  * Update detection: vite-plugin-pwa only checks for a new sw.js at
- * registration time. For a long-lived PWA (an iOS home-screen install
- * stays "open" for days), a fresh deploy is invisible until the app is
- * reopened. We widen the trigger surface by:
+ * registration time. For a long-lived PWA (iOS home-screen install
+ * stays "open" for days at a time), that means a freshly deployed
+ * version is invisible until the user closes and reopens the app. We
+ * widen the trigger surface by:
  *   1. polling via `registration.update()` every UPDATE_INTERVAL_MS
- *   2. forcing a check whenever the document becomes visible again.
+ *   2. forcing a check whenever the document becomes visible again —
+ *      iOS suspends background tabs / PWAs, so coming back into focus
+ *      is the natural moment to look for a new deploy.
  */
 const UPDATE_INTERVAL_MS = 30 * 60 * 1000;
 
 export function usePwaUpdate(): void {
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
-  useRegisterSW({
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
     onRegisterError(error) {
       console.error("[pwa] SW registration failed", error);
     },
     onRegisteredSW(_swUrl, registration) {
+      // Hold onto the registration so the polling + focus effect below
+      // can call `.update()` on it.
       registrationRef.current = registration ?? null;
     },
   });
 
-  // Poll for new deploys (interval + on focus/visibility).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const check = () => {
@@ -64,21 +65,21 @@ export function usePwaUpdate(): void {
     };
   }, []);
 
-  // Reload once when an updated SW takes control.
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    // Skip the first-install controllerchange (no prior controller) so a
-    // brand-new visitor's page doesn't reload out from under them.
-    if (!navigator.serviceWorker.controller) return;
-    let hasReloaded = false;
-    const onControllerChange = () => {
-      if (hasReloaded) return;
-      hasReloaded = true;
-      window.location.reload();
-    };
-    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    if (!needRefresh) return;
+    const id = toast("Nova verzija dostupna", {
+      description: "Osveži aplikaciju da preuzmeš najnovije izmene.",
+      duration: Infinity,
+      action: {
+        label: "Osveži",
+        onClick: () => {
+          void updateServiceWorker(true);
+        },
+      },
+      onDismiss: () => setNeedRefresh(false),
+    });
     return () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      toast.dismiss(id);
     };
-  }, []);
+  }, [needRefresh, setNeedRefresh, updateServiceWorker]);
 }
