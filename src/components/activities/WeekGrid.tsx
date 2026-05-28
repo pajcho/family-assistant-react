@@ -179,6 +179,25 @@ export function WeekGrid({
     [blocks, schoolBlocks],
   );
 
+  // Re-render every minute so the "now" line tracks the current time. The
+  // first tick is aligned to the next minute boundary so the line steps on
+  // the minute rather than drifting by up to a minute from mount time.
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const timeoutId = setTimeout(
+      () => {
+        setNow(new Date());
+        intervalId = setInterval(() => setNow(new Date()), 60_000);
+      },
+      60_000 - (Date.now() % 60_000),
+    );
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
   const { startMin, endMin } = React.useMemo(
     () => computeViewportRange(allBlocks),
     [allBlocks],
@@ -186,6 +205,15 @@ export function WeekGrid({
   const slotCount = (endMin - startMin) / SLOT_MINUTES;
   const totalHeightPx =
     slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
+
+  // Current-time line position, in the same coordinate space as the blocks.
+  // Hidden when "now" falls outside the (fit-to-content) visible range — a
+  // line pinned to the top/bottom edge would misrepresent where now actually
+  // is relative to the activities.
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowInViewport = nowMin >= startMin && nowMin <= endMin;
+  const nowTopPx =
+    GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
 
   // Group blocks per day-of-week then run the lane sweep.
   const positionedByDay = React.useMemo(() => {
@@ -310,6 +338,14 @@ export function WeekGrid({
                 {hl.label}
               </div>
             ))}
+            {todayDayIndex >= 0 && nowInViewport ? (
+              <div
+                style={{ top: `${nowTopPx}px` }}
+                className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
+              >
+                {format(now, "HH:mm")}
+              </div>
+            ) : null}
           </div>
 
           {/* 7 day columns */}
@@ -480,6 +516,19 @@ export function WeekGrid({
                   </button>
                 );
               })}
+              {/* Current-time line — today's column only, when now is in
+                  range. After the blocks in DOM so it paints on top; no
+                  z-index (stays under the sticky header/gutter) and
+                  pointer-events-none so clicks still reach the blocks. */}
+              {isToday(dh.dateStr) && nowInViewport ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
+                  style={{ top: `${nowTopPx}px` }}
+                >
+                  <span className="absolute left-0 top-0 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
