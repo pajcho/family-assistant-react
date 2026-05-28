@@ -101,14 +101,28 @@ export function TimetableEditorPanel({
     loadedRef.current = t;
   }, [variant, day, textFor]);
 
-  const persistCurrent = React.useCallback(async (): Promise<void> => {
-    if (text === loadedRef.current) return;
-    const subjects = text
-      .split("\n")
-      .map((s) => ({ subject: s }))
-      .filter((s) => s.subject.trim().length > 0);
-    await replace.mutateAsync({ personId: member.id, variant, dayOfWeek: day, subjects });
-    loadedRef.current = text;
+  // Serialize saves through a single chain so overlapping triggers can't fire
+  // two delete+insert pairs for the same column. Tapping "Sačuvaj"/"Gotovo"
+  // first blurs the textarea (→ onBlur persist) and then runs the button
+  // handler (→ persist); run concurrently, the second INSERT raced the first
+  // and tripped the (person, variant, day, period) unique constraint. Chained,
+  // the second run sees `text === loadedRef.current` and no-ops.
+  const saveChainRef = React.useRef<Promise<unknown>>(Promise.resolve());
+  const persistCurrent = React.useCallback((): Promise<void> => {
+    const run = async () => {
+      if (text === loadedRef.current) return;
+      const subjects = text
+        .split("\n")
+        .map((s) => ({ subject: s }))
+        .filter((s) => s.subject.trim().length > 0);
+      await replace.mutateAsync({ personId: member.id, variant, dayOfWeek: day, subjects });
+      loadedRef.current = text;
+    };
+    const next = saveChainRef.current.then(run, run);
+    // Keep the stored link non-rejecting so a failed save doesn't wedge the
+    // queue; callers still get the real (awaitable) promise back.
+    saveChainRef.current = next.catch(() => {});
+    return next;
   }, [text, replace, member.id, variant, day]);
 
   // Flush pending edits on unmount — covers "navigate back" / "close" without
