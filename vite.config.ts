@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
-      registerType: "prompt",
+      registerType: "autoUpdate",
       injectRegister: false,
       // `start_url: "."` and `scope: "."` keep the manifest portable between
       // dev (`/`) and the GH Pages base path (`/family-assistant-react/`)

@@ -77,7 +77,11 @@ export const DAY_LABELS_SHORT: ReadonlyArray<string> = [
  */
 export function getWeekStart(date: Date | string): string {
   let d: Date;
-  if (typeof date === "string") {
+  if (date == null) {
+    // Defensive: never throw on a missing date (stale client / partial
+    // data) — fall back to the current week.
+    d = startOfDay(new Date());
+  } else if (typeof date === "string") {
     // YYYY-MM-DD gets noon attached so the parsed Date stays inside the
     // calendar day regardless of timezone. Full ISO timestamps already
     // carry their own time portion (and tz), so parse them directly.
@@ -423,7 +427,11 @@ export function resolveWeekBlocks(args: {
 }
 
 /** Strip seconds — Postgres TIME comes back as "HH:MM:SS" but we only need HH:MM. */
-export function normalizeTime(time: string): string {
+export function normalizeTime(time: string | null | undefined): string {
+  // Defensive: a stale client running against a migrated schema can hand
+  // us an undefined field. Degrade to "" instead of throwing and white-
+  // screening the whole page.
+  if (!time) return "";
   return time.length >= 5 ? time.slice(0, 5) : time;
 }
 
@@ -457,7 +465,10 @@ export const PROFILE_COLOR_PALETTE = [
  * id always picks the same palette slot so the UI doesn't churn between
  * renders.
  */
-export function fallbackColorForProfile(profileId: string): string {
+export function fallbackColorForProfile(profileId: string | null | undefined): string {
+  // Defensive against an undefined id (stale client / partial data) so a
+  // single bad row can't crash a render.
+  if (!profileId) return PROFILE_COLOR_PALETTE[0];
   let hash = 0;
   for (let i = 0; i < profileId.length; i++) {
     hash = (hash * 31 + profileId.charCodeAt(i)) >>> 0;
