@@ -214,11 +214,87 @@ export interface SchoolShiftAnchor {
   /** "Every N weeks the shift flips". Default 1 = true week-by-week alternation. */
   flip_interval_weeks: number;
   /**
-   * Whether the shift actually rotates. False for 1st/2nd-grade kids who
-   * stay in `anchor_shift` all year — the derivation skips the flip math
-   * and returns the anchor straight back.
+   * Whether the shift actually rotates. False for a child with a single,
+   * never-changing timetable — the derivation skips the flip math and returns
+   * the anchor straight back.
+   *
+   * NOTE: this is NOT the lever for 1st/2nd graders. Those kids DO rotate
+   * (their subjects flip A↔B weekly), they just never change their time of
+   * day — that's `fixed_time_band` below. Keep `is_alternating` true for them.
    */
   is_alternating: boolean;
+  /**
+   * Pins the bell-schedule TIME band regardless of which shift the rota
+   * resolves to that week. NULL = use the rota label as the band (normal
+   * kids). `'morning'` = 1st/2nd graders: subjects still rotate A↔B, but the
+   * school day always starts in the morning.
+   */
+  fixed_time_band: SchoolShift | null;
+  /**
+   * On this child's afternoon weeks, use the pred-čas band (13:00 start, big
+   * break after the 3rd class) instead of the regular afternoon band (14:00,
+   * after the 2nd). Defaults true. Irrelevant when `fixed_time_band` is
+   * `'morning'`.
+   */
+  afternoon_uses_predcas: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// School timetable (subjects-per-day; times derived from the bell schedule)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which A/B rota a timetable row belongs to. `'A'` = the weeks the child's
+ * shift resolves to morning, `'B'` = afternoon weeks. A non-alternating child
+ * uses only the one variant their anchor shift maps to.
+ */
+export type TimetableVariant = "A" | "B";
+
+/**
+ * One editable bell schedule per family. Class/break lengths are uniform;
+ * each band carries its own start time and the position of the big break
+ * (veliki odmor). Concrete class times are computed from this — never stored
+ * on the timetable rows themselves.
+ */
+export interface BellSchedule {
+  family_id: string;
+  period_minutes: number;
+  small_break_minutes: number;
+  big_break_minutes: number;
+  /** Cap on how many class slots a band's derived grid can have. */
+  max_periods: number;
+  /** "HH:MM[:SS]" — Postgres TIME. */
+  morning_start: string;
+  /** Big break falls after this class index (0 = no big break). */
+  morning_big_break_after: number;
+  afternoon_start: string;
+  afternoon_big_break_after: number;
+  /** Pred-čas afternoon: earlier start, big break one class later. */
+  afternoon_predcas_start: string;
+  afternoon_predcas_big_break_after: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A single subject in one class slot of one weekday, for one child and one
+ * rota variant. No wall-clock time here — the resolver maps `period_index`
+ * onto the bell grid computed for the child's resolved band.
+ */
+export interface SchoolTimetableEntry {
+  id: string;
+  family_id: string;
+  person_id: string;
+  variant: TimetableVariant;
+  /** 0 = Monday … 6 = Sunday. */
+  day_of_week: number;
+  /** 1-based class slot within the band (slot 1 = first class of the day). */
+  period_index: number;
+  subject: string;
+  /** Optional classroom / cabinet. */
+  room: string | null;
   created_at: string;
   updated_at: string;
 }

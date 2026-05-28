@@ -1,8 +1,10 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Cog6ToothIcon,
   PencilSquareIcon,
   PlusIcon,
   TrashIcon,
@@ -12,10 +14,10 @@ import { addDays, format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
+import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
-import { ColorAssignmentPopover } from "@/components/activities/ColorAssignmentPopover";
 import { PersonChip } from "@/components/activities/PersonChip";
-import { ShiftControls } from "@/components/activities/ShiftControls";
+import { TimetableEditor } from "@/components/activities/TimetableEditor";
 import { WeekGrid } from "@/components/activities/WeekGrid";
 import type { ActivityFormPayload } from "@/components/activities/ActivityForm";
 import type { ResolvedActivityBlock } from "@/utils/activity";
@@ -32,10 +34,14 @@ import {
 import { useActivitySchedule, useReplaceActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
+import { useBellSchedule } from "@/hooks/useBellSchedule";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
+import { useSchoolTimetable } from "@/hooks/useSchoolTimetable";
 import { useWeekActivities } from "@/hooks/useWeekActivities";
-import type { Activity, Profile } from "@/types/database";
+import { useWeekSchool } from "@/hooks/useWeekSchool";
+import type { Activity, Profile, SchoolShift } from "@/types/database";
 import { fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
+import { timeBandForWeek } from "@/utils/schoolTimetable";
 import { formatDate, srLocale } from "@/utils/date";
 import { cn } from "@/lib/cn";
 import { getDisplayName } from "@/utils/identity";
@@ -53,9 +59,11 @@ function ActivitiesPage() {
 
   const [weekStart, setWeekStart] = React.useState<string>(() => getThisWeekStart());
   const [personFilter, setPersonFilter] = React.useState<Set<string>>(() => new Set());
-  // A/B patterns are only meaningful when the person's shift actually
-  // alternates. For 1st/2nd-graders (always-morning), there's nothing to
-  // alternate between — coerce their activities to fire every week.
+  // A/B patterns are only meaningful when the person's rota actually
+  // alternates. A child with a single, never-changing timetable
+  // (is_alternating=false) has nothing to alternate between — their
+  // activities are coerced to fire every week. (1st/2nd graders DO alternate
+  // their rota — they just have a fixed morning time band — so they stay in.)
   const peopleWithShift = React.useMemo(() => {
     const set = new Set<string>();
     for (const [personId, anchor] of anchorsByPersonId) {
@@ -65,6 +73,26 @@ function ActivitiesPage() {
   }, [anchorsByPersonId]);
 
   const week = useWeekActivities(weekStart, personFilter);
+  const school = useWeekSchool(weekStart, personFilter);
+  const { bell } = useBellSchedule();
+  const timetableQuery = useSchoolTimetable();
+
+  // School view controls.
+  const [showSchool, setShowSchool] = React.useState(true);
+  const [timetableMemberId, setTimetableMemberId] = React.useState<string | null>(null);
+  // "Opcije" sheet — a self-contained hub; the timetable also opens directly
+  // from a grid click via `timetableMemberId`.
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+
+  // Resolved time band per child for the displayed week — drives the sun/moon
+  // badge on the filter chips and the shift label in the options sheet.
+  const timeBandByPerson = React.useMemo(() => {
+    const map = new Map<string, SchoolShift>();
+    for (const [personId, anchor] of anchorsByPersonId) {
+      map.set(personId, timeBandForWeek(anchor, weekStart));
+    }
+    return map;
+  }, [anchorsByPersonId, weekStart]);
 
   // Dialog state — mirror the events page pattern.
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -192,6 +220,7 @@ function ActivitiesPage() {
     ? schedule.filter((rule) => rule.activity_id === editing.id)
     : undefined;
   const editingPersonIds = editing ? personIdsByActivity.get(editing.id) : undefined;
+  const timetableMember = timetableMemberId ? (peopleById.get(timetableMemberId) ?? null) : null;
 
   const rangeLabel = formatWeekRange(weekStart);
   const isCurrentWeek = weekStart === getThisWeekStart();
@@ -205,13 +234,16 @@ function ActivitiesPage() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-row items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Aktivnosti</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {members.length > 0 ? <ColorAssignmentPopover members={members} /> : null}
-          <Button onClick={openAdd}>
-            <PlusIcon className="mr-2 h-5 w-5" />
-            Dodaj aktivnost
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" onClick={() => setOptionsOpen(true)} aria-label="Opcije">
+            <Cog6ToothIcon className="h-5 w-5 sm:mr-2" />
+            <span className="hidden sm:inline">Opcije</span>
+          </Button>
+          <Button onClick={openAdd} aria-label="Dodaj aktivnost">
+            <PlusIcon className="h-5 w-5 sm:mr-2" />
+            <span className="hidden sm:inline">Dodaj aktivnost</span>
           </Button>
         </div>
       </div>
@@ -243,6 +275,22 @@ function ActivitiesPage() {
             Ova sedmica
           </Button>
         ) : null}
+        <button
+          type="button"
+          onClick={() => setShowSchool((v) => !v)}
+          aria-pressed={showSchool}
+          aria-label="Prikaži školu"
+          title="Prikaži školu"
+          className={cn(
+            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
+            showSchool
+              ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+              : "border-gray-200 text-muted-foreground hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+          )}
+        >
+          <BookOpenIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">Prikaži školu</span>
+        </button>
       </div>
 
       {members.length > 0 ? (
@@ -253,6 +301,7 @@ function ActivitiesPage() {
               person={member}
               active={personFilter.size === 0 || personFilter.has(member.id)}
               onToggle={() => togglePerson(member.id)}
+              shift={timeBandByPerson.get(member.id) ?? null}
             />
           ))}
           {personFilter.size > 0 ? (
@@ -268,21 +317,17 @@ function ActivitiesPage() {
         </div>
       ) : null}
 
-      <ShiftControls
-        members={members}
-        anchorsByPersonId={anchorsByPersonId}
-        shiftsByPerson={week.shiftsByPerson}
-      />
-
       {isLoading ? (
         <div className="text-gray-500">Učitavanje…</div>
       ) : (
         <WeekGrid
           weekStart={weekStart}
           blocks={week.blocks}
+          schoolBlocks={showSchool ? school.blocks : []}
           activitiesById={activitiesById}
           peopleById={peopleById}
           onBlockClick={handleBlockClick}
+          onSchoolBlockClick={(block) => setTimetableMemberId(block.personId)}
         />
       )}
 
@@ -343,6 +388,30 @@ function ActivitiesPage() {
         activity={actionBlock ? activitiesById.get(actionBlock.activityId) : undefined}
         person={actionBlock ? peopleById.get(actionBlock.personId) : undefined}
         onEditActivity={openEdit}
+      />
+
+      {/* Direct timetable edit from clicking a school block on the grid. */}
+      {timetableMember ? (
+        <TimetableEditor
+          open={!!timetableMemberId}
+          onOpenChange={(open) => {
+            if (!open) setTimetableMemberId(null);
+          }}
+          member={timetableMember}
+          anchor={anchorsByPersonId.get(timetableMember.id)}
+          entries={timetableQuery.data ?? []}
+          bell={bell}
+        />
+      ) : null}
+
+      <ActivityOptionsSheet
+        open={optionsOpen}
+        onOpenChange={setOptionsOpen}
+        members={members}
+        anchorsByPersonId={anchorsByPersonId}
+        timeBandByPerson={timeBandByPerson}
+        entries={timetableQuery.data ?? []}
+        bell={bell}
       />
     </div>
   );
