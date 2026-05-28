@@ -5,7 +5,7 @@ import {
   createHandlerBoundToURL,
   precacheAndRoute,
 } from "workbox-precaching";
-import type { RouteMatchCallbackOptions } from "workbox-core";
+import { clientsClaim, type RouteMatchCallbackOptions } from "workbox-core";
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate } from "workbox-strategies";
 
@@ -30,10 +30,21 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
 };
 
-// Don't skip waiting on install — that would make every new deploy take
-// over silently and the `useRegisterSW` "needRefresh" state would never
-// flip true. Instead, wait for the explicit `SKIP_WAITING` message that
-// `updateServiceWorker(true)` posts when the user taps the toast.
+// Auto-update strategy: a freshly deployed SW takes over as soon as it
+// installs (skipWaiting) and claims open tabs (clientsClaim). The client
+// reloads on `controllerchange` (see usePwaUpdate) so users always run
+// assets that match the current database schema.
+//
+// This replaced an earlier "wait for the user to tap Osveži" prompt flow.
+// The prompt left stale clients running old code against a migrated DB
+// (e.g. an activity referencing a dropped `person_id` column) — which
+// hard-crashed the page before the update toast could even be tapped.
+// Auto-update removes that failure mode.
+self.skipWaiting();
+clientsClaim();
+// Kept for backward-compat: an OLD cached client (still on the prompt
+// flow) posts this message when it finally updates; honoring it lets
+// that last stale generation hand off cleanly.
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
