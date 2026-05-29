@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AcademicCapIcon,
   BookOpenIcon,
@@ -69,14 +69,14 @@ export function ActivityOptionsSheet({
   entries,
   bell,
 }: ActivityOptionsSheetProps) {
-  const [view, setView] = React.useState<View>({ kind: "hub" });
+  const [view, setView] = useState<View>({ kind: "hub" });
 
   // Always start at the hub the next time it opens.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) setView({ kind: "hub" });
   }, [open]);
 
-  const memberById = React.useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
+  const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const back = () => setView({ kind: "hub" });
 
   // A sub-view that needs a member but can't find one (e.g. deleted) falls

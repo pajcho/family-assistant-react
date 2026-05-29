@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { DashboardTodayCard } from "@/components/dashboard/DashboardTodayCard";
@@ -64,21 +64,21 @@ function DashboardPage() {
   // Per-feature dialog state. Each card surfaces an `onAdd` + `onEdit` that
   // drives this state; submit handlers route to create vs update based on
   // whether `editing*` is set.
-  const [eventDialogOpen, setEventDialogOpen] = React.useState(false);
-  const [editingEvent, setEditingEvent] = React.useState<Event | null>(null);
-  const [eventError, setEventError] = React.useState<string | null>(null);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventError, setEventError] = useState<string | null>(null);
 
-  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
-  const [editingPayment, setEditingPayment] = React.useState<Payment | null>(null);
-  const [paymentError, setPaymentError] = React.useState<string | null>(null);
-  const [paymentHasHistory, setPaymentHasHistory] = React.useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentHasHistory, setPaymentHasHistory] = useState(false);
 
-  const [birthdayDialogOpen, setBirthdayDialogOpen] = React.useState(false);
-  const [editingBirthday, setEditingBirthday] = React.useState<Birthday | null>(null);
-  const [birthdayError, setBirthdayError] = React.useState<string | null>(null);
+  const [birthdayDialogOpen, setBirthdayDialogOpen] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
+  const [birthdayError, setBirthdayError] = useState<string | null>(null);
 
-  const [listDialogOpen, setListDialogOpen] = React.useState(false);
-  const [listError, setListError] = React.useState<string | null>(null);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   /* --- Add openers ------------------------------------------------------- */
 

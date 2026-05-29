@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import type { Birthday } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -33,20 +34,20 @@ export type BirthdayFormProps = {
 export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: BirthdayFormProps) {
   const isEdit = !!birthday?.id;
 
-  const [name, setName] = React.useState<string>(birthday?.name ?? "");
-  const [description, setDescription] = React.useState<string>(birthday?.description ?? "");
-  const [birthDate, setBirthDate] = React.useState<string | null>(birthday?.birth_date ?? null);
+  const [name, setName] = useState<string>(birthday?.name ?? "");
+  const [description, setDescription] = useState<string>(birthday?.description ?? "");
+  const [birthDate, setBirthDate] = useState<string | null>(birthday?.birth_date ?? null);
 
   // Sync local state when the parent swaps the birthday (e.g. closes the edit
   // dialog and re-opens for "add"). Resetting on `birthday?.id` keeps the
   // dependency stable across the create case (id stays undefined).
-  React.useEffect(() => {
+  useEffect(() => {
     setName(birthday?.name ?? "");
     setDescription(birthday?.description ?? "");
     setBirthDate(birthday?.birth_date ?? null);
   }, [birthday?.id, birthday?.name, birthday?.description, birthday?.birth_date]);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();

@@ -1,4 +1,5 @@
-import * as React from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/cn";
 import {
@@ -33,9 +34,9 @@ const DESKTOP_MEDIA_QUERY = "(min-width: 640px)";
  * media query confirms desktop" note.
  */
 function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = React.useState<boolean>(false);
+  const [isDesktop, setIsDesktop] = useState<boolean>(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
       return;
     }
@@ -57,21 +58,21 @@ type ResponsiveDialogContextValue = {
   isDesktop: boolean;
 };
 
-const ResponsiveDialogContext = React.createContext<ResponsiveDialogContextValue | null>(null);
+const ResponsiveDialogContext = createContext<ResponsiveDialogContextValue | null>(null);
 
 function useResponsiveDialogContext(component: string): ResponsiveDialogContextValue {
-  const ctx = React.useContext(ResponsiveDialogContext);
+  const ctx = useContext(ResponsiveDialogContext);
   if (!ctx) {
     throw new Error(`<${component}> must be used inside <ResponsiveDialog>`);
   }
   return ctx;
 }
 
-type RootProps = React.ComponentProps<typeof Dialog> & React.ComponentProps<typeof Drawer>;
+type RootProps = ComponentProps<typeof Dialog> & ComponentProps<typeof Drawer>;
 
 function ResponsiveDialog({ children, ...props }: RootProps) {
   const isDesktop = useIsDesktop();
-  const ctxValue = React.useMemo<ResponsiveDialogContextValue>(() => ({ isDesktop }), [isDesktop]);
+  const ctxValue = useMemo<ResponsiveDialogContextValue>(() => ({ isDesktop }), [isDesktop]);
 
   // Vaul's default `repositionInputs={true}` translates the entire drawer
   // upward by the on-screen keyboard's height when an input is focused.
@@ -96,7 +97,7 @@ function ResponsiveDialog({ children, ...props }: RootProps) {
 }
 
 function ResponsiveDialogTrigger(
-  props: React.ComponentProps<typeof DialogTrigger> & React.ComponentProps<typeof DrawerTrigger>,
+  props: ComponentProps<typeof DialogTrigger> & ComponentProps<typeof DrawerTrigger>,
 ) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogTrigger");
   const Trigger = isDesktop ? DialogTrigger : DrawerTrigger;
@@ -104,15 +105,15 @@ function ResponsiveDialogTrigger(
 }
 
 function ResponsiveDialogClose(
-  props: React.ComponentProps<typeof DialogClose> & React.ComponentProps<typeof DrawerClose>,
+  props: ComponentProps<typeof DialogClose> & ComponentProps<typeof DrawerClose>,
 ) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogClose");
   const Close = isDesktop ? DialogClose : DrawerClose;
   return <Close {...props} />;
 }
 
-type ContentProps = React.ComponentProps<typeof DialogContent> &
-  React.ComponentProps<typeof DrawerContent> & {
+type ContentProps = ComponentProps<typeof DialogContent> &
+  ComponentProps<typeof DrawerContent> & {
     /**
      * Forwarded to the underlying Dialog's close button on desktop. Drawer always relies on
      * swipe-down / overlay-click / Escape, so this prop is desktop-only.
@@ -167,7 +168,7 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
 function ResponsiveDialogHeader({
   className,
   ...props
-}: React.ComponentProps<typeof DialogHeader> & React.ComponentProps<typeof DrawerHeader>) {
+}: ComponentProps<typeof DialogHeader> & ComponentProps<typeof DrawerHeader>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogHeader");
   const Header = isDesktop ? DialogHeader : DrawerHeader;
   // Mirror Nuxt's DialogHeader: bottom border separator with comfortable
@@ -180,7 +181,7 @@ function ResponsiveDialogHeader({
 function ResponsiveDialogTitle({
   className,
   ...props
-}: React.ComponentProps<typeof DialogTitle> & React.ComponentProps<typeof DrawerTitle>) {
+}: ComponentProps<typeof DialogTitle> & ComponentProps<typeof DrawerTitle>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogTitle");
   const Title = isDesktop ? DialogTitle : DrawerTitle;
   // Drawer's default title is base-size + centered; bump to text-lg and
@@ -192,8 +193,7 @@ function ResponsiveDialogTitle({
 function ResponsiveDialogDescription({
   className,
   ...props
-}: React.ComponentProps<typeof DialogDescription> &
-  React.ComponentProps<typeof DrawerDescription>) {
+}: ComponentProps<typeof DialogDescription> & ComponentProps<typeof DrawerDescription>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogDescription");
   const Description = isDesktop ? DialogDescription : DrawerDescription;
   // Vaul's drawer-header centers descendants on bottom-direction drawers
@@ -207,7 +207,7 @@ function ResponsiveDialogDescription({
 function ResponsiveDialogFooter({
   className,
   ...props
-}: React.ComponentProps<typeof DialogFooter> & React.ComponentProps<typeof DrawerFooter>) {
+}: ComponentProps<typeof DialogFooter> & ComponentProps<typeof DrawerFooter>) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogFooter");
   const Footer = isDesktop ? DialogFooter : DrawerFooter;
   // Drawer footer pads itself; we're already inside a padded container, so reset and right-align.

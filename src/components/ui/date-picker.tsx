@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import { CalendarIcon, XIcon } from "lucide-react";
 import { format, parse } from "date-fns";
 
@@ -34,11 +35,11 @@ export function DatePicker({
   className,
   disabled,
 }: DatePickerProps) {
-  const [open, setOpen] = React.useState(false);
-  const selected = React.useMemo(() => parseStateDate(value), [value]);
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => parseStateDate(value), [value]);
   const displayText = selected ? format(selected, DISPLAY_FORMAT) : "";
 
-  const handleSelect = React.useCallback(
+  const handleSelect = useCallback(
     (date: Date | undefined) => {
       if (!date) {
         onChange(null);
@@ -50,8 +51,8 @@ export function DatePicker({
     [onChange],
   );
 
-  const handleClear = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClear = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
       // Stop the popover trigger from also handling the click.
       e.stopPropagation();
       e.preventDefault();

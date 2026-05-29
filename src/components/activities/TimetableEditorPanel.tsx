@@ -1,4 +1,4 @@
-import * as React from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -62,20 +62,20 @@ export function TimetableEditorPanel({
   const singleVariant: TimetableVariant =
     anchor && !anchor.is_alternating ? variantForShift(anchor.anchor_shift) : "A";
 
-  const [variant, setVariant] = React.useState<TimetableVariant>(singleVariant);
-  const [day, setDay] = React.useState<number>(0);
-  const [text, setText] = React.useState<string>("");
+  const [variant, setVariant] = useState<TimetableVariant>(singleVariant);
+  const [day, setDay] = useState<number>(0);
+  const [text, setText] = useState<string>("");
 
   // Freshest member entries, read via ref inside the load effect so realtime
   // refreshes don't clobber the textarea mid-edit.
-  const memberEntries = React.useMemo(
+  const memberEntries = useMemo(
     () => entries.filter((e) => e.person_id === member.id),
     [entries, member.id],
   );
-  const entriesRef = React.useRef(memberEntries);
+  const entriesRef = useRef(memberEntries);
   entriesRef.current = memberEntries;
 
-  const textFor = React.useCallback((v: TimetableVariant, d: number): string => {
+  const textFor = useCallback((v: TimetableVariant, d: number): string => {
     return entriesRef.current
       .filter((e) => e.variant === v && e.day_of_week === d)
       .slice()
@@ -86,16 +86,16 @@ export function TimetableEditorPanel({
 
   // Baseline text for the current column, to detect whether there's anything
   // to persist.
-  const loadedRef = React.useRef<string>("");
+  const loadedRef = useRef<string>("");
 
   // Reset to the default variant/day when the child (alternation) changes.
-  React.useEffect(() => {
+  useEffect(() => {
     setVariant(singleVariant);
     setDay(0);
   }, [singleVariant]);
 
   // Load the column's text whenever the selection changes (and on mount).
-  React.useEffect(() => {
+  useEffect(() => {
     const t = textFor(variant, day);
     setText(t);
     loadedRef.current = t;
@@ -107,8 +107,8 @@ export function TimetableEditorPanel({
   // handler (→ persist); run concurrently, the second INSERT raced the first
   // and tripped the (person, variant, day, period) unique constraint. Chained,
   // the second run sees `text === loadedRef.current` and no-ops.
-  const saveChainRef = React.useRef<Promise<unknown>>(Promise.resolve());
-  const persistCurrent = React.useCallback((): Promise<void> => {
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const persistCurrent = useCallback((): Promise<void> => {
     const run = async () => {
       if (text === loadedRef.current) return;
       const subjects = text
@@ -127,9 +127,9 @@ export function TimetableEditorPanel({
 
   // Flush pending edits on unmount — covers "navigate back" / "close" without
   // an explicit save. Uses a ref so the cleanup sees the latest closure.
-  const persistRef = React.useRef(persistCurrent);
+  const persistRef = useRef(persistCurrent);
   persistRef.current = persistCurrent;
-  React.useEffect(() => () => void persistRef.current().catch(() => {}), []);
+  useEffect(() => () => void persistRef.current().catch(() => {}), []);
 
   const switchVariant = async (v: TimetableVariant) => {
     if (v === variant) return;
@@ -153,10 +153,7 @@ export function TimetableEditorPanel({
 
   const band = bandForVariant(anchor, variant);
   const usesPredcas = anchor?.afternoon_uses_predcas ?? false;
-  const grid = React.useMemo(
-    () => computeBellGrid(bell, band, usesPredcas),
-    [bell, band, usesPredcas],
-  );
+  const grid = useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
 
   const lines = text
     .split("\n")
@@ -254,7 +251,7 @@ export function TimetableEditorPanel({
                 {lines.map((subject, i) => {
                   const slot = grid[i];
                   return (
-                    <React.Fragment key={`${i}-${subject}`}>
+                    <Fragment key={`${i}-${subject}`}>
                       <li className="flex items-baseline justify-between gap-2">
                         <span className="truncate">
                           <span className="mr-1 tabular-nums text-muted-foreground">{i + 1}.</span>
@@ -269,7 +266,7 @@ export function TimetableEditorPanel({
                           — veliki odmor —
                         </li>
                       ) : null}
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </ol>

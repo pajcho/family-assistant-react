@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
 import { AppNav } from "@/components/layout/AppNav";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,7 +62,7 @@ function AppLayout() {
   );
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
 
   // While Supabase getSession() is in flight, render nothing rather than

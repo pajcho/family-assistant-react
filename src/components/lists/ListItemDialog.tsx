@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -86,10 +87,10 @@ function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: Body
   // dialog with a fresh `item` between opens, which remounts this body
   // (the parent's conditional `item ? <ListItemDialogBody> : null` is the
   // remount boundary), so we don't need a manual sync effect.
-  const [name, setName] = React.useState<string>(item.name);
-  const [description, setDescription] = React.useState<string>(item.description ?? "");
+  const [name, setName] = useState<string>(item.name);
+  const [description, setDescription] = useState<string>(item.description ?? "");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) return;

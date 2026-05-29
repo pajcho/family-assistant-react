@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
 import { ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export type PaymentHistoryPopupProps = {
  * modal on desktop.
  */
 export function PaymentHistoryPopup({ open, onOpenChange, payment }: PaymentHistoryPopupProps) {
-  const [undoConfirmOpen, setUndoConfirmOpen] = React.useState(false);
+  const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const undoMutation = useUndoLastPayment();
 
   const historyQuery = usePaymentHistoryByPaymentId(open ? payment?.id : null);
@@ -43,7 +43,7 @@ export function PaymentHistoryPopup({ open, onOpenChange, payment }: PaymentHist
   const loading = historyQuery.isLoading || historyQuery.isFetching;
 
   // Close the nested undo dialog whenever the parent popup closes.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) setUndoConfirmOpen(false);
   }, [open]);
 

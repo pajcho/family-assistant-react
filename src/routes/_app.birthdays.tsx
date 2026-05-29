@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import type { Birthday } from "@/types/database";
@@ -36,16 +36,16 @@ function BirthdaysPage() {
   const updateMutation = useUpdateBirthday();
   const deleteMutation = useDeleteBirthday();
 
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingBirthday, setEditingBirthday] = React.useState<Birthday | null>(null);
-  const [formError, setFormError] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [birthdayToDelete, setBirthdayToDelete] = React.useState<Birthday | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [birthdayToDelete, setBirthdayToDelete] = useState<Birthday | null>(null);
 
   // Sort by next-occurrence so the soonest birthday is always on top, matching
   // the Vue page's `sortedBirthdays` computed.
-  const sortedBirthdays = React.useMemo(() => {
+  const sortedBirthdays = useMemo(() => {
     const list = birthdays ?? [];
     return [...list].sort(
       (a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date),

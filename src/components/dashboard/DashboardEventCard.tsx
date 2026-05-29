@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { CalendarIcon } from "@heroicons/react/24/outline";
 
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
@@ -32,10 +32,10 @@ function eventDateLabel(dateStr: string): string {
 }
 
 export function DashboardEventCard({ events, onAdd, onEdit }: DashboardEventCardProps) {
-  const [detailOpen, setDetailOpen] = React.useState(false);
-  const [selectedEvent, setSelectedEvent] = React.useState<Event | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  const upcomingEvents = React.useMemo<Event[]>(() => {
+  const upcomingEvents = useMemo<Event[]>(() => {
     const today = startOfToday();
     const in14 = addDays(today, 14);
     return events

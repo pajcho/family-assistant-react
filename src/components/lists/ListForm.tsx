@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { ComponentType, FormEvent, SVGProps } from "react";
 import { UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -58,15 +59,15 @@ function initialState(list: List | null | undefined): FormState {
 }
 
 export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormProps) {
-  const [form, setForm] = React.useState<FormState>(() => initialState(list));
+  const [form, setForm] = useState<FormState>(() => initialState(list));
 
-  React.useEffect(() => {
+  useEffect(() => {
     setForm(initialState(list));
   }, [list]);
 
   const isEdit = !!list?.id;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim()) return;
     const trimmedDescription = form.description.trim();
@@ -173,7 +174,7 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
 
 type ScopeButtonProps = {
   active: boolean;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   title: string;
   description: string;
   onClick: () => void;

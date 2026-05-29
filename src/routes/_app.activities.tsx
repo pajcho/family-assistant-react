@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpenIcon,
@@ -57,14 +57,14 @@ function ActivitiesPage() {
   const scheduleQuery = useActivitySchedule();
   const { byPersonId: anchorsByPersonId } = useSchoolShiftAnchors();
 
-  const [weekStart, setWeekStart] = React.useState<string>(() => getThisWeekStart());
-  const [personFilter, setPersonFilter] = React.useState<Set<string>>(() => new Set());
+  const [weekStart, setWeekStart] = useState<string>(() => getThisWeekStart());
+  const [personFilter, setPersonFilter] = useState<Set<string>>(() => new Set());
   // A/B patterns are only meaningful when the person's rota actually
   // alternates. A child with a single, never-changing timetable
   // (is_alternating=false) has nothing to alternate between — their
   // activities are coerced to fire every week. (1st/2nd graders DO alternate
   // their rota — they just have a fixed morning time band — so they stay in.)
-  const peopleWithShift = React.useMemo(() => {
+  const peopleWithShift = useMemo(() => {
     const set = new Set<string>();
     for (const [personId, anchor] of anchorsByPersonId) {
       if (anchor.is_alternating) set.add(personId);
@@ -78,15 +78,15 @@ function ActivitiesPage() {
   const timetableQuery = useSchoolTimetable();
 
   // School view controls.
-  const [showSchool, setShowSchool] = React.useState(true);
-  const [timetableMemberId, setTimetableMemberId] = React.useState<string | null>(null);
+  const [showSchool, setShowSchool] = useState(true);
+  const [timetableMemberId, setTimetableMemberId] = useState<string | null>(null);
   // "Opcije" sheet — a self-contained hub; the timetable also opens directly
   // from a grid click via `timetableMemberId`.
-  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   // Resolved time band per child for the displayed week — drives the sun/moon
   // badge on the filter chips and the shift label in the options sheet.
-  const timeBandByPerson = React.useMemo(() => {
+  const timeBandByPerson = useMemo(() => {
     const map = new Map<string, SchoolShift>();
     for (const [personId, anchor] of anchorsByPersonId) {
       map.set(personId, timeBandForWeek(anchor, weekStart));
@@ -95,18 +95,18 @@ function ActivitiesPage() {
   }, [anchorsByPersonId, weekStart]);
 
   // Dialog state — mirror the events page pattern.
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<Activity | null>(null);
-  const [formError, setFormError] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Activity | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [toDelete, setToDelete] = React.useState<Activity | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<Activity | null>(null);
 
   // Per-occurrence action menu (cancel / reschedule / restore / jump to edit).
   // Opened by clicking a block in the grid — the previous behavior of
   // jumping straight to the activity-edit dialog now lives inside this
   // menu as the "Izmeni aktivnost" option.
-  const [actionBlock, setActionBlock] = React.useState<ResolvedActivityBlock | null>(null);
+  const [actionBlock, setActionBlock] = useState<ResolvedActivityBlock | null>(null);
 
   const createActivity = useCreateActivity();
   const updateActivity = useUpdateActivity();
@@ -115,19 +115,16 @@ function ActivitiesPage() {
   const replaceParticipants = useReplaceActivityParticipants();
   const participantsQuery = useActivityParticipants();
 
-  const activities = React.useMemo(() => activitiesQuery.data ?? [], [activitiesQuery.data]);
-  const schedule = React.useMemo(() => scheduleQuery.data ?? [], [scheduleQuery.data]);
-  const participants = React.useMemo(() => participantsQuery.data ?? [], [participantsQuery.data]);
+  const activities = useMemo(() => activitiesQuery.data ?? [], [activitiesQuery.data]);
+  const schedule = useMemo(() => scheduleQuery.data ?? [], [scheduleQuery.data]);
+  const participants = useMemo(() => participantsQuery.data ?? [], [participantsQuery.data]);
 
-  const activitiesById = React.useMemo(
-    () => new Map(activities.map((a) => [a.id, a])),
-    [activities],
-  );
-  const peopleById = React.useMemo(() => new Map(members.map((p) => [p.id, p])), [members]);
+  const activitiesById = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
+  const peopleById = useMemo(() => new Map(members.map((p) => [p.id, p])), [members]);
 
   // Person ids per activity — used by AllActivitiesList for the chip
   // strip and by the edit dialog to prefill `existingPersonIds`.
-  const personIdsByActivity = React.useMemo(() => {
+  const personIdsByActivity = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const p of participants) {
       const arr = map.get(p.activity_id);

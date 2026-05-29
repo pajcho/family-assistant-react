@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { ChevronDownIcon, ChevronUpIcon, PlusIcon } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -71,22 +72,22 @@ export function ListBody({
   onDeleteItem,
   showCategoryHeaders = false,
 }: ListBodyProps) {
-  const [draft, setDraft] = React.useState("");
-  const [showCompleted, setShowCompleted] = React.useState(false);
+  const [draft, setDraft] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Delete-confirm state, used by both swipe-left and the desktop trash button.
-  const [pendingDelete, setPendingDelete] = React.useState<ListItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null);
 
   // Item-popup state. When non-null the `ListItemDialog` is open and renders
   // the editor for this item. The popup replaces the previous inline rename
   // affordance — tapping any row's text or its pencil icon flips this on.
-  const [editingItem, setEditingItem] = React.useState<ListItem | null>(null);
+  const [editingItem, setEditingItem] = useState<ListItem | null>(null);
 
   // Keep the dialog's `item` in sync with realtime updates: if the cache
   // refetches (e.g. someone else edits the same item) we want the popup to
   // reflect the latest server state instead of stale fields the user
   // opened the dialog with. We match by id and refresh the local pointer.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editingItem) return;
     const fresh = list.list_items.find((it) => it.id === editingItem.id);
     if (!fresh) {
@@ -106,10 +107,10 @@ export function ListBody({
   // strike-through styling driven by is_completed) before sliding into the
   // collapsed completed section. Pure presentation; the mutation still fires
   // straight away so persistence and remote sync are unaffected.
-  const [pendingHideIds, setPendingHideIds] = React.useState<Set<string>>(() => new Set());
-  const hideTimersRef = React.useRef<Map<string, number>>(new Map());
+  const [pendingHideIds, setPendingHideIds] = useState<Set<string>>(() => new Set());
+  const hideTimersRef = useRef<Map<string, number>>(new Map());
 
-  React.useEffect(() => {
+  useEffect(() => {
     const timers = hideTimersRef.current;
     return () => {
       for (const handle of timers.values()) {
@@ -165,12 +166,12 @@ export function ListBody({
   // would just be visual noise. Items are guaranteed to be in category
   // order whenever `showCategoryHeaders` is on (the parent list's
   // `smart_sort_enabled` flag drives auto-resort on every change).
-  const activeGroups = React.useMemo(
+  const activeGroups = useMemo(
     () => (showCategoryHeaders ? groupByCategory(active) : null),
     [showCategoryHeaders, active],
   );
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAdd = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const next = draft.trim();
     if (!next) return;
@@ -384,7 +385,7 @@ function CategorizedItems({
   renderRow,
 }: {
   groups: ReturnType<typeof groupByCategory>;
-  renderRow: (item: ListItem) => React.ReactNode;
+  renderRow: (item: ListItem) => ReactNode;
 }) {
   return (
     <div className="space-y-2">
@@ -445,7 +446,7 @@ function SortableActiveRow({
   //
   // We only want the translate; the row's natural height (and natural
   // text rendering) is what we want to preserve while it's being moved.
-  const style: React.CSSProperties = {
+  const style: CSSProperties = {
     transform: transform
       ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`
       : undefined,

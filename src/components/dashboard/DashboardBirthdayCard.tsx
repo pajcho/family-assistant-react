@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { CakeIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -43,17 +43,17 @@ function daysLabel(birthDate: string): string {
 }
 
 export function DashboardBirthdayCard({ birthdays, onAdd, onEdit }: DashboardBirthdayCardProps) {
-  const [detailOpen, setDetailOpen] = React.useState(false);
-  const [selectedBirthday, setSelectedBirthday] = React.useState<Birthday | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
 
-  const allSorted = React.useMemo<Birthday[]>(() => {
+  const allSorted = useMemo<Birthday[]>(() => {
     return birthdays
       .slice()
       .toSorted((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date));
   }, [birthdays]);
 
   // First 3 upcoming, plus any extras that share the third entry's next date.
-  const displayBirthdays = React.useMemo<Birthday[]>(() => {
+  const displayBirthdays = useMemo<Birthday[]>(() => {
     if (allSorted.length === 0) return [];
     if (allSorted.length <= 3) return allSorted;
     const third = allSorted[2];

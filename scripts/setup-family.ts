@@ -1,4 +1,4 @@
-import * as readline from "readline";
+import { createInterface, type Interface } from "readline";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,14 +21,14 @@ if (!url || !serviceRoleKey) {
 
 const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false } });
 
-function ask(readInterface: readline.Interface, prompt: string): Promise<string> {
+function ask(readInterface: Interface, prompt: string): Promise<string> {
   return new Promise((resolve) => {
     readInterface.question(prompt, (answer) => resolve((answer ?? "").trim()));
   });
 }
 
 async function main(): Promise<void> {
-  const readInterface = readline.createInterface({
+  const readInterface = createInterface({
     input: process.stdin,
     output: process.stdout,
   });

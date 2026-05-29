@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentType, SVGProps } from "react";
 
 import { cn } from "@/lib/cn";
 import type { DashboardItemAccent } from "@/components/dashboard/DashboardCard";
@@ -40,7 +40,7 @@ export type DashboardCardItemProps = {
   /** Accent palette for the row tint + value text. Defaults to `blue`. */
   accent?: DashboardItemAccent;
   /** Optional badge icon (e.g. overdue triangle) rendered after the label. */
-  badgeIcon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  badgeIcon?: ComponentType<SVGProps<SVGSVGElement>>;
   badgeIconTitle?: string;
   /** Strikethrough / dim the whole row (used for completed events). */
   completed?: boolean;

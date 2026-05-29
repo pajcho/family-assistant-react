@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { BanknotesIcon, CalendarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
@@ -70,7 +70,7 @@ const PAYMENT_SORT_KEY = ALL_DAY_SORT_KEY + 1; // After all-day events
 
 export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardTodayCardProps) {
   const today = format(new Date(), "yyyy-MM-dd");
-  const weekStart = React.useMemo(() => getThisWeekStart(), []);
+  const weekStart = useMemo(() => getThisWeekStart(), []);
   const navigate = useNavigate();
 
   const { blocks, isLoading: activitiesLoading } = useWeekActivities(weekStart);
@@ -79,7 +79,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
   const { data: events, isLoading: eventsLoading } = useEventsList({ from: today, to: today });
   const { data: payments, isLoading: paymentsLoading } = usePaymentsList();
 
-  const activitiesById = React.useMemo(() => {
+  const activitiesById = useMemo(() => {
     const map = new Map<string, Activity>();
     for (const a of activities ?? []) map.set(a.id, a);
     return map;
@@ -88,11 +88,11 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
   // Per-detail-dialog selection state. Only one is open at a time in
   // practice but each tracks its own piece of data so the dialog stays
   // populated while it animates out.
-  const [selectedEvent, setSelectedEvent] = React.useState<Event | null>(null);
-  const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null);
-  const [selectedBlock, setSelectedBlock] = React.useState<ResolvedActivityBlock | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<ResolvedActivityBlock | null>(null);
 
-  const items = React.useMemo<TodayItem[]>(() => {
+  const items = useMemo<TodayItem[]>(() => {
     const todayActivities: TodayItem[] = blocks
       .filter((b) => {
         if (b.date !== today) return false;

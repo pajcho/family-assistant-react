@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowDownTrayIcon,
@@ -113,14 +113,14 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
   const smartSort = useSmartSort(list);
 
   // Edit-list dialog state.
-  const [formOpen, setFormOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Delete-list confirmation state.
-  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Info-panel state (creator + last-editor + per-item activity).
-  const [infoOpen, setInfoOpen] = React.useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const openEdit = () => {
     setFormError(null);

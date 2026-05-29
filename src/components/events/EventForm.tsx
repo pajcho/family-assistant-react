@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -59,18 +60,18 @@ function initialState(event: Event | null | undefined): FormState {
  * dialog wrapper owns the mutation call so this component stays pure.
  */
 export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFormProps) {
-  const [form, setForm] = React.useState<FormState>(() => initialState(event));
+  const [form, setForm] = useState<FormState>(() => initialState(event));
 
   // When the parent swaps `event` (e.g. opening edit vs. switching between
   // events without unmounting the form), reseed local state. Mirrors Vue's
   // `watch(() => props.event, ..., { immediate: true })`.
-  React.useEffect(() => {
+  useEffect(() => {
     setForm(initialState(event));
   }, [event]);
 
   const isEdit = !!event?.id;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name.trim() || !form.date) return;
     const startTime = (form.start_time ?? "").trim();

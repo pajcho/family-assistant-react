@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { ComponentType, FormEvent, SVGProps } from "react";
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
@@ -61,8 +62,8 @@ export function BlockActionDialog({
   // Local mode flips between the action list and the inline reschedule
   // form. Reset every time the dialog opens for a new block so stale state
   // from the previous occurrence doesn't carry over.
-  const [mode, setMode] = React.useState<"actions" | "reschedule">("actions");
-  React.useEffect(() => {
+  const [mode, setMode] = useState<"actions" | "reschedule">("actions");
+  useEffect(() => {
     if (open) setMode("actions");
   }, [open, block?.scheduleId, block?.date]);
 
@@ -265,7 +266,7 @@ function ActionList({
 }
 
 interface ActionRowProps {
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   description: string;
   onClick: () => void;
@@ -397,12 +398,12 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
   const defaultStart = block.override?.rescheduledStartTime ?? block.startTime;
   const defaultEnd = block.override?.rescheduledEndTime ?? block.endTime;
 
-  const [newDate, setNewDate] = React.useState<string | null>(defaultDate);
-  const [startTime, setStartTime] = React.useState<string>(defaultStart);
-  const [endTime, setEndTime] = React.useState<string>(defaultEnd);
-  const [note, setNote] = React.useState<string>(block.override?.note ?? "");
+  const [newDate, setNewDate] = useState<string | null>(defaultDate);
+  const [startTime, setStartTime] = useState<string>(defaultStart);
+  const [endTime, setEndTime] = useState<string>(defaultEnd);
+  const [note, setNote] = useState<string>(block.override?.note ?? "");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newDate || !startTime || !endTime || endTime <= startTime) return;
     void onSubmit(newDate, startTime, endTime, note.trim());
