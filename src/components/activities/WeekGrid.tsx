@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
 
@@ -111,7 +111,7 @@ export function WeekGrid({
 }: WeekGridProps) {
   // Merge the two sources into one positioned stream so overlaps between a
   // class and a training are laid out side-by-side, not stacked.
-  const allBlocks = React.useMemo<GridBlock[]>(
+  const allBlocks = useMemo<GridBlock[]>(
     () => [
       ...blocks.map((b) => ({ kind: "activity" as const, ...b })),
       ...schoolBlocks.map((b) => ({ kind: "school" as const, ...b })),
@@ -122,8 +122,8 @@ export function WeekGrid({
   // Re-render every minute so the "now" line tracks the current time. The
   // first tick is aligned to the next minute boundary so the line steps on
   // the minute rather than drifting by up to a minute from mount time.
-  const [now, setNow] = React.useState(() => new Date());
-  React.useEffect(() => {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined;
     const timeoutId = setTimeout(
       () => {
@@ -138,7 +138,7 @@ export function WeekGrid({
     };
   }, []);
 
-  const { startMin, endMin } = React.useMemo(() => computeViewportRange(allBlocks), [allBlocks]);
+  const { startMin, endMin } = useMemo(() => computeViewportRange(allBlocks), [allBlocks]);
   const slotCount = (endMin - startMin) / SLOT_MINUTES;
   const totalHeightPx = slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
 
@@ -151,7 +151,7 @@ export function WeekGrid({
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
 
   // Group blocks per day-of-week then run the lane sweep.
-  const positionedByDay = React.useMemo(() => {
+  const positionedByDay = useMemo(() => {
     const byDay: Record<number, GridBlock[]> = {};
     for (const block of allBlocks) {
       (byDay[block.dayOfWeek] ??= []).push(block);
@@ -198,9 +198,9 @@ export function WeekGrid({
   // without this the user lands on Monday and has to swipe to "today". When
   // today isn't in the displayed week (user clicked next/prev week) we
   // leave the scroll at the start.
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const todayDayIndex = dayHeaders.findIndex((dh) => isToday(dh.dateStr));
-  React.useEffect(() => {
+  useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
     if (todayDayIndex < 0) {

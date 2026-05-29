@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
@@ -372,28 +372,26 @@ function getItemClass(item: PaymentListItemUnion): string {
 
 function PaymentsPage() {
   // Filters
-  const [selectedMonth, setSelectedMonth] = React.useState("all");
-  const [hidePaid, setHidePaid] = React.useState(true);
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [hidePaid, setHidePaid] = useState(true);
 
   // Dialog state
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingPayment, setEditingPayment] = React.useState<Payment | null>(null);
-  const [editingHasHistory, setEditingHasHistory] = React.useState(false);
-  const [formError, setFormError] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [editingHasHistory, setEditingHasHistory] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Delete confirmation
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [paymentToDelete, setPaymentToDelete] = React.useState<Payment | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
 
   // Undo confirmation (from a history row)
-  const [undoDialogOpen, setUndoDialogOpen] = React.useState(false);
-  const [historyToUndo, setHistoryToUndo] = React.useState<HistoryRowItem | null>(null);
+  const [undoDialogOpen, setUndoDialogOpen] = useState(false);
+  const [historyToUndo, setHistoryToUndo] = useState<HistoryRowItem | null>(null);
 
   // History popup
-  const [historyPopupOpen, setHistoryPopupOpen] = React.useState(false);
-  const [selectedPaymentForHistory, setSelectedPaymentForHistory] = React.useState<Payment | null>(
-    null,
-  );
+  const [historyPopupOpen, setHistoryPopupOpen] = useState(false);
+  const [selectedPaymentForHistory, setSelectedPaymentForHistory] = useState<Payment | null>(null);
 
   // Data — always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
   const paymentsQuery = usePaymentsList({ hidePaid: false });
@@ -409,17 +407,17 @@ function PaymentsPage() {
 
   // Stable today reference — chips only need to recompute on month boundary,
   // but we accept the once-per-mount cost.
-  const monthFilters = React.useMemo(() => buildMonthFilters(new Date()), []);
+  const monthFilters = useMemo(() => buildMonthFilters(new Date()), []);
 
-  const payments = React.useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
-  const history = React.useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
+  const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
+  const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
-  const combinedList = React.useMemo(
+  const combinedList = useMemo(
     () => computeCombinedList({ payments, history, selectedMonth }),
     [payments, history, selectedMonth],
   );
 
-  const displayedList = React.useMemo<PaymentListItemUnion[]>(() => {
+  const displayedList = useMemo<PaymentListItemUnion[]>(() => {
     if (!hidePaid) return combinedList;
     return combinedList.filter((item) => {
       if (item.type === "history") return false;
@@ -427,7 +425,7 @@ function PaymentsPage() {
     });
   }, [combinedList, hidePaid]);
 
-  const summary = React.useMemo(
+  const summary = useMemo(
     () => computeSummary({ payments, history, selectedMonth }),
     [payments, history, selectedMonth],
   );

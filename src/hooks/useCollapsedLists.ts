@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * Per-device persistence of which list cards on the /lists overview are
@@ -56,17 +56,17 @@ export interface UseCollapsedListsResult {
 }
 
 export function useCollapsedLists(): UseCollapsedListsResult {
-  const [collapsedIds, setCollapsedIds] = React.useState<Set<string>>(readInitial);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(readInitial);
 
   // Persist whenever the set changes. Cheap (one localStorage write per
   // toggle) and avoids the layering complexity of a sync external store.
-  React.useEffect(() => {
+  useEffect(() => {
     persist(collapsedIds);
   }, [collapsedIds]);
 
-  const isCollapsed = React.useCallback((id: string) => collapsedIds.has(id), [collapsedIds]);
+  const isCollapsed = useCallback((id: string) => collapsedIds.has(id), [collapsedIds]);
 
-  const toggle = React.useCallback((id: string) => {
+  const toggle = useCallback((id: string) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -75,7 +75,7 @@ export function useCollapsedLists(): UseCollapsedListsResult {
     });
   }, []);
 
-  const collapseAll = React.useCallback((ids: string[]) => {
+  const collapseAll = useCallback((ids: string[]) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       for (const id of ids) next.add(id);
@@ -83,11 +83,11 @@ export function useCollapsedLists(): UseCollapsedListsResult {
     });
   }, []);
 
-  const expandAll = React.useCallback(() => {
+  const expandAll = useCallback(() => {
     setCollapsedIds((prev) => (prev.size === 0 ? prev : new Set()));
   }, []);
 
-  const isAllCollapsed = React.useCallback(
+  const isAllCollapsed = useCallback(
     (ids: string[]) => ids.length > 0 && ids.every((id) => collapsedIds.has(id)),
     [collapsedIds],
   );

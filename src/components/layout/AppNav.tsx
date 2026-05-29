@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRightOnRectangleIcon,
@@ -235,7 +236,7 @@ interface ThemeButtonProps {
   onClick: () => void;
   ariaLabel: string;
   activeColor: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
 function ThemeButton({ active, onClick, ariaLabel, activeColor, icon: Icon }: ThemeButtonProps) {

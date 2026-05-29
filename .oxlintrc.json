@@ -7,6 +7,9 @@
   "rules": {
     // New JSX transform (React 17+): `React` needn't be in scope for JSX.
     "react/react-in-jsx-scope": "off",
+    // Enforce named imports from "react" (React-team convention): forbid
+    // `import * as React` so hooks/types come in as `useState` / `type ReactNode`.
+    "import/no-namespace": "error",
     // False-positives on our standard pattern — an <input> nested in a <label>
     // with sibling <span> text (already accessible, some also have aria-label).
     "jsx-a11y/control-has-associated-label": "off",

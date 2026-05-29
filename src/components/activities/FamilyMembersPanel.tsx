@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -104,9 +105,9 @@ export function FamilyMembersPanel({ members }: FamilyMembersPanelProps) {
 
 /** Collapsible "+ Dodaj člana" form. Collapsed to a button until clicked. */
 function AddMemberForm() {
-  const [open, setOpen] = React.useState(false);
-  const [firstName, setFirstName] = React.useState("");
-  const [lastName, setLastName] = React.useState("");
+  const [open, setOpen] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const createMember = useCreateFamilyMember();
 
   const reset = () => {
@@ -115,7 +116,7 @@ function AddMemberForm() {
     setOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const first = firstName.trim();
     const last = lastName.trim();

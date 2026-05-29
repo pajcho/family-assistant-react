@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDoubleDownIcon, ChevronDoubleUpIcon, PlusIcon } from "@heroicons/react/24/outline";
 
@@ -36,19 +36,19 @@ function ListsPage() {
   const clearCompleted = useClearCompletedItems();
   const collapsed = useCollapsedLists();
 
-  const lists = React.useMemo<ListWithItems[]>(() => listsQuery.data ?? [], [listsQuery.data]);
-  const allListIds = React.useMemo(() => lists.map((l) => l.id), [lists]);
+  const lists = useMemo<ListWithItems[]>(() => listsQuery.data ?? [], [listsQuery.data]);
+  const allListIds = useMemo(() => lists.map((l) => l.id), [lists]);
   const allCollapsed = collapsed.isAllCollapsed(allListIds);
 
   // List form dialog state.
-  const [formOpen, setFormOpen] = React.useState(false);
-  const [editingList, setEditingList] = React.useState<ListWithItems | null>(null);
-  const [formError, setFormError] = React.useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingList, setEditingList] = useState<ListWithItems | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Delete-list confirmation state. Items inside the list cascade-delete via
   // the FK, so this is the only confirmation we need.
-  const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [listToDelete, setListToDelete] = React.useState<ListWithItems | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [listToDelete, setListToDelete] = useState<ListWithItems | null>(null);
 
   const openAdd = () => {
     setEditingList(null);

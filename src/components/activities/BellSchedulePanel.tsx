@@ -1,4 +1,5 @@
-import * as React from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,15 +40,15 @@ function fromBell(bell: BellSchedule): FormState {
  */
 export function BellSchedulePanel({ bell, onClose }: BellSchedulePanelProps) {
   const upsert = useUpsertBellSchedule();
-  const [form, setForm] = React.useState<FormState>(() => fromBell(bell));
+  const [form, setForm] = useState<FormState>(() => fromBell(bell));
 
   // Re-sync when the underlying row changes (e.g. realtime), but only the
   // initial mount really matters here.
-  React.useEffect(() => {
+  useEffect(() => {
     setForm(fromBell(bell));
   }, [bell]);
 
-  const setNum = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setNum = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement>) => {
     const n = Number(e.target.value);
     setForm((f) => ({ ...f, [key]: Number.isFinite(n) ? n : 0 }));
   };
@@ -150,7 +151,7 @@ function NumberField({
 }: {
   label: string;
   value: number;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   min?: number;
   max?: number;
 }) {
@@ -180,7 +181,7 @@ function BandRow({
   start: string;
   onStart: (v: string | null) => void;
   bigBreakAfter: number;
-  onBigBreakAfter: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBigBreakAfter: (e: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto] items-end gap-3">
@@ -214,16 +215,13 @@ function BandPreview({
   band: SchoolShift;
   usesPredcas: boolean;
 }) {
-  const grid = React.useMemo(
-    () => computeBellGrid(bell, band, usesPredcas),
-    [bell, band, usesPredcas],
-  );
+  const grid = useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
   return (
     <div className="rounded-md border border-gray-200 p-2 text-xs dark:border-gray-700">
       <div className="mb-1 font-semibold text-gray-700 dark:text-gray-200">{title}</div>
       <ol className="space-y-0.5">
         {grid.map((slot) => (
-          <React.Fragment key={slot.periodIndex}>
+          <Fragment key={slot.periodIndex}>
             <li className="flex justify-between tabular-nums text-muted-foreground">
               <span>{slot.periodIndex}.</span>
               <span>
@@ -235,7 +233,7 @@ function BandPreview({
                 odmor
               </li>
             ) : null}
-          </React.Fragment>
+          </Fragment>
         ))}
       </ol>
     </div>

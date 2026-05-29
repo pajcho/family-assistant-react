@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Returns true while a software keyboard (or any equivalent input
@@ -27,9 +27,9 @@ import * as React from "react";
  * focus shifts).
  */
 export function useIsKeyboardOpen(): boolean {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const THRESHOLD_PX = 150;
 

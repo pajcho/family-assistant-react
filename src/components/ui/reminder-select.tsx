@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useCallback } from "react";
+import type { ChangeEvent } from "react";
 import { BellIcon } from "lucide-react";
 
 import { cn } from "@/lib/cn";
@@ -49,8 +50,8 @@ export function ReminderSelect({
   className,
   disabled,
 }: ReminderSelectProps) {
-  const handleChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLSelectElement>) => {
       const next = e.target.value;
       onChange(next === "" ? null : Number(next));
     },

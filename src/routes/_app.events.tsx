@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
@@ -22,18 +22,18 @@ function EventsPage() {
   // Filter state. `null` means "no bound" — passed as `undefined` into the
   // query hook so it's omitted from the Supabase query entirely. The
   // checkbox filters the already-fetched list client-side (mirrors Vue).
-  const [hideCompleted, setHideCompleted] = React.useState(true);
-  const [filterFrom, setFilterFrom] = React.useState<string | null>(null);
-  const [filterTo, setFilterTo] = React.useState<string | null>(null);
+  const [hideCompleted, setHideCompleted] = useState(true);
+  const [filterFrom, setFilterFrom] = useState<string | null>(null);
+  const [filterTo, setFilterTo] = useState<string | null>(null);
 
   // Dialog state
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingEvent, setEditingEvent] = React.useState<Event | null>(null);
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Delete confirmation state
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [eventToDelete, setEventToDelete] = React.useState<Event | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
 
   const eventsQuery = useEventsList({
     from: filterFrom ?? undefined,

@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -151,9 +152,9 @@ export function PaymentForm({
   onSubmit,
   onCancel,
 }: PaymentFormProps) {
-  const [form, setForm] = React.useState<FormState>(() => initialState(payment));
+  const [form, setForm] = useState<FormState>(() => initialState(payment));
 
-  React.useEffect(() => {
+  useEffect(() => {
     setForm(initialState(payment));
   }, [payment]);
 
@@ -176,7 +177,7 @@ export function PaymentForm({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const amountNum = Number(form.amount);
     if (!form.name.trim() || !form.due_date || !(amountNum > 0)) return;

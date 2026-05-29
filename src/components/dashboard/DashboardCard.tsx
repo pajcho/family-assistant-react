@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export type DashboardViewAllLink =
 
 export type DashboardCardProps = {
   /** Heroicon component (24/outline) rendered in the header. */
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   title: string;
   emptyMessage: string;
   addLabel: string;
@@ -45,7 +45,7 @@ export type DashboardCardProps = {
   accent?: DashboardAccent;
   onAdd: () => void;
   /** The card item rows. Rendered above the action footer. */
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 /**

@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useCallback } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 import { ClockIcon, XIcon } from "lucide-react";
 
 import { cn } from "@/lib/cn";
@@ -25,16 +26,16 @@ export function TimePicker({
   disabled,
   clearable = true,
 }: TimePickerProps) {
-  const handleChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
       const next = e.target.value;
       onChange(next ? next : null);
     },
     [onChange],
   );
 
-  const handleClear = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClear = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
       // stopPropagation prevents an ancestor <label htmlFor> from
       // re-targeting this click at its associated control.
       e.preventDefault();

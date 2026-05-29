@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useRef, useState } from "react";
 import { BanknotesIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -44,13 +44,13 @@ export function PaymentDetailDialog({
   payment,
   onEdit,
 }: PaymentDetailDialogProps) {
-  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const markPaid = useMarkPaymentPaid();
 
   // Re-open the detail popup when the history sheet closes so the user
   // lands back where they were. Mirrors the Vue `watch(historyOpen, ...)`.
-  const prevHistoryOpen = React.useRef(false);
-  React.useEffect(() => {
+  const prevHistoryOpen = useRef(false);
+  useEffect(() => {
     if (prevHistoryOpen.current && !historyOpen && payment) {
       onOpenChange(true);
     }

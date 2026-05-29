@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentType, SVGProps } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export type DashboardSummaryCardProps = {
   /** Headline value (`number` is rendered as-is). */
   displayValue: string | number;
   subtitle?: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   variant?: DashboardSummaryVariant;
   actionLabel?: string;
   onAction?: () => void;

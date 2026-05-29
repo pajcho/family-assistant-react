@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -231,14 +232,14 @@ export function ActivityForm({
   onCancel,
 }: ActivityFormProps) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
-  const [form, setForm] = React.useState<FormState>(() =>
+  const [form, setForm] = useState<FormState>(() =>
     initialState(activity, existingRules, existingPersonIds, fallbackPersonId),
   );
 
   // Reset whenever the dialog opens with a different activity. The
   // `existingRules` / `existingPersonIds` identities also flip for the
   // same id once they load.
-  React.useEffect(() => {
+  useEffect(() => {
     setForm(initialState(activity, existingRules, existingPersonIds, fallbackPersonId));
   }, [activity, existingRules, existingPersonIds, fallbackPersonId]);
 
@@ -247,7 +248,7 @@ export function ActivityForm({
   // shift. For everyone else the resolver silently skips the A/B rule for
   // their block, which is the right semantic for mixed-shift activities.
   const personHasShift = form.person_ids.some((id) => peopleWithShift.has(id));
-  const [showSeason, setShowSeason] = React.useState<boolean>(
+  const [showSeason, setShowSeason] = useState<boolean>(
     !!(activity?.active_from || activity?.active_to),
   );
 
@@ -267,7 +268,7 @@ export function ActivityForm({
     setForm((s) => ({ ...s, rules: s.rules.filter((_, i) => i !== index) }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = form.name.trim();
     if (!trimmedName || form.person_ids.length === 0) return;

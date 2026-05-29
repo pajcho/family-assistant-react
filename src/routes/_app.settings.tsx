@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -77,7 +78,7 @@ function ProfileCard() {
     (profile?.last_name ?? "") !== lastName.trim();
   const emailDirty = (user?.email ?? "") !== email.trim();
 
-  const submitProfile = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submitProfile = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (namesDirty) {
       await updateProfile({
@@ -431,7 +432,7 @@ function FamilyCreateNotificationsCard() {
     form.notify_on_payment_create !== prefs.notify_on_payment_create ||
     form.notify_on_birthday_create !== prefs.notify_on_birthday_create;
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     save(form);
   };
@@ -529,7 +530,7 @@ function DigestsCard() {
     form.evening_enabled !== prefs.evening_enabled ||
     form.evening_time !== prefs.evening_time;
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     save(form);
   };

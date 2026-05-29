@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useMemo, useState } from "react";
 import { BanknotesIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 import { DashboardCard } from "@/components/dashboard/DashboardCard";
@@ -31,10 +31,10 @@ export type DashboardPaymentCardProps = {
 };
 
 export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPaymentCardProps) {
-  const [detailOpen, setDetailOpen] = React.useState(false);
-  const [selectedPayment, setSelectedPayment] = React.useState<Payment | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
-  const duePayments = React.useMemo<Payment[]>(() => {
+  const duePayments = useMemo<Payment[]>(() => {
     const today = startOfToday();
     const in7 = addDays(today, 7);
     const unpaid = payments.filter((p) => !p.is_paid && !p.is_paused);

@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useEffect, useState } from "react";
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
@@ -32,22 +32,18 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
   // Defaults: week = current week (so the date is useful as-is), shift = null
   // when no anchor exists yet — preselecting a shift would imply the child is
   // already in it.
-  const [weekStart, setWeekStart] = React.useState<string | null>(
+  const [weekStart, setWeekStart] = useState<string | null>(
     anchor?.anchor_week_start ?? getThisWeekStart(),
   );
-  const [shift, setShift] = React.useState<SchoolShift | null>(anchor?.anchor_shift ?? null);
-  const [isAlternating, setIsAlternating] = React.useState<boolean>(anchor?.is_alternating ?? true);
+  const [shift, setShift] = useState<SchoolShift | null>(anchor?.anchor_shift ?? null);
+  const [isAlternating, setIsAlternating] = useState<boolean>(anchor?.is_alternating ?? true);
   // 1st/2nd grade: time of day pinned to morning, while the A/B subject rota
   // (above) keeps flipping. Independent of `isAlternating`.
-  const [fixedMorning, setFixedMorning] = React.useState<boolean>(
-    anchor?.fixed_time_band === "morning",
-  );
-  const [usesPredcas, setUsesPredcas] = React.useState<boolean>(
-    anchor?.afternoon_uses_predcas ?? true,
-  );
-  const [confirmingRemove, setConfirmingRemove] = React.useState(false);
+  const [fixedMorning, setFixedMorning] = useState<boolean>(anchor?.fixed_time_band === "morning");
+  const [usesPredcas, setUsesPredcas] = useState<boolean>(anchor?.afternoon_uses_predcas ?? true);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setWeekStart(anchor?.anchor_week_start ?? getThisWeekStart());
     setShift(anchor?.anchor_shift ?? null);
     setIsAlternating(anchor?.is_alternating ?? true);

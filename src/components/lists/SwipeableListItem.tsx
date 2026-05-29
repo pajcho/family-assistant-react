@@ -1,4 +1,5 @@
-import * as React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 /**
@@ -46,9 +47,9 @@ function useHasCoarsePointer(): boolean {
   // Default to `false` (desktop / mouse) so SSR and the first render before
   // matchMedia resolves both behave like desktop. The effect flips us to
   // touch mode on the next tick if appropriate.
-  const [coarse, setCoarse] = React.useState(false);
+  const [coarse, setCoarse] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mql = window.matchMedia("(pointer: coarse)");
     const update = () => setCoarse(mql.matches);
@@ -65,7 +66,7 @@ export type SwipeableListItemProps = {
   onSwipeLeft: () => void;
   /** Disable gestures (e.g. when the row is in edit mode). */
   disabled?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 type Direction = "horizontal" | "vertical" | null;
@@ -96,21 +97,21 @@ export function SwipeableListItem({
 type SwipeableImplProps = Pick<SwipeableListItemProps, "onSwipeRight" | "onSwipeLeft" | "children">;
 
 function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplProps) {
-  const [dx, setDx] = React.useState(0);
-  const [dragging, setDragging] = React.useState(false);
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
 
-  const startRef = React.useRef<{ x: number; y: number } | null>(null);
-  const directionRef = React.useRef<Direction>(null);
-  const didSwipeRef = React.useRef(false);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const directionRef = useRef<Direction>(null);
+  const didSwipeRef = useRef(false);
 
-  const reset = React.useCallback(() => {
+  const reset = useCallback(() => {
     startRef.current = null;
     directionRef.current = null;
     setDx(0);
     setDragging(false);
   }, []);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLLIElement>) => {
+  const handlePointerDown = (e: PointerEvent<HTMLLIElement>) => {
     // Only the primary pointer (first finger / left mouse). Secondary
     // pointers (multi-touch zoom etc.) shouldn't initiate a swipe.
     if (!e.isPrimary) return;
@@ -121,7 +122,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
     setDragging(true);
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLLIElement>) => {
+  const handlePointerMove = (e: PointerEvent<HTMLLIElement>) => {
     if (!dragging || !startRef.current) return;
 
     const deltaX = e.clientX - startRef.current.x;
@@ -147,7 +148,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
     }
   };
 
-  const handlePointerUp = (_e: React.PointerEvent<HTMLLIElement>) => {
+  const handlePointerUp = (_e: PointerEvent<HTMLLIElement>) => {
     if (!dragging) return;
 
     if (directionRef.current === "horizontal") {
@@ -160,7 +161,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
     reset();
   };
 
-  const handleClickCapture = (e: React.MouseEvent) => {
+  const handleClickCapture = (e: MouseEvent) => {
     // Suppress the trailing click only when the user actually swiped — a
     // pure tap (no horizontal movement past TAP_BREAKOUT_PX) must still
     // reach the underlying button / checkbox.
