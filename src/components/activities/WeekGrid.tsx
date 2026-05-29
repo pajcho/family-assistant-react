@@ -100,6 +100,19 @@ function isToday(dateStr: string): boolean {
   return dateStr === today;
 }
 
+/**
+ * A block is "past" once it has fully elapsed: any day before today, or today
+ * after its end time. Drives the faded styling that lets the eye separate
+ * already-happened blocks from upcoming ones, the way Google Calendar dims the
+ * past. Dates are yyyy-MM-dd so lexical comparison is chronological; `nowMin`
+ * is minutes-since-midnight, matching `timeToMinutes(endTime)`.
+ */
+function isBlockPast(date: string, endTime: string, todayStr: string, nowMin: number): boolean {
+  if (date < todayStr) return true;
+  if (date > todayStr) return false;
+  return timeToMinutes(endTime) <= nowMin;
+}
+
 export function WeekGrid({
   weekStart,
   blocks,
@@ -149,6 +162,9 @@ export function WeekGrid({
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowInViewport = nowMin >= startMin && nowMin <= endMin;
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+  // Today, in the blocks' yyyy-MM-dd space — the boundary for fading elapsed
+  // blocks. Derived from `now` so it advances at midnight along with the tick.
+  const todayStr = format(now, "yyyy-MM-dd");
 
   // Group blocks per day-of-week then run the lane sweep.
   const positionedByDay = useMemo(() => {
@@ -305,6 +321,7 @@ export function WeekGrid({
                 const leftPct = ((block.lane - 1) / block.totalLanes) * 100;
                 const person = peopleById.get(block.personId);
                 const color = person?.color ?? fallbackColorForProfile(block.personId);
+                const isPast = isBlockPast(block.date, block.endTime, todayStr, nowMin);
 
                 if (block.kind === "school") {
                   return (
@@ -314,6 +331,7 @@ export function WeekGrid({
                       color={color}
                       leftPct={leftPct}
                       widthPct={widthPct}
+                      isPast={isPast}
                       onClick={onSchoolBlockClick}
                     />
                   );
@@ -346,17 +364,20 @@ export function WeekGrid({
                     }}
                     className={cn(
                       "absolute overflow-hidden rounded-md border border-transparent",
-                      // Ghost variants: muted opacity + dashed 1px gray frame
-                      // on top/right/bottom + thinner 2px left accent (color
-                      // still applied via inline style.borderLeftColor). Reads
-                      // as "this slot is reserved but not active" without
-                      // dominating the column.
+                      // Ghost variants: dashed 1px gray frame on top/right/bottom
+                      // + thinner 2px left accent (color still applied via inline
+                      // style.borderLeftColor). Reads as "this slot is reserved
+                      // but not active" without dominating the column.
                       isGhost
-                        ? "border-gray-300 border-l-2 border-dashed text-gray-500 opacity-70 dark:border-gray-600 dark:text-gray-400"
+                        ? "border-gray-300 border-l-2 border-dashed text-gray-500 dark:border-gray-600 dark:text-gray-400"
                         : "border-l-4",
                       "px-1.5 py-0.5 text-left text-[10px] leading-tight",
                       "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                       "transition-[filter]",
+                      // Elapsed blocks fade out (à la Google Calendar) so the
+                      // week reads at a glance; ghosts are already muted, so
+                      // they keep a lighter touch when still upcoming.
+                      isPast ? "opacity-60" : isGhost ? "opacity-70" : null,
                     )}
                     aria-label={activity ? `${activity.name} — ${block.startTime}` : "Aktivnost"}
                     title={
@@ -480,12 +501,14 @@ function SchoolBlock({
   color,
   leftPct,
   widthPct,
+  isPast,
   onClick,
 }: {
   block: { kind: "school" } & ResolvedSchoolBlock & { topPx: number; heightPx: number };
   color: string;
   leftPct: number;
   widthPct: number;
+  isPast: boolean;
   onClick?: (block: ResolvedSchoolBlock) => void;
 }) {
   return (
@@ -508,6 +531,8 @@ function SchoolBlock({
         "px-1.5 py-0.5 text-left text-[10px] leading-tight text-gray-700 dark:border-gray-700 dark:text-gray-200",
         "hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
         "transition-[filter]",
+        // Faded once the class has ended, matching past activity blocks.
+        isPast && "opacity-60",
       )}
       aria-label={`${block.subject} — ${block.startTime}`}
       title={`${block.subject}${block.room ? ` · ${block.room}` : ""} · ${block.startTime}–${block.endTime}`}
