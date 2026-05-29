@@ -39,7 +39,7 @@ import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import { useSchoolTimetable } from "@/hooks/useSchoolTimetable";
 import { useWeekActivities } from "@/hooks/useWeekActivities";
 import { useWeekSchool } from "@/hooks/useWeekSchool";
-import type { Activity, Profile, SchoolShift } from "@/types/database";
+import type { Activity, Profile, SchoolShift, TimetableVariant } from "@/types/database";
 import { fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
 import { timeBandForWeek } from "@/utils/schoolTimetable";
 import { formatDate, srLocale } from "@/utils/date";
@@ -80,6 +80,12 @@ function ActivitiesPage() {
   // School view controls.
   const [showSchool, setShowSchool] = useState(true);
   const [timetableMemberId, setTimetableMemberId] = useState<string | null>(null);
+  // Column to pre-select when the editor opens from a school-block click —
+  // the block's shift variant + weekday. Null when opened any other way.
+  const [timetableInitial, setTimetableInitial] = useState<{
+    variant: TimetableVariant;
+    day: number;
+  } | null>(null);
   // "Opcije" sheet — a self-contained hub; the timetable also opens directly
   // from a grid click via `timetableMemberId`.
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -324,7 +330,10 @@ function ActivitiesPage() {
           activitiesById={activitiesById}
           peopleById={peopleById}
           onBlockClick={handleBlockClick}
-          onSchoolBlockClick={(block) => setTimetableMemberId(block.personId)}
+          onSchoolBlockClick={(block) => {
+            setTimetableMemberId(block.personId);
+            setTimetableInitial({ variant: block.variant, day: block.dayOfWeek });
+          }}
         />
       )}
 
@@ -392,12 +401,17 @@ function ActivitiesPage() {
         <TimetableEditor
           open={!!timetableMemberId}
           onOpenChange={(open) => {
-            if (!open) setTimetableMemberId(null);
+            if (!open) {
+              setTimetableMemberId(null);
+              setTimetableInitial(null);
+            }
           }}
           member={timetableMember}
           anchor={anchorsByPersonId.get(timetableMember.id)}
           entries={timetableQuery.data ?? []}
           bell={bell}
+          initialVariant={timetableInitial?.variant}
+          initialDay={timetableInitial?.day}
         />
       ) : null}
 

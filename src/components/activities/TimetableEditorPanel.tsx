@@ -35,6 +35,13 @@ export type TimetableEditorPanelProps = {
   /** All family timetable entries — filtered to this member internally. */
   entries: ReadonlyArray<SchoolTimetableEntry>;
   bell: BellSchedule;
+  /**
+   * Pre-selected column when the editor is opened from a specific grid block:
+   * that block's shift variant and weekday. Omitted by the options-sheet flow,
+   * which falls back to the child's default variant + Monday.
+   */
+  initialVariant?: TimetableVariant;
+  initialDay?: number;
   /** Optional "done" action (closes the dialog / returns to the options hub). */
   onDone?: () => void;
 };
@@ -54,6 +61,8 @@ export function TimetableEditorPanel({
   anchor,
   entries,
   bell,
+  initialVariant,
+  initialDay,
   onDone,
 }: TimetableEditorPanelProps) {
   const replace = useReplaceTimetableDay();
@@ -62,8 +71,8 @@ export function TimetableEditorPanel({
   const singleVariant: TimetableVariant =
     anchor && !anchor.is_alternating ? variantForShift(anchor.anchor_shift) : "A";
 
-  const [variant, setVariant] = useState<TimetableVariant>(singleVariant);
-  const [day, setDay] = useState<number>(0);
+  const [variant, setVariant] = useState<TimetableVariant>(initialVariant ?? singleVariant);
+  const [day, setDay] = useState<number>(initialDay ?? 0);
   const [text, setText] = useState<string>("");
 
   // Freshest member entries, read via ref inside the load effect so realtime
@@ -88,11 +97,15 @@ export function TimetableEditorPanel({
   // to persist.
   const loadedRef = useRef<string>("");
 
-  // Reset to the default variant/day when the child (alternation) changes.
+  // Re-seed the selected column when the child changes (alternation differs) or
+  // when the editor is (re)opened against a specific block. Without honoring
+  // the initial props here, this effect would clobber them back to the default
+  // on mount. Falls back to the child's default variant + Monday when no block
+  // anchor was provided (options-sheet flow).
   useEffect(() => {
-    setVariant(singleVariant);
-    setDay(0);
-  }, [singleVariant]);
+    setVariant(initialVariant ?? singleVariant);
+    setDay(initialDay ?? 0);
+  }, [singleVariant, initialVariant, initialDay]);
 
   // Load the column's text whenever the selection changes (and on mount).
   useEffect(() => {
