@@ -110,11 +110,12 @@ export function ListBody({
   const hideTimersRef = React.useRef<Map<string, number>>(new Map());
 
   React.useEffect(() => {
+    const timers = hideTimersRef.current;
     return () => {
-      for (const handle of hideTimersRef.current.values()) {
+      for (const handle of timers.values()) {
         window.clearTimeout(handle);
       }
-      hideTimersRef.current.clear();
+      timers.clear();
     };
   }, []);
 

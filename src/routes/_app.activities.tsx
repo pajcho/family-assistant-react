@@ -115,9 +115,9 @@ function ActivitiesPage() {
   const replaceParticipants = useReplaceActivityParticipants();
   const participantsQuery = useActivityParticipants();
 
-  const activities = activitiesQuery.data ?? [];
-  const schedule = scheduleQuery.data ?? [];
-  const participants = participantsQuery.data ?? [];
+  const activities = React.useMemo(() => activitiesQuery.data ?? [], [activitiesQuery.data]);
+  const schedule = React.useMemo(() => scheduleQuery.data ?? [], [scheduleQuery.data]);
+  const participants = React.useMemo(() => participantsQuery.data ?? [], [participantsQuery.data]);
 
   const activitiesById = React.useMemo(
     () => new Map(activities.map((a) => [a.id, a])),

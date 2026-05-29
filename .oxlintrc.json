@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "jsx-a11y", "import", "typescript", "unicorn", "oxc"],
+  "env": { "browser": true, "es2024": true },
+  "settings": { "react": { "version": "19.2" } },
+  "categories": { "correctness": "error" },
+  "rules": {
+    // New JSX transform (React 17+): `React` needn't be in scope for JSX.
+    "react/react-in-jsx-scope": "off",
+    // False-positives on our standard pattern — an <input> nested in a <label>
+    // with sibling <span> text (already accessible, some also have aria-label).
+    "jsx-a11y/control-has-associated-label": "off",
+    // autoFocus is deliberate UX here (first field in dialogs / date popovers).
+    "jsx-a11y/no-autofocus": "off",
+    // role="dialog" is intentional; switching to <dialog> would change behaviour.
+    "jsx-a11y/prefer-tag-over-role": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "src/**/__tests__/**"],
+      "plugins": ["vitest"]
+    }
+  ]
+}
