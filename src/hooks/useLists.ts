@@ -241,10 +241,7 @@ export function useCreateListItem() {
       const maxOrder =
         parent?.list_items
           .filter((item) => !item.id.startsWith(TEMP_ITEM_ID_PREFIX))
-          .reduce(
-            (max, item) => (item.sort_order > max ? item.sort_order : max),
-            0,
-          ) ?? 0;
+          .reduce((max, item) => (item.sort_order > max ? item.sort_order : max), 0) ?? 0;
 
       const { data, error } = await supabase
         .from("list_items")

@@ -130,7 +130,6 @@ function DashboardPage() {
     setBirthdayDialogOpen(true);
   };
 
-
   /* --- Submit handlers --------------------------------------------------- */
 
   const handleEventSubmit = async (payload: EventFormPayload) => {
@@ -196,7 +195,9 @@ function DashboardPage() {
       await createList.mutateAsync(payload);
       setListDialogOpen(false);
     } catch (err) {
-      setListError(err instanceof Error && err.message ? err.message : "Greška pri kreiranju liste");
+      setListError(
+        err instanceof Error && err.message ? err.message : "Greška pri kreiranju liste",
+      );
     }
   };
 

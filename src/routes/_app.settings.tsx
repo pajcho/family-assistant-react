@@ -17,10 +17,7 @@ import {
   type NotificationPreferencesInput,
 } from "@/hooks/useNotificationPreferences";
 import { useProfile } from "@/hooks/useProfile";
-import {
-  usePushSubscriptions,
-  useTouchCurrentSubscription,
-} from "@/hooks/usePushSubscriptions";
+import { usePushSubscriptions, useTouchCurrentSubscription } from "@/hooks/usePushSubscriptions";
 import { supabase } from "@/lib/supabase";
 import { srLocale } from "@/utils/date";
 import { parseUserAgent } from "@/utils/userAgent";
@@ -148,9 +145,7 @@ function ProfileCard() {
               <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                 {firstName || lastName ? `${firstName} ${lastName}`.trim() : user?.email}
               </div>
-              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {user?.email}
-              </div>
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{user?.email}</div>
             </div>
           </div>
 
@@ -198,9 +193,7 @@ function ProfileCard() {
           <div className="flex justify-end">
             <Button
               type="submit"
-              disabled={
-                isLoading || isUpdating || emailChanging || (!namesDirty && !emailDirty)
-              }
+              disabled={isLoading || isUpdating || emailChanging || (!namesDirty && !emailDirty)}
             >
               {isUpdating || emailChanging ? "Čuva…" : "Sačuvaj"}
             </Button>

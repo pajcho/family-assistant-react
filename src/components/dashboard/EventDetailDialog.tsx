@@ -48,9 +48,7 @@ export function EventDetailDialog({ open, onOpenChange, event, onEdit }: EventDe
                 <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {event.name}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {formatDate(event.date)}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{formatDate(event.date)}</p>
               </div>
             </div>
 

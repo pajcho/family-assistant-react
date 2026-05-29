@@ -398,9 +398,7 @@ export function resolveWeekBlocks(args: {
       activityId: activity.id,
       personId: override.person_id,
       date: override.override_date,
-      dayOfWeek: toMondayFirstDow(
-        parseISO(override.override_date + "T12:00:00").getDay(),
-      ),
+      dayOfWeek: toMondayFirstDow(parseISO(override.override_date + "T12:00:00").getDay()),
       startTime: normalizeTime(override.override_start_time),
       endTime: normalizeTime(override.override_end_time),
       weekPattern: rule.week_pattern,

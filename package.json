@@ -52,7 +52,7 @@
     "@vitejs/plugin-react": "latest",
     "@vitest/ui": "latest",
     "jsdom": "latest",
-    "oxfmt": "latest",
+    "oxfmt": "0.51.0",
     "oxlint": "latest",
     "tailwindcss": "latest",
     "tsx": "latest",

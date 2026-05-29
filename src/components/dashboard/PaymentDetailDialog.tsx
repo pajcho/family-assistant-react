@@ -184,11 +184,7 @@ export function PaymentDetailDialog({
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      <PaymentHistoryPopup
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-        payment={payment}
-      />
+      <PaymentHistoryPopup open={historyOpen} onOpenChange={setHistoryOpen} payment={payment} />
     </>
   );
 }

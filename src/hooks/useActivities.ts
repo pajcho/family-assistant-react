@@ -111,10 +111,7 @@ export function useUpdateActivity() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (args: {
-      id: string;
-      payload: UpdateActivityInput;
-    }): Promise<Activity> => {
+    mutationFn: async (args: { id: string; payload: UpdateActivityInput }): Promise<Activity> => {
       const { data, error } = await supabase
         .from("activities")
         .update(args.payload)

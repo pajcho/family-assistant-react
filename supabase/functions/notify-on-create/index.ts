@@ -220,7 +220,9 @@ Deno.serve(async (req) => {
   return Response.json({ ok: true, kind, entity_id: body.entityId, processed: results });
 });
 
-function formatActorName(actor: { first_name?: string | null; last_name?: string | null } | null): string {
+function formatActorName(
+  actor: { first_name?: string | null; last_name?: string | null } | null,
+): string {
   if (!actor) return "";
   const first = (actor.first_name ?? "").trim();
   const last = (actor.last_name ?? "").trim();

@@ -49,7 +49,11 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
             Lista
           </h3>
           <dl className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-700/50">
-            <AuditRow label="Kreirao" person={byId.get(list.owner_id)} timestamp={list.created_at} />
+            <AuditRow
+              label="Kreirao"
+              person={byId.get(list.owner_id)}
+              timestamp={list.created_at}
+            />
             <AuditRow
               label="Poslednja izmena"
               person={list.updated_by_id ? byId.get(list.updated_by_id) : undefined}
@@ -150,8 +154,6 @@ function PersonLabel({ person }: { person: Profile | undefined }) {
     return <span className="italic text-gray-400 dark:text-gray-500">nepoznat korisnik</span>;
   }
   return (
-    <span>
-      {getDisplayName({ firstName: person.first_name, lastName: person.last_name })}
-    </span>
+    <span>{getDisplayName({ firstName: person.first_name, lastName: person.last_name })}</span>
   );
 }

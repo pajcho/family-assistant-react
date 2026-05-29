@@ -144,9 +144,7 @@ function AppMenu() {
               {displayName}
             </div>
             {user?.email && displayName !== user.email ? (
-              <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {user.email}
-              </div>
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
             ) : null}
           </div>
         </div>

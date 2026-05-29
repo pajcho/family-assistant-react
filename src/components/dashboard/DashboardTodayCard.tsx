@@ -1,11 +1,7 @@
 import * as React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import {
-  BanknotesIcon,
-  CalendarIcon,
-  Squares2X2Icon,
-} from "@heroicons/react/24/outline";
+import { BanknotesIcon, CalendarIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -152,10 +148,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
         <CardHeader className="px-4 pb-0">
           <div className="flex items-center gap-2">
             <Squares2X2Icon
-              className={cn(
-                "h-5 w-5 shrink-0",
-                hasItems ? ACCENT_ICON.emerald : ACCENT_MUTED_ICON,
-              )}
+              className={cn("h-5 w-5 shrink-0", hasItems ? ACCENT_ICON.emerald : ACCENT_MUTED_ICON)}
             />
             <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">
               Danas
@@ -218,9 +211,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
           if (!open) setSelectedBlock(null);
         }}
         block={selectedBlock}
-        activity={
-          selectedBlock ? activitiesById.get(selectedBlock.activityId) : undefined
-        }
+        activity={selectedBlock ? activitiesById.get(selectedBlock.activityId) : undefined}
         person={selectedBlock ? peopleById.get(selectedBlock.personId) : undefined}
         // No activity-form dialog on the dashboard — "Izmeni aktivnost"
         // takes the user to /activities where the full edit flow lives.
@@ -256,12 +247,7 @@ interface TodayItemRowProps {
   onSelectBlock: (block: ResolvedActivityBlock) => void;
 }
 
-function TodayItemRow({
-  item,
-  onSelectEvent,
-  onSelectPayment,
-  onSelectBlock,
-}: TodayItemRowProps) {
+function TodayItemRow({ item, onSelectEvent, onSelectPayment, onSelectBlock }: TodayItemRowProps) {
   switch (item.kind) {
     case "activity":
       return (
@@ -361,11 +347,7 @@ function EventRow({
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
   const endTime = event.end_time ? normalizeTime(event.end_time) : null;
-  const timeLabel = isAllDay
-    ? "ceo dan"
-    : endTime
-      ? `${startTime}–${endTime}`
-      : (startTime ?? "");
+  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}–${endTime}` : (startTime ?? "");
   const isPast = isEventEnded(event);
 
   return (

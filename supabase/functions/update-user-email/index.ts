@@ -55,8 +55,7 @@ Deno.serve(async (req) => {
   // that the new asymmetric-key auth service rejects. In prod the
   // injected SUPABASE_SERVICE_ROLE_KEY is the correct format and is
   // used directly.
-  const apiKey =
-    Deno.env.get("SERVICE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const apiKey = Deno.env.get("SERVICE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", apiKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });

@@ -65,10 +65,7 @@ export async function gravatarHash(email: string): Promise<string | null> {
   const normalised = email.trim().toLowerCase();
   if (!normalised) return null;
   if (typeof crypto === "undefined" || !crypto.subtle) return null;
-  const buffer = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(normalised),
-  );
+  const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalised));
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");

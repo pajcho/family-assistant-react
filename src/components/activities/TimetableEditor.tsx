@@ -5,7 +5,12 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
-import type { BellSchedule, Profile, SchoolShiftAnchor, SchoolTimetableEntry } from "@/types/database";
+import type {
+  BellSchedule,
+  Profile,
+  SchoolShiftAnchor,
+  SchoolTimetableEntry,
+} from "@/types/database";
 import { getDisplayName } from "@/utils/identity";
 
 export type TimetableEditorProps = {
@@ -23,7 +28,14 @@ export type TimetableEditorProps = {
  * block on the grid is clicked. The options sheet renders the same panel
  * inline instead. The panel persists on unmount, so closing here saves.
  */
-export function TimetableEditor({ open, onOpenChange, member, anchor, entries, bell }: TimetableEditorProps) {
+export function TimetableEditor({
+  open,
+  onOpenChange,
+  member,
+  anchor,
+  entries,
+  bell,
+}: TimetableEditorProps) {
   const name =
     getDisplayName({ firstName: member.first_name, lastName: member.last_name, email: null }) ||
     "Dete";

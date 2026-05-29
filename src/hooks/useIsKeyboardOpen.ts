@@ -41,7 +41,16 @@ export function useIsKeyboardOpen(): boolean {
         // Skip pure-button inputs (checkbox, radio, button, submit…)
         // which don't open the keyboard.
         const type = (el as HTMLInputElement).type;
-        const skip = new Set(["button", "submit", "reset", "checkbox", "radio", "range", "file", "color"]);
+        const skip = new Set([
+          "button",
+          "submit",
+          "reset",
+          "checkbox",
+          "radio",
+          "range",
+          "file",
+          "color",
+        ]);
         return !skip.has(type);
       }
       return (el as HTMLElement).isContentEditable === true;

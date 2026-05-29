@@ -86,7 +86,11 @@ export function SwipeableListItem({
   }
 
   // Render the gesture-enabled implementation below.
-  return <SwipeableImpl onSwipeRight={onSwipeRight} onSwipeLeft={onSwipeLeft}>{children}</SwipeableImpl>;
+  return (
+    <SwipeableImpl onSwipeRight={onSwipeRight} onSwipeLeft={onSwipeLeft}>
+      {children}
+    </SwipeableImpl>
+  );
 }
 
 type SwipeableImplProps = Pick<SwipeableListItemProps, "onSwipeRight" | "onSwipeLeft" | "children">;

@@ -102,7 +102,9 @@ function patternValueFromRule(rule: ScheduleRuleDraft): string {
   return `every:${Math.max(1, Math.floor(rule.recurrence_interval_weeks))}`;
 }
 
-function ruleUpdateFromPattern(value: string): Pick<ScheduleRuleDraft, "week_pattern" | "recurrence_interval_weeks"> {
+function ruleUpdateFromPattern(
+  value: string,
+): Pick<ScheduleRuleDraft, "week_pattern" | "recurrence_interval_weeks"> {
   const option = PATTERN_OPTIONS.find((o) => o.value === value);
   if (!option) return { week_pattern: "every", recurrence_interval_weeks: 1 };
   return { week_pattern: option.pattern, recurrence_interval_weeks: option.interval };
@@ -384,7 +386,8 @@ export function ActivityForm({
             <p className="text-sm text-muted-foreground">Dodaj bar jedan termin.</p>
           ) : null}
           {form.rules.map((rule, index) => {
-            const invalid = !!rule.start_time && !!rule.end_time && rule.end_time <= rule.start_time;
+            const invalid =
+              !!rule.start_time && !!rule.end_time && rule.end_time <= rule.start_time;
             return (
               <div
                 key={index}

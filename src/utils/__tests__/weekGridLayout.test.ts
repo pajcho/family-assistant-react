@@ -8,8 +8,7 @@ const b = (id: string, startTime: string, endTime: string): B => ({
   startTime,
   endTime,
 });
-const byId = (rows: Array<{ id: string }>) =>
-  Object.fromEntries(rows.map((r) => [r.id, r]));
+const byId = (rows: Array<{ id: string }>) => Object.fromEntries(rows.map((r) => [r.id, r]));
 
 describe("assignLanes", () => {
   it("gives back-to-back, non-overlapping blocks the full width", () => {
@@ -22,9 +21,7 @@ describe("assignLanes", () => {
   });
 
   it("splits two simultaneous blocks into two equal columns", () => {
-    const out = byId(
-      assignLanes([b("a", "10:00", "11:00"), b("b", "10:00", "11:00")]),
-    );
+    const out = byId(assignLanes([b("a", "10:00", "11:00"), b("b", "10:00", "11:00")]));
     expect(out.a).toMatchObject({ lane: 1, totalLanes: 2, laneSpan: 1 });
     expect(out.b).toMatchObject({ lane: 2, totalLanes: 2, laneSpan: 1 });
   });
