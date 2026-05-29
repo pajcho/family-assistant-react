@@ -11,6 +11,7 @@ import {
   type ResolvedActivityBlock,
 } from "@/utils/activity";
 import type { ResolvedSchoolBlock } from "@/utils/schoolTimetable";
+import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
  * Weekly schedule grid — 7 day columns × 30-minute time slots. Time gutter
@@ -60,72 +61,10 @@ export type WeekGridProps = {
   onSchoolBlockClick?: (block: ResolvedSchoolBlock) => void;
 };
 
-type PositionedBlock = GridBlock & {
+type PositionedBlock = Laned<GridBlock> & {
   topPx: number;
   heightPx: number;
-  /** 1-based — out of `totalLanes` overlapping in this group. */
-  lane: number;
-  totalLanes: number;
 };
-
-/**
- * Sweep overlapping blocks in a single day and assign each one a lane
- * index. Each group of mutually-overlapping blocks gets `totalLanes` =
- * the group size; non-overlapping blocks get lane=1, totalLanes=1.
- */
-function assignLanes(daysBlocks: GridBlock[]): PositionedBlock[] {
-  const sorted = [...daysBlocks].sort((a, b) => {
-    const aStart = timeToMinutes(a.startTime);
-    const bStart = timeToMinutes(b.startTime);
-    if (aStart !== bStart) return aStart - bStart;
-    return timeToMinutes(a.endTime) - timeToMinutes(b.endTime);
-  });
-
-  type Active = { block: GridBlock; endMin: number; lane: number };
-  const result: PositionedBlock[] = [];
-  let group: Active[] = [];
-  let groupMaxEnd = -Infinity;
-
-  const flushGroup = () => {
-    if (group.length === 0) return;
-    const totalLanes = group.length;
-    for (const { block, lane } of group) {
-      const startMin = timeToMinutes(block.startTime);
-      const endMin = timeToMinutes(block.endTime);
-      result.push({
-        ...block,
-        lane,
-        totalLanes,
-        topPx: 0, // filled in by caller relative to viewport start
-        heightPx: ((endMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-      });
-    }
-    group = [];
-    groupMaxEnd = -Infinity;
-  };
-
-  for (const block of sorted) {
-    const startMin = timeToMinutes(block.startTime);
-    const endMin = timeToMinutes(block.endTime);
-
-    if (group.length > 0 && startMin >= groupMaxEnd) {
-      flushGroup();
-    }
-
-    // Find smallest free lane (1-based).
-    const usedLanes = new Set(
-      group.filter((a) => a.endMin > startMin).map((a) => a.lane),
-    );
-    let lane = 1;
-    while (usedLanes.has(lane)) lane++;
-
-    group.push({ block, endMin, lane });
-    groupMaxEnd = Math.max(groupMaxEnd, endMin);
-  }
-  flushGroup();
-
-  return result;
-}
 
 function computeViewportRange(
   blocks: ReadonlyArray<GridBlock>,
@@ -229,6 +168,9 @@ export function WeekGrid({
         topPx:
           GRID_TOP_PADDING_PX +
           ((timeToMinutes(p.startTime) - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
+        heightPx:
+          ((timeToMinutes(p.endTime) - timeToMinutes(p.startTime)) / SLOT_MINUTES) *
+          SLOT_HEIGHT_PX,
       }));
     }
     return result;
@@ -367,8 +309,8 @@ export function WeekGrid({
               ))}
               {/* Blocks */}
               {(positionedByDay[dow] ?? []).map((block) => {
-                const widthPct = 100 / block.totalLanes;
-                const leftPct = (block.lane - 1) * widthPct;
+                const widthPct = (block.laneSpan / block.totalLanes) * 100;
+                const leftPct = ((block.lane - 1) / block.totalLanes) * 100;
                 const person = peopleById.get(block.personId);
                 const color = person?.color ?? fallbackColorForProfile(block.personId);
 
