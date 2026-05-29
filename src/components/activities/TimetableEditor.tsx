@@ -10,6 +10,7 @@ import type {
   Profile,
   SchoolShiftAnchor,
   SchoolTimetableEntry,
+  TimetableVariant,
 } from "@/types/database";
 import { getDisplayName } from "@/utils/identity";
 
@@ -21,6 +22,9 @@ export type TimetableEditorProps = {
   /** All family timetable entries — filtered to this member internally. */
   entries: ReadonlyArray<SchoolTimetableEntry>;
   bell: BellSchedule;
+  /** Pre-selected shift variant + weekday, from the clicked grid block. */
+  initialVariant?: TimetableVariant;
+  initialDay?: number;
 };
 
 /**
@@ -35,6 +39,8 @@ export function TimetableEditor({
   anchor,
   entries,
   bell,
+  initialVariant,
+  initialDay,
 }: TimetableEditorProps) {
   const name =
     getDisplayName({ firstName: member.first_name, lastName: member.last_name, email: null }) ||
@@ -50,6 +56,8 @@ export function TimetableEditor({
           anchor={anchor}
           entries={entries}
           bell={bell}
+          initialVariant={initialVariant}
+          initialDay={initialDay}
           onDone={() => onOpenChange(false)}
         />
       </ResponsiveDialogContent>
