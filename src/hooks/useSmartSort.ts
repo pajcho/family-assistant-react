@@ -38,10 +38,7 @@ export interface UseSmartSortResult {
 export function useSmartSort(list: ListWithItems): UseSmartSortResult {
   const toggleMutation = useToggleSmartSort();
 
-  const itemNames = useMemo(
-    () => list.list_items.map((i) => i.name),
-    [list.list_items],
-  );
+  const itemNames = useMemo(() => list.list_items.map((i) => i.name), [list.list_items]);
   const { isShopping, recognisedRatio } = useMemo(
     () => isShoppingList(list.name, itemNames),
     [list.name, itemNames],
@@ -51,8 +48,7 @@ export function useSmartSort(list: ListWithItems): UseSmartSortResult {
     isShopping,
     enabled: list.smart_sort_enabled,
     recognisedRatio,
-    toggle: () =>
-      toggleMutation.mutateAsync({ list, enabled: !list.smart_sort_enabled }),
+    toggle: () => toggleMutation.mutateAsync({ list, enabled: !list.smart_sort_enabled }),
     isPending: toggleMutation.isPending,
   };
 }

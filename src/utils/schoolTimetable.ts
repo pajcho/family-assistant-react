@@ -123,7 +123,10 @@ export function bandParams(
   usesPredcas: boolean,
 ): { start: string; bigBreakAfter: number } {
   if (band === "morning") {
-    return { start: normalizeTime(bell.morning_start), bigBreakAfter: bell.morning_big_break_after };
+    return {
+      start: normalizeTime(bell.morning_start),
+      bigBreakAfter: bell.morning_big_break_after,
+    };
   }
   if (usesPredcas) {
     return {

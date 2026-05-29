@@ -474,10 +474,7 @@ function AllActivitiesList({
           return (
             <li
               key={activity.id}
-              className={cn(
-                "flex items-center gap-3 py-2",
-                activity.is_paused && "opacity-60",
-              )}
+              className={cn("flex items-center gap-3 py-2", activity.is_paused && "opacity-60")}
             >
               <span className="flex shrink-0 -space-x-1">
                 {personIds.length === 0 ? (
@@ -542,4 +539,3 @@ function AllActivitiesList({
     </div>
   );
 }
-

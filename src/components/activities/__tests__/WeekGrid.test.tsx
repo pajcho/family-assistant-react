@@ -5,11 +5,7 @@ import type { ResolvedActivityBlock } from "@/utils/activity";
 
 import { WeekGrid } from "../WeekGrid";
 
-const block = (
-  id: string,
-  startTime: string,
-  endTime: string,
-): ResolvedActivityBlock => ({
+const block = (id: string, startTime: string, endTime: string): ResolvedActivityBlock => ({
   scheduleId: id,
   activityId: "act",
   personId: "p1",

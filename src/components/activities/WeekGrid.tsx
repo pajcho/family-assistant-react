@@ -66,9 +66,10 @@ type PositionedBlock = Laned<GridBlock> & {
   heightPx: number;
 };
 
-function computeViewportRange(
-  blocks: ReadonlyArray<GridBlock>,
-): { startMin: number; endMin: number } {
+function computeViewportRange(blocks: ReadonlyArray<GridBlock>): {
+  startMin: number;
+  endMin: number;
+} {
   // No blocks → fall back to a reasonable default window so the grid still
   // renders (and the user has something to scan visually).
   if (blocks.length === 0) return { startMin: DEFAULT_START_MIN, endMin: DEFAULT_END_MIN };
@@ -137,13 +138,9 @@ export function WeekGrid({
     };
   }, []);
 
-  const { startMin, endMin } = React.useMemo(
-    () => computeViewportRange(allBlocks),
-    [allBlocks],
-  );
+  const { startMin, endMin } = React.useMemo(() => computeViewportRange(allBlocks), [allBlocks]);
   const slotCount = (endMin - startMin) / SLOT_MINUTES;
-  const totalHeightPx =
-    slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
+  const totalHeightPx = slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
 
   // Current-time line position, in the same coordinate space as the blocks.
   // Hidden when "now" falls outside the (fit-to-content) visible range — a
@@ -151,8 +148,7 @@ export function WeekGrid({
   // is relative to the activities.
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowInViewport = nowMin >= startMin && nowMin <= endMin;
-  const nowTopPx =
-    GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+  const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
 
   // Group blocks per day-of-week then run the lane sweep.
   const positionedByDay = React.useMemo(() => {
@@ -169,8 +165,7 @@ export function WeekGrid({
           GRID_TOP_PADDING_PX +
           ((timeToMinutes(p.startTime) - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
         heightPx:
-          ((timeToMinutes(p.endTime) - timeToMinutes(p.startTime)) / SLOT_MINUTES) *
-          SLOT_HEIGHT_PX,
+          ((timeToMinutes(p.endTime) - timeToMinutes(p.startTime)) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
       }));
     }
     return result;
@@ -183,8 +178,7 @@ export function WeekGrid({
   const lastHour = Math.floor(endMin / 60);
   for (let h = firstHour; h <= lastHour; h++) {
     hourLabels.push({
-      topPx:
-        GRID_TOP_PADDING_PX + ((h * 60 - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
+      topPx: GRID_TOP_PADDING_PX + ((h * 60 - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
       label: `${String(h).padStart(2, "0")}:00`,
     });
   }
@@ -213,9 +207,7 @@ export function WeekGrid({
       container.scrollLeft = 0;
       return;
     }
-    const todayCell = container.querySelector<HTMLElement>(
-      `[data-day-index="${todayDayIndex}"]`,
-    );
+    const todayCell = container.querySelector<HTMLElement>(`[data-day-index="${todayDayIndex}"]`);
     if (!todayCell) return;
     // Align today's column near the left edge so the user gets it + the
     // next day in view, not the gutter-and-half-of-today thing.
@@ -366,9 +358,7 @@ export function WeekGrid({
                       "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                       "transition-[filter]",
                     )}
-                    aria-label={
-                      activity ? `${activity.name} — ${block.startTime}` : "Aktivnost"
-                    }
+                    aria-label={activity ? `${activity.name} — ${block.startTime}` : "Aktivnost"}
                     title={
                       isCanceled
                         ? `Otkazano · ranije ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
@@ -529,7 +519,9 @@ function SchoolBlock({
       <div className="truncate text-[11px] font-medium text-gray-800 dark:text-gray-100">
         {block.subject}
       </div>
-      {block.room ? <div className="truncate text-[9px] text-muted-foreground">{block.room}</div> : null}
+      {block.room ? (
+        <div className="truncate text-[9px] text-muted-foreground">{block.room}</div>
+      ) : null}
     </button>
   );
 }

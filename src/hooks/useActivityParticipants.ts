@@ -48,8 +48,7 @@ export function useActivityParticipants() {
           table: "activity_participants",
           filter: `family_id=eq.${familyId}`,
         },
-        () =>
-          queryClient.invalidateQueries({ queryKey: ["activity_participants", familyId] }),
+        () => queryClient.invalidateQueries({ queryKey: ["activity_participants", familyId] }),
       )
       .subscribe();
     return () => {
@@ -91,9 +90,7 @@ export function useReplaceActivityParticipants() {
         person_id: personId,
       }));
 
-      const { error: insertError } = await supabase
-        .from("activity_participants")
-        .insert(rows);
+      const { error: insertError } = await supabase.from("activity_participants").insert(rows);
       if (insertError) throw new Error(insertError.message);
     },
     onSuccess: () => {

@@ -39,9 +39,7 @@ type TimeBlock = { startTime: string; endTime: string };
  * ever used at once. Dividing width by the size left the surplus columns
  * empty on the right — the bug this layout fixes.
  */
-export function assignLanes<T extends TimeBlock>(
-  daysBlocks: ReadonlyArray<T>,
-): Laned<T>[] {
+export function assignLanes<T extends TimeBlock>(daysBlocks: ReadonlyArray<T>): Laned<T>[] {
   const sorted = [...daysBlocks].sort((a, b) => {
     const aStart = timeToMinutes(a.startTime);
     const bStart = timeToMinutes(b.startTime);
@@ -84,9 +82,7 @@ export function assignLanes<T extends TimeBlock>(
     }
 
     // Smallest free column (1-based) among blocks still active at startMin.
-    const usedLanes = new Set(
-      group.filter((a) => a.endMin > startMin).map((a) => a.lane),
-    );
+    const usedLanes = new Set(group.filter((a) => a.endMin > startMin).map((a) => a.lane));
     let lane = 1;
     while (usedLanes.has(lane)) lane++;
 

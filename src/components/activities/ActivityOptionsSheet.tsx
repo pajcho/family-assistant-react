@@ -82,13 +82,9 @@ export function ActivityOptionsSheet({
   // A sub-view that needs a member but can't find one (e.g. deleted) falls
   // back to the hub defensively.
   const focusedMember =
-    view.kind === "shift" || view.kind === "timetable"
-      ? memberById.get(view.personId)
-      : undefined;
+    view.kind === "shift" || view.kind === "timetable" ? memberById.get(view.personId) : undefined;
   const effectiveView: View =
-    (view.kind === "shift" || view.kind === "timetable") && !focusedMember
-      ? { kind: "hub" }
-      : view;
+    (view.kind === "shift" || view.kind === "timetable") && !focusedMember ? { kind: "hub" } : view;
 
   const title =
     effectiveView.kind === "hub"

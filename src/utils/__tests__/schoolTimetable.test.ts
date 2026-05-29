@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  BellSchedule,
-  SchoolShiftAnchor,
-  SchoolTimetableEntry,
-} from "@/types/database";
+import type { BellSchedule, SchoolShiftAnchor, SchoolTimetableEntry } from "@/types/database";
 import {
   addMinutesToTime,
   computeBellGrid,
@@ -144,29 +140,59 @@ describe("resolveSchoolWeekBlocks", () => {
     anchors.set("p", anchor({ person_id: "p", anchor_shift: "morning" }));
     const entries = [
       entry({ person_id: "p", variant: "A", day_of_week: 0, period_index: 1, subject: "Srpski" }),
-      entry({ person_id: "p", variant: "A", day_of_week: 0, period_index: 2, subject: "Matematika" }),
+      entry({
+        person_id: "p",
+        variant: "A",
+        day_of_week: 0,
+        period_index: 2,
+        subject: "Matematika",
+      }),
       entry({ person_id: "p", variant: "B", day_of_week: 0, period_index: 1, subject: "Engleski" }),
     ];
 
-    const a = resolveSchoolWeekBlocks({ weekStart: W0, bell: BELL, entries, shiftAnchorsByPersonId: anchors });
+    const a = resolveSchoolWeekBlocks({
+      weekStart: W0,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: anchors,
+    });
     expect(a.map((b) => [b.subject, b.startTime, b.endTime])).toEqual([
       ["Srpski", "08:00", "08:45"],
       ["Matematika", "08:50", "09:35"],
     ]);
 
     // Week B → the 'B' timetable, and (afternoon_uses_predcas) the 13:00 grid.
-    const b = resolveSchoolWeekBlocks({ weekStart: W1, bell: BELL, entries, shiftAnchorsByPersonId: anchors });
+    const b = resolveSchoolWeekBlocks({
+      weekStart: W1,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: anchors,
+    });
     expect(b.map((x) => [x.subject, x.startTime])).toEqual([["Engleski", "13:00"]]);
   });
 
   it("1st/2nd grader: week-B subjects show at MORNING times", () => {
     const a1 = new Map<string, SchoolShiftAnchor>();
-    a1.set("kid", anchor({ person_id: "kid", anchor_shift: "morning", fixed_time_band: "morning" }));
+    a1.set(
+      "kid",
+      anchor({ person_id: "kid", anchor_shift: "morning", fixed_time_band: "morning" }),
+    );
     const entries = [
       entry({ person_id: "kid", variant: "A", day_of_week: 0, period_index: 1, subject: "Srpski" }),
-      entry({ person_id: "kid", variant: "B", day_of_week: 0, period_index: 1, subject: "Likovno" }),
+      entry({
+        person_id: "kid",
+        variant: "B",
+        day_of_week: 0,
+        period_index: 1,
+        subject: "Likovno",
+      }),
     ];
-    const b = resolveSchoolWeekBlocks({ weekStart: W1, bell: BELL, entries, shiftAnchorsByPersonId: a1 });
+    const b = resolveSchoolWeekBlocks({
+      weekStart: W1,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: a1,
+    });
     expect(b).toHaveLength(1);
     expect(b[0].subject).toBe("Likovno");
     expect(b[0].variant).toBe("B");
@@ -180,15 +206,36 @@ describe("resolveSchoolWeekBlocks", () => {
       entry({ person_id: "x", variant: "A", period_index: 1, subject: "Srpski" }),
       entry({ person_id: "x", variant: "B", period_index: 1, subject: "Engleski" }),
     ];
-    const r = resolveSchoolWeekBlocks({ weekStart: W0, bell: BELL, entries, shiftAnchorsByPersonId: empty });
+    const r = resolveSchoolWeekBlocks({
+      weekStart: W0,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: empty,
+    });
     expect(r.map((b) => b.subject)).toEqual(["Srpski"]);
     expect(r[0].startTime).toBe("08:00");
   });
 
   it("skips entries whose period_index exceeds max_periods, and returns [] without a bell", () => {
     anchors.set("p", anchor({ person_id: "p" }));
-    const entries = [entry({ person_id: "p", variant: "A", period_index: 8, subject: "Van mreže" })];
-    expect(resolveSchoolWeekBlocks({ weekStart: W0, bell: BELL, entries, shiftAnchorsByPersonId: anchors })).toEqual([]);
-    expect(resolveSchoolWeekBlocks({ weekStart: W0, bell: null, entries, shiftAnchorsByPersonId: anchors })).toEqual([]);
+    const entries = [
+      entry({ person_id: "p", variant: "A", period_index: 8, subject: "Van mreže" }),
+    ];
+    expect(
+      resolveSchoolWeekBlocks({
+        weekStart: W0,
+        bell: BELL,
+        entries,
+        shiftAnchorsByPersonId: anchors,
+      }),
+    ).toEqual([]);
+    expect(
+      resolveSchoolWeekBlocks({
+        weekStart: W0,
+        bell: null,
+        entries,
+        shiftAnchorsByPersonId: anchors,
+      }),
+    ).toEqual([]);
   });
 });

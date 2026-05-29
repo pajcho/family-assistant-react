@@ -135,10 +135,7 @@ export function useDeleteActivityOverride() {
 
   return useMutation({
     mutationFn: async (overrideId: string): Promise<void> => {
-      const { error } = await supabase
-        .from("activity_overrides")
-        .delete()
-        .eq("id", overrideId);
+      const { error } = await supabase.from("activity_overrides").delete().eq("id", overrideId);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {

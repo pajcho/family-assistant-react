@@ -4,10 +4,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import {
-  ActivityForm,
-  type ActivityFormPayload,
-} from "@/components/activities/ActivityForm";
+import { ActivityForm, type ActivityFormPayload } from "@/components/activities/ActivityForm";
 import type { Activity, ActivitySchedule, Profile } from "@/types/database";
 
 export type ActivityFormDialogProps = {

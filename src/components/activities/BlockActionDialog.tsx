@@ -24,10 +24,7 @@ import type { Activity, Profile } from "@/types/database";
 import { fallbackColorForProfile, type ResolvedActivityBlock } from "@/utils/activity";
 import { srLocale } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
-import {
-  useDeleteActivityOverride,
-  useUpsertActivityOverride,
-} from "@/hooks/useActivityOverrides";
+import { useDeleteActivityOverride, useUpsertActivityOverride } from "@/hooks/useActivityOverrides";
 
 /**
  * Per-occurrence action menu opened by clicking a block in WeekGrid.
@@ -257,11 +254,7 @@ function ActionList({
         <ActionRow
           icon={ArrowUturnLeftIcon}
           label="Vrati u redovan termin"
-          description={
-            isCanceled
-              ? "Vrati otkazan termin u raspored"
-              : "Vrati na originalno vreme"
-          }
+          description={isCanceled ? "Vrati otkazan termin u raspored" : "Vrati na originalno vreme"}
           onClick={onRestore}
           disabled={saving}
           tone="muted"

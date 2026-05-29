@@ -432,8 +432,10 @@ async function dispatchPaymentReminder(
       .eq("user_id", userId)
       .maybeSingle();
     const tz = (pref as { timezone?: string } | null)?.timezone ?? "Europe/Belgrade";
-    const fireHHMM =
-      ((pref as { morning_time?: string } | null)?.morning_time ?? "08:00").slice(0, 5);
+    const fireHHMM = ((pref as { morning_time?: string } | null)?.morning_time ?? "08:00").slice(
+      0,
+      5,
+    );
 
     if (localDateISO(tz) !== fireDate || localTime(tz) !== fireHHMM) continue;
 
@@ -653,9 +655,7 @@ async function processActivityReminders(
         ),
       supabase
         .from("school_shift_anchors")
-        .select(
-          "person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating",
-        ),
+        .select("person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating"),
       supabase.from("notification_preferences").select("user_id, timezone"),
       supabase.from("profiles").select("id, family_id, first_name, last_name"),
       supabase.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth"),
@@ -690,8 +690,7 @@ async function processActivityReminders(
     else subsByUser.set(s.user_id, [s]);
   }
   // Index for O(1) override lookup by (schedule_id, date, person_id).
-  const overrideKey = (sid: string, date: string, pid: string) =>
-    `${sid}|${date}|${pid}`;
+  const overrideKey = (sid: string, date: string, pid: string) => `${sid}|${date}|${pid}`;
   const overrideByKey = new Map<string, ActivityOverrideRow>();
   for (const o of overrides) {
     overrideByKey.set(overrideKey(o.schedule_id, o.date, o.person_id), o);
@@ -732,15 +731,7 @@ async function processActivityReminders(
     const familyToday = localDateISO(tz);
 
     for (const personId of persons) {
-      if (
-        !matchesRuleOnDate(
-          activity,
-          rule,
-          anchorByPerson.get(personId),
-          familyToday,
-          personId,
-        )
-      ) {
+      if (!matchesRuleOnDate(activity, rule, anchorByPerson.get(personId), familyToday, personId)) {
         continue;
       }
 
@@ -749,8 +740,7 @@ async function processActivityReminders(
       if (override) {
         if (override.action === "cancel") continue;
         if (override.action === "reschedule") {
-          const movedAway =
-            !!override.override_date && override.override_date !== familyToday;
+          const movedAway = !!override.override_date && override.override_date !== familyToday;
           if (movedAway) continue; // fires on a different day; pass 2 handles it
           if (override.override_start_time) {
             effectiveStart = override.override_start_time.slice(0, 5);
@@ -900,15 +890,8 @@ async function dispatchActivityReminder(
     if (!subList || subList.length === 0) continue; // no push → not a recipient
 
     const recipientTz = tzByUser.get(recipientId) ?? FAMILY_TZ_DEFAULT;
-    const fire = eventLocalFireTime(
-      occurrenceDate,
-      effectiveStart,
-      activity.remind_minutes_before,
-    );
-    if (
-      localDateISO(recipientTz) !== fire.date ||
-      localTime(recipientTz) !== fire.time
-    ) {
+    const fire = eventLocalFireTime(occurrenceDate, effectiveStart, activity.remind_minutes_before);
+    if (localDateISO(recipientTz) !== fire.date || localTime(recipientTz) !== fire.time) {
       continue;
     }
 

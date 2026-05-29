@@ -173,7 +173,13 @@ function AddMemberForm() {
         Novi član nema svoj nalog — služi samo da mu se dodeljuju aktivnosti i smene.
       </p>
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={createMember.isPending}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={reset}
+          disabled={createMember.isPending}
+        >
           Otkaži
         </Button>
         <Button

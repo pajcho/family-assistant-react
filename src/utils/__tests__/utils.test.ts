@@ -59,9 +59,9 @@ describe("utils", () => {
     });
 
     it("getDisplayName prefers full name over email", () => {
-      expect(
-        getDisplayName({ firstName: "Nikola", lastName: "Pajic", email: "x@y.com" }),
-      ).toBe("Nikola Pajic");
+      expect(getDisplayName({ firstName: "Nikola", lastName: "Pajic", email: "x@y.com" })).toBe(
+        "Nikola Pajic",
+      );
     });
 
     it("getDisplayName falls back to email when name missing", () => {

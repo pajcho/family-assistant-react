@@ -41,8 +41,11 @@ export function useWeekActivities(
   const scheduleQuery = useActivitySchedule();
   const overridesQuery = useActivityOverrides();
   const participantsQuery = useActivityParticipants();
-  const { byPersonId: shiftAnchorsByPerson, isLoading: shiftsLoading, data: shiftAnchorsData } =
-    useSchoolShiftAnchors();
+  const {
+    byPersonId: shiftAnchorsByPerson,
+    isLoading: shiftsLoading,
+    data: shiftAnchorsData,
+  } = useSchoolShiftAnchors();
 
   const blocks = useMemo(() => {
     const activities = activitiesQuery.data ?? [];

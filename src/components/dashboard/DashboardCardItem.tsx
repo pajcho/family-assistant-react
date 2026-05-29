@@ -95,7 +95,9 @@ export function DashboardCardItem({
           </span>
         ) : null}
       </span>
-      <span className={cn("shrink-0 whitespace-nowrap", VALUE_TEXT[accent], completed && "opacity-50")}>
+      <span
+        className={cn("shrink-0 whitespace-nowrap", VALUE_TEXT[accent], completed && "opacity-50")}
+      >
         {value}
       </span>
     </button>

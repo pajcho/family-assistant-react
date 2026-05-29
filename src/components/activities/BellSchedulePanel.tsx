@@ -75,10 +75,28 @@ export function BellSchedulePanel({ bell, onClose }: BellSchedulePanelProps) {
 
       {/* Durations */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <NumberField label="Čas (min)" value={form.period_minutes} onChange={setNum("period_minutes")} />
-        <NumberField label="Mali odmor" value={form.small_break_minutes} onChange={setNum("small_break_minutes")} />
-        <NumberField label="Veliki odmor" value={form.big_break_minutes} onChange={setNum("big_break_minutes")} />
-        <NumberField label="Maks. časova" value={form.max_periods} onChange={setNum("max_periods")} min={1} max={12} />
+        <NumberField
+          label="Čas (min)"
+          value={form.period_minutes}
+          onChange={setNum("period_minutes")}
+        />
+        <NumberField
+          label="Mali odmor"
+          value={form.small_break_minutes}
+          onChange={setNum("small_break_minutes")}
+        />
+        <NumberField
+          label="Veliki odmor"
+          value={form.big_break_minutes}
+          onChange={setNum("big_break_minutes")}
+        />
+        <NumberField
+          label="Maks. časova"
+          value={form.max_periods}
+          onChange={setNum("max_periods")}
+          min={1}
+          max={12}
+        />
       </div>
 
       {/* Bands */}
@@ -139,7 +157,14 @@ function NumberField({
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
-      <Input type="number" inputMode="numeric" min={min} max={max} value={value} onChange={onChange} />
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={value}
+        onChange={onChange}
+      />
     </div>
   );
 }
@@ -165,7 +190,14 @@ function BandRow({
       </div>
       <div className="w-28 space-y-1">
         <Label className="text-xs">Veliki odmor posle</Label>
-        <Input type="number" inputMode="numeric" min={0} max={12} value={bigBreakAfter} onChange={onBigBreakAfter} />
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={12}
+          value={bigBreakAfter}
+          onChange={onBigBreakAfter}
+        />
       </div>
     </div>
   );
@@ -182,7 +214,10 @@ function BandPreview({
   band: SchoolShift;
   usesPredcas: boolean;
 }) {
-  const grid = React.useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
+  const grid = React.useMemo(
+    () => computeBellGrid(bell, band, usesPredcas),
+    [bell, band, usesPredcas],
+  );
   return (
     <div className="rounded-md border border-gray-200 p-2 text-xs dark:border-gray-700">
       <div className="mb-1 font-semibold text-gray-700 dark:text-gray-200">{title}</div>
@@ -196,7 +231,9 @@ function BandPreview({
               </span>
             </li>
             {slot.bigBreakAfter ? (
-              <li className="text-center text-[9px] uppercase text-amber-600 dark:text-amber-400">odmor</li>
+              <li className="text-center text-[9px] uppercase text-amber-600 dark:text-amber-400">
+                odmor
+              </li>
             ) : null}
           </React.Fragment>
         ))}
