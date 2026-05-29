@@ -51,7 +51,7 @@ export function useFamilyMembers(): UseFamilyMembersResult {
     staleTime: 5 * 60_000,
   });
 
-  const members = query.data ?? [];
+  const members = useMemo(() => query.data ?? [], [query.data]);
 
   // Derived map memoized on the data identity. TanStack Query returns the
   // same array reference across rerenders when the data hasn't changed, so

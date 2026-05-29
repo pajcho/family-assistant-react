@@ -36,7 +36,7 @@ function ListsPage() {
   const clearCompleted = useClearCompletedItems();
   const collapsed = useCollapsedLists();
 
-  const lists: ListWithItems[] = listsQuery.data ?? [];
+  const lists = React.useMemo<ListWithItems[]>(() => listsQuery.data ?? [], [listsQuery.data]);
   const allListIds = React.useMemo(() => lists.map((l) => l.id), [lists]);
   const allCollapsed = collapsed.isAllCollapsed(allListIds);
 

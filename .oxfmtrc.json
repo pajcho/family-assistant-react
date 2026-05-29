@@ -1,4 +1,10 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": []
+  "ignorePatterns": [
+    "dist/",
+    "src/routeTree.gen.ts",
+    "pnpm-lock.yaml",
+    "MIGRATION_PLAN.md",
+    ".nuxt-screens/"
+  ]
 }

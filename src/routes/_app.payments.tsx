@@ -411,8 +411,8 @@ function PaymentsPage() {
   // but we accept the once-per-mount cost.
   const monthFilters = React.useMemo(() => buildMonthFilters(new Date()), []);
 
-  const payments = paymentsQuery.data ?? [];
-  const history = historyQuery.data ?? [];
+  const payments = React.useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
+  const history = React.useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
   const combinedList = React.useMemo(
     () => computeCombinedList({ payments, history, selectedMonth }),
