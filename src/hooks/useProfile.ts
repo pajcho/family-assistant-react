@@ -90,8 +90,40 @@ export function useProfile() {
     family,
     familyId: profile?.family_id ?? null,
     familyName: family?.name ?? null,
+    /** Whether the current user may manage the family roster / logins. */
+    isAdmin: profile?.is_admin ?? false,
     isLoading: query.isLoading,
     updateProfile: updateMutation.mutateAsync,
     isUpdating: updateMutation.isPending,
   };
+}
+
+/**
+ * Rename the current user's family. Admin-only at the DB level (the
+ * "Admins can update own family" RLS policy) — the UI only exposes it on the
+ * Porodica tab, which is itself admin-gated. Invalidates the profile cache so
+ * `familyName` refreshes everywhere it's read.
+ */
+export function useRenameFamily() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (name: string): Promise<void> => {
+      if (!familyId) throw new Error("Nema porodice");
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("Naziv porodice je obavezan");
+      const { error } = await supabase
+        .from("families")
+        .update({ name: trimmed })
+        .eq("id", familyId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : "Greška pri preimenovanju porodice");
+    },
+  });
 }

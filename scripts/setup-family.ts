@@ -92,9 +92,12 @@ async function main(): Promise<void> {
 
   console.log("Povezivanje profila sa porodicom...");
   for (const userId of userIds) {
+    // Both seed users are family admins so a fresh family can manage its
+    // roster / logins from the Porodica settings tab out of the box.
     const { error: profileErr } = await supabase.from("profiles").insert({
       id: userId,
       family_id: familyId,
+      is_admin: true,
     });
     if (profileErr) {
       console.error("Greška pri kreiranju profila:", profileErr.message);

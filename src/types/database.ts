@@ -23,6 +23,13 @@ export interface Profile {
    */
   color: string | null;
   /**
+   * Family admin — may create/disable logins, manage the roster (add/remove
+   * members, set colors, mark students), and rename the family. Backfilled
+   * `true` for everyone who had a login when the role was introduced; new
+   * login-less members default `false`. Enforced in RLS via `is_family_admin()`.
+   */
+  is_admin: boolean;
+  /**
    * True iff this profile's `id` matches a row in `auth.users` — i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional
