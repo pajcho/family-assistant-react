@@ -18,8 +18,19 @@ export type ListFormPayload = {
   description: string | null;
 };
 
+/**
+ * Which intent the form serves. We can't infer "duplicate" from the
+ * presence of `list` (a duplicate is pre-filled *from* an existing list
+ * yet still creates a brand-new row), so the caller states it explicitly.
+ * It only drives the submit-button label and dialog title — the actual
+ * create-vs-update decision lives in the page that owns the mutation.
+ */
+export type ListFormMode = "create" | "edit" | "duplicate";
+
 export type ListFormProps = {
   list?: List | null;
+  /** Defaults to "create". See {@link ListFormMode}. */
+  mode?: ListFormMode;
   saving?: boolean;
   onSubmit: (payload: ListFormPayload) => void;
   onCancel: () => void;
@@ -58,14 +69,21 @@ function initialState(list: List | null | undefined): FormState {
   };
 }
 
-export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormProps) {
+export function ListForm({
+  list,
+  mode = "create",
+  saving = false,
+  onSubmit,
+  onCancel,
+}: ListFormProps) {
   const [form, setForm] = useState<FormState>(() => initialState(list));
 
   useEffect(() => {
     setForm(initialState(list));
   }, [list]);
 
-  const isEdit = !!list?.id;
+  const submitLabel =
+    mode === "edit" ? "Sačuvaj izmene" : mode === "duplicate" ? "Dupliraj" : "Dodaj";
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -165,7 +183,7 @@ export function ListForm({ list, saving = false, onSubmit, onCancel }: ListFormP
           Otkaži
         </Button>
         <Button type="submit" disabled={saving}>
-          {isEdit ? "Sačuvaj izmene" : "Dodaj"}
+          {submitLabel}
         </Button>
       </div>
     </form>
