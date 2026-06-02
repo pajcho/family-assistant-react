@@ -3,6 +3,7 @@ import {
   ArrowsPointingOutIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  DocumentDuplicateIcon,
   EllipsisVerticalIcon,
   PencilIcon,
   TableCellsIcon,
@@ -29,6 +30,11 @@ import type { ListItem, ListWithItems } from "@/types/database";
 export type ListCardProps = {
   list: ListWithItems;
   onEdit: (list: ListWithItems) => void;
+  /**
+   * Duplicate the list's *settings* into a brand-new, empty list. Optional
+   * so surfaces that don't wire it up (none today) simply hide the action.
+   */
+  onDuplicate?: (list: ListWithItems) => void;
   onDelete: (list: ListWithItems) => void;
   onAddItem: (listId: string, name: string) => void;
   onToggleItem: (item: ListItem) => void;
@@ -49,6 +55,7 @@ export type ListCardProps = {
 export function ListCard({
   list,
   onEdit,
+  onDuplicate,
   onDelete,
   onAddItem,
   onToggleItem,
@@ -185,6 +192,16 @@ export function ListCard({
               <PencilIcon className="h-4 w-4" />
               Izmeni listu
             </DropdownMenuItem>
+            {/* Duplicate copies only the list's settings (name, scope,
+                description, retention) into a fresh, empty list — items are
+                intentionally not cloned. Grouped with "Izmeni" since both
+                are "set up a list" actions. */}
+            {onDuplicate ? (
+              <DropdownMenuItem onSelect={() => onDuplicate(list)}>
+                <DocumentDuplicateIcon className="h-4 w-4" />
+                Dupliraj listu
+              </DropdownMenuItem>
+            ) : null}
             {/* Export entries — both formats live in the same menu so
                 users discover them together. Disabled when the list has
                 no items at all (active + completed) — the export would
