@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -89,6 +89,16 @@ export function useListsWithItems() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
 
+  // Unique per hook instance. The master-detail layout mounts this hook in
+  // several components at once (the sidebar + the open list's detail, plus the
+  // dashboard card), and a *shared* channel topic makes Supabase throw
+  // "cannot add `postgres_changes` callbacks after `subscribe()`" when the
+  // second instance subscribes to the same topic. A per-instance topic gives
+  // each mount its own channel — they all just invalidate the same query, which
+  // React Query dedupes — and also avoids the same collision during the brief
+  // overlap when navigating between two screens that both read lists.
+  const instanceId = useId();
+
   const query = useQuery({
     queryKey: ["lists", familyId],
     queryFn: () => fetchListsWithItems(familyId as string),
@@ -99,7 +109,7 @@ export function useListsWithItems() {
     if (!familyId) return;
     const invalidate = () => queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     const channel = supabase
-      .channel(`lists-${familyId}`)
+      .channel(`lists-${familyId}-${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -124,7 +134,7 @@ export function useListsWithItems() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [familyId, queryClient]);
+  }, [familyId, queryClient, instanceId]);
 
   return query;
 }

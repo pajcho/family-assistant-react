@@ -36,6 +36,7 @@
     "react-day-picker": "latest",
     "react-dom": "latest",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.11.2",
     "remark-gfm": "^4.0.1",
     "sonner": "latest",
     "tailwind-merge": "latest",

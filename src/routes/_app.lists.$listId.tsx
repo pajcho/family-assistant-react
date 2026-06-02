@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowDownTrayIcon,
   ArrowLeftIcon,
+  DocumentDuplicateIcon,
   EllipsisVerticalIcon,
   InformationCircleIcon,
   PencilIcon,
@@ -26,10 +27,13 @@ import {
 import { ListBody } from "@/components/lists/ListBody";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import { ListInfoPanel } from "@/components/lists/ListInfoPanel";
+import { useIsWide } from "@/hooks/useIsWide";
 import { useSmartSort } from "@/hooks/useSmartSort";
-import type { ListFormPayload } from "@/components/lists/ListForm";
+import { writeLastOpenedListId } from "@/lib/lastOpenedList";
+import type { ListFormMode, ListFormPayload } from "@/components/lists/ListForm";
 import {
   useClearCompletedItems,
+  useCreateList,
   useCreateListItem,
   useDeleteList,
   useDeleteListItem,
@@ -39,46 +43,54 @@ import {
 } from "@/hooks/useLists";
 import { cn } from "@/lib/cn";
 import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
-import type { ListItem, ListWithItems } from "@/types/database";
+import type { List, ListItem, ListWithItems } from "@/types/database";
 
 export const Route = createFileRoute("/_app/lists/$listId")({
   component: ListDetailPage,
 });
 
 /**
- * Full-page view of a single list.
+ * View of a single list.
  *
- * Reuses `ListBody` for the items + add-input + per-item delete confirm so
- * any change to that interaction lands in both places. The page adds:
- *   • a back-arrow that returns to /lists
- *   • a larger header with the list name + scope badge + item counts
- *   • the same "Izmeni / Obriši završene / Obriši listu" dropdown the card
- *     header has
+ * Renders in two contexts off the same component:
+ *   • Desktop (>= lg): inside the right panel of the master-detail shell. The
+ *     sidebar is already on screen, so there is no back button — the panel just
+ *     shows the open list.
+ *   • Mobile (< lg): as a full page reached from the master list, with a
+ *     back-arrow to `/lists`.
  *
- * The list itself is read from the same `useListsWithItems()` query that
- * the /lists page uses — the cached array gives us instant render on
- * navigation from there, and realtime keeps everything fresh.
+ * Reuses `ListBody` for the items + add-input + per-item delete confirm so any
+ * change to that interaction lands everywhere. The list is read from the same
+ * `useListsWithItems()` query the master uses — the cached array gives instant
+ * render on selection, and realtime keeps it fresh.
  */
 function ListDetailPage() {
   const { listId } = useParams({ from: "/_app/lists/$listId" });
   const navigate = useNavigate();
+  const isWide = useIsWide();
   const listsQuery = useListsWithItems();
   const list = (listsQuery.data ?? []).find((l) => l.id === listId) ?? null;
+
+  // Remember the open list so a later bare `/lists` visit (on desktop) re-opens
+  // it instead of always falling back to the first. Writing on mobile too is
+  // harmless — only the desktop index resolver reads it back.
+  const foundId = list?.id;
+  useEffect(() => {
+    if (foundId) writeLastOpenedListId(foundId);
+  }, [foundId]);
 
   const goBack = () => {
     void navigate({ to: "/lists" });
   };
 
-  // Loading / not-found states render minimal chrome. We keep the back
-  // button visible in both so the user can always escape without using
-  // the browser chrome. Once `list` is non-null we drop into the inner
-  // component, which can safely call hooks (`useSmartSort`) that need
-  // a real list object — keeps the hook order stable across loading
-  // and loaded states.
+  // Loading / not-found render minimal chrome. The back button only exists on
+  // mobile; on desktop the sidebar is the way back. Once `list` is non-null we
+  // drop into the inner component, which can safely call hooks (`useSmartSort`)
+  // that need a real list — keeping hook order stable across states.
   if (listsQuery.isLoading) {
     return (
       <div className="animate-fade-in">
-        <PageHeader onBack={goBack} />
+        {!isWide ? <PageHeader onBack={goBack} /> : null}
         <p className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</p>
       </div>
     );
@@ -87,7 +99,7 @@ function ListDetailPage() {
   if (!list) {
     return (
       <div className="animate-fade-in">
-        <PageHeader onBack={goBack} />
+        {!isWide ? <PageHeader onBack={goBack} /> : null}
         <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
           <p className="text-gray-700 dark:text-gray-300">Lista nije pronađena.</p>
           <Button variant="outline" onClick={goBack} className="mt-4">
@@ -98,13 +110,22 @@ function ListDetailPage() {
     );
   }
 
-  return <ListDetailLoaded list={list} onBack={goBack} />;
+  return <ListDetailLoaded list={list} onBack={goBack} showBack={!isWide} />;
 }
 
-function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () => void }) {
+function ListDetailLoaded({
+  list,
+  onBack,
+  showBack,
+}: {
+  list: ListWithItems;
+  onBack: () => void;
+  showBack: boolean;
+}) {
   const navigate = useNavigate();
 
   const updateList = useUpdateList();
+  const createList = useCreateList();
   const deleteList = useDeleteList();
   const createItem = useCreateListItem();
   const updateItem = useUpdateListItem();
@@ -112,41 +133,67 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
   const clearCompleted = useClearCompletedItems();
   const smartSort = useSmartSort(list);
 
-  // Edit-list dialog state.
+  // One dialog serves edit + duplicate. `formMode` is the source of truth for
+  // create-vs-update at submit (a duplicate is pre-filled yet still creates a
+  // new row). `formInitial` carries the pre-filled values and stays referentially
+  // stable for the dialog's lifetime so ListForm's reset-on-`list`-change effect
+  // doesn't wipe the user's edits on realtime updates.
   const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<ListFormMode>("edit");
+  const [formInitial, setFormInitial] = useState<List | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Delete-list confirmation state.
   const [deleteOpen, setDeleteOpen] = useState(false);
-
-  // Info-panel state (creator + last-editor + per-item activity).
   const [infoOpen, setInfoOpen] = useState(false);
 
   const openEdit = () => {
+    setFormMode("edit");
+    setFormInitial(list);
     setFormError(null);
     setFormOpen(true);
   };
 
-  const handleEditSubmit = async (payload: ListFormPayload) => {
+  // Duplicate copies only the list's *settings* into a fresh, empty list —
+  // items are intentionally not cloned. The "(kopija)" suffix stops a blind
+  // Save from producing two identically-named lists.
+  const openDuplicate = () => {
+    setFormMode("duplicate");
+    setFormInitial({ ...list, name: `${list.name} (kopija)` });
+    setFormError(null);
+    setFormOpen(true);
+  };
+
+  const handleFormSubmit = async (payload: ListFormPayload) => {
     setFormError(null);
     try {
-      await updateList.mutateAsync({ id: list.id, payload });
+      if (formMode === "edit") {
+        await updateList.mutateAsync({ id: list.id, payload });
+      } else {
+        await createList.mutateAsync(payload);
+      }
       setFormOpen(false);
+      setFormInitial(null);
     } catch (err) {
-      setFormError(err instanceof Error && err.message ? err.message : "Greška pri izmeni liste");
+      const fallback =
+        formMode === "edit" ? "Greška pri izmeni liste" : "Greška pri kreiranju liste";
+      setFormError(err instanceof Error && err.message ? err.message : fallback);
     }
   };
 
-  const handleEditOpenChange = (open: boolean) => {
+  const handleFormOpenChange = (open: boolean) => {
     setFormOpen(open);
-    if (!open) setFormError(null);
+    if (!open) {
+      setFormInitial(null);
+      setFormError(null);
+    }
   };
 
   const handleDeleteConfirm = async () => {
     try {
       await deleteList.mutateAsync(list.id);
       setDeleteOpen(false);
-      // After successful delete, leave the now-broken URL.
+      // Leave the now-broken URL. On desktop /lists re-resolves to the next
+      // available list; on mobile it returns to the master list.
       void navigate({ to: "/lists" });
     } catch {
       // Toast surfaced by the hook's onError; stay on page so the user can retry.
@@ -174,11 +221,12 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
 
   return (
     <div className="animate-fade-in">
-      <PageHeader onBack={onBack} />
+      {showBack ? <PageHeader onBack={onBack} /> : null}
 
       <ListHeader
         list={list}
         onEdit={openEdit}
+        onDuplicate={openDuplicate}
         onDelete={() => setDeleteOpen(true)}
         onClearCompleted={() => clearCompleted.mutate(list.id)}
         onShowInfo={() => setInfoOpen(true)}
@@ -199,21 +247,22 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
           // Headers visible only while the user has explicitly turned
-          // smart-sort ON. `smartSort.isShopping` (detection) is the
-          // gate for the *toggle button*; `smartSort.enabled` (persisted
-          // flag) is the gate for actually grouping items.
+          // smart-sort ON. `smartSort.isShopping` (detection) gates the
+          // *toggle button*; `smartSort.enabled` (persisted flag) gates the
+          // actual grouping.
           showCategoryHeaders={smartSort.enabled}
         />
       </div>
 
       <ListFormDialog
         open={formOpen}
-        onOpenChange={handleEditOpenChange}
-        list={list}
+        onOpenChange={handleFormOpenChange}
+        list={formInitial}
+        mode={formMode}
         error={formError}
-        saving={updateList.isPending}
+        saving={updateList.isPending || createList.isPending}
         onSubmit={(payload) => {
-          void handleEditSubmit(payload);
+          void handleFormSubmit(payload);
         }}
       />
 
@@ -235,10 +284,8 @@ function ListDetailLoaded({ list, onBack }: { list: ListWithItems; onBack: () =>
 
 function PageHeader({ onBack }: { onBack: () => void }) {
   // Single button wrapping arrow + label so the whole row is a tap target.
-  // Previously the arrow alone was clickable, with the "Liste" text inert —
-  // easy to miss on a phone. The negative left margin keeps the icon
-  // visually flush with the page edge while the button itself has padding
-  // for a comfortable hit area.
+  // The negative left margin keeps the icon visually flush with the page edge
+  // while the button itself has padding for a comfortable hit area.
   return (
     <button
       type="button"
@@ -255,6 +302,7 @@ function PageHeader({ onBack }: { onBack: () => void }) {
 function ListHeader({
   list,
   onEdit,
+  onDuplicate,
   onDelete,
   onClearCompleted,
   onShowInfo,
@@ -262,6 +310,7 @@ function ListHeader({
 }: {
   list: ListWithItems;
   onEdit: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
   onClearCompleted: () => void;
   onShowInfo: () => void;
@@ -299,8 +348,8 @@ function ListHeader({
       </div>
 
       {/* Top-level smart-sort toggle. Only rendered when the categoriser
-          flagged the list as a shopping list — non-shopping lists never
-          see the affordance. Active state colours the icon and tints the
+          flagged the list as a shopping list — non-shopping lists never see
+          the affordance. Active state colours the icon and tints the
           background so the on/off state is obvious at a glance. */}
       {smartSort.isShopping ? (
         <Button
@@ -338,8 +387,15 @@ function ListHeader({
             <PencilIcon className="h-4 w-4" />
             Izmeni listu
           </DropdownMenuItem>
-          {/* Export entries — mirror the ListCard menu so users get the
-              same affordance on both surfaces. Disabled on empty lists. */}
+          {/* Duplicate copies only the list's settings (name, scope,
+              description, retention) into a fresh, empty list — items are
+              intentionally not cloned. Grouped with "Izmeni" since both are
+              "set up a list" actions. */}
+          <DropdownMenuItem onSelect={onDuplicate}>
+            <DocumentDuplicateIcon className="h-4 w-4" />
+            Dupliraj listu
+          </DropdownMenuItem>
+          {/* Export entries — disabled on empty lists (the file would be empty). */}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => exportListAsMarkdown(list)}

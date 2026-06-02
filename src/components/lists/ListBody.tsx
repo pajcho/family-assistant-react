@@ -50,8 +50,8 @@ export type ListBodyProps = {
 };
 
 /**
- * Shared body for both the grid `ListCard` and the full-page list view.
- * Owns:
+ * Shared body for the list detail view — the desktop master-detail panel and
+ * the mobile full-page list both render it. Owns:
  *   • the controlled `draft` for the add-item input
  *   • the show/hide-completed toggle state
  *   • the per-item delete confirmation dialog (so swipe-left and the
