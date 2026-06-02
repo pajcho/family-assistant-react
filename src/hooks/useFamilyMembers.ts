@@ -163,3 +163,65 @@ export function useUpdateProfileColor() {
     },
   });
 }
+
+/**
+ * Update a member's first / last name. Admin-only for *other* members (the
+ * "Admins can update family profiles" RLS policy); a member editing their own
+ * row goes through `useProfile().updateProfile` instead. `full_name` is
+ * recomputed by a DB trigger, so we only write the two name parts.
+ */
+export function useUpdateMemberName() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: {
+      profileId: string;
+      first_name: string | null;
+      last_name: string | null;
+    }): Promise<void> => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          first_name: args.first_name?.trim() || null,
+          last_name: args.last_name?.trim() || null,
+        })
+        .eq("id", args.profileId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri čuvanju imena");
+    },
+  });
+}
+
+/**
+ * Grant or revoke the family-admin role on a member with a login. Admin-only
+ * (RLS). The caller is responsible for never revoking the last admin — the UI
+ * disables the toggle in that case so a family can't lock itself out.
+ */
+export function useSetMemberAdmin() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { profileId: string; is_admin: boolean }): Promise<void> => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_admin: args.is_admin })
+        .eq("id", args.profileId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri promeni admin uloge");
+    },
+  });
+}

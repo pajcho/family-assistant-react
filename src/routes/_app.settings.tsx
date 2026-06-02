@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimePicker } from "@/components/ui/time-picker";
 import { UserAvatar } from "@/components/layout/UserAvatar";
+import { FamilyTab } from "@/components/family/FamilyTab";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import {
@@ -22,13 +23,26 @@ import { usePushSubscriptions, useTouchCurrentSubscription } from "@/hooks/usePu
 import { supabase } from "@/lib/supabase";
 import { srLocale } from "@/utils/date";
 import { parseUserAgent } from "@/utils/userAgent";
+import { readFunctionsError } from "@/utils/functionsError";
 import type { PushSubscriptionRow } from "@/types/database";
 
+type SettingsTab = "profile" | "family" | "notifications";
+
 export const Route = createFileRoute("/_app/settings")({
+  // Deep-linkable active tab (e.g. /settings?tab=family from the Activities
+  // options sheet). Unknown / missing values fall back to the Profil tab.
+  validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => {
+    const tab = search.tab;
+    return tab === "family" || tab === "notifications" || tab === "profile" ? { tab } : {};
+  },
   component: SettingsPage,
 });
 
 function SettingsPage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate();
+  const active: SettingsTab = tab ?? "profile";
+
   return (
     <div className="space-y-6">
       <div>
@@ -37,13 +51,27 @@ function SettingsPage() {
           Lični podaci i obaveštenja na jednom mestu.
         </p>
       </div>
-      <Tabs defaultValue="profile" className="gap-6">
-        <TabsList className="w-full max-w-sm">
+      <Tabs
+        value={active}
+        onValueChange={(value) =>
+          void navigate({
+            to: "/settings",
+            search: value === "profile" ? {} : { tab: value as SettingsTab },
+            replace: true,
+          })
+        }
+        className="gap-6"
+      >
+        <TabsList className="w-full max-w-md">
           <TabsTrigger value="profile">Profil</TabsTrigger>
+          <TabsTrigger value="family">Porodica</TabsTrigger>
           <TabsTrigger value="notifications">Obaveštenja</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <ProfileCard />
+        </TabsContent>
+        <TabsContent value="family">
+          <FamilyTab />
         </TabsContent>
         <TabsContent value="notifications">
           <NotificationsTab />
@@ -391,25 +419,6 @@ function formatLastSeen(iso: string | null | undefined): string {
     return `Aktivna ${ago}`;
   } catch {
     return "Aktivna pre nepoznato";
-  }
-}
-
-/**
- * supabase-js wraps every non-2xx Edge Function response in a generic
- * `FunctionsHttpError` whose `message` is just "Edge Function returned
- * a non-2xx status code". The real GoTrue/server message is on the
- * raw `Response` exposed via `error.context`. Pull it out so the toast
- * shows something actionable (e.g. "email already in use") rather than
- * the wrapper string.
- */
-async function readFunctionsError(error: unknown): Promise<string | null> {
-  const ctx = (error as { context?: Response | unknown }).context;
-  if (!ctx || typeof (ctx as Response).json !== "function") return null;
-  try {
-    const body = (await (ctx as Response).json()) as { error?: unknown };
-    return typeof body?.error === "string" ? body.error : null;
-  } catch {
-    return null;
   }
 }
 

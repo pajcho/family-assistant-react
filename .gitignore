@@ -47,4 +47,5 @@ skills-lock.json
 
 # Supabase CLI local state (project link, etc.)
 supabase/.temp/
+supabase/.branches/
 supabase/functions/.env*

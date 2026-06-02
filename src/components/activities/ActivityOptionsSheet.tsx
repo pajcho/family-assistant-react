@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   AcademicCapIcon,
   BookOpenIcon,
@@ -17,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { ShiftSetupForm } from "@/components/activities/ShiftSetupForm";
 import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
 import { BellSchedulePanel } from "@/components/activities/BellSchedulePanel";
-import { FamilyMembersPanel } from "@/components/activities/FamilyMembersPanel";
 import type {
   BellSchedule,
   Profile,
@@ -43,8 +43,7 @@ type View =
   | { kind: "hub" }
   | { kind: "shift"; personId: string }
   | { kind: "timetable"; personId: string }
-  | { kind: "bell" }
-  | { kind: "family" };
+  | { kind: "bell" };
 
 function memberName(member: Profile | undefined): string {
   if (!member) return "Dete";
@@ -59,6 +58,9 @@ function memberName(member: Profile | undefined): string {
  * page's secondary controls. Instead of closing on every action, it navigates
  * in place: clicking an option swaps the sheet's content to that editor with a
  * "← Nazad" header that returns to the hub. One overlay, no stacking.
+ *
+ * Member management (add / remove / colors / logins) lives on the Porodica
+ * settings tab — the "Porodica i članovi" button just redirects there.
  */
 export function ActivityOptionsSheet({
   open,
@@ -69,6 +71,7 @@ export function ActivityOptionsSheet({
   entries,
   bell,
 }: ActivityOptionsSheetProps) {
+  const navigate = useNavigate();
   const [view, setView] = useState<View>({ kind: "hub" });
 
   // Always start at the hub the next time it opens.
@@ -93,9 +96,7 @@ export function ActivityOptionsSheet({
         ? `Smena — ${memberName(focusedMember)}`
         : effectiveView.kind === "timetable"
           ? `Raspored — ${memberName(focusedMember)}`
-          : effectiveView.kind === "bell"
-            ? "Satnica zvona"
-            : "Porodica";
+          : "Satnica zvona";
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -122,6 +123,10 @@ export function ActivityOptionsSheet({
             anchorsByPersonId={anchorsByPersonId}
             timeBandByPerson={timeBandByPerson}
             onPick={setView}
+            onManageFamily={() => {
+              onOpenChange(false);
+              void navigate({ to: "/settings", search: { tab: "family" } });
+            }}
           />
         ) : null}
 
@@ -144,8 +149,6 @@ export function ActivityOptionsSheet({
         ) : null}
 
         {effectiveView.kind === "bell" ? <BellSchedulePanel bell={bell} onClose={back} /> : null}
-
-        {effectiveView.kind === "family" ? <FamilyMembersPanel members={members} /> : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
@@ -156,24 +159,32 @@ function Hub({
   anchorsByPersonId,
   timeBandByPerson,
   onPick,
+  onManageFamily,
 }: {
   members: ReadonlyArray<Profile>;
   anchorsByPersonId: ReadonlyMap<string, SchoolShiftAnchor>;
   timeBandByPerson: ReadonlyMap<string, SchoolShift>;
   onPick: (view: View) => void;
+  onManageFamily: () => void;
 }) {
+  // Only students (those with a shift anchor) get school controls here. A
+  // member becomes a student via the "Učenik" toggle in Podešavanja → Porodica.
+  const students = useMemo(
+    () => members.filter((member) => anchorsByPersonId.has(member.id)),
+    [members, anchorsByPersonId],
+  );
+
   return (
     <div className="space-y-4">
-      {members.length > 0 ? (
+      {students.length > 0 ? (
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Škola po detetu
           </h3>
           <ul className="space-y-2">
-            {members.map((member) => {
+            {students.map((member) => {
               const color = member.color ?? fallbackColorForProfile(member.id);
               const name = memberName(member);
-              const hasAnchor = anchorsByPersonId.has(member.id);
               const band = timeBandByPerson.get(member.id) ?? null;
               return (
                 <li
@@ -190,7 +201,7 @@ function Hub({
                       {name}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {band ? SHIFT_LABELS[band] : hasAnchor ? "Smena postavljena" : "Bez smene"}
+                      {band ? SHIFT_LABELS[band] : "Smena postavljena"}
                     </span>
                   </div>
                   <div className="flex gap-2">
@@ -239,10 +250,10 @@ function Hub({
           type="button"
           variant="outline"
           className="w-full justify-start"
-          onClick={() => onPick({ kind: "family" })}
+          onClick={onManageFamily}
         >
           <UserGroupIcon className="mr-2 h-4 w-4" />
-          Porodica i boje
+          Porodica i članovi
         </Button>
       </section>
     </div>
