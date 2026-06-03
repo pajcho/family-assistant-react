@@ -50,8 +50,28 @@ export interface Event {
   end_time: string | null;
   notes: string | null;
   remind_minutes_before: number | null;
+  /**
+   * Soft cancel. NULL = active; an ISO timestamp = canceled (and when).
+   * Canceled events drop off the dashboard / upcoming list but are kept so
+   * the calendar can still show them struck-through. "Rescheduling" an event
+   * changes `date` (and optionally the times) — no history is kept.
+   */
+  canceled_at: string | null;
+  /** Optional free-text reason entered when canceling. Cleared on restore. */
+  cancel_reason: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Who an event is for. Junction table mirroring `ActivityParticipant`, but an
+ * event may have ZERO participants (a family-wide event needs no assignee).
+ */
+export interface EventParticipant {
+  event_id: string;
+  person_id: string;
+  family_id: string;
+  created_at: string;
 }
 
 export type RecurrencePeriod = "monthly" | "weekly" | "limited" | "one-time";

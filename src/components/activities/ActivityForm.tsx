@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
+import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import { cn } from "@/lib/cn";
 import type { Activity, ActivitySchedule, Profile, WeekPattern } from "@/types/database";
 import { DAY_LABELS_FULL } from "@/utils/activity";
-import { getDisplayName } from "@/utils/identity";
 
 /**
  * Form payload — the parent page splits this into:
@@ -48,7 +48,7 @@ export type ActivityFormProps = {
   existingRules?: ReadonlyArray<ActivitySchedule>;
   /** Current participants — empty when adding a new activity. */
   existingPersonIds?: ReadonlyArray<string>;
-  /** Family members to pick from in the "Učesnici" checkbox list. */
+  /** Family members — used to preselect a default participant when adding. */
   people: ReadonlyArray<Profile>;
   /** Person ids that have an alternating school-shift anchor. A/B opens up when at least one selected participant qualifies. */
   peopleWithShift: ReadonlySet<string>;
@@ -298,18 +298,6 @@ export function ActivityForm({
     });
   };
 
-  const togglePerson = (personId: string) => {
-    setForm((s) => {
-      const set = new Set(s.person_ids);
-      if (set.has(personId)) set.delete(personId);
-      else set.add(personId);
-      // Preserve the family-members order so the visible chips don't
-      // jump around as the user clicks them.
-      const next = people.filter((p) => set.has(p.id)).map((p) => p.id);
-      return { ...s, person_ids: next };
-    });
-  };
-
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
@@ -322,37 +310,12 @@ export function ActivityForm({
           placeholder="npr. Trening fudbala"
         />
       </div>
-      <div className="space-y-2">
-        <Label>Učesnici *</Label>
-        <div className="space-y-1 rounded-md border border-gray-200 p-2 dark:border-gray-700">
-          {people.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nema članova porodice.</p>
-          ) : (
-            people.map((person) => {
-              const name =
-                getDisplayName({
-                  firstName: person.first_name,
-                  lastName: person.last_name,
-                  email: null,
-                }) || "Bez imena";
-              const checked = form.person_ids.includes(person.id);
-              return (
-                <label
-                  key={person.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => togglePerson(person.id)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">{name}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
+      <div className="space-y-1">
+        <MemberMultiSelect
+          label="Učesnici *"
+          value={form.person_ids}
+          onChange={(person_ids) => setForm((s) => ({ ...s, person_ids }))}
+        />
         {form.person_ids.length === 0 ? (
           <p className="text-[11px] text-amber-600 dark:text-amber-400">
             Izaberi bar jednog učesnika.

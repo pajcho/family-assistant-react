@@ -11,6 +11,8 @@ export type EventFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: Event | null;
+  /** Assignees of the event being edited; empty/omitted when adding. */
+  initialPersonIds?: string[];
   /** Inline error banner shown above the form (e.g. mutation failure). */
   error?: string | null;
   saving?: boolean;
@@ -31,6 +33,7 @@ export function EventFormDialog({
   open,
   onOpenChange,
   event,
+  initialPersonIds,
   error,
   saving,
   onSubmit,
@@ -50,6 +53,7 @@ export function EventFormDialog({
         ) : null}
         <EventForm
           event={event}
+          initialPersonIds={initialPersonIds}
           saving={saving}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}

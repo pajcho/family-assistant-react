@@ -9,6 +9,7 @@ import { ACCENT_ICON, ACCENT_MUTED_ICON } from "@/components/dashboard/Dashboard
 import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
+import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { Activity, Event, Payment, Profile } from "@/types/database";
 import {
@@ -21,6 +22,7 @@ import { srLocale } from "@/utils/date";
 import { isEventEnded } from "@/utils/event";
 import { useActivities } from "@/hooks/useActivities";
 import { useEventsList } from "@/hooks/useEvents";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { useWeekActivities } from "@/hooks/useWeekActivities";
@@ -58,6 +60,7 @@ type TodayItem =
       sortKey: number;
       event: Event;
       isAllDay: boolean;
+      personIds: string[];
     }
   | {
       kind: "payment";
@@ -75,6 +78,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
 
   const { blocks, isLoading: activitiesLoading } = useWeekActivities(weekStart);
   const { byId: peopleById } = useFamilyMembers();
+  const { byEvent } = useEventParticipants();
   const { data: activities } = useActivities();
   const { data: events, isLoading: eventsLoading } = useEventsList({ from: today, to: today });
   const { data: payments, isLoading: paymentsLoading } = usePaymentsList();
@@ -112,15 +116,18 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
         activity: activitiesById.get(block.activityId),
       }));
 
-    const todayEvents: TodayItem[] = (events ?? []).map((event) => {
-      const startTime = event.start_time ? normalizeTime(event.start_time) : null;
-      return {
-        kind: "event" as const,
-        sortKey: startTime ? timeToMin(startTime) : ALL_DAY_SORT_KEY,
-        event,
-        isAllDay: !startTime,
-      };
-    });
+    const todayEvents: TodayItem[] = (events ?? [])
+      .filter((event) => !event.canceled_at)
+      .map((event) => {
+        const startTime = event.start_time ? normalizeTime(event.start_time) : null;
+        return {
+          kind: "event" as const,
+          sortKey: startTime ? timeToMin(startTime) : ALL_DAY_SORT_KEY,
+          event,
+          isAllDay: !startTime,
+          personIds: byEvent.get(event.id) ?? [],
+        };
+      });
 
     // Today-due, unpaid payments. Paused recurring payments are still due
     // on their date; we keep `is_paused` rows out to mirror the payments
@@ -136,7 +143,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
     return [...todayActivities, ...todayEvents, ...todayPayments].sort(
       (a, b) => a.sortKey - b.sortKey,
     );
-  }, [blocks, today, events, payments, peopleById, activitiesById]);
+  }, [blocks, today, events, payments, peopleById, activitiesById, byEvent]);
 
   const hasItems = items.length > 0;
   const isLoading = activitiesLoading || eventsLoading || paymentsLoading;
@@ -193,6 +200,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
           if (!open) setSelectedEvent(null);
         }}
         event={selectedEvent}
+        personIds={selectedEvent ? (byEvent.get(selectedEvent.id) ?? []) : []}
         onEdit={onEditEvent}
       />
 
@@ -213,11 +221,12 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
         block={selectedBlock}
         activity={selectedBlock ? activitiesById.get(selectedBlock.activityId) : undefined}
         person={selectedBlock ? peopleById.get(selectedBlock.personId) : undefined}
-        // No activity-form dialog on the dashboard — "Izmeni aktivnost"
-        // takes the user to /activities where the full edit flow lives.
-        onEditActivity={() => {
-          setSelectedBlock(null);
-          void navigate({ to: "/activities" });
+        // The activity-edit form (with schedule + participants) lives on
+        // /activities, not the dashboard. BlockActionDialog already closed
+        // itself before this fires; deep-link with ?edit=<id> so that page
+        // opens its edit dialog on arrival instead of just landing there.
+        onEditActivity={(activity) => {
+          void navigate({ to: "/activities", search: { edit: activity.id } });
         }}
       />
     </>
@@ -263,6 +272,7 @@ function TodayItemRow({ item, onSelectEvent, onSelectPayment, onSelectBlock }: T
         <EventRow
           event={item.event}
           isAllDay={item.isAllDay}
+          personIds={item.personIds}
           onClick={() => onSelectEvent(item.event)}
         />
       );
@@ -339,10 +349,12 @@ function ActivityRow({
 function EventRow({
   event,
   isAllDay,
+  personIds,
   onClick,
 }: {
   event: Event;
   isAllDay: boolean;
+  personIds: string[];
   onClick: () => void;
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
@@ -364,6 +376,7 @@ function EventRow({
             </>
           ) : null}
         </span>
+        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
       </button>
     </li>
   );

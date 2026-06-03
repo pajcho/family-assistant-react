@@ -16,6 +16,7 @@ import type { ListFormPayload } from "@/components/lists/ListForm";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import { useCreateBirthday, useUpdateBirthday, useBirthdaysList } from "@/hooks/useBirthdays";
 import { useCreateEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useCreateList, useListsWithItems } from "@/hooks/useLists";
 import {
   hasPaymentHistory,
@@ -46,6 +47,7 @@ function DashboardPage() {
   const paymentsQuery = usePaymentsList();
   const birthdaysQuery = useBirthdaysList();
   const listsQuery = useListsWithItems();
+  const { byEvent: eventParticipantsByEvent } = useEventParticipants();
 
   const events: Event[] = eventsQuery.data ?? [];
   const payments: Payment[] = paymentsQuery.data ?? [];
@@ -285,6 +287,7 @@ function DashboardPage() {
         open={eventDialogOpen}
         onOpenChange={handleEventDialogOpenChange}
         event={editingEvent}
+        initialPersonIds={editingEvent ? (eventParticipantsByEvent.get(editingEvent.id) ?? []) : []}
         error={eventError}
         saving={createEvent.isPending || updateEvent.isPending}
         onSubmit={(payload) => {

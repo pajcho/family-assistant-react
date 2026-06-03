@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpenIcon,
@@ -47,6 +47,12 @@ import { cn } from "@/lib/cn";
 import { getDisplayName } from "@/utils/identity";
 
 export const Route = createFileRoute("/_app/activities")({
+  // `?edit=<activityId>` deep-links the edit form open — used by the
+  // dashboard's "Izmeni aktivnost" so it lands here with the dialog already
+  // showing instead of dumping the user on the page.
+  validateSearch: (search: Record<string, unknown>): { edit?: string } => ({
+    edit: typeof search.edit === "string" ? search.edit : undefined,
+  }),
   component: ActivitiesPage,
 });
 
@@ -56,6 +62,9 @@ function ActivitiesPage() {
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
   const { byPersonId: anchorsByPersonId } = useSchoolShiftAnchors();
+
+  const { edit: editId } = Route.useSearch();
+  const navigate = Route.useNavigate();
 
   const [weekStart, setWeekStart] = useState<string>(() => getThisWeekStart());
   const [personFilter, setPersonFilter] = useState<Set<string>>(() => new Set());
@@ -166,6 +175,30 @@ function ActivitiesPage() {
     setFormError(null);
     setDialogOpen(true);
   };
+
+  // Dashboard "Izmeni aktivnost" deep-link: open the edit dialog for the
+  // activity in `?edit`, then strip the param so it won't reopen on a
+  // re-render or back navigation. Waits for activities + schedule +
+  // participants to load so the form opens with its termini and učesnici
+  // already populated; clears the param even if the id is stale (deleted).
+  useEffect(() => {
+    if (!editId) return;
+    if (activitiesQuery.isLoading || scheduleQuery.isLoading || participantsQuery.isLoading) return;
+    const activity = activitiesById.get(editId);
+    if (activity) {
+      setEditing(activity);
+      setFormError(null);
+      setDialogOpen(true);
+    }
+    void navigate({ search: (prev) => ({ ...prev, edit: undefined }), replace: true });
+  }, [
+    editId,
+    activitiesQuery.isLoading,
+    scheduleQuery.isLoading,
+    participantsQuery.isLoading,
+    activitiesById,
+    navigate,
+  ]);
 
   const handleSubmit = async (payload: ActivityFormPayload) => {
     setFormError(null);

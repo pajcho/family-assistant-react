@@ -5,6 +5,7 @@ import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardCardItem } from "@/components/dashboard/DashboardCardItem";
 import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
 import type { Event } from "@/types/database";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { addDays, daysFromToday, isDateInRange, startOfToday } from "@/utils/date";
 import { formatEventTimeRange, isEventEnded } from "@/utils/event";
 
@@ -34,12 +35,13 @@ function eventDateLabel(dateStr: string): string {
 export function DashboardEventCard({ events, onAdd, onEdit }: DashboardEventCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const { byEvent } = useEventParticipants();
 
   const upcomingEvents = useMemo<Event[]>(() => {
     const today = startOfToday();
     const in14 = addDays(today, 14);
     return events
-      .filter((e) => isDateInRange(e.date, today, in14))
+      .filter((e) => !e.canceled_at && isDateInRange(e.date, today, in14))
       .toSorted(
         (a, b) =>
           a.date.localeCompare(b.date) || (a.start_time ?? "").localeCompare(b.start_time ?? ""),
@@ -80,6 +82,7 @@ export function DashboardEventCard({ events, onAdd, onEdit }: DashboardEventCard
         open={detailOpen}
         onOpenChange={setDetailOpen}
         event={selectedEvent}
+        personIds={selectedEvent ? (byEvent.get(selectedEvent.id) ?? []) : []}
         onEdit={onEdit}
       />
     </>
