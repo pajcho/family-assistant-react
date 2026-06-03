@@ -11,6 +11,8 @@ export type PaymentFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payment: Payment | null;
+  /** Assignees of the payment being edited; empty/omitted when adding. */
+  initialPersonIds?: string[];
   /** When the payment already has history, recurrence type radios get disabled. */
   hasHistory?: boolean;
   /** Inline error banner shown above the form (e.g. mutation failure). */
@@ -33,6 +35,7 @@ export function PaymentFormDialog({
   open,
   onOpenChange,
   payment,
+  initialPersonIds,
   hasHistory,
   error,
   saving,
@@ -53,6 +56,7 @@ export function PaymentFormDialog({
         ) : null}
         <PaymentForm
           payment={payment}
+          initialPersonIds={initialPersonIds}
           hasHistory={hasHistory}
           saving={saving}
           onSubmit={onSubmit}

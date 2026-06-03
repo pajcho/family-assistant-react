@@ -4,12 +4,15 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
+import { PaymentRescheduleDialog } from "@/components/payments/PaymentRescheduleDialog";
 import { PaymentUndoDialog } from "@/components/payments/PaymentUndoDialog";
 import {
   PaymentListItem,
   type HistoryRowItem,
+  type OccurrenceContext,
   type PaymentListItemUnion,
   type PaymentRowItem,
   type UpcomingRowItem,
@@ -17,6 +20,7 @@ import {
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import {
   hasPaymentHistory,
+  useCancelPaymentOccurrence,
   useCreatePayment,
   useDeletePayment,
   useMarkPaymentPaid,
@@ -26,7 +30,14 @@ import {
   useUndoLastPayment,
   useUpdatePayment,
 } from "@/hooks/usePayments";
-import type { Payment } from "@/types/database";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import {
+  overrideKey,
+  useDeletePaymentOverride,
+  usePaymentOverrides,
+  useUpsertPaymentOverride,
+} from "@/hooks/usePaymentOverrides";
+import type { Payment, PaymentHistoryStatus, PaymentOverride } from "@/types/database";
 import {
   currentMonthYYYYMM,
   getDueDateInMonth,
@@ -34,8 +45,10 @@ import {
   getWeeklyOccurrencesInMonth,
   isMonthlyOccurrenceMonth,
   isOverdue,
+  subtractDay,
 } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
+import { nextPaymentOccurrenceDate } from "@/utils/payment";
 import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/_app/payments")({
@@ -84,6 +97,7 @@ function computeSummary({
   payments,
   history,
   selectedMonth,
+  overridesByKey,
 }: {
   payments: Payment[];
   history: ReadonlyArray<{
@@ -92,10 +106,14 @@ function computeSummary({
     amount: number;
   }>;
   selectedMonth: string;
+  overridesByKey: Map<string, PaymentOverride>;
 }): Summary {
+  const isCanceled = (paymentId: string, date: string) =>
+    overridesByKey.get(overrideKey(paymentId, date))?.action === "cancel";
+
   if (selectedMonth === "all") {
     const total = payments
-      .filter((p) => !p.is_paid && !p.is_paused)
+      .filter((p) => !p.is_paid && !p.is_paused && !isCanceled(p.id, p.due_date))
       .reduce((sum, p) => sum + p.amount, 0);
     return { type: "all", total };
   }
@@ -186,26 +204,45 @@ function computeCombinedList({
   payments,
   history,
   selectedMonth,
+  overridesByKey,
 }: {
   payments: Payment[];
   history: ReadonlyArray<{
     id: string;
     payment_id: string;
     due_date: string;
-    paid_date: string;
+    paid_date: string | null;
     amount: number;
+    status: PaymentHistoryStatus;
+    note: string | null;
+    created_at: string;
   }>;
   selectedMonth: string;
+  overridesByKey: Map<string, PaymentOverride>;
 }): PaymentListItemUnion[] {
   const items: PaymentListItemUnion[] = [];
   const currentMonth = currentMonthYYYYMM();
   const paymentNameMap = new Map<string, string>();
   for (const p of payments) paymentNameMap.set(p.id, p.name);
 
-  // 1. Payments (real rows: due in this month, or all when "Sva")
+  // 1. Payments (real rows: due in this month, or all when "Sva").
+  //    A per-occurrence override moves (reschedule) or marks (cancel) the
+  //    live occurrence at `payment.due_date` — display only; the DB row and
+  //    mark-paid accounting are untouched.
   for (const payment of payments) {
     if (selectedMonth !== "all" && !payment.due_date.startsWith(selectedMonth)) continue;
-    items.push({ ...payment, type: "payment" });
+    const override = overridesByKey.get(overrideKey(payment.id, payment.due_date)) ?? null;
+    const effectiveDate =
+      override?.action === "reschedule" && override.override_date
+        ? override.override_date
+        : payment.due_date;
+    items.push({
+      ...payment,
+      type: "payment",
+      occurrenceDate: payment.due_date,
+      override,
+      due_date: effectiveDate,
+    });
   }
 
   // 2. History + upcoming only when filtering by month
@@ -219,13 +256,13 @@ function computeCombinedList({
     );
 
     // Find the latest history entry per payment (only its row gets the Undo button)
-    const lastHistoryByPayment = new Map<string, { id: string; paid_date: string }>();
+    const lastHistoryByPayment = new Map<string, { id: string; created_at: string }>();
     for (const entry of history) {
       const existing = lastHistoryByPayment.get(entry.payment_id);
-      if (!existing || entry.paid_date > existing.paid_date) {
+      if (!existing || entry.created_at > existing.created_at) {
         lastHistoryByPayment.set(entry.payment_id, {
           id: entry.id,
-          paid_date: entry.paid_date,
+          created_at: entry.created_at,
         });
       }
     }
@@ -241,6 +278,8 @@ function computeCombinedList({
         amount: entry.amount,
         due_date: entry.due_date,
         paid_date: entry.paid_date,
+        status: entry.status,
+        note: entry.note,
         isLast: lastHistoryByPayment.get(entry.payment_id)?.id === entry.id,
       };
       items.push(historyItem);
@@ -281,13 +320,20 @@ function computeCombinedList({
           for (const occurrenceDate of occurrences) {
             if (occurrenceDate === payment.due_date) continue;
             if (paidDates.has(occurrenceDate)) continue;
+            const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
+            const effectiveDate =
+              override?.action === "reschedule" && override.override_date
+                ? override.override_date
+                : occurrenceDate;
             const upcoming: UpcomingRowItem = {
               type: "upcoming",
               id: `upcoming-${payment.id}-${occurrenceDate}`,
               paymentId: payment.id,
               name: payment.name,
               amount: payment.amount,
-              due_date: occurrenceDate,
+              due_date: effectiveDate,
+              occurrenceDate,
+              override,
               description: payment.description,
               recurrence_period: payment.recurrence_period,
               recurrence_interval: interval,
@@ -302,13 +348,21 @@ function computeCombinedList({
 
         if (period === "monthly") {
           if (!hasRealRow && isMonthlyOccurrenceMonth(payment.due_date, selectedMonth, interval)) {
+            const occurrenceDate = getDueDateInMonth(selectedMonth, payment.due_date);
+            const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
+            const effectiveDate =
+              override?.action === "reschedule" && override.override_date
+                ? override.override_date
+                : occurrenceDate;
             const upcoming: UpcomingRowItem = {
               type: "upcoming",
               id: `upcoming-${payment.id}-${selectedMonth}`,
               paymentId: payment.id,
               name: payment.name,
               amount: payment.amount,
-              due_date: getDueDateInMonth(selectedMonth, payment.due_date),
+              due_date: effectiveDate,
+              occurrenceDate,
+              override,
               description: payment.description,
               recurrence_period: payment.recurrence_period,
               recurrence_interval: interval,
@@ -322,13 +376,21 @@ function computeCombinedList({
             Math.max(0, payment.remaining_occurrences ?? 0),
           );
           if (months.includes(selectedMonth) && !hasRealRow) {
+            const occurrenceDate = getDueDateInMonth(selectedMonth, payment.due_date);
+            const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
+            const effectiveDate =
+              override?.action === "reschedule" && override.override_date
+                ? override.override_date
+                : occurrenceDate;
             const upcoming: UpcomingRowItem = {
               type: "upcoming",
               id: `upcoming-${payment.id}-${selectedMonth}`,
               paymentId: payment.id,
               name: payment.name,
               amount: payment.amount,
-              due_date: getDueDateInMonth(selectedMonth, payment.due_date),
+              due_date: effectiveDate,
+              occurrenceDate,
+              override,
               description: payment.description,
               recurrence_period: payment.recurrence_period,
               recurrence_interval: interval,
@@ -349,7 +411,17 @@ function computeCombinedList({
 /* --- Row class helper (overdue/paused/paid/history/upcoming) -------------- */
 
 function getItemClass(item: PaymentListItemUnion): string {
+  const override = "override" in item ? item.override : null;
+  if (override?.action === "cancel") {
+    return "border border-gray-200/80 bg-gray-50 opacity-75 dark:border-gray-700 dark:bg-gray-800/80";
+  }
+  if (override?.action === "reschedule") {
+    return "border border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-800/50 dark:bg-indigo-900/10";
+  }
   if (item.type === "history") {
+    if (item.status === "canceled") {
+      return "border border-red-200/70 bg-red-50/40 opacity-80 dark:border-red-800/50 dark:bg-red-900/10";
+    }
     return "border border-gray-200/80 bg-gray-50 opacity-75 dark:border-gray-700 dark:bg-gray-800/80";
   }
   if (item.type === "upcoming") {
@@ -366,6 +438,13 @@ function getItemClass(item: PaymentListItemUnion): string {
     return "border border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-900/20";
   }
   return "border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800";
+}
+
+/** The owning payment id for any list-item shape (used to look up assignees). */
+function paymentIdForItem(item: PaymentListItemUnion): string {
+  if (item.type === "payment") return item.id;
+  if (item.type === "upcoming") return item.paymentId;
+  return item.payment_id;
 }
 
 /* --- The page itself ------------------------------------------------------ */
@@ -393,9 +472,15 @@ function PaymentsPage() {
   const [historyPopupOpen, setHistoryPopupOpen] = useState(false);
   const [selectedPaymentForHistory, setSelectedPaymentForHistory] = useState<Payment | null>(null);
 
+  // Per-occurrence reschedule / cancel
+  const [rescheduleCtx, setRescheduleCtx] = useState<OccurrenceContext | null>(null);
+  const [cancelCtx, setCancelCtx] = useState<Payment | null>(null);
+
   // Data — always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const historyQuery = usePaymentHistory();
+  const { byPayment } = usePaymentParticipants();
+  const { byKey: overridesByKey } = usePaymentOverrides();
 
   // Mutations
   const createPayment = useCreatePayment();
@@ -404,6 +489,9 @@ function PaymentsPage() {
   const markPaidMutation = useMarkPaymentPaid();
   const togglePauseMutation = useTogglePaymentPause();
   const undoMutation = useUndoLastPayment();
+  const upsertOverride = useUpsertPaymentOverride();
+  const deleteOverride = useDeletePaymentOverride();
+  const cancelOccurrence = useCancelPaymentOccurrence();
 
   // Stable today reference — chips only need to recompute on month boundary,
   // but we accept the once-per-mount cost.
@@ -413,21 +501,22 @@ function PaymentsPage() {
   const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
   const combinedList = useMemo(
-    () => computeCombinedList({ payments, history, selectedMonth }),
-    [payments, history, selectedMonth],
+    () => computeCombinedList({ payments, history, selectedMonth, overridesByKey }),
+    [payments, history, selectedMonth, overridesByKey],
   );
 
   const displayedList = useMemo<PaymentListItemUnion[]>(() => {
     if (!hidePaid) return combinedList;
     return combinedList.filter((item) => {
-      if (item.type === "history") return false;
+      // Keep canceled history visible (so skips stay on screen); hide paid.
+      if (item.type === "history") return item.status === "canceled";
       return !(item.type === "payment" && item.is_paid);
     });
   }, [combinedList, hidePaid]);
 
   const summary = useMemo(
-    () => computeSummary({ payments, history, selectedMonth }),
-    [payments, history, selectedMonth],
+    () => computeSummary({ payments, history, selectedMonth, overridesByKey }),
+    [payments, history, selectedMonth, overridesByKey],
   );
 
   const isLoading = paymentsQuery.isLoading || historyQuery.isLoading;
@@ -546,9 +635,82 @@ function PaymentsPage() {
     if (!open) setHistoryToUndo(null);
   };
 
+  /* --- Per-occurrence reschedule / cancel handlers ---------------------- */
+
+  const handleRescheduleOccurrence = (ctx: OccurrenceContext) => setRescheduleCtx(ctx);
+  const handleCancelOccurrence = (ctx: {
+    paymentId: string;
+    occurrenceDate: string;
+    name: string;
+    isRecurring: boolean;
+  }) => setCancelCtx(payments.find((p) => p.id === ctx.paymentId) ?? null);
+  const handleRestoreOccurrence = (ctx: { paymentId: string; occurrenceDate: string }) => {
+    void deleteOverride.mutateAsync(ctx).catch(() => {
+      /* hook toasts */
+    });
+  };
+
+  const handleRescheduleSubmit = async (date: string, reason: string | null) => {
+    if (!rescheduleCtx) return;
+    try {
+      if (rescheduleCtx.isRecurring) {
+        // Recurring: move just this occurrence — the rest of the series stays.
+        await upsertOverride.mutateAsync({
+          paymentId: rescheduleCtx.paymentId,
+          occurrenceDate: rescheduleCtx.occurrenceDate,
+          action: "reschedule",
+          overrideDate: date,
+          reason,
+        });
+      } else {
+        // One-time: just change the due date — nothing to mark "moved".
+        await updatePayment.mutateAsync({
+          id: rescheduleCtx.paymentId,
+          payload: { due_date: date },
+        });
+      }
+      setRescheduleCtx(null);
+    } catch {
+      /* hook toasts; keep dialog open to retry */
+    }
+  };
+
+  const handleCancelSubmit = async (reason: string | null) => {
+    if (!cancelCtx) return;
+    const isRecurring =
+      cancelCtx.recurrence_period !== "one-time" && cancelCtx.recurrence_period != null;
+    try {
+      if (isRecurring) {
+        // Recurring: record the skip in history + advance to the next occurrence
+        // (the next becomes the active/current due).
+        await cancelOccurrence.mutateAsync({ id: cancelCtx.id, reason });
+      } else {
+        // One-time: display-only soft cancel (struck "Otkazano", restorable).
+        await upsertOverride.mutateAsync({
+          paymentId: cancelCtx.id,
+          occurrenceDate: cancelCtx.due_date,
+          action: "cancel",
+          reason,
+        });
+      }
+      setCancelCtx(null);
+    } catch {
+      /* hook toasts; keep dialog open to retry */
+    }
+  };
+
   const deleteConfirmMessage = `Da li ste sigurni da želite da obrišete "${
     paymentToDelete?.name ?? ""
   }"?`;
+
+  // Cap the reschedule picker at the day BEFORE the next occurrence (so the
+  // current one can't land on/after it — no two payments on the same day) and
+  // mark the next occurrence on the calendar.
+  const reschedulePayment = rescheduleCtx
+    ? (payments.find((p) => p.id === rescheduleCtx.paymentId) ?? null)
+    : null;
+  const rescheduleNext = reschedulePayment ? nextPaymentOccurrenceDate(reschedulePayment) : null;
+  const rescheduleMax = rescheduleNext ? subtractDay(rescheduleNext) : null;
 
   return (
     <div className="animate-fade-in">
@@ -598,6 +760,7 @@ function PaymentsPage() {
             <li key={item.id} className={cn("rounded-lg p-4 shadow-sm", getItemClass(item))}>
               <PaymentListItem
                 item={item}
+                personIds={byPayment.get(paymentIdForItem(item)) ?? []}
                 onMarkPaid={handleMarkPaid}
                 onTogglePause={handleTogglePause}
                 onOpenHistory={openHistory}
@@ -606,6 +769,9 @@ function PaymentsPage() {
                 }}
                 onDelete={confirmDelete}
                 onUndo={confirmUndo}
+                onRescheduleOccurrence={handleRescheduleOccurrence}
+                onCancelOccurrence={handleCancelOccurrence}
+                onRestoreOccurrence={handleRestoreOccurrence}
               />
             </li>
           ))}
@@ -650,6 +816,7 @@ function PaymentsPage() {
         open={dialogOpen}
         onOpenChange={handleDialogOpenChange}
         payment={editingPayment}
+        initialPersonIds={editingPayment ? (byPayment.get(editingPayment.id) ?? []) : []}
         hasHistory={editingHasHistory}
         error={formError}
         saving={createPayment.isPending || updatePayment.isPending}
@@ -685,6 +852,34 @@ function PaymentsPage() {
         loading={undoMutation.isPending}
         onConfirm={() => {
           void handleUndoConfirm();
+        }}
+      />
+
+      <PaymentRescheduleDialog
+        open={!!rescheduleCtx}
+        onOpenChange={(open) => {
+          if (!open) setRescheduleCtx(null);
+        }}
+        paymentName={rescheduleCtx?.name ?? ""}
+        currentDate={rescheduleCtx?.currentDate ?? null}
+        showReason={rescheduleCtx?.isRecurring ?? false}
+        maxDate={rescheduleMax}
+        markedDate={rescheduleNext}
+        saving={upsertOverride.isPending || updatePayment.isPending}
+        onSubmit={(date, reason) => {
+          void handleRescheduleSubmit(date, reason);
+        }}
+      />
+
+      <PaymentCancelDialog
+        open={!!cancelCtx}
+        onOpenChange={(open) => {
+          if (!open) setCancelCtx(null);
+        }}
+        payment={cancelCtx}
+        saving={upsertOverride.isPending || cancelOccurrence.isPending}
+        onConfirm={(reason) => {
+          void handleCancelSubmit(reason);
         }}
       />
     </div>

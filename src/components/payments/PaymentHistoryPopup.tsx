@@ -14,6 +14,7 @@ import { usePaymentHistoryByPaymentId, useUndoLastPayment } from "@/hooks/usePay
 import type { Payment } from "@/types/database";
 import { formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
+import { cn } from "@/lib/cn";
 
 export type PaymentHistoryPopupProps = {
   open: boolean;
@@ -83,15 +84,30 @@ export function PaymentHistoryPopup({ open, onOpenChange, payment }: PaymentHist
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700/50"
                 >
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span
+                      className={cn(
+                        "text-sm font-medium text-gray-900 dark:text-gray-100",
+                        entry.status === "canceled" &&
+                          "text-gray-500 line-through dark:text-gray-500",
+                      )}
+                    >
                       {`${index + 1}. Dospeće ${formatDate(entry.due_date)}`}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {`Plaćeno ${formatDate(entry.paid_date)}`}
+                      {entry.status === "canceled"
+                        ? `Otkazano${entry.note ? ` · ${entry.note}` : ""}`
+                        : `Plaćeno ${entry.paid_date ? formatDate(entry.paid_date) : ""}`}
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        entry.status === "canceled"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-emerald-700 dark:text-emerald-400",
+                      )}
+                    >
                       {formatAmount(entry.amount)}
                     </span>
                     {index === 0 ? (

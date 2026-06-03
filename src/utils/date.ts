@@ -99,6 +99,13 @@ export function subtractWeek(dateStr: string, count = 1): string {
   return format(prev, "yyyy-MM-dd");
 }
 
+/** Subtract `count` days. */
+export function subtractDay(dateStr: string, count = 1): string {
+  const date = parseISO(dateStr + "T12:00:00");
+  const prev = addDays(date, -count);
+  return format(prev, "yyyy-MM-dd");
+}
+
 /** Same calendar day in a given month (YYYY-MM). Day capped to last day of month. */
 export function getDueDateInMonth(monthYYYYMM: string, dueDateStr: string): string {
   const [year, month] = monthYYYYMM.split("-").map(Number);

@@ -6,6 +6,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
+import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { cn } from "@/lib/cn";
 
@@ -22,10 +23,14 @@ export type PaymentFormPayload = {
   remaining_occurrences?: number | null;
   is_paused?: boolean;
   remind_days_before: number | null;
+  /** Family members the payment is for. Empty = unassigned (shared bill). */
+  personIds: string[];
 };
 
 export type PaymentFormProps = {
   payment?: Payment | null;
+  /** Assignees of the payment being edited; empty/omitted when adding. */
+  initialPersonIds?: string[];
   /** When true, the recurrence type select becomes disabled (history exists). */
   hasHistory?: boolean;
   saving?: boolean;
@@ -45,6 +50,7 @@ type FormState = {
   remaining_occurrences: string;
   is_paused: boolean;
   remind_days_before: number | null;
+  personIds: string[];
 };
 
 const RECURRENCE_OPTIONS: ReadonlyArray<{ value: RecurrencePeriod; label: string }> = [
@@ -118,7 +124,7 @@ function NativeSelect<T extends string | number>({
   );
 }
 
-function initialState(payment: Payment | null | undefined): FormState {
+function initialState(payment: Payment | null | undefined, personIds: string[]): FormState {
   return {
     name: payment?.name ?? "",
     description: payment?.description ?? "",
@@ -130,12 +136,14 @@ function initialState(payment: Payment | null | undefined): FormState {
       payment?.remaining_occurrences != null ? String(payment.remaining_occurrences) : "4",
     is_paused: payment?.is_paused ?? false,
     remind_days_before: payment?.remind_days_before ?? null,
+    personIds,
   };
 }
 
 /**
  * Layout:
  *   • Naziv / Opis — full width
+ *   • Za koga — assignee pills (optional)
  *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`
  *   • Tip — native select (Jednokratno / Nedeljno / Mesečno / Ograničeno).
  *     Disabled when `hasHistory` is true.
@@ -147,16 +155,21 @@ function initialState(payment: Payment | null | undefined): FormState {
  */
 export function PaymentForm({
   payment,
+  initialPersonIds,
   hasHistory = false,
   saving = false,
   onSubmit,
   onCancel,
 }: PaymentFormProps) {
-  const [form, setForm] = useState<FormState>(() => initialState(payment));
+  const [form, setForm] = useState<FormState>(() => initialState(payment, initialPersonIds ?? []));
+
+  // Serialized so the effect reseeds when the assignees finish loading
+  // without firing on every render from a fresh array reference.
+  const personSeed = (initialPersonIds ?? []).join(",");
 
   useEffect(() => {
-    setForm(initialState(payment));
-  }, [payment]);
+    setForm(initialState(payment, personSeed ? personSeed.split(",") : []));
+  }, [payment, personSeed]);
 
   const isEdit = !!payment?.id;
   const isRecurring = form.recurrence_period !== "one-time";
@@ -194,6 +207,7 @@ export function PaymentForm({
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
       is_paused: isRecurring ? form.is_paused : false,
       remind_days_before: form.remind_days_before,
+      personIds: form.personIds,
     });
   };
 
@@ -218,6 +232,11 @@ export function PaymentForm({
           placeholder="detalji plaćanja"
         />
       </div>
+      <MemberMultiSelect
+        label="Za koga (opciono)"
+        value={form.personIds}
+        onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
+      />
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="amount">Iznos (RSD) *</Label>
