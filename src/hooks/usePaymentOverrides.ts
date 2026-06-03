@@ -5,40 +5,20 @@ import { toast } from "sonner";
 import type { PaymentOverride, PaymentOverrideAction } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
+import { effectivePaymentDueDate, isPaymentOccurrenceCanceled, overrideKey } from "@/utils/payment";
 
 /**
  * Per-occurrence payment overrides (cancel / reschedule of a single recurring
  * instance). The synthesizer (`computeCombinedList`) consults these to skip a
  * canceled occurrence or move a rescheduled one — the live payment row and the
  * mark-paid accounting are untouched. Keyed by `(payment_id, occurrence_date)`.
+ *
+ * The pure key / effective-date helpers now live in `@/utils/payment` (so the
+ * agenda layer and its unit tests can use them without dragging in the Supabase
+ * client); re-exported here for the existing call sites that import them from
+ * this hook.
  */
-export function overrideKey(paymentId: string, occurrenceDate: string): string {
-  return `${paymentId}|${occurrenceDate}`;
-}
-
-/**
- * The current effective due date of a payment's live occurrence — the
- * reschedule `override_date` when moved, otherwise the raw `due_date`. Use this
- * anywhere the dashboard decides "is it due today / soon" so a moved payment
- * shows on its new date, consistent with the payments page.
- */
-export function effectivePaymentDueDate(
-  paymentId: string,
-  dueDate: string,
-  byKey: Map<string, PaymentOverride>,
-): string {
-  const ov = byKey.get(overrideKey(paymentId, dueDate));
-  return ov?.action === "reschedule" && ov.override_date ? ov.override_date : dueDate;
-}
-
-/** True when the payment's current occurrence has a cancel override. */
-export function isPaymentOccurrenceCanceled(
-  paymentId: string,
-  dueDate: string,
-  byKey: Map<string, PaymentOverride>,
-): boolean {
-  return byKey.get(overrideKey(paymentId, dueDate))?.action === "cancel";
-}
+export { effectivePaymentDueDate, isPaymentOccurrenceCanceled, overrideKey };
 
 async function fetchPaymentOverrides(familyId: string): Promise<PaymentOverride[]> {
   const { data, error } = await supabase

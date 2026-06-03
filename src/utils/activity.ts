@@ -424,6 +424,39 @@ export function resolveWeekBlocks(args: {
   return blocks;
 }
 
+/**
+ * Resolve activity blocks across an arbitrary date range `[from, to]`
+ * (inclusive, YYYY-MM-DD) by resolving every week the range touches and keeping
+ * the days that fall inside it. Resolving the FULL contiguous week span — not
+ * just the boundary weeks — is what keeps cross-week reschedules correct: a
+ * moved termin leaves a ghost in its origin week (Pass 1 of `resolveWeekBlocks`)
+ * and a real block in its target week (Pass 2), and both weeks get resolved
+ * here. Pure — the unified `useAgenda` layer projects activities over a range
+ * with this; callers apply their own cancel/moved-away display filter.
+ */
+export function resolveBlocksInRange(args: {
+  from: string;
+  to: string;
+  activities: ReadonlyArray<Activity>;
+  schedule: ReadonlyArray<ActivitySchedule>;
+  participants: ReadonlyArray<ActivityParticipant>;
+  shiftAnchorsByPersonId: ReadonlyMap<string, SchoolShiftAnchor>;
+  overrides?: ReadonlyArray<ActivityOverride>;
+}): ResolvedActivityBlock[] {
+  const { from, to, ...rest } = args;
+  const firstMonday = parseISO(getWeekStart(from) + "T12:00:00");
+  const weekCount = weeksBetween(getWeekStart(from), getWeekStart(to)); // >= 0
+
+  const blocks: ResolvedActivityBlock[] = [];
+  for (let i = 0; i <= weekCount; i++) {
+    const weekStart = format(addDays(firstMonday, 7 * i), "yyyy-MM-dd");
+    for (const block of resolveWeekBlocks({ weekStart, ...rest })) {
+      if (block.date >= from && block.date <= to) blocks.push(block);
+    }
+  }
+  return blocks;
+}
+
 /** Strip seconds — Postgres TIME comes back as "HH:MM:SS" but we only need HH:MM. */
 export function normalizeTime(time: string | null | undefined): string {
   // Defensive: a stale client running against a migrated schema can hand
