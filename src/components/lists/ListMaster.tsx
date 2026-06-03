@@ -11,6 +11,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddButton } from "@/components/common/AddButton";
 import { previewLine } from "@/components/common/MarkdownText";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
@@ -234,10 +235,7 @@ export function ListMaster({ variant }: ListMasterProps) {
             Šoping, obaveze i sve ostalo. Porodične liste vide svi članovi u realnom vremenu.
           </p>
         </div>
-        <Button onClick={openAdd} className="shrink-0">
-          <PlusIcon className="mr-2 h-5 w-5" />
-          Dodaj
-        </Button>
+        <AddButton label="Dodaj listu" onClick={openAdd} />
       </div>
 
       {showFilters ? <div className="mt-4">{filterBar}</div> : null}
