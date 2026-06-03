@@ -101,14 +101,54 @@ export interface Payment {
   updated_at: string;
 }
 
+export type PaymentHistoryStatus = "paid" | "canceled";
+
 export interface PaymentHistory {
   id: string;
   payment_id: string;
   family_id: string;
   amount: number;
   due_date: string;
-  paid_date: string;
+  /** When it was actually paid. NULL for canceled occurrences. */
+  paid_date: string | null;
+  /** Whether this occurrence was paid or canceled (skipped). */
+  status: PaymentHistoryStatus;
+  /** Optional reason — currently used for cancellations. */
+  note: string | null;
   created_at: string;
+}
+
+/**
+ * Who a payment is for. Junction table mirroring `EventParticipant` — a
+ * payment may have ZERO participants (a shared household bill).
+ */
+export interface PaymentParticipant {
+  payment_id: string;
+  person_id: string;
+  family_id: string;
+  created_at: string;
+}
+
+export type PaymentOverrideAction = "cancel" | "reschedule";
+
+/**
+ * Per-occurrence override on a recurring payment, applied as a display layer
+ * by the frontend occurrence synthesizer (never mutates the live row or the
+ * mark-paid accounting). Keyed by the ORIGINAL projected due date.
+ */
+export interface PaymentOverride {
+  id: string;
+  payment_id: string;
+  family_id: string;
+  /** YYYY-MM-DD — the original projected due date this override keys on. */
+  occurrence_date: string;
+  action: PaymentOverrideAction;
+  /** Required for `'reschedule'` (the new date); NULL for `'cancel'`. */
+  override_date: string | null;
+  /** Optional free-text reason for either action. */
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Birthday {

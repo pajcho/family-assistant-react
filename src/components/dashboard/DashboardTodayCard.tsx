@@ -25,6 +25,12 @@ import { useEventsList } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentsList } from "@/hooks/usePayments";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import {
+  effectivePaymentDueDate,
+  isPaymentOccurrenceCanceled,
+  usePaymentOverrides,
+} from "@/hooks/usePaymentOverrides";
 import { useWeekActivities } from "@/hooks/useWeekActivities";
 import { getDisplayName } from "@/utils/identity";
 
@@ -66,6 +72,7 @@ type TodayItem =
       kind: "payment";
       sortKey: number;
       payment: Payment;
+      personIds: string[];
     };
 
 const ALL_DAY_SORT_KEY = 24 * 60 + 1; // After every minute of the day
@@ -79,6 +86,8 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
   const { blocks, isLoading: activitiesLoading } = useWeekActivities(weekStart);
   const { byId: peopleById } = useFamilyMembers();
   const { byEvent } = useEventParticipants();
+  const { byPayment } = usePaymentParticipants();
+  const { byKey: paymentOverridesByKey } = usePaymentOverrides();
   const { data: activities } = useActivities();
   const { data: events, isLoading: eventsLoading } = useEventsList({ from: today, to: today });
   const { data: payments, isLoading: paymentsLoading } = usePaymentsList();
@@ -133,17 +142,35 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
     // on their date; we keep `is_paused` rows out to mirror the payments
     // page's "what's actionable" filter.
     const todayPayments: TodayItem[] = (payments ?? [])
-      .filter((p) => p.due_date === today && !p.is_paid && !p.is_paused)
+      .filter((p) => {
+        if (p.is_paid || p.is_paused) return false;
+        // A canceled current occurrence shouldn't nag from the dashboard.
+        if (isPaymentOccurrenceCanceled(p.id, p.due_date, paymentOverridesByKey)) return false;
+        // Use the moved date when rescheduled — a payment pushed to another day
+        // leaves "Danas" (and one moved TO today shows up here).
+        return effectivePaymentDueDate(p.id, p.due_date, paymentOverridesByKey) === today;
+      })
       .map((payment) => ({
         kind: "payment" as const,
         sortKey: PAYMENT_SORT_KEY,
         payment,
+        personIds: byPayment.get(payment.id) ?? [],
       }));
 
     return [...todayActivities, ...todayEvents, ...todayPayments].sort(
       (a, b) => a.sortKey - b.sortKey,
     );
-  }, [blocks, today, events, payments, peopleById, activitiesById, byEvent]);
+  }, [
+    blocks,
+    today,
+    events,
+    payments,
+    peopleById,
+    activitiesById,
+    byEvent,
+    byPayment,
+    paymentOverridesByKey,
+  ]);
 
   const hasItems = items.length > 0;
   const isLoading = activitiesLoading || eventsLoading || paymentsLoading;
@@ -210,6 +237,7 @@ export function DashboardTodayCard({ onEditEvent, onEditPayment }: DashboardToda
           if (!open) setSelectedPayment(null);
         }}
         payment={selectedPayment}
+        personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
         onEdit={onEditPayment}
       />
 
@@ -277,7 +305,13 @@ function TodayItemRow({ item, onSelectEvent, onSelectPayment, onSelectBlock }: T
         />
       );
     case "payment":
-      return <PaymentRow payment={item.payment} onClick={() => onSelectPayment(item.payment)} />;
+      return (
+        <PaymentRow
+          payment={item.payment}
+          personIds={item.personIds}
+          onClick={() => onSelectPayment(item.payment)}
+        />
+      );
   }
 }
 
@@ -382,7 +416,15 @@ function EventRow({
   );
 }
 
-function PaymentRow({ payment, onClick }: { payment: Payment; onClick: () => void }) {
+function PaymentRow({
+  payment,
+  personIds,
+  onClick,
+}: {
+  payment: Payment;
+  personIds: string[];
+  onClick: () => void;
+}) {
   // Locale-aware integer formatting so amounts read "2.500" not "2500" in
   // Serbian. Currency is always RSD across the app.
   const amountStr = new Intl.NumberFormat("sr-Latn", {
@@ -399,6 +441,7 @@ function PaymentRow({ payment, onClick }: { payment: Payment; onClick: () => voi
           <span className="text-muted-foreground"> · </span>
           <span className="text-gray-700 dark:text-gray-300">{amountStr} RSD</span>
         </span>
+        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
       </button>
     </li>
   );

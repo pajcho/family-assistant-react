@@ -16,6 +16,10 @@ export type DatePickerProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  /** Disable selecting dates AFTER this ISO date (the boundary itself stays selectable). */
+  maxDate?: string | null;
+  /** Visually mark this ISO date on the calendar (e.g. the next recurring occurrence). */
+  markedDate?: string | null;
 };
 
 const DISPLAY_FORMAT = "dd.MM.yyyy";
@@ -34,9 +38,13 @@ export function DatePicker({
   id,
   className,
   disabled,
+  maxDate,
+  markedDate,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => parseStateDate(value), [value]);
+  const maxParsed = useMemo(() => parseStateDate(maxDate ?? null), [maxDate]);
+  const markedParsed = useMemo(() => parseStateDate(markedDate ?? null), [markedDate]);
   const displayText = selected ? format(selected, DISPLAY_FORMAT) : "";
 
   const handleSelect = useCallback(
@@ -80,7 +88,18 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="single" selected={selected} onSelect={handleSelect} autoFocus />
+          <Calendar
+            mode="single"
+            selected={selected}
+            onSelect={handleSelect}
+            autoFocus
+            disabled={maxParsed ? { after: maxParsed } : undefined}
+            modifiers={markedParsed ? { nextDue: markedParsed } : undefined}
+            modifiersClassNames={{
+              nextDue:
+                "bg-amber-100 text-amber-900 rounded-md dark:bg-amber-900/40 dark:text-amber-200",
+            }}
+          />
         </PopoverContent>
       </Popover>
       {value && !disabled && (

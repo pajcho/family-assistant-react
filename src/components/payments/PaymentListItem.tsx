@@ -1,5 +1,6 @@
 import {
   ArrowUturnLeftIcon,
+  CalendarDaysIcon,
   CheckIcon,
   ClockIcon,
   EllipsisVerticalIcon,
@@ -7,6 +8,7 @@ import {
   PencilIcon,
   PlayIcon,
   TrashIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -14,16 +16,29 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Payment, RecurrencePeriod } from "@/types/database";
+import { MemberBadges } from "@/components/common/MemberBadges";
+import { cn } from "@/lib/cn";
+import type {
+  Payment,
+  PaymentHistoryStatus,
+  PaymentOverride,
+  RecurrencePeriod,
+} from "@/types/database";
 import { formatDate, isOverdue } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
 import { recurrenceLabel } from "@/utils/payment";
 
 /* --- Discriminated union of list-item shapes (mirrors Vue source) ---------- */
 
-export type PaymentRowItem = Payment & { type: "payment" };
+export type PaymentRowItem = Payment & {
+  type: "payment";
+  /** Original projected due date — the override key. Equals due_date when not moved. */
+  occurrenceDate: string;
+  override?: PaymentOverride | null;
+};
 
 export type HistoryRowItem = {
   type: "history";
@@ -32,7 +47,9 @@ export type HistoryRowItem = {
   name: string;
   amount: number;
   due_date: string;
-  paid_date: string;
+  paid_date: string | null;
+  status: PaymentHistoryStatus;
+  note: string | null;
   /** Only the latest history entry shows the Undo action. */
   isLast: boolean;
 };
@@ -43,7 +60,11 @@ export type UpcomingRowItem = {
   paymentId: string;
   name: string;
   amount: number;
+  /** Effective (displayed) date — override_date when rescheduled, else the occurrence. */
   due_date: string;
+  /** Original projected due date — the override key. */
+  occurrenceDate: string;
+  override?: PaymentOverride | null;
   description: string | null;
   recurrence_period: RecurrencePeriod | null;
   recurrence_interval: number;
@@ -52,20 +73,70 @@ export type UpcomingRowItem = {
 
 export type PaymentListItemUnion = PaymentRowItem | HistoryRowItem | UpcomingRowItem;
 
+/** Context an occurrence action needs (reschedule/cancel/restore). */
+export type OccurrenceContext = {
+  paymentId: string;
+  occurrenceDate: string;
+  /** Current effective date (for prefilling the reschedule picker). */
+  currentDate: string;
+  isRecurring: boolean;
+  name: string;
+};
+
 export type PaymentListItemProps = {
   item: PaymentListItemUnion;
+  /** Assignees of the underlying payment (empty = unassigned). */
+  personIds: string[];
   onMarkPaid: (item: PaymentRowItem) => void;
   onTogglePause: (item: PaymentRowItem) => void;
   onOpenHistory: (item: PaymentRowItem) => void;
   onEdit: (item: PaymentRowItem) => void;
   onDelete: (item: PaymentRowItem) => void;
   onUndo: (item: HistoryRowItem) => void;
+  onRescheduleOccurrence: (ctx: OccurrenceContext) => void;
+  onCancelOccurrence: (ctx: {
+    paymentId: string;
+    occurrenceDate: string;
+    name: string;
+    isRecurring: boolean;
+  }) => void;
+  onRestoreOccurrence: (ctx: { paymentId: string; occurrenceDate: string }) => void;
 };
+
+function overrideOf(item: PaymentListItemUnion): PaymentOverride | null {
+  return "override" in item ? (item.override ?? null) : null;
+}
 
 /* --- Status pill rendering ------------------------------------------------- */
 
 function StatusPill({ item }: { item: PaymentListItemUnion }) {
-  if (item.type === "history" || (item.type === "payment" && item.is_paid)) {
+  const override = overrideOf(item);
+  if (override?.action === "cancel") {
+    return (
+      <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-400">
+        Otkazano
+      </span>
+    );
+  }
+  if (override?.action === "reschedule") {
+    return (
+      <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+        Pomereno
+      </span>
+    );
+  }
+  if (item.type === "history") {
+    return item.status === "canceled" ? (
+      <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-400">
+        Otkazano
+      </span>
+    ) : (
+      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+        Plaćeno
+      </span>
+    );
+  }
+  if (item.type === "payment" && item.is_paid) {
     return (
       <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
         Plaćeno
@@ -93,9 +164,16 @@ function StatusPill({ item }: { item: PaymentListItemUnion }) {
 
 function StatusMeta({ item }: { item: PaymentListItemUnion }) {
   if (item.type === "history") {
+    if (item.status === "canceled") {
+      return (
+        <span className="font-medium text-red-600 dark:text-red-400">
+          Otkazano{item.note ? ` · ${item.note}` : ""}
+        </span>
+      );
+    }
     return (
       <span className="font-medium text-emerald-600 dark:text-emerald-400">
-        Plaćeno {formatDate(item.paid_date)}
+        Plaćeno {item.paid_date ? formatDate(item.paid_date) : ""}
       </span>
     );
   }
@@ -144,6 +222,99 @@ function StatusMeta({ item }: { item: PaymentListItemUnion }) {
   return <span className="text-gray-500 dark:text-gray-400">Jednokratno</span>;
 }
 
+/* --- Per-occurrence action menu items (reschedule / cancel / restore) ------- */
+
+type OccurrenceCallbacks = Pick<
+  PaymentListItemProps,
+  "onRescheduleOccurrence" | "onCancelOccurrence" | "onRestoreOccurrence"
+>;
+
+function occurrenceContext(item: PaymentRowItem | UpcomingRowItem): OccurrenceContext {
+  const paymentId = item.type === "payment" ? item.id : item.paymentId;
+  const isRecurring =
+    item.type === "payment"
+      ? item.recurrence_period !== "one-time" && item.recurrence_period != null
+      : true;
+  return {
+    paymentId,
+    occurrenceDate: item.occurrenceDate,
+    currentDate: item.due_date,
+    isRecurring,
+    name: item.name,
+  };
+}
+
+/** The Pomeri/Otkaži (or Vrati) dropdown items for one occurrence. */
+function OccurrenceMenuItems({
+  item,
+  callbacks,
+}: {
+  item: PaymentRowItem | UpcomingRowItem;
+  callbacks: OccurrenceCallbacks;
+}) {
+  const ctx = occurrenceContext(item);
+  if (overrideOf(item)) {
+    return (
+      <DropdownMenuItem
+        onSelect={() =>
+          callbacks.onRestoreOccurrence({
+            paymentId: ctx.paymentId,
+            occurrenceDate: ctx.occurrenceDate,
+          })
+        }
+      >
+        <ArrowUturnLeftIcon className="h-4 w-4" />
+        Vrati ratu
+      </DropdownMenuItem>
+    );
+  }
+  return (
+    <>
+      <DropdownMenuItem onSelect={() => callbacks.onRescheduleOccurrence(ctx)}>
+        <CalendarDaysIcon className="h-4 w-4" />
+        Pomeri ratu
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() =>
+          callbacks.onCancelOccurrence({
+            paymentId: ctx.paymentId,
+            occurrenceDate: ctx.occurrenceDate,
+            name: ctx.name,
+            isRecurring: ctx.isRecurring,
+          })
+        }
+      >
+        <XCircleIcon className="h-4 w-4" />
+        Otkaži ratu
+      </DropdownMenuItem>
+    </>
+  );
+}
+
+/** Standalone kebab holding only the occurrence actions (desktop payment row + upcoming rows). */
+function OccurrenceMenu({
+  item,
+  callbacks,
+}: {
+  item: PaymentRowItem | UpcomingRowItem;
+  callbacks: OccurrenceCallbacks;
+}) {
+  return (
+    <div className="flex shrink-0">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Akcije za ratu">
+            <EllipsisVerticalIcon className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <OccurrenceMenuItems item={item} callbacks={callbacks} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 /* --- Action button blocks (mobile kebab vs desktop inline) ----------------- */
 
 function HistoryActions({
@@ -156,7 +327,6 @@ function HistoryActions({
   if (!item.isLast) return null;
   return (
     <>
-      {/* Mobile: kebab dropdown with the single Undo action */}
       <div className="flex shrink-0 sm:hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -172,7 +342,6 @@ function HistoryActions({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Desktop: single outline button */}
       <div className="hidden shrink-0 sm:flex">
         <Button variant="outline" size="sm" onClick={() => onUndo(item)}>
           Poništi
@@ -184,6 +353,7 @@ function HistoryActions({
 
 function PaymentActions({
   item,
+  callbacks,
   onMarkPaid,
   onTogglePause,
   onOpenHistory,
@@ -191,14 +361,17 @@ function PaymentActions({
   onDelete,
 }: {
   item: PaymentRowItem;
+  callbacks: OccurrenceCallbacks;
   onMarkPaid: (item: PaymentRowItem) => void;
   onTogglePause: (item: PaymentRowItem) => void;
   onOpenHistory: (item: PaymentRowItem) => void;
   onEdit: (item: PaymentRowItem) => void;
   onDelete: (item: PaymentRowItem) => void;
 }) {
-  const canPause = !item.is_paid && item.recurrence_period !== "one-time";
-  const canMarkPaid = !item.is_paid && !item.is_paused;
+  const isCanceled = overrideOf(item)?.action === "cancel";
+  // A canceled occurrence can't be paid/paused — restore it first.
+  const canPause = !item.is_paid && !isCanceled && item.recurrence_period !== "one-time";
+  const canMarkPaid = !item.is_paid && !item.is_paused && !isCanceled;
   const showHistory = item.recurrence_period !== "one-time";
 
   return (
@@ -236,6 +409,9 @@ function PaymentActions({
                 Istorija
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuSeparator />
+            <OccurrenceMenuItems item={item} callbacks={callbacks} />
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onEdit(item)}>
               <PencilIcon className="h-4 w-4" />
               Izmeni
@@ -247,8 +423,8 @@ function PaymentActions({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Desktop: inline button row */}
-      <div className="hidden shrink-0 flex-wrap justify-end gap-2 sm:flex">
+      {/* Desktop: inline button row + a small kebab for the occurrence actions */}
+      <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
         {canPause ? (
           item.is_paused ? (
             <Button variant="outline" size="sm" onClick={() => onTogglePause(item)}>
@@ -279,6 +455,7 @@ function PaymentActions({
           <TrashIcon className="mr-1 h-4 w-4" />
           Obriši
         </Button>
+        <OccurrenceMenu item={item} callbacks={callbacks} />
       </div>
     </>
   );
@@ -287,27 +464,37 @@ function PaymentActions({
 /* --- The component itself -------------------------------------------------- */
 
 /**
- * Direct port of `components/payments/PaymentListItem.vue` from the sibling
- * Nuxt app.
- *
  * Polymorphic over the discriminated union (`payment | history | upcoming`).
- * Keeps the three branches inline rather than splitting into three siblings
- * because the shared header (name + status pill + date·amount + description
- * + meta line) makes a single render path read cleaner than a switch in the
- * parent.
  *
- * The action set varies by item type — see the per-type Actions component
- * above. Upcoming rows show no actions at all (informational only).
+ * `payment` and `upcoming` rows can carry a per-occurrence `override`
+ * (cancel → struck-through "Otkazano"; reschedule → "Pomereno", shown on the
+ * new date) and expose Pomeri/Otkaži/Vrati actions. History rows are paid and
+ * immutable.
  */
 export function PaymentListItem(props: PaymentListItemProps) {
-  const { item } = props;
+  const { item, personIds } = props;
   const description = "description" in item ? item.description : null;
+  const override = overrideOf(item);
+  const isCanceled =
+    override?.action === "cancel" || (item.type === "history" && item.status === "canceled");
+  const callbacks: OccurrenceCallbacks = {
+    onRescheduleOccurrence: props.onRescheduleOccurrence,
+    onCancelOccurrence: props.onCancelOccurrence,
+    onRestoreOccurrence: props.onRestoreOccurrence,
+  };
 
   return (
     <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
+          <p
+            className={cn(
+              "font-medium text-gray-900 dark:text-gray-100",
+              isCanceled && "text-gray-500 line-through dark:text-gray-500",
+            )}
+          >
+            {item.name}
+          </p>
           <StatusPill item={item} />
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -318,7 +505,18 @@ export function PaymentListItem(props: PaymentListItemProps) {
         ) : null}
         <div className="mt-1 flex flex-wrap gap-2 text-xs">
           <StatusMeta item={item} />
+          {override?.action === "reschedule" && "occurrenceDate" in item ? (
+            <span className="text-indigo-600 dark:text-indigo-400">
+              Pomereno sa {formatDate(item.occurrenceDate)}
+            </span>
+          ) : null}
+          {override?.reason ? (
+            <span className="text-gray-500 italic dark:text-gray-400">„{override.reason}"</span>
+          ) : null}
         </div>
+        {personIds.length > 0 ? (
+          <MemberBadges personIds={personIds} className="mt-2" size="xs" />
+        ) : null}
       </div>
 
       {item.type === "history" ? <HistoryActions item={item} onUndo={props.onUndo} /> : null}
@@ -326,6 +524,7 @@ export function PaymentListItem(props: PaymentListItemProps) {
       {item.type === "payment" ? (
         <PaymentActions
           item={item}
+          callbacks={callbacks}
           onMarkPaid={props.onMarkPaid}
           onTogglePause={props.onTogglePause}
           onOpenHistory={props.onOpenHistory}
@@ -334,7 +533,9 @@ export function PaymentListItem(props: PaymentListItemProps) {
         />
       ) : null}
 
-      {/* upcoming rows render no actions (informational only) */}
+      {/* Upcoming rows are informational — per-occurrence actions (Pomeri /
+          Otkaži) live on the current (live) row, since "move to next" only
+          applies to the current occurrence. */}
     </div>
   );
 }

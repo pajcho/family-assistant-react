@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Payment, PaymentHistory, RecurrencePeriod } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
+import { replacePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import {
   addMonth,
   addWeek,
@@ -58,6 +59,8 @@ export type CreatePaymentInput = {
   recurrence_interval?: number;
   remaining_occurrences?: number | null;
   remind_days_before?: number | null;
+  /** Family members this payment is for. Omit/empty = unassigned. */
+  personIds?: string[];
 };
 
 export type UpdatePaymentInput = Partial<
@@ -74,7 +77,13 @@ export type UpdatePaymentInput = Partial<
     | "is_paused"
     | "remind_days_before"
   >
->;
+> & {
+  /**
+   * Replace the payment's assignees. `undefined` leaves them untouched; any
+   * array — including empty — replaces the full set.
+   */
+  personIds?: string[];
+};
 
 async function fetchPayments(familyId: string, hidePaid: boolean): Promise<Payment[]> {
   let q = supabase
@@ -116,7 +125,9 @@ async function fetchPaymentHistoryByPaymentId(paymentId: string): Promise<Paymen
     .from("payment_history")
     .select("*")
     .eq("payment_id", paymentId)
-    .order("paid_date", { ascending: false });
+    // created_at, not paid_date — canceled entries have no paid_date but must
+    // still sort newest-first (the latest entry gets the Undo action).
+    .order("created_at", { ascending: false });
   if (error) return [];
   return (data as PaymentHistory[]) ?? [];
 }
@@ -144,7 +155,8 @@ export async function getLastHistoryEntry(paymentId: string): Promise<PaymentHis
     .from("payment_history")
     .select("*")
     .eq("payment_id", paymentId)
-    .order("paid_date", { ascending: false })
+    // created_at so a canceled entry (no paid_date) is correctly "the last".
+    .order("created_at", { ascending: false })
     .limit(1)
     .single();
   if (error || !data) return null;
@@ -245,6 +257,7 @@ function invalidateAll(
 ): void {
   void queryClient.invalidateQueries({ queryKey: ["payments", familyId] });
   void queryClient.invalidateQueries({ queryKey: ["payment_history"] });
+  void queryClient.invalidateQueries({ queryKey: ["payment_participants", familyId] });
 }
 
 export function useCreatePayment() {
@@ -254,18 +267,23 @@ export function useCreatePayment() {
   return useMutation({
     mutationFn: async (payload: CreatePaymentInput): Promise<Payment> => {
       if (!familyId) throw new Error("Nema porodice");
+      const { personIds, ...columns } = payload;
       const { data, error } = await supabase
         .from("payments")
         .insert({
           family_id: familyId,
-          ...payload,
+          ...columns,
           is_paid: false,
           paid_date: null,
         })
         .select()
         .single();
       if (error) throw new Error(error.message);
-      return data as Payment;
+      const payment = data as Payment;
+      if (personIds && personIds.length > 0) {
+        await replacePaymentParticipants(familyId, payment.id, personIds);
+      }
+      return payment;
     },
     onSuccess: () => {
       invalidateAll(queryClient, familyId);
@@ -282,13 +300,19 @@ export function useUpdatePayment() {
 
   return useMutation({
     mutationFn: async (args: { id: string; payload: UpdatePaymentInput }): Promise<Payment> => {
+      const { personIds, ...columns } = args.payload;
       const { data, error } = await supabase
         .from("payments")
-        .update(args.payload)
+        .update(columns)
         .eq("id", args.id)
         .select()
         .single();
       if (error) throw new Error(error.message);
+      // Only touch assignees when the caller passed an explicit set.
+      if (personIds !== undefined) {
+        if (!familyId) throw new Error("Nema porodice");
+        await replacePaymentParticipants(familyId, args.id, personIds);
+      }
       return data as Payment;
     },
     onSuccess: () => {
@@ -352,15 +376,37 @@ export function useMarkPaymentPaid() {
       const isRecurring = row.is_recurring === true;
       const interval = Math.max(1, Number(row.recurrence_interval ?? 1));
 
+      // If this occurrence was rescheduled, log the payment under the moved
+      // date (and clear the now-resolved override). The series anchor
+      // (`row.due_date`) still drives the advance below, so the rest of the
+      // series stays put.
+      const { data: rescheduleOverride } = await supabase
+        .from("payment_overrides")
+        .select("override_date")
+        .eq("payment_id", id)
+        .eq("occurrence_date", row.due_date)
+        .eq("action", "reschedule")
+        .maybeSingle();
+      const historyDueDate =
+        (rescheduleOverride?.override_date as string | undefined) ?? row.due_date;
+
       // Insert into payment_history before updating
       const { error: historyErr } = await supabase.from("payment_history").insert({
         payment_id: id,
         family_id: row.family_id,
         amount: row.amount,
-        due_date: row.due_date,
+        due_date: historyDueDate,
         paid_date: now,
       });
       if (historyErr) throw new Error(historyErr.message);
+
+      if (rescheduleOverride) {
+        await supabase
+          .from("payment_overrides")
+          .delete()
+          .eq("payment_id", id)
+          .eq("occurrence_date", row.due_date);
+      }
 
       if (!isRecurring || period === "one-time") {
         const { error } = await supabase
@@ -432,6 +478,101 @@ export function useMarkPaymentPaid() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri označavanju plaćanja");
+    },
+  });
+}
+
+/**
+ * Cancel (skip) the current occurrence of a RECURRING payment: record a
+ * `status: 'canceled'` row in `payment_history` (with optional reason) and
+ * advance the live `due_date` to the next occurrence — so the next one becomes
+ * active and the skip stays visible in history. The advance branches mirror
+ * `useMarkPaymentPaid`. One-time payments don't use this (they keep a
+ * display-only cancel override). "Undo" of a canceled entry goes through the
+ * same `useUndoLastPayment` as a paid one.
+ */
+export function useCancelPaymentOccurrence() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { id: string; reason: string | null }): Promise<void> => {
+      const { data: row, error: fetchErr } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("id", args.id)
+        .single();
+      if (fetchErr || !row) throw new Error(fetchErr?.message ?? "Nije pronađeno");
+
+      const period = row.recurrence_period as RecurrencePeriod | null;
+      const interval = Math.max(1, Number(row.recurrence_interval ?? 1));
+
+      // If this occurrence was rescheduled, log the cancellation under the
+      // moved date and clear the now-resolved override.
+      const { data: rescheduleOverride } = await supabase
+        .from("payment_overrides")
+        .select("override_date")
+        .eq("payment_id", args.id)
+        .eq("occurrence_date", row.due_date)
+        .eq("action", "reschedule")
+        .maybeSingle();
+      const occurrenceDate =
+        (rescheduleOverride?.override_date as string | undefined) ?? row.due_date;
+
+      const { error: histErr } = await supabase.from("payment_history").insert({
+        payment_id: args.id,
+        family_id: row.family_id,
+        amount: row.amount,
+        due_date: occurrenceDate,
+        paid_date: null,
+        status: "canceled",
+        note: args.reason,
+      });
+      if (histErr) throw new Error(histErr.message);
+
+      if (rescheduleOverride) {
+        await supabase
+          .from("payment_overrides")
+          .delete()
+          .eq("payment_id", args.id)
+          .eq("occurrence_date", row.due_date);
+      }
+
+      // Advance the series to the next occurrence (mirrors mark-paid).
+      if (period === "monthly") {
+        const { error } = await supabase
+          .from("payments")
+          .update({ due_date: addMonth(row.due_date, interval) })
+          .eq("id", args.id);
+        if (error) throw new Error(error.message);
+      } else if (period === "weekly") {
+        const { error } = await supabase
+          .from("payments")
+          .update({ due_date: addWeek(row.due_date, interval) })
+          .eq("id", args.id);
+        if (error) throw new Error(error.message);
+      } else if (period === "limited") {
+        const remaining = (row.remaining_occurrences ?? 1) - 1;
+        if (remaining <= 0) {
+          const { error } = await supabase
+            .from("payments")
+            .update({ is_paid: true, remaining_occurrences: 0 })
+            .eq("id", args.id);
+          if (error) throw new Error(error.message);
+        } else {
+          const { error } = await supabase
+            .from("payments")
+            .update({ due_date: addMonth(row.due_date), remaining_occurrences: remaining })
+            .eq("id", args.id);
+          if (error) throw new Error(error.message);
+        }
+      }
+    },
+    onSuccess: () => {
+      invalidateAll(queryClient, familyId);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri otkazivanju rate");
     },
   });
 }

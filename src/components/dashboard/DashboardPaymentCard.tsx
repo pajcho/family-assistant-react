@@ -5,6 +5,12 @@ import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardCardItem } from "@/components/dashboard/DashboardCardItem";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import type { Payment } from "@/types/database";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import {
+  effectivePaymentDueDate,
+  isPaymentOccurrenceCanceled,
+  usePaymentOverrides,
+} from "@/hooks/usePaymentOverrides";
 import { addDays, dueDayLabel, isDateInRange, isOverdue, startOfToday } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
 
@@ -33,19 +39,33 @@ export type DashboardPaymentCardProps = {
 export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPaymentCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const { byPayment } = usePaymentParticipants();
+  const { byKey: overridesByKey } = usePaymentOverrides();
 
-  const duePayments = useMemo<Payment[]>(() => {
+  const duePayments = useMemo(() => {
     const today = startOfToday();
     const in7 = addDays(today, 7);
-    const unpaid = payments.filter((p) => !p.is_paid && !p.is_paused);
-    const overdue = unpaid
-      .filter((p) => isOverdue(p.due_date))
-      .toSorted((a, b) => a.due_date.localeCompare(b.due_date));
-    const upcoming = unpaid
-      .filter((p) => isDateInRange(p.due_date, today, in7))
-      .toSorted((a, b) => a.due_date.localeCompare(b.due_date));
+    // Skip canceled current occurrences; resolve each to its effective
+    // (possibly rescheduled) date so a moved payment shows on its new date.
+    const rows = payments
+      .filter(
+        (p) =>
+          !p.is_paid &&
+          !p.is_paused &&
+          !isPaymentOccurrenceCanceled(p.id, p.due_date, overridesByKey),
+      )
+      .map((payment) => ({
+        payment,
+        effectiveDate: effectivePaymentDueDate(payment.id, payment.due_date, overridesByKey),
+      }));
+    const overdue = rows
+      .filter((r) => isOverdue(r.effectiveDate))
+      .toSorted((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    const upcoming = rows
+      .filter((r) => isDateInRange(r.effectiveDate, today, in7))
+      .toSorted((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
     return [...overdue, ...upcoming];
-  }, [payments]);
+  }, [payments, overridesByKey]);
 
   const visiblePayments = duePayments.slice(0, 5);
 
@@ -66,14 +86,14 @@ export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPayme
         accent="amber"
         onAdd={onAdd}
       >
-        {visiblePayments.map((payment) => {
-          const overdue = isOverdue(payment.due_date);
+        {visiblePayments.map(({ payment, effectiveDate }) => {
+          const overdue = isOverdue(effectiveDate);
           return (
             <DashboardCardItem
               key={payment.id}
               label={payment.name}
               value={formatAmount(payment.amount)}
-              description={dueDayLabel(payment.due_date)}
+              description={dueDayLabel(effectiveDate)}
               accent={overdue ? "red" : "amber"}
               badgeIcon={overdue ? ExclamationTriangleIcon : undefined}
               badgeIconTitle={overdue ? "Prekoračeno" : undefined}
@@ -90,6 +110,7 @@ export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPayme
         open={detailOpen}
         onOpenChange={setDetailOpen}
         payment={selectedPayment}
+        personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
         onEdit={onEdit}
       />
     </>
