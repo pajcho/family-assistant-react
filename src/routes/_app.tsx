@@ -33,13 +33,16 @@ function AppLayout() {
   // committed to the app, so the prompt would just be visual noise.
   return (
     <AuthGate>
-      <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen w-full bg-gray-50 dark:bg-gray-900">
         <AppNav />
         {/* `w-full` clamps the inner column to the viewport — without it,
             a child that's wider than its container can briefly bleed
             outside in iOS Safari (seen as a sliver of the previous page
-            after navigation). `overflow-x-hidden` is a defence-in-depth
-            backstop for the same problem.
+            after navigation). Horizontal-bleed containment lives on <body>
+            (`overflow-x-hidden`, which propagates to the viewport) — we do
+            NOT repeat it here, because an intermediate `overflow` ancestor
+            becomes a scroll container and breaks the `position: sticky` week
+            strip on the Uskoro tab.
 
             Mobile: leave room at the bottom for the fixed
             <MobileBottomNav>. The bar is ~64px + the iPhone home-indicator
@@ -51,7 +54,7 @@ function AppLayout() {
             with AppNav's mobile cutoff. */}
         <main
           className={cn(
-            "mx-auto w-full max-w-7xl overflow-x-hidden px-4 pt-6 sm:px-6 md:pb-6 lg:px-8",
+            "mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 md:pb-6 lg:px-8",
             keyboardOpen ? "pb-6" : "pb-32",
           )}
         >
