@@ -1,129 +1,145 @@
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { addDays, format, parseISO } from "date-fns";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { DAY_LABELS_SHORT, getWeekStart } from "@/utils/activity";
+import { getWeekStart } from "@/utils/activity";
 
 /**
- * Todoist-style week strip atop the "Uskoro" tab — a glanceable Mon–Sun grid of
- * the coming weeks. Each day chip shows a dot when it has agenda items and, when
- * clicked, scrolls the list to that day's section. Past days (before today) are
- * dimmed; today is ringed. Expands a couple of weeks at a time.
+ * Todoist-style week strip for the "Uskoro" tab. A fixed Mon–Sun weekday header
+ * over a horizontally-swipeable pager of week rows — one week per snap page.
  *
- * Counts come straight from the agenda's `byDay`, so the strip and the list can
- * never disagree — a chip is only clickable when its day actually has a rendered
- * section (`count > 0`, which implies it's within the loaded horizon).
+ * It follows the list: `activeDay` (the day at the top of the scrolled list) is
+ * marked with a filled circle, and the pager auto-scrolls to that day's week, so
+ * swiping right/left through the list walks the strip forward/back in step.
+ * Tapping a day scrolls the list to it; swiping the strip to its end loads more
+ * weeks (`onReachEnd`). Today is marked even when scrolled away; days with items
+ * carry a dot.
  */
+
+/** Monday-first two-letter weekday initials. */
+const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
+
 export type WeekStripProps = {
-  /** First selectable day — tomorrow (yyyy-MM-dd). */
-  from: string;
-  /** Today (yyyy-MM-dd) — for the past/today affordances. */
+  /** Week-start Mondays (yyyy-MM-dd), ascending — one page each. */
+  weeks: string[];
   today: string;
-  weeksShown: number;
+  /** First selectable day (tomorrow). */
+  from: string;
+  /** The day currently at the top of the list (scroll-spy), or null. */
+  activeDay: string | null;
   /** day (yyyy-MM-dd) → item count. */
   countByDay: Map<string, number>;
+  /** e.g. "Jun 2026". */
+  monthLabel: string;
   onSelectDay: (day: string) => void;
-  onExpand: () => void;
-  onCollapse: () => void;
-  canExpand: boolean;
+  /** Fired when the pager is swiped to its last week — load more. */
+  onReachEnd: () => void;
 };
 
 export function WeekStrip({
-  from,
+  weeks,
   today,
-  weeksShown,
+  from,
+  activeDay,
   countByDay,
+  monthLabel,
   onSelectDay,
-  onExpand,
-  onCollapse,
-  canExpand,
+  onReachEnd,
 }: WeekStripProps) {
-  const weeks = useMemo(() => {
-    const base = parseISO(getWeekStart(from) + "T12:00:00");
-    return Array.from({ length: weeksShown }, (_, w) =>
-      Array.from({ length: 7 }, (_, d) => format(addDays(base, w * 7 + d), "yyyy-MM-dd")),
-    );
-  }, [from, weeksShown]);
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const onReachEndRef = useRef(onReachEnd);
+  onReachEndRef.current = onReachEnd;
+
+  const activeWeek = activeDay ? getWeekStart(activeDay) : (weeks[0] ?? today);
+  const activeWeekIndex = Math.max(0, weeks.indexOf(activeWeek));
+
+  // Follow the list: page the strip to the active day's week.
+  useEffect(() => {
+    const pager = pagerRef.current;
+    if (!pager) return;
+    pager.scrollTo({ left: activeWeekIndex * pager.clientWidth, behavior: "smooth" });
+  }, [activeWeekIndex]);
 
   return (
-    <div className="mb-5 rounded-lg border border-gray-200 bg-white/60 p-2 dark:border-gray-700 dark:bg-gray-800/40">
-      <div className="space-y-1">
-        {weeks.map((week) => (
-          <div key={week[0]} className="grid grid-cols-7 gap-1">
-            {week.map((day, dow) => {
-              const count = countByDay.get(day) ?? 0;
-              const isPast = day < today;
-              const isToday = day === today;
-              const selectable = day >= from && count > 0;
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  disabled={!selectable}
-                  aria-label={`${day}${count > 0 ? ` — ${count}` : ""}`}
-                  onClick={() => onSelectDay(day)}
-                  className={cn(
-                    "flex flex-col items-center gap-0.5 rounded-md py-1 transition-colors",
-                    isPast && "opacity-30",
-                    selectable
-                      ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                      : "cursor-default",
-                    isToday && "ring-1 ring-blue-400 dark:ring-blue-500",
-                  )}
-                >
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                    {DAY_LABELS_SHORT[dow]}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-sm font-medium tabular-nums",
-                      selectable
-                        ? "text-gray-900 dark:text-gray-100"
-                        : "text-gray-400 dark:text-gray-500",
-                    )}
-                  >
-                    {Number(day.slice(8, 10))}
-                  </span>
-                  <span className="flex h-1.5 items-center justify-center">
-                    {count > 0 && !isPast ? (
-                      <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })}
+    <div>
+      <div className="mb-1.5 px-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {monthLabel}
+      </div>
+
+      {/* Fixed weekday header — every week shares the same Mon–Sun columns. */}
+      <div className="grid grid-cols-7 gap-1 px-1">
+        {WEEKDAY_INITIALS.map((wd) => (
+          <div
+            key={wd}
+            className="text-center text-[11px] font-medium text-gray-400 dark:text-gray-500"
+          >
+            {wd}
           </div>
         ))}
       </div>
 
-      {canExpand || weeksShown > 2 ? (
-        <div className="mt-1 flex justify-center gap-1">
-          {weeksShown > 2 ? (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={onCollapse}
-              className="text-gray-500 dark:text-gray-400"
+      {/* Swipeable week pager. */}
+      <div
+        ref={pagerRef}
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) onReachEndRef.current();
+        }}
+        className="flex snap-x snap-mandatory overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {weeks.map((weekStart) => {
+          const base = parseISO(weekStart + "T12:00:00");
+          return (
+            <div
+              key={weekStart}
+              className="grid w-full shrink-0 snap-center grid-cols-7 gap-1 px-1"
             >
-              <ChevronUpIcon className="size-3.5" />
-              Skupi
-            </Button>
-          ) : null}
-          {canExpand ? (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={onExpand}
-              className="text-gray-500 dark:text-gray-400"
-            >
-              <ChevronDownIcon className="size-3.5" />
-              Još nedelja
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+              {Array.from({ length: 7 }, (_, dow) => {
+                const day = format(addDays(base, dow), "yyyy-MM-dd");
+                const count = countByDay.get(day) ?? 0;
+                const isToday = day === today;
+                const isActive = day === activeDay;
+                const isPast = day < today;
+                const selectable = day >= from && count > 0;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    disabled={!selectable}
+                    aria-label={`${day}${count > 0 ? ` — ${count}` : ""}`}
+                    onClick={() => onSelectDay(day)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-lg py-1.5 transition-colors",
+                      isPast && "opacity-40",
+                      !selectable && "cursor-default",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
+                        isActive
+                          ? "bg-blue-600 font-semibold text-white dark:bg-blue-500"
+                          : isToday
+                            ? "font-semibold text-blue-600 dark:text-blue-400"
+                            : selectable
+                              ? "font-medium text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700/60"
+                              : "text-gray-400 dark:text-gray-500",
+                      )}
+                    >
+                      {Number(day.slice(8, 10))}
+                    </span>
+                    <span className="flex h-1 items-center justify-center">
+                      {count > 0 && !isActive && !isPast ? (
+                        <span className="size-1 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

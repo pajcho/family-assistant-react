@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
@@ -7,19 +7,20 @@ import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import type { Birthday, Event, Payment } from "@/types/database";
+import { getWeekStart, weeksBetween } from "@/utils/activity";
 import { addDays, srLocale, startOfToday } from "@/utils/date";
 
 /**
  * "Uskoro" tab — everything from tomorrow onward, grouped by day, with infinite
- * scroll and a Todoist-style week strip on top.
+ * scroll and a sticky Todoist-style week strip on top that follows the scroll.
  *
  * The visible window starts at `INITIAL_DAYS` and grows `CHUNK_DAYS` at a time
- * as the sentinel scrolls into view (or as the week strip expands), up to a
- * `MAX_HORIZON_DAYS` soft cap. Only the events query is range-scoped, so growing
- * the horizon costs at most one extra fetch; activities/payments/birthdays are
- * expanded client-side. Empty days are skipped — `useAgenda().days` only lists
- * days that actually have items. Day sections carry an `id` so the week strip
- * can scroll to them.
+ * as the sentinel scrolls into view (or the week strip is swiped to its end),
+ * up to a `MAX_HORIZON_DAYS` soft cap. Only the events query is range-scoped, so
+ * growing the horizon costs at most one extra fetch; the rest is expanded
+ * client-side. Empty days are skipped — `useAgenda().days` lists only days with
+ * items. Each day section carries an `id` so the strip can scroll to it, and a
+ * window scroll-spy feeds the strip the day currently at the top of the list.
  */
 export type AgendaUpcomingTabProps = {
   onEditEvent: (event: Event) => void;
@@ -30,8 +31,6 @@ export type AgendaUpcomingTabProps = {
 const INITIAL_DAYS = 30;
 const CHUNK_DAYS = 30;
 const MAX_HORIZON_DAYS = 365;
-const INITIAL_WEEKS = 2;
-const MAX_WEEKS = Math.ceil(MAX_HORIZON_DAYS / 7);
 
 export function AgendaUpcomingTab({
   onEditEvent,
@@ -39,7 +38,8 @@ export function AgendaUpcomingTab({
   onEditBirthday,
 }: AgendaUpcomingTabProps) {
   const [horizonDays, setHorizonDays] = useState(INITIAL_DAYS);
-  const [weeksShown, setWeeksShown] = useState(INITIAL_WEEKS);
+  const [activeDay, setActiveDay] = useState<string | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
 
   // Window = [tomorrow, today + horizonDays]. Derive once per horizon change.
   const { from, to, today, tomorrow } = useMemo(() => {
@@ -55,28 +55,67 @@ export function AgendaUpcomingTab({
   const { byDay, days, isLoading } = useAgenda({ from, to });
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
-  // Keep the loaded horizon at least as wide as the strip is showing, so an
-  // expanded week always has its day counts populated.
-  useEffect(() => {
-    setHorizonDays((d) => Math.min(Math.max(d, weeksShown * 7), MAX_HORIZON_DAYS));
-  }, [weeksShown]);
-
   const countByDay = useMemo(() => {
     const map = new Map<string, number>();
     for (const [day, items] of byDay) map.set(day, items.length);
     return map;
   }, [byDay]);
 
+  // Strip pages: from today's week through the loaded horizon's week.
+  const weeks = useMemo(() => {
+    const first = getWeekStart(today);
+    const count = weeksBetween(first, getWeekStart(to));
+    const base = parseISO(first + "T12:00:00");
+    return Array.from({ length: count + 1 }, (_, i) => format(addDays(base, i * 7), "yyyy-MM-dd"));
+  }, [today, to]);
+
+  const monthLabel = useMemo(() => {
+    const label = format(parseISO((activeDay ?? from) + "T12:00:00"), "LLLL yyyy", {
+      locale: srLocale,
+    });
+    return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+  }, [activeDay, from]);
+
+  // Scroll-spy: the active day is the last day section whose top has passed
+  // below the sticky strip. Throttled with rAF.
+  useEffect(() => {
+    if (days.length === 0) {
+      setActiveDay(null);
+      return;
+    }
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const line = (stripRef.current?.getBoundingClientRect().bottom ?? 140) + 12;
+      let current = days[0];
+      for (const day of days) {
+        const el = document.getElementById(`agenda-day-${day}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= line) current = day;
+        else break;
+      }
+      setActiveDay(current);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [days]);
+
   const atCap = horizonDays >= MAX_HORIZON_DAYS;
-  // Gate growth on `!isLoading` so each chunk waits for its fetch. This also
-  // stops a runaway during the initial load: while data is pending the sentinel
-  // sits near the top (no content yet), and without this gate it would re-fire
-  // on every re-observe and pump the horizon to the cap before the first rows
-  // render.
-  const sentinelRef = useInfiniteScroll(
-    () => setHorizonDays((d) => Math.min(d + CHUNK_DAYS, MAX_HORIZON_DAYS)),
-    { enabled: !atCap && !isLoading, resetKey: horizonDays },
-  );
+  const growHorizon = () => setHorizonDays((d) => Math.min(d + CHUNK_DAYS, MAX_HORIZON_DAYS));
+  // Gate growth on `!isLoading` so each chunk waits for its fetch — this also
+  // stops a load-time runaway where the sentinel, parked at the top while data
+  // is pending, would pump the horizon to the cap before the first rows render.
+  const sentinelRef = useInfiniteScroll(growHorizon, {
+    enabled: !atCap && !isLoading,
+    resetKey: horizonDays,
+  });
 
   const scrollToDay = (day: string) => {
     document.getElementById(`agenda-day-${day}`)?.scrollIntoView({
@@ -87,21 +126,26 @@ export function AgendaUpcomingTab({
 
   return (
     <div>
-      <WeekStrip
-        from={from}
-        today={today}
-        weeksShown={weeksShown}
-        countByDay={countByDay}
-        onSelectDay={scrollToDay}
-        onExpand={() => setWeeksShown((w) => Math.min(w + 2, MAX_WEEKS))}
-        onCollapse={() => setWeeksShown(INITIAL_WEEKS)}
-        canExpand={weeksShown < MAX_WEEKS}
-      />
+      <div
+        ref={stripRef}
+        className="sticky top-14 z-30 -mx-4 mb-4 border-b border-gray-200/70 bg-gray-50/90 px-4 pt-3 pb-2 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 dark:border-gray-700/70 dark:bg-gray-900/90"
+      >
+        <WeekStrip
+          weeks={weeks}
+          today={today}
+          from={from}
+          activeDay={activeDay}
+          countByDay={countByDay}
+          monthLabel={monthLabel}
+          onSelectDay={scrollToDay}
+          onReachEnd={growHorizon}
+        />
+      </div>
 
       {days.length > 0 ? (
         <div className="space-y-6">
           {days.map((day) => (
-            <section key={day} id={`agenda-day-${day}`} className="scroll-mt-4">
+            <section key={day} id={`agenda-day-${day}`} className="scroll-mt-40">
               <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                 {dayHeader(day, tomorrow)}
               </h3>
