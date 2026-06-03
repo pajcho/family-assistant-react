@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, format } from "date-fns";
 
-import { addMonth, isOverdue, subtractMonth } from "../date";
+import { addMonth, dueDayLabel, isOverdue, subtractMonth } from "../date";
 import { daysUntilBirthday } from "../birthday";
 import { formatAmount } from "../format";
 import { getDisplayName, getInitials } from "../identity";
@@ -34,6 +34,29 @@ describe("utils", () => {
 
   it("isOverdue returns true for a date well in the past", () => {
     expect(isOverdue("2020-01-01")).toBe(true);
+  });
+
+  describe("dueDayLabel", () => {
+    // Build a YYYY-MM-DD string that is exactly `n` days from today (local).
+    const rel = (n: number) => format(addDays(new Date(), n), "yyyy-MM-dd");
+
+    it("returns 'danas' for today", () => {
+      expect(dueDayLabel(rel(0))).toBe("danas");
+    });
+
+    it("returns 'sutra' for tomorrow", () => {
+      expect(dueDayLabel(rel(1))).toBe("sutra");
+    });
+
+    it("returns 'za N dana' for the next-week boundary (recurring weekly reappears here)", () => {
+      expect(dueDayLabel(rel(2))).toBe("za 2 dana");
+      expect(dueDayLabel(rel(7))).toBe("za 7 dana");
+    });
+
+    it("returns 'kasni …' for overdue dates", () => {
+      expect(dueDayLabel(rel(-1))).toBe("kasni 1 dan");
+      expect(dueDayLabel(rel(-3))).toBe("kasni 3 dana");
+    });
   });
 
   describe("identity", () => {

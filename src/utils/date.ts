@@ -229,6 +229,21 @@ export function daysFromToday(dateStr: string): number {
 }
 
 /**
+ * Serbian-Latin relative phrasing for a due date (YYYY-MM-DD), relative to
+ * today: overdue → "kasni N dana", today → "danas", tomorrow → "sutra",
+ * future → "za N dana". Used as the payment-row subtitle so a freshly-paid
+ * recurring payment (whose next occurrence lands inside the window) reads as
+ * a future item, not an unpaid one.
+ */
+export function dueDayLabel(dueDateStr: string): string {
+  const diff = daysFromToday(dueDateStr);
+  if (diff === 0) return "danas";
+  if (diff === 1) return "sutra";
+  if (diff > 1) return `za ${diff} dana`;
+  return diff === -1 ? "kasni 1 dan" : `kasni ${-diff} dana`;
+}
+
+/**
  * "pre 2 minuta" / "pre 1 sat" — Serbian-Latin relative phrasing for an
  * ISO timestamp. Used in audit / activity displays where the exact date
  * is less interesting than how recent it is.

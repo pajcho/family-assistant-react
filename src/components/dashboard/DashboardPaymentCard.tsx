@@ -5,7 +5,7 @@ import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardCardItem } from "@/components/dashboard/DashboardCardItem";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import type { Payment } from "@/types/database";
-import { addDays, isDateInRange, isOverdue, startOfToday } from "@/utils/date";
+import { addDays, dueDayLabel, isDateInRange, isOverdue, startOfToday } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
 
 /**
@@ -73,6 +73,7 @@ export function DashboardPaymentCard({ payments, onAdd, onEdit }: DashboardPayme
               key={payment.id}
               label={payment.name}
               value={formatAmount(payment.amount)}
+              description={dueDayLabel(payment.due_date)}
               accent={overdue ? "red" : "amber"}
               badgeIcon={overdue ? ExclamationTriangleIcon : undefined}
               badgeIconTitle={overdue ? "Prekoračeno" : undefined}
