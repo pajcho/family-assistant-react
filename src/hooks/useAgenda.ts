@@ -70,6 +70,20 @@ export type AgendaItem =
       birthday: Birthday;
     };
 
+/** Stable React key for an agenda row — unique per occurrence across kinds. */
+export function agendaItemKey(item: AgendaItem): string {
+  switch (item.kind) {
+    case "activity":
+      return `activity-${item.block.scheduleId}-${item.block.date}-${item.block.personId}`;
+    case "event":
+      return `event-${item.event.id}`;
+    case "payment":
+      return `payment-${item.payment.id}-${item.occurrenceDate}`;
+    case "birthday":
+      return `birthday-${item.birthday.id}-${item.date}`;
+  }
+}
+
 export interface UseAgendaResult {
   /** Every item in range, sorted by (date, sortKey). */
   items: AgendaItem[];

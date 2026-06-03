@@ -24,10 +24,10 @@ import { formatDate } from "@/utils/date";
 import { formatEventTimeRange } from "@/utils/event";
 
 /**
- * Shared event detail popup used by both `DashboardEventCard` (the 14-day
- * card) and `DashboardTodayCard` (the hero "Danas" widget). Each caller owns
- * its `selectedEvent`/`open` state, passes the event's assignees in, and
- * routes "Izmeni" back to its own form dialog through `onEdit`.
+ * Shared event detail popup opened from the agenda tabs (via
+ * `useAgendaDetails`). The caller owns its `selectedEvent`/`open` state, passes
+ * the event's assignees in, and routes "Izmeni" back to its own form dialog
+ * through `onEdit`.
  *
  * "Pomeri" (date + time) and "Otkaži" (soft cancel with optional reason) are
  * self-contained here via `useUpdateEvent` — they swap the dialog body inline

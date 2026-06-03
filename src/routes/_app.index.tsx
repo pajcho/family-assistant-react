@@ -1,60 +1,53 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
-import { DashboardTodayCard } from "@/components/dashboard/DashboardTodayCard";
-import { DashboardBirthdayCard } from "@/components/dashboard/DashboardBirthdayCard";
-import { DashboardEventCard } from "@/components/dashboard/DashboardEventCard";
-import { DashboardListsCard } from "@/components/dashboard/DashboardListsCard";
-import { DashboardPaymentCard } from "@/components/dashboard/DashboardPaymentCard";
+import { AddFab } from "@/components/dashboard/AddFab";
+import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
-import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import type { BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
 import type { EventFormPayload } from "@/components/events/EventForm";
-import type { ListFormPayload } from "@/components/lists/ListForm";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
-import { useCreateBirthday, useUpdateBirthday, useBirthdaysList } from "@/hooks/useBirthdays";
-import { useCreateEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
+import { useCreateBirthday, useUpdateBirthday } from "@/hooks/useBirthdays";
+import { useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import { useCreateList, useListsWithItems } from "@/hooks/useLists";
-import {
-  hasPaymentHistory,
-  useCreatePayment,
-  usePaymentsList,
-  useUpdatePayment,
-} from "@/hooks/usePayments";
+import { hasPaymentHistory, useCreatePayment, useUpdatePayment } from "@/hooks/usePayments";
 import { useProfile } from "@/hooks/useProfile";
-import type { Birthday, Event, ListWithItems, Payment } from "@/types/database";
+import type { Birthday, Event, Payment } from "@/types/database";
 
 /**
- * Dashboard route — a 2×2 card grid: events, payments, birthdays, lists.
+ * Dashboard route — two agenda tabs: "Danas" (everything today) and "Uskoro"
+ * (from tomorrow). Both read the unified `useAgenda` layer.
  *
- * Each card owns its own detail popup; the dashboard owns the per-feature
- * add/edit form dialogs and threads them in via `onAdd` / `onEdit`
- * callbacks. The Lists card uses a thinner contract (only `onAdd`) since
- * list interactions belong on the /lists page, not a modal.
+ * The route still owns the per-feature add/edit FORM dialogs (events, payments,
+ * birthdays) and threads them in: the floating "Dodaj" button opens the add
+ * forms, and the agenda's detail dialogs route "Izmeni" back here through the
+ * `onEdit*` callbacks. Lists are no longer on the dashboard — they live on
+ * /lists. Activity add/edit lives on /activities.
  */
+type DashboardTab = "danas" | "uskoro";
+
 export const Route = createFileRoute("/_app/")({
+  // Deep-linkable active tab. Unknown / missing values fall back to "Danas".
+  validateSearch: (search: Record<string, unknown>): { tab?: DashboardTab } => {
+    const tab = search.tab;
+    return tab === "uskoro" || tab === "danas" ? { tab } : {};
+  },
   component: DashboardPage,
 });
 
 function DashboardPage() {
   const { familyId, familyName } = useProfile();
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate();
+  const active: DashboardTab = tab ?? "danas";
 
-  // Lists — each subscribes to realtime internally.
-  const eventsQuery = useEventsList();
-  const paymentsQuery = usePaymentsList();
-  const birthdaysQuery = useBirthdaysList();
-  const listsQuery = useListsWithItems();
+  // Participant maps — only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
   const { byPayment: paymentParticipantsByPayment } = usePaymentParticipants();
-
-  const events: Event[] = eventsQuery.data ?? [];
-  const payments: Payment[] = paymentsQuery.data ?? [];
-  const birthdays: Birthday[] = birthdaysQuery.data ?? [];
-  const lists: ListWithItems[] = listsQuery.data ?? [];
 
   // Mutations — only the create/update side; deletes happen on feature pages.
   const createEvent = useCreateEvent();
@@ -63,11 +56,9 @@ function DashboardPage() {
   const updatePayment = useUpdatePayment();
   const createBirthday = useCreateBirthday();
   const updateBirthday = useUpdateBirthday();
-  const createList = useCreateList();
 
-  // Per-feature dialog state. Each card surfaces an `onAdd` + `onEdit` that
-  // drives this state; submit handlers route to create vs update based on
-  // whether `editing*` is set.
+  // Per-feature form dialog state. The FAB drives "add"; the agenda's detail
+  // dialogs drive "edit" via the openEdit* handlers below.
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -80,9 +71,6 @@ function DashboardPage() {
   const [birthdayDialogOpen, setBirthdayDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
   const [birthdayError, setBirthdayError] = useState<string | null>(null);
-
-  const [listDialogOpen, setListDialogOpen] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
 
   /* --- Add openers ------------------------------------------------------- */
 
@@ -105,11 +93,6 @@ function DashboardPage() {
     setBirthdayDialogOpen(true);
   };
 
-  const openAddList = () => {
-    setListError(null);
-    setListDialogOpen(true);
-  };
-
   /* --- Edit openers ------------------------------------------------------ */
 
   const openEditEvent = (event: Event) => {
@@ -121,8 +104,8 @@ function DashboardPage() {
   const openEditPayment = async (payment: Payment) => {
     setEditingPayment(payment);
     setPaymentError(null);
-    // The Phase 3 PaymentForm disables the recurrence radios when history
-    // exists. Look it up before opening so the radios start correctly.
+    // The PaymentForm disables the recurrence radios when history exists. Look
+    // it up before opening so the radios start correctly.
     const history = await hasPaymentHistory(payment.id);
     setPaymentHasHistory(history);
     setPaymentDialogOpen(true);
@@ -193,18 +176,6 @@ function DashboardPage() {
     }
   };
 
-  const handleListSubmit = async (payload: ListFormPayload) => {
-    setListError(null);
-    try {
-      await createList.mutateAsync(payload);
-      setListDialogOpen(false);
-    } catch (err) {
-      setListError(
-        err instanceof Error && err.message ? err.message : "Greška pri kreiranju liste",
-      );
-    }
-  };
-
   /* --- Dialog open-state guards ----------------------------------------- */
 
   const handleEventDialogOpenChange = (open: boolean) => {
@@ -232,13 +203,6 @@ function DashboardPage() {
     }
   };
 
-  const handleListDialogOpenChange = (open: boolean) => {
-    setListDialogOpen(open);
-    if (!open) {
-      setListError(null);
-    }
-  };
-
   return (
     <div className="animate-fade-in">
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -251,39 +215,45 @@ function DashboardPage() {
       {!familyId ? (
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
       ) : (
-        <div className="stagger-fade-in mt-6 grid gap-4 sm:grid-cols-2">
-          {/* Hero spot for "Danas" — spans both columns on sm+ because the
-              daily question is the most-checked thing on the dashboard and
-              the chronological list reads better wide than narrow. */}
-          <div className="sm:col-span-2">
-            <DashboardTodayCard
+        <Tabs
+          value={active}
+          onValueChange={(value) =>
+            void navigate({
+              to: "/",
+              search: value === "danas" ? {} : { tab: value as DashboardTab },
+              replace: true,
+            })
+          }
+          className="mt-6 gap-6"
+        >
+          <TabsList className="w-full max-w-xs">
+            <TabsTrigger value="danas">Danas</TabsTrigger>
+            <TabsTrigger value="uskoro">Uskoro</TabsTrigger>
+          </TabsList>
+          <TabsContent value="danas">
+            <AgendaTodayTab
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
                 void openEditPayment(payment);
               }}
+              onEditBirthday={openEditBirthday}
             />
-          </div>
-          <DashboardEventCard events={events} onAdd={openAddEvent} onEdit={openEditEvent} />
-          <DashboardPaymentCard
-            payments={payments}
-            onAdd={openAddPayment}
-            onEdit={(payment) => {
-              void openEditPayment(payment);
-            }}
-          />
-          {/* Lists card sits above Birthdays — on mobile (single column)
-              it appears earlier in scroll order; on desktop (two-col
-              grid) it occupies the bottom-left slot. Reflects the
-              day-to-day usage pattern: shopping comes up more often
-              than birthdays. */}
-          <DashboardListsCard lists={lists} onAdd={openAddList} />
-          <DashboardBirthdayCard
-            birthdays={birthdays}
-            onAdd={openAddBirthday}
-            onEdit={openEditBirthday}
-          />
-        </div>
+          </TabsContent>
+          <TabsContent value="uskoro">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Uskoro stiže — pregled narednih dana.
+            </p>
+          </TabsContent>
+        </Tabs>
       )}
+
+      {familyId ? (
+        <AddFab
+          onAddEvent={openAddEvent}
+          onAddPayment={openAddPayment}
+          onAddBirthday={openAddBirthday}
+        />
+      ) : null}
 
       <EventFormDialog
         open={eventDialogOpen}
@@ -320,17 +290,6 @@ function DashboardPage() {
         saving={createBirthday.isPending || updateBirthday.isPending}
         onSubmit={(payload) => {
           void handleBirthdaySubmit(payload);
-        }}
-      />
-
-      <ListFormDialog
-        open={listDialogOpen}
-        onOpenChange={handleListDialogOpenChange}
-        list={null}
-        error={listError}
-        saving={createList.isPending}
-        onSubmit={(payload) => {
-          void handleListSubmit(payload);
         }}
       />
     </div>
