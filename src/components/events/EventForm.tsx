@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
+import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import type { Event } from "@/types/database";
 
 export type EventFormPayload = {
@@ -17,10 +18,14 @@ export type EventFormPayload = {
   end_time: string | null;
   notes: string | null;
   remind_minutes_before: number | null;
+  /** Family members the event is for. Empty = unassigned (family-wide). */
+  personIds: string[];
 };
 
 export type EventFormProps = {
   event?: Event | null;
+  /** Assignees for the event being edited; empty/omitted for a new event. */
+  initialPersonIds?: string[];
   saving?: boolean;
   onSubmit: (payload: EventFormPayload) => void;
   onCancel: () => void;
@@ -35,9 +40,10 @@ type FormState = {
   end_time: string | null;
   notes: string;
   remind_minutes_before: number | null;
+  personIds: string[];
 };
 
-function initialState(event: Event | null | undefined): FormState {
+function initialState(event: Event | null | undefined, personIds: string[]): FormState {
   return {
     name: event?.name ?? "",
     description: event?.description ?? "",
@@ -49,6 +55,7 @@ function initialState(event: Event | null | undefined): FormState {
     end_time: event?.end_time ?? null,
     notes: event?.notes ?? "",
     remind_minutes_before: event?.remind_minutes_before ?? null,
+    personIds,
   };
 }
 
@@ -59,15 +66,26 @@ function initialState(event: Event | null | undefined): FormState {
  * decision). Submitting fires `onSubmit` with a serialized payload — the
  * dialog wrapper owns the mutation call so this component stays pure.
  */
-export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFormProps) {
-  const [form, setForm] = useState<FormState>(() => initialState(event));
+export function EventForm({
+  event,
+  initialPersonIds,
+  saving = false,
+  onSubmit,
+  onCancel,
+}: EventFormProps) {
+  const [form, setForm] = useState<FormState>(() => initialState(event, initialPersonIds ?? []));
+
+  // Serialized so the effect reseeds when the assignees finish loading
+  // (the parent looks them up from a query that resolves after open) without
+  // firing on every render from a fresh array reference.
+  const personSeed = (initialPersonIds ?? []).join(",");
 
   // When the parent swaps `event` (e.g. opening edit vs. switching between
   // events without unmounting the form), reseed local state. Mirrors Vue's
   // `watch(() => props.event, ..., { immediate: true })`.
   useEffect(() => {
-    setForm(initialState(event));
-  }, [event]);
+    setForm(initialState(event, personSeed ? personSeed.split(",") : []));
+  }, [event, personSeed]);
 
   const isEdit = !!event?.id;
 
@@ -88,6 +106,7 @@ export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFo
       // anchor the offset against — clear the field if the user toggled
       // back to all-day or removed the start time after picking one.
       remind_minutes_before: resolvedStart ? form.remind_minutes_before : null,
+      personIds: form.personIds,
     });
   };
 
@@ -112,6 +131,11 @@ export function EventForm({ event, saving = false, onSubmit, onCancel }: EventFo
           placeholder="detalji događaja"
         />
       </div>
+      <MemberMultiSelect
+        label="Za koga (opciono)"
+        value={form.personIds}
+        onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
+      />
       <div className="space-y-2">
         <Label htmlFor="date">Datum *</Label>
         <DatePicker

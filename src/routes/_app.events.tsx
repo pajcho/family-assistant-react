@@ -6,10 +6,16 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventListItem } from "@/components/events/EventListItem";
+import {
+  EventRescheduleDialog,
+  type EventReschedulePayload,
+} from "@/components/events/EventRescheduleDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
 import { useCreateEvent, useDeleteEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
 import type { Event } from "@/types/database";
 import { isEventEnded } from "@/utils/event";
 import { cn } from "@/lib/cn";
@@ -35,16 +41,26 @@ function EventsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
 
+  // Quick-reschedule state
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [eventToReschedule, setEventToReschedule] = useState<Event | null>(null);
+
+  // Cancel-with-reason state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [eventToCancel, setEventToCancel] = useState<Event | null>(null);
+
   const eventsQuery = useEventsList({
     from: filterFrom ?? undefined,
     to: filterTo ?? undefined,
   });
+  const { byEvent } = useEventParticipants();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
 
   const events: Event[] = eventsQuery.data ?? [];
   const filteredEvents = hideCompleted ? events.filter((e) => !isEventEnded(e)) : events;
+  const editingPersonIds = editingEvent ? (byEvent.get(editingEvent.id) ?? []) : [];
 
   const openAdd = () => {
     setEditingEvent(null);
@@ -103,6 +119,50 @@ function EventsPage() {
     if (!open) {
       setEditingEvent(null);
       setErrorMessage(null);
+    }
+  };
+
+  const openReschedule = (eventItem: Event) => {
+    setEventToReschedule(eventItem);
+    setRescheduleOpen(true);
+  };
+
+  const handleRescheduleSubmit = async (payload: EventReschedulePayload) => {
+    if (!eventToReschedule) return;
+    try {
+      await updateEvent.mutateAsync({ id: eventToReschedule.id, payload });
+      setRescheduleOpen(false);
+      setEventToReschedule(null);
+    } catch {
+      // Error toast surfaced by the hook; keep the dialog open to retry.
+    }
+  };
+
+  // Canceling opens a confirm dialog (with an optional reason); restoring a
+  // canceled event clears both the timestamp and the reason straight away.
+  const handleToggleCancel = (eventItem: Event) => {
+    if (eventItem.canceled_at) {
+      void updateEvent.mutateAsync({
+        id: eventItem.id,
+        payload: { canceled_at: null, cancel_reason: null },
+      });
+    } else {
+      setEventToCancel(eventItem);
+      setCancelDialogOpen(true);
+    }
+  };
+
+  const handleCancelConfirm = async (reason: string | null) => {
+    if (!eventToCancel) return;
+    try {
+      await updateEvent.mutateAsync({
+        id: eventToCancel.id,
+        payload: { canceled_at: new Date().toISOString(), cancel_reason: reason },
+      });
+      setCancelDialogOpen(false);
+      setEventToCancel(null);
+    } catch {
+      // Error toast surfaced by the hook; keep the dialog open to retry.
     }
   };
 
@@ -175,18 +235,25 @@ function EventsPage() {
       {!isLoading && filteredEvents.length > 0 ? (
         <ul className="mt-6 space-y-3">
           {filteredEvents.map((eventItem) => {
-            const ended = isEventEnded(eventItem);
+            const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
             return (
               <li
                 key={eventItem.id}
                 className={cn(
                   "rounded-lg border p-4 shadow-sm dark:border-gray-700",
-                  ended
+                  dim
                     ? "border-gray-200/80 bg-gray-50 opacity-75 dark:bg-gray-800/80"
                     : "border-gray-200 bg-white dark:bg-gray-800",
                 )}
               >
-                <EventListItem event={eventItem} onEdit={openEdit} onDelete={confirmDelete} />
+                <EventListItem
+                  event={eventItem}
+                  personIds={byEvent.get(eventItem.id) ?? []}
+                  onEdit={openEdit}
+                  onReschedule={openReschedule}
+                  onToggleCancel={handleToggleCancel}
+                  onDelete={confirmDelete}
+                />
               </li>
             );
           })}
@@ -197,10 +264,37 @@ function EventsPage() {
         open={dialogOpen}
         onOpenChange={handleDialogOpenChange}
         event={editingEvent}
+        initialPersonIds={editingPersonIds}
         error={errorMessage}
         saving={createEvent.isPending || updateEvent.isPending}
         onSubmit={(payload) => {
           void handleSubmit(payload);
+        }}
+      />
+
+      <EventRescheduleDialog
+        open={rescheduleOpen}
+        onOpenChange={(open) => {
+          setRescheduleOpen(open);
+          if (!open) setEventToReschedule(null);
+        }}
+        event={eventToReschedule}
+        saving={updateEvent.isPending}
+        onSubmit={(payload) => {
+          void handleRescheduleSubmit(payload);
+        }}
+      />
+
+      <EventCancelDialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) setEventToCancel(null);
+        }}
+        event={eventToCancel}
+        saving={updateEvent.isPending}
+        onConfirm={(reason) => {
+          void handleCancelConfirm(reason);
         }}
       />
 

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Event } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
+import { replaceEventParticipants } from "@/hooks/useEventParticipants";
 
 /**
  * Events data hooks — direct port of `composables/useEvents.ts` from the
@@ -32,14 +33,31 @@ export type CreateEventInput = {
   end_time?: string | null;
   notes?: string | null;
   remind_minutes_before?: number | null;
+  /** Family members this event is for. Omit/empty = unassigned. */
+  personIds?: string[];
 };
 
 export type UpdateEventInput = Partial<
   Pick<
     Event,
-    "name" | "description" | "date" | "start_time" | "end_time" | "notes" | "remind_minutes_before"
+    | "name"
+    | "description"
+    | "date"
+    | "start_time"
+    | "end_time"
+    | "notes"
+    | "remind_minutes_before"
+    | "canceled_at"
+    | "cancel_reason"
   >
->;
+> & {
+  /**
+   * Replace the event's assignees. `undefined` leaves them untouched (so the
+   * quick cancel / reschedule actions don't clear assignment); any array —
+   * including empty — replaces the full set.
+   */
+  personIds?: string[];
+};
 
 // All-day events (null start_time) first per day, then by start_time.
 // Mirrors the sort logic from composables/useEvents.ts in the Nuxt source.
@@ -112,18 +130,24 @@ export function useCreateEvent() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: CreateEventInput): Promise<Event> => {
+    mutationFn: async (input: CreateEventInput): Promise<Event> => {
       if (!familyId) throw new Error("Nema porodice");
+      const { personIds, ...columns } = input;
       const { data, error } = await supabase
         .from("events")
-        .insert({ family_id: familyId, ...payload })
+        .insert({ family_id: familyId, ...columns })
         .select()
         .single();
       if (error) throw new Error(error.message);
-      return data as Event;
+      const event = data as Event;
+      if (personIds && personIds.length > 0) {
+        await replaceEventParticipants(familyId, event.id, personIds);
+      }
+      return event;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["events", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["event_participants", familyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri dodavanju događaja");
@@ -137,17 +161,25 @@ export function useUpdateEvent() {
 
   return useMutation({
     mutationFn: async (args: { id: string; payload: UpdateEventInput }): Promise<Event> => {
+      const { personIds, ...columns } = args.payload;
       const { data, error } = await supabase
         .from("events")
-        .update(args.payload)
+        .update(columns)
         .eq("id", args.id)
         .select()
         .single();
       if (error) throw new Error(error.message);
+      // Only touch assignees when the caller passed an explicit set; the
+      // quick cancel / reschedule actions send columns only.
+      if (personIds !== undefined) {
+        if (!familyId) throw new Error("Nema porodice");
+        await replaceEventParticipants(familyId, args.id, personIds);
+      }
       return data as Event;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["events", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["event_participants", familyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri izmeni događaja");
