@@ -37,8 +37,8 @@ import { formatAmount } from "@/utils/format";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
- * Shared payment detail popup used by both `DashboardPaymentCard` and
- * `DashboardTodayCard`. Self-contained: owns the history popup state and the
+ * Shared payment detail popup opened from the agenda tabs (via
+ * `useAgendaDetails`). Self-contained: owns the history popup state and the
  * mutations. Like the event detail dialog, "Pomeri" (reschedule) and "Otkaži"
  * (cancel) the CURRENT occurrence inline (no nested dialogs), branching on
  * recurring vs one-time exactly like the /payments kebab:
