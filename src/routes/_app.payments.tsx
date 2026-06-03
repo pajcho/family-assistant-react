@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -716,10 +716,7 @@ function PaymentsPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Plaćanja</h1>
-        <Button onClick={openAdd} className="w-full sm:w-auto">
-          <PlusIcon className="mr-2 h-5 w-5" />
-          Dodaj plaćanje
-        </Button>
+        <AddButton label="Dodaj plaćanje" onClick={openAdd} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-4">

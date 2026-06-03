@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "@heroicons/react/24/outline";
 import type { Birthday } from "@/types/database";
-import { Button } from "@/components/ui/button";
+import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { BirthdayListItem } from "@/components/birthdays/BirthdayListItem";
 import {
@@ -124,10 +123,7 @@ function BirthdaysPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Rođendani</h1>
-        <Button type="button" onClick={openAdd} className="w-full sm:w-auto">
-          <PlusIcon className="mr-2 h-5 w-5" />
-          Dodaj rođendan
-        </Button>
+        <AddButton label="Dodaj rođendan" onClick={openAdd} />
       </div>
 
       {isLoading ? (

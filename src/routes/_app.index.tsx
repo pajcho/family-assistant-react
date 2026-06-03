@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
-import { AddFab } from "@/components/dashboard/AddFab";
+import { AddMenu } from "@/components/dashboard/AddMenu";
 import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -206,12 +206,23 @@ function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-        {familyName ? `Porodica ${familyName}` : "Kontrolna tabla"}
-      </h1>
-      <p className="mt-1 text-gray-600 dark:text-gray-400">
-        Dobrodošli nazad! Pregled nadolazećih obaveza.
-      </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            {familyName ? `Porodica ${familyName}` : "Kontrolna tabla"}
+          </h1>
+          <p className="mt-1 text-gray-600 dark:text-gray-400">
+            Dobrodošli nazad! Pregled nadolazećih obaveza.
+          </p>
+        </div>
+        {familyId ? (
+          <AddMenu
+            onAddEvent={openAddEvent}
+            onAddPayment={openAddPayment}
+            onAddBirthday={openAddBirthday}
+          />
+        ) : null}
+      </div>
 
       {!familyId ? (
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
@@ -251,14 +262,6 @@ function DashboardPage() {
           </TabsContent>
         </Tabs>
       )}
-
-      {familyId ? (
-        <AddFab
-          onAddEvent={openAddEvent}
-          onAddPayment={openAddPayment}
-          onAddBirthday={openAddBirthday}
-        />
-      ) : null}
 
       <EventFormDialog
         open={eventDialogOpen}

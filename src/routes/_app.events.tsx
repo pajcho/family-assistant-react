@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { AddButton } from "@/components/common/AddButton";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -187,10 +187,7 @@ function EventsPage() {
             />
             Sakrij završene
           </label>
-          <Button onClick={openAdd}>
-            <PlusIcon className="mr-2 h-5 w-5" />
-            Dodaj događaj
-          </Button>
+          <AddButton label="Dodaj događaj" onClick={openAdd} />
         </div>
       </div>
 

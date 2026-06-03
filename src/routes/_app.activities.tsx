@@ -6,12 +6,12 @@ import {
   ChevronRightIcon,
   Cog6ToothIcon,
   PencilSquareIcon,
-  PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { addDays, format, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
+import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
@@ -277,10 +277,7 @@ function ActivitiesPage() {
             <Cog6ToothIcon className="h-5 w-5 sm:mr-2" />
             <span className="hidden sm:inline">Opcije</span>
           </Button>
-          <Button onClick={openAdd} aria-label="Dodaj aktivnost">
-            <PlusIcon className="h-5 w-5 sm:mr-2" />
-            <span className="hidden sm:inline">Dodaj aktivnost</span>
-          </Button>
+          <AddButton label="Dodaj aktivnost" onClick={openAdd} />
         </div>
       </div>
 
