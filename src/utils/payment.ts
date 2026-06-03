@@ -1,4 +1,4 @@
-import type { Payment, RecurrencePeriod } from "@/types/database";
+import type { Payment, PaymentOverride, RecurrencePeriod } from "@/types/database";
 import { addMonth, addWeek, formatDate } from "@/utils/date";
 
 /**
@@ -106,4 +106,111 @@ export function paymentCancelCopy(
     : `Otkazati poslednju uplatu za „${name}"? Možeš je vratiti kasnije.`;
 
   return { title: "Otkaži ratu", message, placeholder };
+}
+
+/* ------------------------------------------------------------------------- */
+/* Per-occurrence overrides — pure helpers                                   */
+/*                                                                           */
+/* Live next to the recurrence math (and free of React / Supabase) so the    */
+/* unified `useAgenda` projection — and its unit tests — can read overrides   */
+/* without dragging the `usePaymentOverrides` hook's Supabase client into a   */
+/* non-React context. Re-exported from `@/hooks/usePaymentOverrides` for the  */
+/* existing call sites.                                                       */
+/* ------------------------------------------------------------------------- */
+
+/** Override-map key: `${payment_id}|${occurrence_date}`. */
+export function overrideKey(paymentId: string, occurrenceDate: string): string {
+  return `${paymentId}|${occurrenceDate}`;
+}
+
+/**
+ * The effective due date of a payment occurrence — the reschedule
+ * `override_date` when moved, otherwise the original `dueDate`. Use this
+ * wherever the UI decides "is it due today / soon" so a moved payment shows on
+ * its new date.
+ */
+export function effectivePaymentDueDate(
+  paymentId: string,
+  dueDate: string,
+  byKey: Map<string, PaymentOverride>,
+): string {
+  const ov = byKey.get(overrideKey(paymentId, dueDate));
+  return ov?.action === "reschedule" && ov.override_date ? ov.override_date : dueDate;
+}
+
+/** True when the given occurrence has a cancel override. */
+export function isPaymentOccurrenceCanceled(
+  paymentId: string,
+  dueDate: string,
+  byKey: Map<string, PaymentOverride>,
+): boolean {
+  return byKey.get(overrideKey(paymentId, dueDate))?.action === "cancel";
+}
+
+export interface PaymentOccurrence {
+  /** The original projected due date this occurrence keys on (YYYY-MM-DD). */
+  occurrenceDate: string;
+  /** Where it actually falls — the reschedule `override_date` if moved, else `occurrenceDate`. */
+  effectiveDate: string;
+}
+
+/**
+ * Enumerate a payment's occurrences whose EFFECTIVE date lands within
+ * `[from, to]` (inclusive, YYYY-MM-DD). Walks forward from the live `due_date`
+ * by the recurrence step — mirroring `nextPaymentOccurrenceDate` / mark-paid:
+ * weekly → +N weeks, monthly → +N months, limited → +1 month for up to
+ * `remaining_occurrences`, one-time → a single occurrence. Each occurrence's
+ * per-instance override is applied: a `cancel` drops it, a `reschedule` moves
+ * its effective date.
+ *
+ * Pure (no React / Supabase) so the unified `useAgenda` layer — and the Phase 4
+ * calendar — can project payments across a range and unit-test the walk.
+ * Bucketed by `effectiveDate`, so a payment moved inside the window surfaces on
+ * its new day. Known edge: an occurrence whose ORIGINAL date sits just past
+ * `to` but is rescheduled INTO the window won't appear — reschedules are capped
+ * at "the day before the next occurrence", so the gap is at most one step.
+ */
+export function expandPaymentOccurrences(
+  payment: Pick<
+    Payment,
+    "id" | "due_date" | "recurrence_period" | "recurrence_interval" | "remaining_occurrences"
+  >,
+  from: string,
+  to: string,
+  overridesByKey: Map<string, PaymentOverride>,
+): PaymentOccurrence[] {
+  const period = payment.recurrence_period;
+  const interval = Math.max(1, payment.recurrence_interval ?? 1);
+
+  // Step to the next occurrence, or null when the series has just one.
+  const step = (date: string): string | null => {
+    if (period === "weekly") return addWeek(date, interval);
+    if (period === "monthly") return addMonth(date, interval);
+    if (period === "limited") return addMonth(date); // monthly cadence; interval ignored
+    return null; // one-time / null
+  };
+
+  // `limited` has a fixed instalment count starting at due_date; everything
+  // else just walks until it passes `to`.
+  let remaining =
+    period === "limited"
+      ? Math.max(1, payment.remaining_occurrences ?? 1)
+      : Number.POSITIVE_INFINITY;
+
+  const out: PaymentOccurrence[] = [];
+  let cur: string | null = payment.due_date;
+  while (cur !== null && cur <= to && remaining > 0) {
+    const ov = overridesByKey.get(overrideKey(payment.id, cur));
+    if (ov?.action !== "cancel") {
+      const effectiveDate =
+        ov?.action === "reschedule" && ov.override_date ? ov.override_date : cur;
+      if (effectiveDate >= from && effectiveDate <= to) {
+        out.push({ occurrenceDate: cur, effectiveDate });
+      }
+    }
+    remaining -= 1;
+    cur = step(cur);
+  }
+
+  return out;
 }
