@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AddFab } from "@/components/dashboard/AddFab";
 import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
+import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
@@ -240,9 +241,13 @@ function DashboardPage() {
             />
           </TabsContent>
           <TabsContent value="uskoro">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Uskoro stiže — pregled narednih dana.
-            </p>
+            <AgendaUpcomingTab
+              onEditEvent={openEditEvent}
+              onEditPayment={(payment) => {
+                void openEditPayment(payment);
+              }}
+              onEditBirthday={openEditBirthday}
+            />
           </TabsContent>
         </Tabs>
       )}
