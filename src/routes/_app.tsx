@@ -50,11 +50,11 @@ function AppLayout() {
             `pb-32` (128px). When the keyboard is open, the nav is hidden
             and the padding collapses to `pb-6` so iOS doesn't leave the
             reserved area as visible whitespace above the keyboard. The
-            bottom-nav clearance flips at `md` (768px) to stay in step
-            with AppNav's mobile cutoff. */}
+            bottom-nav clearance flips at `lg` (1024px) to stay in step
+            with AppNav's cutoff (the bottom bar now serves tablets too). */}
         <main
           className={cn(
-            "mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 md:pb-6 lg:px-8",
+            "mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 lg:px-8 lg:pb-6",
             keyboardOpen ? "pb-6" : "pb-32",
           )}
         >
