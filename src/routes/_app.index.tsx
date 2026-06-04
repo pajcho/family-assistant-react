@@ -7,6 +7,7 @@ import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
 import { ViewToggle } from "@/components/dashboard/ViewToggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ActivityAddDialog } from "@/components/activities/ActivityAddDialog";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -86,6 +87,11 @@ function DashboardPage() {
   const [birthdayDialogOpen, setBirthdayDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
   const [birthdayError, setBirthdayError] = useState<string | null>(null);
+
+  // Activity add is self-contained (the dialog owns its mutations); the route
+  // only flips it open. There's no edit path here — "Izmeni aktivnost" still
+  // deep-links to /activities.
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
 
   /* --- Add openers ------------------------------------------------------- */
 
@@ -231,6 +237,7 @@ function DashboardPage() {
         </div>
         {familyId ? (
           <AddMenu
+            onAddActivity={() => setActivityDialogOpen(true)}
             onAddEvent={openAddEvent}
             onAddPayment={openAddPayment}
             onAddBirthday={openAddBirthday}
@@ -333,6 +340,8 @@ function DashboardPage() {
           void handleBirthdaySubmit(payload);
         }}
       />
+
+      <ActivityAddDialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen} />
     </div>
   );
 }
