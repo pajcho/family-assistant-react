@@ -13,6 +13,7 @@ import {
 import { currentAge } from "@/utils/birthday";
 import { isEventEnded } from "@/utils/event";
 import { getDisplayName } from "@/utils/identity";
+import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 
 /**
  * One agenda row — the discriminated-union renderer shared by the "Danas" and
@@ -61,23 +62,23 @@ export function AgendaItemRow({
           onClick={onClick}
         />
       );
-    case "payment": {
-      // A payment dated after today is a not-yet-due ("nadolazeće") occurrence —
-      // only the Uskoro list surfaces those. It's shown read-only there: no
-      // detail dialog, so none of its actions (Pomeri / Otkaži / Označi kao
-      // plaćeno / Izmeni) can be triggered before it's actually due. Today's
-      // payments (Danas) and overdue ones stay actionable.
-      const today = format(new Date(), "yyyy-MM-dd");
+    case "payment":
+      // A payment occurrence that ISN'T the series' live one (keyed on
+      // payment.due_date) is a future repetition ("nadolazeće") — only the Uskoro
+      // list surfaces those. It's shown read-only there: no detail dialog, so
+      // none of its actions (Pomeri / Otkaži / Označi kao plaćeno / Izmeni) can
+      // fire before it becomes the current due. The live occurrence stays
+      // actionable even when its due date is still in the future (e.g. due
+      // tomorrow), matching the payments page.
       return (
         <PaymentRow
           payment={item.payment}
           personIds={item.personIds}
           onClick={onClick}
           dateLabel={dateLabel}
-          upcoming={item.date > today}
+          upcoming={isUpcomingPaymentOccurrence(item)}
         />
       );
-    }
     case "birthday":
       return <BirthdayRow birthday={item.birthday} onClick={onClick} />;
   }

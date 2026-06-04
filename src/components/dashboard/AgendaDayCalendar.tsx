@@ -65,14 +65,9 @@ export function AgendaDayCalendar({
           <div className="px-2 py-2 text-[10px] tracking-wide text-muted-foreground uppercase">
             Ceo dan
           </div>
-          <div className="flex flex-wrap gap-1.5 border-l border-gray-200 p-2 dark:border-gray-700">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-1.5 border-l border-gray-200 p-2 dark:border-gray-700">
             {allDayItems.map((item) => (
-              <AllDayChip
-                key={agendaItemKey(item)}
-                item={item}
-                todayStr={todayStr}
-                onClick={() => onSelect(item)}
-              />
+              <AllDayChip key={agendaItemKey(item)} item={item} onClick={() => onSelect(item)} />
             ))}
           </div>
         </div>

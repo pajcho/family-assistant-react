@@ -151,7 +151,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
  *     the user pick "every N weeks" / "every N months".
  *   • Preostalo uplata — only when `recurrence_period === 'limited'`
  *   • Pauziraj plaćanje — only when editing a recurring (non one-time) payment
- *   • Right-aligned footer (Otkaži / Sačuvaj izmene | Dodaj)
+ *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
  */
 export function PaymentForm({
   payment,
@@ -332,7 +332,7 @@ export function PaymentForm({
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-          Otkaži
+          Odustani
         </Button>
         <Button type="submit" disabled={saving}>
           {isEdit ? "Sačuvaj izmene" : "Dodaj"}

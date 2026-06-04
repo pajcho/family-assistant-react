@@ -149,7 +149,7 @@ function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: Body
         </Button>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-            Otkaži
+            Odustani
           </Button>
           <Button type="submit" disabled={saving || !name.trim()}>
             Sačuvaj

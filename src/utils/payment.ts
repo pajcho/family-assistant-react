@@ -167,6 +167,26 @@ export function isPaymentOverdue(
   return effectivePaymentDueDate(payment.id, payment.due_date, byKey) < today;
 }
 
+/**
+ * Whether a projected payment occurrence is a future repetition rather than the
+ * series' live one. The live occurrence keys on `payment.due_date` — the next
+ * unpaid instalment, which advances as occurrences are paid/canceled — and stays
+ * fully actionable in the agenda; every later occurrence renders read-only
+ * ("Nadolazeće"). Mirrors the payments page, where only the live `due_date` row
+ * carries actions and the rest are synthetic "upcoming" rows.
+ *
+ * Deliberately occurrence-based, NOT date-based: the live occurrence is editable
+ * even when its due date is still in the future (e.g. due tomorrow). The agenda
+ * previously compared the effective date to "today", which wrongly locked the
+ * first/next instalment before it came due.
+ */
+export function isUpcomingPaymentOccurrence(occurrence: {
+  occurrenceDate: string;
+  payment: Pick<Payment, "due_date">;
+}): boolean {
+  return occurrence.occurrenceDate !== occurrence.payment.due_date;
+}
+
 export interface PaymentOccurrence {
   /** The original projected due date this occurrence keys on (YYYY-MM-DD). */
   occurrenceDate: string;

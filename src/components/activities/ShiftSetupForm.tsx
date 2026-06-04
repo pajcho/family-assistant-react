@@ -179,7 +179,7 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
               onClick={() => setConfirmingRemove(false)}
               disabled={deleteAnchor.isPending}
             >
-              Otkaži
+              Odustani
             </Button>
             <Button
               type="button"

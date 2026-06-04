@@ -57,7 +57,7 @@ export function EventRescheduleDialog({
         <EventDateTimeFields value={value} onChange={setValue} idPrefix="reschedule" />
         <ResponsiveDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Otkaži
+            Odustani
           </Button>
           <Button
             disabled={saving || !value.date}

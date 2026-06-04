@@ -169,7 +169,7 @@ export function AddMemberDialog({ open, onOpenChange, onCreated }: AddMemberDial
               onClick={() => onOpenChange(false)}
               disabled={busy}
             >
-              Otkaži
+              Odustani
             </Button>
             <Button type="submit" disabled={!valid || busy}>
               {busy ? "Čuva…" : "Dodaj"}

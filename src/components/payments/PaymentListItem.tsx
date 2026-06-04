@@ -291,31 +291,7 @@ function OccurrenceMenuItems({
   );
 }
 
-/** Standalone kebab holding only the occurrence actions (desktop payment row + upcoming rows). */
-function OccurrenceMenu({
-  item,
-  callbacks,
-}: {
-  item: PaymentRowItem | UpcomingRowItem;
-  callbacks: OccurrenceCallbacks;
-}) {
-  return (
-    <div className="flex shrink-0">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Akcije za ratu">
-            <EllipsisVerticalIcon className="h-5 w-5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <OccurrenceMenuItems item={item} callbacks={callbacks} />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-}
-
-/* --- Action button blocks (mobile kebab vs desktop inline) ----------------- */
+/* --- Action block: one primary action + overflow (⋮) menu ------------------ */
 
 function HistoryActions({
   item,
@@ -369,95 +345,80 @@ function PaymentActions({
   onDelete: (item: PaymentRowItem) => void;
 }) {
   const isCanceled = overrideOf(item)?.action === "cancel";
+  const isOneTime = item.recurrence_period === "one-time";
   // A canceled occurrence can't be paid/paused — restore it first.
-  const canPause = !item.is_paid && !isCanceled && item.recurrence_period !== "one-time";
+  const canPause = !item.is_paid && !isCanceled && !isOneTime;
   const canMarkPaid = !item.is_paid && !item.is_paused && !isCanceled;
-  const showHistory = item.recurrence_period !== "one-time";
+  const showHistory = !isOneTime;
+  const showPauseItem = canPause && !item.is_paused;
+  // Kebab groups, divided when adjacent groups are non-empty:
+  //   [Pauziraj/Istorija] · [Pomeri/Otkaži, or Vrati] · [Izmeni/Obriši].
+  // The middle group is empty when canceled (Vrati is the primary button then).
+  const hasStateGroup = showPauseItem || showHistory;
+  const hasOccurrenceGroup = !isCanceled;
 
   return (
-    <>
-      {/* Mobile: single kebab dropdown */}
-      <div className="flex shrink-0 sm:hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Akcije">
-              <EllipsisVerticalIcon className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {canMarkPaid ? (
-              <DropdownMenuItem onSelect={() => onMarkPaid(item)}>
-                <CheckIcon className="h-4 w-4" />
-                Označi kao plaćeno
-              </DropdownMenuItem>
-            ) : null}
-            {canPause && item.is_paused ? (
-              <DropdownMenuItem onSelect={() => onTogglePause(item)}>
-                <PlayIcon className="h-4 w-4" />
-                Nastavi
-              </DropdownMenuItem>
-            ) : null}
-            {canPause && !item.is_paused ? (
-              <DropdownMenuItem onSelect={() => onTogglePause(item)}>
-                <PauseIcon className="h-4 w-4" />
-                Pauziraj
-              </DropdownMenuItem>
-            ) : null}
-            {showHistory ? (
-              <DropdownMenuItem onSelect={() => onOpenHistory(item)}>
-                <ClockIcon className="h-4 w-4" />
-                Istorija
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <OccurrenceMenuItems item={item} callbacks={callbacks} />
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onEdit(item)}>
-              <PencilIcon className="h-4 w-4" />
-              Izmeni
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onSelect={() => onDelete(item)}>
-              <TrashIcon className="h-4 w-4" />
-              Obriši
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      {/* Desktop: inline button row + a small kebab for the occurrence actions */}
-      <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 sm:flex">
-        {canPause ? (
-          item.is_paused ? (
-            <Button variant="outline" size="sm" onClick={() => onTogglePause(item)}>
-              Nastavi
-            </Button>
-          ) : (
-            <Button variant="secondary" size="sm" onClick={() => onTogglePause(item)}>
+    <div className="flex shrink-0 items-center gap-2">
+      {/* Primary action — the single most likely next step for this status. */}
+      {isCanceled ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            callbacks.onRestoreOccurrence({
+              paymentId: item.id,
+              occurrenceDate: item.occurrenceDate,
+            })
+          }
+        >
+          <ArrowUturnLeftIcon className="mr-1 h-4 w-4" />
+          Vrati ratu
+        </Button>
+      ) : item.is_paused ? (
+        <Button variant="outline" size="sm" onClick={() => onTogglePause(item)}>
+          <PlayIcon className="mr-1 h-4 w-4" />
+          Nastavi
+        </Button>
+      ) : canMarkPaid ? (
+        <Button variant="outline" size="sm" onClick={() => onMarkPaid(item)}>
+          <CheckIcon className="mr-1 h-4 w-4 text-green-600 dark:text-green-500" />
+          Plaćeno
+        </Button>
+      ) : null}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Akcije">
+            <EllipsisVerticalIcon className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {showPauseItem ? (
+            <DropdownMenuItem onSelect={() => onTogglePause(item)}>
+              <PauseIcon className="h-4 w-4" />
               Pauziraj
-            </Button>
-          )
-        ) : null}
-        {canMarkPaid ? (
-          <Button variant="success" size="sm" onClick={() => onMarkPaid(item)}>
-            Plaćeno
-          </Button>
-        ) : null}
-        {showHistory ? (
-          <Button variant="outline" size="sm" onClick={() => onOpenHistory(item)}>
-            <ClockIcon className="mr-1 h-4 w-4" />
-            Istorija
-          </Button>
-        ) : null}
-        <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
-          <PencilIcon className="mr-1 h-4 w-4" />
-          Izmeni
-        </Button>
-        <Button variant="destructive" size="sm" onClick={() => onDelete(item)}>
-          <TrashIcon className="mr-1 h-4 w-4" />
-          Obriši
-        </Button>
-        <OccurrenceMenu item={item} callbacks={callbacks} />
-      </div>
-    </>
+            </DropdownMenuItem>
+          ) : null}
+          {showHistory ? (
+            <DropdownMenuItem onSelect={() => onOpenHistory(item)}>
+              <ClockIcon className="h-4 w-4" />
+              Istorija
+            </DropdownMenuItem>
+          ) : null}
+          {hasStateGroup && hasOccurrenceGroup ? <DropdownMenuSeparator /> : null}
+          {hasOccurrenceGroup ? <OccurrenceMenuItems item={item} callbacks={callbacks} /> : null}
+          {hasStateGroup || hasOccurrenceGroup ? <DropdownMenuSeparator /> : null}
+          <DropdownMenuItem onSelect={() => onEdit(item)}>
+            <PencilIcon className="h-4 w-4" />
+            Izmeni
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(item)}>
+            <TrashIcon className="h-4 w-4" />
+            Obriši
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 

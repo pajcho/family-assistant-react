@@ -218,7 +218,6 @@ export function AgendaWeekCalendar({
                     <AllDayChip
                       key={agendaItemKey(item)}
                       item={item}
-                      todayStr={todayStr}
                       onClick={() => onSelect(item)}
                     />
                   ))}

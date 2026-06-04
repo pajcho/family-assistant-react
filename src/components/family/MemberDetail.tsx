@@ -507,7 +507,7 @@ function CreateLoginDialog({
               onClick={() => onOpenChange(false)}
               disabled={createLogin.isPending}
             >
-              Otkaži
+              Odustani
             </Button>
             <Button type="submit" disabled={!valid || createLogin.isPending}>
               {createLogin.isPending ? "Pravljenje…" : "Napravi nalog"}
