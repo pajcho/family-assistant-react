@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 
+import { AgendaCalendarPlaceholder } from "@/components/dashboard/AgendaCalendarPlaceholder";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
+import type { AgendaView } from "@/hooks/useAgendaView";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
@@ -21,6 +23,7 @@ import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/ut
  * `matchesAgendaFilter`.
  */
 export type AgendaTodayTabProps = {
+  view: AgendaView;
   filter: AgendaFilter;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
@@ -28,6 +31,7 @@ export type AgendaTodayTabProps = {
 };
 
 export function AgendaTodayTab({
+  view,
   filter,
   onEditEvent,
   onEditPayment,
@@ -43,6 +47,11 @@ export function AgendaTodayTab({
     () => filterAgendaItems(overdue.items, filter),
     [overdue.items, filter],
   );
+
+  // Calendar view lands in PR 4 — placeholder for now.
+  if (view === "calendar") {
+    return <AgendaCalendarPlaceholder label="Dnevni kalendar" />;
+  }
 
   const loading = isLoading || overdue.isLoading;
   const hasOverdue = overdueItems.length > 0;

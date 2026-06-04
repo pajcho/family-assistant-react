@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 
+import { AgendaCalendarPlaceholder } from "@/components/dashboard/AgendaCalendarPlaceholder";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
+import type { AgendaView } from "@/hooks/useAgendaView";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
 import type { Birthday, Event, Payment } from "@/types/database";
@@ -31,6 +33,7 @@ import { addDays, srLocale, startOfToday } from "@/utils/date";
  * window scroll-spy feeds the strip the day currently at the top of the list.
  */
 export type AgendaUpcomingTabProps = {
+  view: AgendaView;
   filter: AgendaFilter;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
@@ -42,6 +45,7 @@ const CHUNK_DAYS = 30;
 const MAX_HORIZON_DAYS = 365;
 
 export function AgendaUpcomingTab({
+  view,
   filter,
   onEditEvent,
   onEditPayment,
@@ -103,7 +107,7 @@ export function AgendaUpcomingTab({
   // Scroll-spy: the active day is the last day section whose top has passed
   // below the sticky strip. Throttled with rAF.
   useEffect(() => {
-    if (days.length === 0) {
+    if (view === "calendar" || days.length === 0) {
       setActiveDay(null);
       return;
     }
@@ -129,7 +133,7 @@ export function AgendaUpcomingTab({
       window.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [days]);
+  }, [days, view]);
 
   const atCap = horizonDays >= MAX_HORIZON_DAYS;
   const growHorizon = () => setHorizonDays((d) => Math.min(d + CHUNK_DAYS, MAX_HORIZON_DAYS));
@@ -137,7 +141,7 @@ export function AgendaUpcomingTab({
   // stops a load-time runaway where the sentinel, parked at the top while data
   // is pending, would pump the horizon to the cap before the first rows render.
   const sentinelRef = useInfiniteScroll(growHorizon, {
-    enabled: !atCap && !isLoading,
+    enabled: view === "list" && !atCap && !isLoading,
     resetKey: horizonDays,
   });
 
@@ -147,6 +151,11 @@ export function AgendaUpcomingTab({
       block: "start",
     });
   };
+
+  // Weekly timetable calendar lands in PR 5 — placeholder for now.
+  if (view === "calendar") {
+    return <AgendaCalendarPlaceholder label="Nedeljni kalendar" />;
+  }
 
   return (
     <div>

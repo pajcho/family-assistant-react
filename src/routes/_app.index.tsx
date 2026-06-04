@@ -5,6 +5,7 @@ import { AddMenu } from "@/components/dashboard/AddMenu";
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
 import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
+import { ViewToggle } from "@/components/dashboard/ViewToggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
@@ -18,6 +19,7 @@ import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { hasPaymentHistory, useCreatePayment, useUpdatePayment } from "@/hooks/usePayments";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
+import { useAgendaView } from "@/hooks/useAgendaView";
 import { useProfile } from "@/hooks/useProfile";
 import type { Birthday, Event, Payment } from "@/types/database";
 
@@ -51,6 +53,12 @@ function DashboardPage() {
   // Shared type+person filter, applied by both tabs. Lifted here so the
   // selection persists as the user switches Danas ↔ Uskoro.
   const filters = useAgendaFilters();
+
+  // List↔calendar preference is per page (localStorage). The top-right toggle
+  // drives whichever tab is active.
+  const danasView = useAgendaView("danas");
+  const uskoroView = useAgendaView("uskoro");
+  const activeView = active === "danas" ? danasView : uskoroView;
 
   // Participant maps — only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
@@ -249,17 +257,23 @@ function DashboardPage() {
               <TabsTrigger value="danas">Danas</TabsTrigger>
               <TabsTrigger value="uskoro">Uskoro</TabsTrigger>
             </TabsList>
-            <AgendaFilters
-              filter={filters.filter}
-              toggleKind={filters.toggleKind}
-              togglePerson={filters.togglePerson}
-              reset={filters.reset}
-              isActive={filters.isActive}
-              count={filters.count}
-            />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <AgendaFilters
+                  filter={filters.filter}
+                  toggleKind={filters.toggleKind}
+                  togglePerson={filters.togglePerson}
+                  reset={filters.reset}
+                  isActive={filters.isActive}
+                  count={filters.count}
+                />
+              </div>
+              <ViewToggle value={activeView.view} onChange={activeView.setView} />
+            </div>
           </div>
           <TabsContent value="danas">
             <AgendaTodayTab
+              view={danasView.view}
               filter={filters.filter}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
@@ -270,6 +284,7 @@ function DashboardPage() {
           </TabsContent>
           <TabsContent value="uskoro">
             <AgendaUpcomingTab
+              view={uskoroView.view}
               filter={filters.filter}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
