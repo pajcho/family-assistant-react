@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 
+import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
@@ -178,10 +179,8 @@ export function AgendaUpcomingList({
           <div className="space-y-6">
             {days.map((day) => (
               <section key={day} id={`agenda-day-${day}`} className="scroll-mt-40">
-                <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
-                  {dayHeader(day, today, tomorrow)}
-                </h3>
-                <ul className="space-y-1">
+                <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} />
+                <ul className="mt-2 space-y-1">
                   {(byDay.get(day) ?? []).map((item) => (
                     <AgendaItemRow
                       key={agendaItemKey(item)}
@@ -218,18 +217,4 @@ export function AgendaUpcomingList({
       {dialogs}
     </div>
   );
-}
-
-/**
- * "Danas, 4. jun" / "Sutra, 5. jun" for today / tomorrow, otherwise
- * "Petak, 6. jun" (weekday capitalized; date-fns srLatn yields lowercase
- * weekdays).
- */
-function dayHeader(day: string, today: string, tomorrow: string): string {
-  const date = parseISO(day + "T12:00:00");
-  const datePart = format(date, "d. MMMM", { locale: srLocale });
-  if (day === today) return `Danas, ${datePart}`;
-  if (day === tomorrow) return `Sutra, ${datePart}`;
-  const weekday = format(date, "EEEE", { locale: srLocale });
-  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${datePart}`;
 }
