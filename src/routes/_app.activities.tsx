@@ -281,7 +281,9 @@ function ActivitiesPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Sticky just under the app header (h-14) so the week navigation + school
+          toggle stay put while the grid below scrolls. */}
+      <div className="sticky top-14 z-30 flex flex-wrap items-center gap-2 bg-gray-50 py-2 dark:bg-gray-900">
         <div className="inline-flex items-center rounded-md border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
           <button
             type="button"

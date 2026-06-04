@@ -5,6 +5,7 @@ import {
   AllDayChip,
   buildHourLabels,
   computeRange,
+  expandRangeToNow,
   GRID_TOP_PADDING_PX,
   gridHeightPx,
   positionEntries,
@@ -20,9 +21,11 @@ import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
  * Single-day calendar column for the "Danas" tab — the calendar counterpart of
  * the today list. An "All day / Ceo dan" row on top (payments, birthdays,
  * all-day events), then an hourly grid with timed activities + events laid into
- * side-by-side lanes on overlap and a red "now" line. Tapping a block opens the
- * same detail dialog the list rows do. Layout math is shared with the weekly
- * calendar via `agendaCalendarShared`.
+ * side-by-side lanes on overlap and a red "now" line. Grows to its full height —
+ * the page scrolls, the calendar never does (matching the weekly calendar). The
+ * axis always includes "now", so the red line sits near the top and is visible
+ * on open without scrolling. Tapping a block opens the same detail dialog the
+ * list rows do. Layout math is shared via `agendaCalendarShared`.
  */
 export function AgendaDayCalendar({
   items,
@@ -34,14 +37,23 @@ export function AgendaDayCalendar({
   const now = useMinuteTick();
 
   const { allDayItems, timedEntries } = useMemo(() => splitAgendaItems(items), [items]);
-  const { startMin, endMin } = useMemo(() => computeRange(timedEntries), [timedEntries]);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // Fit the axis to today's items, then keep "now" inside it. With no timed items
+  // (a common "today"), anchor a compact window at "now" instead of the 07–21
+  // default so the red line sits near the top on open — the page never has to be
+  // scrolled to find the current time, and the overdue list above stays in view.
+  const { startMin, endMin } = useMemo(() => {
+    const base =
+      timedEntries.length > 0
+        ? computeRange(timedEntries)
+        : { startMin: nowMin - 60, endMin: nowMin + 8 * 60 };
+    return expandRangeToNow(base, nowMin);
+  }, [timedEntries, nowMin]);
   const positioned = useMemo(
     () => positionEntries(timedEntries, startMin),
     [timedEntries, startMin],
   );
 
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const nowInViewport = nowMin >= startMin && nowMin <= endMin;
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
   const hourLabels = buildHourLabels(startMin, endMin);
   const todayStr = format(now, "yyyy-MM-dd");
@@ -55,7 +67,12 @@ export function AgendaDayCalendar({
           </div>
           <div className="flex flex-wrap gap-1.5 border-l border-gray-200 p-2 dark:border-gray-700">
             {allDayItems.map((item) => (
-              <AllDayChip key={agendaItemKey(item)} item={item} onClick={() => onSelect(item)} />
+              <AllDayChip
+                key={agendaItemKey(item)}
+                item={item}
+                todayStr={todayStr}
+                onClick={() => onSelect(item)}
+              />
             ))}
           </div>
         </div>
@@ -76,14 +93,12 @@ export function AgendaDayCalendar({
               {hl.label}
             </div>
           ))}
-          {nowInViewport ? (
-            <div
-              style={{ top: `${nowTopPx}px` }}
-              className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
-            >
-              {format(now, "HH:mm")}
-            </div>
-          ) : null}
+          <div
+            style={{ top: `${nowTopPx}px` }}
+            className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
+          >
+            {format(now, "HH:mm")}
+          </div>
         </div>
 
         {/* Day column — gridlines, positioned blocks, now line. */}
@@ -104,15 +119,13 @@ export function AgendaDayCalendar({
               onClick={() => onSelect(block.item)}
             />
           ))}
-          {nowInViewport ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
-              style={{ top: `${nowTopPx}px` }}
-            >
-              <span className="absolute top-0 left-0 size-2.5 -translate-y-1/2 rounded-full bg-red-500" />
-            </div>
-          ) : null}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
+            style={{ top: `${nowTopPx}px` }}
+          >
+            <span className="absolute top-0 left-0 size-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+          </div>
         </div>
       </div>
     </div>

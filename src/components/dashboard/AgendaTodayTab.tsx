@@ -48,11 +48,14 @@ export function AgendaTodayTab({
     [overdue.items, filter],
   );
 
-  // Single-day calendar column. Overdue (past-due) stays a list-view concept;
-  // the calendar shows today's timeline + an all-day row.
+  // Single-day calendar column. Past-due payments have no place on a single-day
+  // timeline (they're from earlier days), so they ride along as the same
+  // "Prekoračeno" list pinned above the calendar — otherwise they'd be invisible
+  // in calendar view. `OverdueSection` renders nothing when there's none.
   if (view === "calendar") {
     return (
-      <div>
+      <div className="space-y-4">
+        <OverdueSection items={overdueItems} onSelect={onSelect} />
         <AgendaDayCalendar items={items} onSelect={onSelect} />
         {dialogs}
       </div>

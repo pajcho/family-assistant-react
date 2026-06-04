@@ -212,7 +212,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
           <p className="mt-1 text-gray-600 dark:text-gray-400">
             {scope === "danas"
               ? "Današnje obaveze i prekoračeno."
-              : "Sve što dolazi — od danas pa nadalje."}
+              : "Sve što dolazi - od danas pa nadalje."}
           </p>
         </div>
         {familyId ? (
