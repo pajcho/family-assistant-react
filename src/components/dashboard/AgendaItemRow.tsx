@@ -31,7 +31,17 @@ const TIME_GUTTER_CLASS =
 /** Match the dim treatment used for ended events on the /events page. */
 const PAST_ROW_CLASS = "opacity-50";
 
-export function AgendaItemRow({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
+export function AgendaItemRow({
+  item,
+  onClick,
+  dateLabel,
+}: {
+  item: AgendaItem;
+  onClick: () => void;
+  /** Optional label for the (otherwise empty) payment time gutter — e.g. the
+   *  due date in the "Prekoračeno" section. */
+  dateLabel?: string;
+}) {
   switch (item.kind) {
     case "activity":
       return (
@@ -52,7 +62,14 @@ export function AgendaItemRow({ item, onClick }: { item: AgendaItem; onClick: ()
         />
       );
     case "payment":
-      return <PaymentRow payment={item.payment} personIds={item.personIds} onClick={onClick} />;
+      return (
+        <PaymentRow
+          payment={item.payment}
+          personIds={item.personIds}
+          onClick={onClick}
+          dateLabel={dateLabel}
+        />
+      );
     case "birthday":
       return <BirthdayRow birthday={item.birthday} onClick={onClick} />;
   }
@@ -151,10 +168,12 @@ function PaymentRow({
   payment,
   personIds,
   onClick,
+  dateLabel,
 }: {
   payment: Payment;
   personIds: string[];
   onClick: () => void;
+  dateLabel?: string;
 }) {
   // Locale-aware integer formatting so amounts read "2.500" not "2500" in
   // Serbian. Currency is always RSD across the app.
@@ -165,7 +184,7 @@ function PaymentRow({
   return (
     <li>
       <button type="button" onClick={onClick} className={ROW_CLASS}>
-        <span className={TIME_GUTTER_CLASS}>{/* no time */}</span>
+        <span className={TIME_GUTTER_CLASS}>{dateLabel ?? ""}</span>
         <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
         <span className="min-w-0 flex-1 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>

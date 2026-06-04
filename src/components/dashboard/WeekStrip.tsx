@@ -23,7 +23,7 @@ export type WeekStripProps = {
   /** Week-start Mondays (yyyy-MM-dd), ascending — one page each. */
   weeks: string[];
   today: string;
-  /** First selectable day (tomorrow). */
+  /** First selectable day (today — the Uskoro window now starts at today). */
   from: string;
   /** The day currently at the top of the list (scroll-spy), or null. */
   activeDay: string | null;

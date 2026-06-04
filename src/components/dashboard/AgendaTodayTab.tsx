@@ -3,20 +3,22 @@ import { format } from "date-fns";
 
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
+import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
+import { useOverduePayments } from "@/hooks/useOverduePayments";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
 
 /**
- * "Danas" tab — every activity, event, due payment and birthday for today in
- * one chronological list, over `useAgenda({ from: today, to: today })`. This is
- * the old `DashboardTodayCard` generalized, now including birthdays. Rows open
- * the shared detail dialogs; "Izmeni" flows back to the dashboard's form
- * dialogs through the `onEdit*` props.
+ * "Danas" tab — past-due payments in a "Prekoračeno" section, then every
+ * activity, event, due payment and birthday for today, over
+ * `useAgenda({ from: today, to: today })`. Rows open the shared detail dialogs;
+ * "Izmeni" flows back to the dashboard's form dialogs through the `onEdit*`
+ * props.
  *
- * The shared type+person `filter` (owned by the route, applied here as a pure
- * pass over the agenda items) narrows what shows; birthdays ignore the person
- * facet — see `matchesAgendaFilter`.
+ * The shared type+person `filter` (owned by the route) narrows both sections as
+ * a pure pass over the agenda items; birthdays ignore the person facet — see
+ * `matchesAgendaFilter`.
  */
 export type AgendaTodayTabProps = {
   filter: AgendaFilter;
@@ -33,20 +35,45 @@ export function AgendaTodayTab({
 }: AgendaTodayTabProps) {
   const today = format(new Date(), "yyyy-MM-dd");
   const { items: allItems, isLoading } = useAgenda({ from: today, to: today });
+  const overdue = useOverduePayments();
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
   const items = useMemo(() => filterAgendaItems(allItems, filter), [allItems, filter]);
+  const overdueItems = useMemo(
+    () => filterAgendaItems(overdue.items, filter),
+    [overdue.items, filter],
+  );
+
+  const loading = isLoading || overdue.isLoading;
+  const hasOverdue = overdueItems.length > 0;
+  const hasToday = items.length > 0;
 
   return (
     <div>
-      {isLoading ? (
+      {loading ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
-      ) : items.length > 0 ? (
-        <ul className="space-y-1">
-          {items.map((item) => (
-            <AgendaItemRow key={agendaItemKey(item)} item={item} onClick={() => onSelect(item)} />
-          ))}
-        </ul>
+      ) : hasOverdue || hasToday ? (
+        <div className="space-y-6">
+          <OverdueSection items={overdueItems} onSelect={onSelect} />
+          {hasToday ? (
+            <section>
+              {hasOverdue ? (
+                <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                  Danas
+                </h3>
+              ) : null}
+              <ul className="space-y-1">
+                {items.map((item) => (
+                  <AgendaItemRow
+                    key={agendaItemKey(item)}
+                    item={item}
+                    onClick={() => onSelect(item)}
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       ) : isAgendaFilterActive(filter) ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Nema stavki za izabrane filtere.</p>
       ) : (

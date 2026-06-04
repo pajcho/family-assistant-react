@@ -147,6 +147,26 @@ export function isPaymentOccurrenceCanceled(
   return byKey.get(overrideKey(paymentId, dueDate))?.action === "cancel";
 }
 
+/**
+ * Whether a payment's CURRENT live occurrence is past due — unpaid, unpaused,
+ * not canceled, and its effective due date is before `today` (YYYY-MM-DD).
+ *
+ * The live occurrence keys on `payment.due_date`, which advances as instalments
+ * are paid/canceled, so an unpaid payment whose anchor already slipped into the
+ * past is overdue. Reschedules move the effective date (a payment pushed to the
+ * future is no longer overdue). Drives the dashboard "Prekoračeno" section —
+ * past events/activities are NOT overdue, they simply happened.
+ */
+export function isPaymentOverdue(
+  payment: Pick<Payment, "id" | "due_date" | "is_paid" | "is_paused">,
+  byKey: Map<string, PaymentOverride>,
+  today: string,
+): boolean {
+  if (payment.is_paid || payment.is_paused) return false;
+  if (isPaymentOccurrenceCanceled(payment.id, payment.due_date, byKey)) return false;
+  return effectivePaymentDueDate(payment.id, payment.due_date, byKey) < today;
+}
+
 export interface PaymentOccurrence {
   /** The original projected due date this occurrence keys on (YYYY-MM-DD). */
   occurrenceDate: string;
