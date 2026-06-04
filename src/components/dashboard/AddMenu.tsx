@@ -1,4 +1,10 @@
-import { BanknotesIcon, CakeIcon, CalendarIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  BanknotesIcon,
+  CakeIcon,
+  CalendarIcon,
+  PlusIcon,
+  UserGroupIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -9,20 +15,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * The dashboard's "Dodaj" affordance — a menu over the three agenda types.
+ * The dashboard's "Dodaj" affordance — a menu over the four agenda types.
  * Matches `AddButton`'s responsive placement: a labelled header dropdown on
  * desktop (md+), a floating action button on mobile. Two dropdown instances
  * (one per trigger) share the same items.
  */
 export type AddMenuProps = {
+  onAddActivity: () => void;
   onAddEvent: () => void;
   onAddPayment: () => void;
   onAddBirthday: () => void;
 };
 
-export function AddMenu({ onAddEvent, onAddPayment, onAddBirthday }: AddMenuProps) {
+export function AddMenu({ onAddActivity, onAddEvent, onAddPayment, onAddBirthday }: AddMenuProps) {
   const renderItems = () => (
     <>
+      <DropdownMenuItem onClick={onAddActivity}>
+        <UserGroupIcon className="size-4 text-violet-500 dark:text-violet-400" />
+        Aktivnost
+      </DropdownMenuItem>
       <DropdownMenuItem onClick={onAddEvent}>
         <CalendarIcon className="size-4 text-blue-500 dark:text-blue-400" />
         Događaj
