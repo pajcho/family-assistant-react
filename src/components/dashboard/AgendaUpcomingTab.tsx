@@ -8,6 +8,12 @@ import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { getWeekStart, weeksBetween } from "@/utils/activity";
+import {
+  type AgendaFilter,
+  filterAgendaItems,
+  groupAgendaByDay,
+  isAgendaFilterActive,
+} from "@/utils/agendaFilters";
 import { addDays, srLocale, startOfToday } from "@/utils/date";
 
 /**
@@ -23,6 +29,7 @@ import { addDays, srLocale, startOfToday } from "@/utils/date";
  * window scroll-spy feeds the strip the day currently at the top of the list.
  */
 export type AgendaUpcomingTabProps = {
+  filter: AgendaFilter;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
@@ -33,6 +40,7 @@ const CHUNK_DAYS = 30;
 const MAX_HORIZON_DAYS = 365;
 
 export function AgendaUpcomingTab({
+  filter,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
@@ -52,8 +60,15 @@ export function AgendaUpcomingTab({
     };
   }, [horizonDays]);
 
-  const { byDay, days, isLoading } = useAgenda({ from, to });
+  const { items: allItems, isLoading } = useAgenda({ from, to });
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
+
+  // Apply the shared filter, then regroup — so the day sections AND the week
+  // strip's dots both reflect the active filter.
+  const { byDay, days } = useMemo(
+    () => groupAgendaByDay(filterAgendaItems(allItems, filter)),
+    [allItems, filter],
+  );
 
   const countByDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -163,6 +178,8 @@ export function AgendaUpcomingTab({
         </div>
       ) : isLoading ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+      ) : isAgendaFilterActive(filter) ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Nema stavki za izabrane filtere.</p>
       ) : atCap ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Nema obaveza u narednih 12 meseci.
