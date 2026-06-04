@@ -61,15 +61,23 @@ export function AgendaItemRow({
           onClick={onClick}
         />
       );
-    case "payment":
+    case "payment": {
+      // A payment dated after today is a not-yet-due ("nadolazeće") occurrence —
+      // only the Uskoro list surfaces those. It's shown read-only there: no
+      // detail dialog, so none of its actions (Pomeri / Otkaži / Označi kao
+      // plaćeno / Izmeni) can be triggered before it's actually due. Today's
+      // payments (Danas) and overdue ones stay actionable.
+      const today = format(new Date(), "yyyy-MM-dd");
       return (
         <PaymentRow
           payment={item.payment}
           personIds={item.personIds}
           onClick={onClick}
           dateLabel={dateLabel}
+          upcoming={item.date > today}
         />
       );
+    }
     case "birthday":
       return <BirthdayRow birthday={item.birthday} onClick={onClick} />;
   }
@@ -118,7 +126,7 @@ function ActivityRow({
           style={{ backgroundColor: color }}
           aria-hidden="true"
         />
-        <span className="min-w-0 flex-1 truncate">
+        <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
           <span className="text-muted-foreground"> · </span>
           <span className="text-gray-700 dark:text-gray-300">{activityName}</span>
@@ -149,7 +157,7 @@ function EventRow({
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
         <span className={TIME_GUTTER_CLASS}>{timeLabel}</span>
         <CalendarIcon className="size-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
-        <span className="min-w-0 flex-1 truncate">
+        <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{event.name}</span>
           {event.description ? (
             <>
@@ -169,11 +177,16 @@ function PaymentRow({
   personIds,
   onClick,
   dateLabel,
+  upcoming = false,
 }: {
   payment: Payment;
   personIds: string[];
   onClick: () => void;
   dateLabel?: string;
+  /** Not-yet-due occurrence (Uskoro list): rendered read-only with a
+   *  "Nadolazeće" tag instead of a tappable row, so no action can be taken on
+   *  it before its due date. */
+  upcoming?: boolean;
 }) {
   // Locale-aware integer formatting so amounts read "2.500" not "2500" in
   // Serbian. Currency is always RSD across the app.
@@ -181,17 +194,44 @@ function PaymentRow({
     maximumFractionDigits: 0,
   }).format(payment.amount);
 
+  const content = (
+    <>
+      <span className={TIME_GUTTER_CLASS}>{dateLabel ?? ""}</span>
+      <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
+      <span className="min-w-0 truncate">
+        <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>
+        <span className="text-muted-foreground"> · </span>
+        <span className="text-gray-700 dark:text-gray-300">{amountStr} RSD</span>
+      </span>
+      {upcoming ? (
+        <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-gray-500 uppercase dark:bg-gray-700 dark:text-gray-400">
+          Nadolazeće
+        </span>
+      ) : null}
+      {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+    </>
+  );
+
+  // Not yet due → static row (no button), so the detail dialog never opens.
+  if (upcoming) {
+    return (
+      <li>
+        <div
+          className={cn(
+            ROW_CLASS,
+            "cursor-default opacity-60 hover:bg-transparent dark:hover:bg-transparent",
+          )}
+        >
+          {content}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li>
       <button type="button" onClick={onClick} className={ROW_CLASS}>
-        <span className={TIME_GUTTER_CLASS}>{dateLabel ?? ""}</span>
-        <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
-        <span className="min-w-0 flex-1 truncate">
-          <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>
-          <span className="text-muted-foreground"> · </span>
-          <span className="text-gray-700 dark:text-gray-300">{amountStr} RSD</span>
-        </span>
-        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+        {content}
       </button>
     </li>
   );
@@ -207,7 +247,7 @@ function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () =>
       <button type="button" onClick={onClick} className={ROW_CLASS}>
         <span className={TIME_GUTTER_CLASS}>{/* no time */}</span>
         <CakeIcon className="size-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
-        <span className="min-w-0 flex-1 truncate">
+        <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{birthday.name}</span>
           <span className="text-muted-foreground"> · </span>
           <span className="text-gray-700 dark:text-gray-300">{nextAge}. rođendan</span>

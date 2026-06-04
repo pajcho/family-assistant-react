@@ -99,6 +99,29 @@ export function computeRange(entries: ReadonlyArray<TimedEntry>): {
   };
 }
 
+/**
+ * Widen a fit-to-content range so the current time is always inside it (with a
+ * half-hour of breathing room each side, half-hour aligned, clamped to the day).
+ * Used by the calendars showing "today" so the red "now" line is never clipped
+ * out just because the day's items all sit in the afternoon — the line (and the
+ * auto-scroll-to-now) needs `now` to be in the visible axis to render.
+ */
+export function expandRangeToNow(
+  range: { startMin: number; endMin: number },
+  nowMin: number,
+): { startMin: number; endMin: number } {
+  return {
+    startMin: Math.max(
+      0,
+      Math.min(range.startMin, Math.floor(nowMin / SLOT_MINUTES) * SLOT_MINUTES - SLOT_MINUTES),
+    ),
+    endMin: Math.min(
+      24 * 60,
+      Math.max(range.endMin, Math.ceil(nowMin / SLOT_MINUTES) * SLOT_MINUTES + SLOT_MINUTES),
+    ),
+  };
+}
+
 /** Lane + position timed entries against a (possibly shared) start-of-axis. */
 export function positionEntries(
   entries: ReadonlyArray<TimedEntry>,
@@ -224,7 +247,17 @@ export function TimedBlock({
   );
 }
 
-export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
+export function AllDayChip({
+  item,
+  todayStr,
+  onClick,
+}: {
+  item: AgendaItem;
+  /** Today (yyyy-MM-dd). A payment dated after it is "nadolazeće" — rendered
+   *  read-only and dimmed here too, mirroring the agenda list. */
+  todayStr: string;
+  onClick: () => void;
+}) {
   const base =
     "inline-flex max-w-full items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700/60";
 
@@ -232,14 +265,35 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
     const amount = new Intl.NumberFormat("sr-Latn", { maximumFractionDigits: 0 }).format(
       item.payment.amount,
     );
-    return (
-      <button type="button" onClick={onClick} className={base}>
+    // Not yet due → read-only + dimmed + "Nadolazeće" tag (matches the list).
+    const upcoming = item.date > todayStr;
+    const inner = (
+      <>
         <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
-        <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
           {item.payment.name}
         </span>
         <span className="shrink-0 text-gray-500 dark:text-gray-400">{amount} RSD</span>
+        {upcoming ? (
+          <span className="shrink-0 rounded bg-gray-100 px-1 text-[9px] font-medium tracking-wide text-gray-500 uppercase dark:bg-gray-700 dark:text-gray-400">
+            Nadolazeće
+          </span>
+        ) : null}
         {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+      </>
+    );
+    if (upcoming) {
+      return (
+        <span
+          className={cn(base, "cursor-default opacity-60 hover:bg-white dark:hover:bg-gray-800")}
+        >
+          {inner}
+        </span>
+      );
+    }
+    return (
+      <button type="button" onClick={onClick} className={base}>
+        {inner}
       </button>
     );
   }
@@ -248,7 +302,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
     return (
       <button type="button" onClick={onClick} className={base}>
         <CakeIcon className="size-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
-        <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
           {item.birthday.name}
         </span>
       </button>

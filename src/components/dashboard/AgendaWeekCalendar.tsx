@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
@@ -8,6 +8,7 @@ import {
   AllDayChip,
   buildHourLabels,
   computeRange,
+  expandRangeToNow,
   GRID_TOP_PADDING_PX,
   gridHeightPx,
   type PositionedEntry,
@@ -45,8 +46,13 @@ export type AgendaWeekCalendarProps = {
   onEditBirthday: (birthday: Birthday) => void;
 };
 
-/** 56px time gutter + 7 day columns: fixed 128px (scroll) on mobile, flex sm+. */
-const GRID_COLS = "grid-cols-[56px_repeat(7,128px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]";
+/** 56px time gutter + 7 equal day columns that fill the width (like the
+ *  activities WeekGrid). They stay equal and gutter-to-edge until the viewport
+ *  can't fit 7×165px — past that the wrapper's min-width takes over and the grid
+ *  scrolls horizontally instead of letting a day shrink below 165px. */
+const GRID_COLS = "grid-cols-[56px_repeat(7,minmax(0,1fr))]";
+/** 56px gutter + 7×165px = the narrowest the week may get before it scrolls. */
+const MIN_GRID_WIDTH = "min-w-[1211px]";
 
 export function AgendaWeekCalendar({
   filter,
@@ -57,6 +63,8 @@ export function AgendaWeekCalendar({
   const [weekStart, setWeekStart] = useState<string>(() => getThisWeekStart());
   const now = useMinuteTick();
   const todayStr = format(now, "yyyy-MM-dd");
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const isCurrentWeek = weekStart === getThisWeekStart();
 
   const days = useMemo(() => {
     const base = parseISO(weekStart + "T12:00:00");
@@ -80,10 +88,12 @@ export function AgendaWeekCalendar({
     return days.map((date) => ({ date, ...splitAgendaItems(byDate.get(date) ?? []) }));
   }, [days, items]);
 
-  const { startMin, endMin } = useMemo(
-    () => computeRange(perDay.flatMap((d) => d.timedEntries)),
-    [perDay],
-  );
+  const { startMin, endMin } = useMemo(() => {
+    const base = computeRange(perDay.flatMap((d) => d.timedEntries));
+    // Today is in this week → keep "now" in the axis so the red line shows and
+    // the open-on-now scroll has a target (mirrors the single-day calendar).
+    return isCurrentWeek ? expandRangeToNow(base, nowMin) : base;
+  }, [perDay, isCurrentWeek, nowMin]);
 
   const positionedByDate = useMemo(() => {
     const map = new Map<string, PositionedEntry[]>();
@@ -95,21 +105,21 @@ export function AgendaWeekCalendar({
   const hourLabels = buildHourLabels(startMin, endMin);
   const totalHeightPx = gridHeightPx(startMin, endMin);
 
-  const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowInViewport = nowMin >= startMin && nowMin <= endMin;
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
 
-  const isCurrentWeek = weekStart === getThisWeekStart();
   const goPrev = () =>
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), -7), "yyyy-MM-dd"));
   const goNext = () =>
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), 7), "yyyy-MM-dd"));
   const goToday = () => setWeekStart(getThisWeekStart());
 
-  // Land on today's column on mount / week change (mobile columns overflow).
+  // Land on today's column when the week renders — only matters once the days
+  // overflow (viewports too narrow for 7×165px). Horizontal only; the page owns
+  // vertical scroll, so this never moves the window.
   const scrollRef = useRef<HTMLDivElement>(null);
   const todayIndex = days.indexOf(todayStr);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
     if (todayIndex < 0) {
@@ -122,7 +132,9 @@ export function AgendaWeekCalendar({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* Sticky just under the app header (h-14) so the week navigation stays put
+          while the calendar below it is scrolled. */}
+      <div className="sticky top-14 z-30 mb-3 flex flex-wrap items-center gap-2 bg-gray-50 py-2 dark:bg-gray-900">
         <div className="inline-flex items-center rounded-md border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
           <button
             type="button"
@@ -152,11 +164,13 @@ export function AgendaWeekCalendar({
         {isLoading ? <span className="text-xs text-muted-foreground">Učitavanje…</span> : null}
       </div>
 
+      {/* Horizontal scroll only (no max-height) — the page owns vertical scroll,
+          so the calendar never scrolls vertically on its own. */}
       <div
         ref={scrollRef}
         className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
       >
-        <div className="min-w-max">
+        <div className={cn("w-full", MIN_GRID_WIDTH)}>
           {/* Day headers — sticky on top. */}
           <div
             className={cn(
@@ -194,7 +208,7 @@ export function AgendaWeekCalendar({
                 <div
                   key={d.date}
                   className={cn(
-                    "flex flex-col gap-1 border-l border-gray-200 p-1 dark:border-gray-700",
+                    "flex min-w-0 flex-col gap-1 border-l border-gray-200 p-1 dark:border-gray-700",
                     d.date === todayStr && "bg-blue-50/40 dark:bg-blue-950/10",
                   )}
                 >
@@ -202,6 +216,7 @@ export function AgendaWeekCalendar({
                     <AllDayChip
                       key={agendaItemKey(item)}
                       item={item}
+                      todayStr={todayStr}
                       onClick={() => onSelect(item)}
                     />
                   ))}
