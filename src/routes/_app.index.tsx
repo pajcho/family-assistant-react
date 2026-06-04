@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AddMenu } from "@/components/dashboard/AddMenu";
+import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
 import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +17,7 @@ import { useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { hasPaymentHistory, useCreatePayment, useUpdatePayment } from "@/hooks/usePayments";
+import { useAgendaFilters } from "@/hooks/useAgendaFilters";
 import { useProfile } from "@/hooks/useProfile";
 import type { Birthday, Event, Payment } from "@/types/database";
 
@@ -45,6 +47,10 @@ function DashboardPage() {
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const active: DashboardTab = tab ?? "danas";
+
+  // Shared type+person filter, applied by both tabs. Lifted here so the
+  // selection persists as the user switches Danas ↔ Uskoro.
+  const filters = useAgendaFilters();
 
   // Participant maps — only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
@@ -238,12 +244,23 @@ function DashboardPage() {
           }
           className="mt-6 gap-6"
         >
-          <TabsList className="w-full max-w-xs">
-            <TabsTrigger value="danas">Danas</TabsTrigger>
-            <TabsTrigger value="uskoro">Uskoro</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col gap-3">
+            <TabsList className="w-full max-w-xs">
+              <TabsTrigger value="danas">Danas</TabsTrigger>
+              <TabsTrigger value="uskoro">Uskoro</TabsTrigger>
+            </TabsList>
+            <AgendaFilters
+              filter={filters.filter}
+              toggleKind={filters.toggleKind}
+              togglePerson={filters.togglePerson}
+              reset={filters.reset}
+              isActive={filters.isActive}
+              count={filters.count}
+            />
+          </div>
           <TabsContent value="danas">
             <AgendaTodayTab
+              filter={filters.filter}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
                 void openEditPayment(payment);
@@ -253,6 +270,7 @@ function DashboardPage() {
           </TabsContent>
           <TabsContent value="uskoro">
             <AgendaUpcomingTab
+              filter={filters.filter}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
                 void openEditPayment(payment);
