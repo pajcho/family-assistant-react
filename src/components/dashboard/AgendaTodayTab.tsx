@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 
-import { AgendaCalendarPlaceholder } from "@/components/dashboard/AgendaCalendarPlaceholder";
+import { AgendaDayCalendar } from "@/components/dashboard/AgendaDayCalendar";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
@@ -48,9 +48,15 @@ export function AgendaTodayTab({
     [overdue.items, filter],
   );
 
-  // Calendar view lands in PR 4 — placeholder for now.
+  // Single-day calendar column. Overdue (past-due) stays a list-view concept;
+  // the calendar shows today's timeline + an all-day row.
   if (view === "calendar") {
-    return <AgendaCalendarPlaceholder label="Dnevni kalendar" />;
+    return (
+      <div>
+        <AgendaDayCalendar items={items} onSelect={onSelect} />
+        {dialogs}
+      </div>
+    );
   }
 
   const loading = isLoading || overdue.isLoading;
