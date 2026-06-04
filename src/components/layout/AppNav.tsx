@@ -1,14 +1,16 @@
 import type { ComponentType, SVGProps } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRightOnRectangleIcon,
   BanknotesIcon,
   CakeIcon,
+  CalendarDaysIcon,
   CalendarIcon,
   ChevronDownIcon,
   ClipboardDocumentListIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
+  EllipsisHorizontalIcon,
   HomeIcon,
   MoonIcon,
   Squares2X2Icon,
@@ -36,44 +38,50 @@ import { getDisplayName } from "@/utils/identity";
 /**
  * App chrome.
  *
- * Desktop (>= sm): top sticky header with logo + inline nav + the shared
- * hamburger dropdown (theme / settings / logout). No bottom bar.
+ * Desktop (>= lg): top sticky header with logo + the full inline nav + the
+ * account dropdown (theme / settings / logout). No bottom bar.
  *
- * Mobile (< sm): top header is logo + the same hamburger dropdown.
- * Navigation lives in a fixed bottom tab bar (Home / Events / Payments /
- * Birthdays) — the 4 most-used destinations. The dropdown additionally
- * surfaces the 5th nav item (Rođendani) since it isn't in the bar.
+ * Mobile + tablet (< lg): top header is logo + the account dropdown. Navigation
+ * lives in a fixed bottom tab bar — Danas · Uskoro · Liste · Više, where "Više"
+ * is a dropup to the management pages (Aktivnosti / Događaji / Plaćanja /
+ * Rođendani) + Podešavanja, staying highlighted while you're on any of them.
  *
- * The dropdown is the single source of truth for theme/settings/logout on
- * every viewport so the chrome stays consistent. The "Stranice" section
- * inside the dropdown is mobile-only — desktop already has the same links
- * inline, so showing them twice would just be visual noise.
+ * The breakpoint is `lg` (1024px), not `md`: the desktop row carries 7 items now
+ * (Danas + Uskoro replaced the single dashboard link), which is tight at 768px —
+ * so tablets keep the bottom bar.
  *
  * The bottom bar uses `padding: env(safe-area-inset-bottom)` so it doesn't
  * collide with the iPhone home indicator when running as an installed PWA.
  */
 
-// Bottom bar is mobile-only and tight on width — keep it to the highest-
-// frequency destinations. Aktivnosti (recurring weekly schedule) is the
-// new daily-check feature so it goes in the bar; Plaćanja is monthly so
-// it falls back to the dropdown on phones. Desktop still has both inline.
-const BOTTOM_NAV_ITEMS = [
-  { to: "/", label: "Početna", icon: HomeIcon },
-  { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
-  { to: "/events", label: "Događaji", icon: CalendarIcon },
-  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
-] as const;
+type NavItem = { to: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
-// Desktop adds Plaćanja + Rođendani; the mobile dropdown ("Stranice") also
-// pulls from this array so both remain one tap away on phones.
-const DESKTOP_NAV_ITEMS = [
-  { to: "/", label: "Početna", icon: HomeIcon },
+// Full desktop row (>= lg). Danas + Uskoro are the two agenda scopes.
+const DESKTOP_NAV_ITEMS: readonly NavItem[] = [
+  { to: "/", label: "Danas", icon: HomeIcon },
+  { to: "/uskoro", label: "Uskoro", icon: CalendarDaysIcon },
   { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
   { to: "/events", label: "Događaji", icon: CalendarIcon },
   { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
   { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
-] as const;
+];
+
+// Bottom bar primaries (< lg) — the three highest-frequency destinations; the
+// rest live under "Više".
+const BOTTOM_PRIMARY_ITEMS: readonly NavItem[] = [
+  { to: "/", label: "Danas", icon: HomeIcon },
+  { to: "/uskoro", label: "Uskoro", icon: CalendarDaysIcon },
+  { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
+];
+
+// Pages reached through the "Više" dropup (Podešavanja appended after a divider).
+const MORE_ITEMS: readonly NavItem[] = [
+  { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
+  { to: "/events", label: "Događaji", icon: CalendarIcon },
+  { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
+  { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
+];
 
 export function AppNav() {
   return (
@@ -86,7 +94,7 @@ export function AppNav() {
                 <UserGroupIcon className="h-5 w-5 text-white" />
               </div>
             </Link>
-            <div className="hidden gap-1 md:flex">
+            <div className="hidden gap-1 lg:flex">
               {DESKTOP_NAV_ITEMS.map((item) => (
                 <AppNavLink key={item.to} to={item.to} label={item.label} icon={item.icon} />
               ))}
@@ -128,13 +136,13 @@ function AppMenu() {
           // a hamburger so the affordance reads as "your account / menu".
           // The chevron is the explicit "this opens a dropdown" hint and
           // sits next to the name on wider viewports where there's room.
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full pl-0.5 pr-1.5 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
+          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full pr-1.5 pl-0.5 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
         >
           <UserAvatar {...identity} className="h-8 w-8" />
           <span className="hidden max-w-[12rem] truncate text-sm font-medium lg:inline">
             {displayName}
           </span>
-          <ChevronDownIcon className="hidden h-4 w-4 text-gray-500 dark:text-gray-400 lg:inline" />
+          <ChevronDownIcon className="hidden h-4 w-4 text-gray-500 lg:inline dark:text-gray-400" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-64">
@@ -156,23 +164,9 @@ function AppMenu() {
         <div className="px-2 py-1.5">
           <ThemePickerRow mode={mode} onSelect={setMode} />
         </div>
-        {/* Nav-link section is mobile-only — desktop already has these
-            5 links inline in the top bar. The mobile/desktop boundary
-            is `md` (768px), matching the bottom-nav flip below. */}
-        <div className="md:hidden">
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs font-normal text-gray-500 dark:text-gray-400">
-            Stranice
-          </DropdownMenuLabel>
-          {DESKTOP_NAV_ITEMS.map((item) => (
-            <DropdownMenuItem key={item.to} asChild>
-              <Link to={item.to} className="flex w-full cursor-pointer items-center gap-2">
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            </DropdownMenuItem>
-          ))}
-        </div>
+        {/* Page links aren't repeated here — the bottom bar (Danas/Uskoro/Liste
+            + the "Više" dropup) covers navigation below lg, and the top row
+            covers it at lg+. */}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
@@ -258,16 +252,9 @@ function ThemeButton({ active, onClick, ariaLabel, activeColor, icon: Icon }: Th
 }
 
 function MobileBottomNav() {
-  // iOS Safari auto-elevates `position: fixed` elements above the
-  // on-screen keyboard, so the nav ends up sandwiched between the form
-  // and the keyboard — exactly the space we want to give the user
-  // back. We outright unmount the nav while the keyboard is open;
-  // `display: none` via Tailwind `hidden` works regardless of whether
-  // iOS would have raised the element or `interactive-widget=resizes-
-  // content` would have re-bottomed it. The `useIsKeyboardOpen` hook
-  // combines visualViewport tracking with focusin/focusout so we
-  // catch every browser + every iOS version that handles the keyboard
-  // differently.
+  // iOS Safari auto-elevates `position: fixed` elements above the on-screen
+  // keyboard, so the nav ends up sandwiched between the form and the keyboard.
+  // We outright unmount it while the keyboard is open (see useIsKeyboardOpen).
   const keyboardOpen = useIsKeyboardOpen();
   if (keyboardOpen) return null;
 
@@ -275,10 +262,10 @@ function MobileBottomNav() {
     <nav
       // `pb-[env(safe-area-inset-bottom)]` keeps the row above the iPhone
       // home indicator when launched from the home screen as a PWA.
-      className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden dark:border-gray-700/80 dark:bg-gray-800/95"
+      className="fixed right-0 bottom-0 left-0 z-30 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden dark:border-gray-700/80 dark:bg-gray-800/95"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5 pb-1.5">
-        {BOTTOM_NAV_ITEMS.map((item) => (
+        {BOTTOM_PRIMARY_ITEMS.map((item) => (
           <AppNavLink
             key={item.to}
             to={item.to}
@@ -287,7 +274,57 @@ function MobileBottomNav() {
             className="flex-1 text-xs"
           />
         ))}
+        <MoreNavMenu />
       </div>
     </nav>
+  );
+}
+
+/**
+ * "Više" — a dropup (Radix DropdownMenu, content `side="top"`) to the management
+ * pages. The trigger looks like a bottom-nav item and stays highlighted while
+ * the current route is one of those pages, mirroring Todoist's "Browse".
+ */
+function MoreNavMenu() {
+  const matchRoute = useMatchRoute();
+  const isMoreRoute =
+    MORE_ITEMS.some((item) => !!matchRoute({ to: item.to, fuzzy: true })) ||
+    !!matchRoute({ to: "/settings", fuzzy: true });
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Više"
+          className={cn(
+            "flex flex-1 flex-col items-center gap-0.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+            isMoreRoute
+              ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white",
+          )}
+        >
+          <EllipsisHorizontalIcon className="h-5 w-5 shrink-0" />
+          <span>Više</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-52">
+        {MORE_ITEMS.map((item) => (
+          <DropdownMenuItem key={item.to} asChild>
+            <Link to={item.to} className="flex w-full cursor-pointer items-center gap-2">
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
+            <Cog6ToothIcon className="h-4 w-4" />
+            <span>Podešavanja</span>
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

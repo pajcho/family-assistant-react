@@ -16,9 +16,9 @@ import {
 
 /**
  * The dashboard's "Dodaj" affordance — a menu over the four agenda types.
- * Matches `AddButton`'s responsive placement: a labelled header dropdown on
- * desktop (md+), a floating action button on mobile. Two dropdown instances
- * (one per trigger) share the same items.
+ * A labelled header dropdown on desktop (lg+), a floating action button below
+ * lg (where the bottom nav lives). Two dropdown instances (one per trigger)
+ * share the same items.
  */
 export type AddMenuProps = {
   onAddActivity: () => void;
@@ -51,10 +51,10 @@ export function AddMenu({ onAddActivity, onAddEvent, onAddPayment, onAddBirthday
 
   return (
     <>
-      {/* Desktop: labelled header dropdown. */}
+      {/* Desktop (lg+): labelled header dropdown. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" className="hidden md:inline-flex">
+          <Button type="button" className="hidden lg:inline-flex">
             <PlusIcon className="mr-2 h-5 w-5" />
             Dodaj
           </Button>
@@ -64,14 +64,14 @@ export function AddMenu({ onAddActivity, onAddEvent, onAddPayment, onAddBirthday
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Mobile: floating action button, clearing the bottom nav. */}
+      {/* Below lg: floating action button, clearing the bottom nav. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
             size="icon-lg"
             aria-label="Dodaj"
-            className="fixed right-4 bottom-24 z-30 size-14 rounded-full shadow-lg md:hidden"
+            className="fixed right-4 bottom-24 z-30 size-14 rounded-full shadow-lg lg:hidden"
           >
             <PlusIcon className="size-6" />
           </Button>
