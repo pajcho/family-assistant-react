@@ -46,13 +46,12 @@ export type AgendaWeekCalendarProps = {
   onEditBirthday: (birthday: Birthday) => void;
 };
 
-/** 56px time gutter + 7 equal day columns that fill the width (like the
- *  activities WeekGrid). They stay equal and gutter-to-edge until the viewport
- *  can't fit 7×165px — past that the wrapper's min-width takes over and the grid
- *  scrolls horizontally instead of letting a day shrink below 165px. */
-const GRID_COLS = "grid-cols-[56px_repeat(7,minmax(0,1fr))]";
-/** 56px gutter + 7×165px = the narrowest the week may get before it scrolls. */
-const MIN_GRID_WIDTH = "min-w-[1211px]";
+/** 56px time gutter + 7 day columns — IDENTICAL to the activities WeekGrid so a
+ *  day reads exactly as wide: fixed 260px (horizontal scroll) on mobile, equal
+ *  flex columns filling the width on sm+. The fixed mobile px (not `1fr`) is
+ *  deliberate — iOS Safari mis-sizes `1fr` tracks inside a min-width-expanded
+ *  scroll box, collapsing the columns; fixed widths sidestep that entirely. */
+const GRID_COLS = "grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]";
 
 export function AgendaWeekCalendar({
   filter,
@@ -170,7 +169,10 @@ export function AgendaWeekCalendar({
         ref={scrollRef}
         className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
       >
-        <div className={cn("w-full", MIN_GRID_WIDTH)}>
+        {/* `min-w-max` sizes to the fixed 260px columns on mobile (scrolls, like
+            the activities grid); `sm:min-w-0` lets the 1fr columns fill the
+            width on desktop without the all-day chips inflating max-content. */}
+        <div className="min-w-max sm:min-w-0">
           {/* Day headers — sticky on top. */}
           <div
             className={cn(
