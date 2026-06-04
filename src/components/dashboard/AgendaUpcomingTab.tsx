@@ -3,9 +3,11 @@ import { format, parseISO } from "date-fns";
 
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
+import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { useOverduePayments } from "@/hooks/useOverduePayments";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { getWeekStart, weeksBetween } from "@/utils/activity";
 import {
@@ -49,11 +51,13 @@ export function AgendaUpcomingTab({
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
 
-  // Window = [tomorrow, today + horizonDays]. Derive once per horizon change.
+  // Window = [today, today + horizonDays]. Today is the first day group (the
+  // Todoist "Upcoming" model), prefixed by the overdue section; it also shows on
+  // the Danas tab. Derive once per horizon change.
   const { from, to, today, tomorrow } = useMemo(() => {
     const base = startOfToday();
     return {
-      from: format(addDays(base, 1), "yyyy-MM-dd"),
+      from: format(base, "yyyy-MM-dd"),
       to: format(addDays(base, horizonDays), "yyyy-MM-dd"),
       today: format(base, "yyyy-MM-dd"),
       tomorrow: format(addDays(base, 1), "yyyy-MM-dd"),
@@ -61,6 +65,7 @@ export function AgendaUpcomingTab({
   }, [horizonDays]);
 
   const { items: allItems, isLoading } = useAgenda({ from, to });
+  const overdue = useOverduePayments();
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
   // Apply the shared filter, then regroup — so the day sections AND the week
@@ -68,6 +73,10 @@ export function AgendaUpcomingTab({
   const { byDay, days } = useMemo(
     () => groupAgendaByDay(filterAgendaItems(allItems, filter)),
     [allItems, filter],
+  );
+  const overdueItems = useMemo(
+    () => filterAgendaItems(overdue.items, filter),
+    [overdue.items, filter],
   );
 
   const countByDay = useMemo(() => {
@@ -157,34 +166,40 @@ export function AgendaUpcomingTab({
         />
       </div>
 
-      {days.length > 0 ? (
-        <div className="space-y-6">
-          {days.map((day) => (
-            <section key={day} id={`agenda-day-${day}`} className="scroll-mt-40">
-              <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
-                {dayHeader(day, tomorrow)}
-              </h3>
-              <ul className="space-y-1">
-                {(byDay.get(day) ?? []).map((item) => (
-                  <AgendaItemRow
-                    key={agendaItemKey(item)}
-                    item={item}
-                    onClick={() => onSelect(item)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      ) : isLoading ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
-      ) : isAgendaFilterActive(filter) ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Nema stavki za izabrane filtere.</p>
-      ) : atCap ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Nema obaveza u narednih 12 meseci.
-        </p>
-      ) : null}
+      <div className="space-y-6">
+        <OverdueSection items={overdueItems} onSelect={onSelect} />
+
+        {days.length > 0 ? (
+          <div className="space-y-6">
+            {days.map((day) => (
+              <section key={day} id={`agenda-day-${day}`} className="scroll-mt-40">
+                <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                  {dayHeader(day, today, tomorrow)}
+                </h3>
+                <ul className="space-y-1">
+                  {(byDay.get(day) ?? []).map((item) => (
+                    <AgendaItemRow
+                      key={agendaItemKey(item)}
+                      item={item}
+                      onClick={() => onSelect(item)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : isLoading ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+        ) : overdueItems.length > 0 ? null : isAgendaFilterActive(filter) ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Nema stavki za izabrane filtere.
+          </p>
+        ) : atCap ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Nema obaveza u narednih 12 meseci.
+          </p>
+        ) : null}
+      </div>
 
       {/* Sentinel — grows the horizon as it scrolls into view. */}
       {!atCap ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
@@ -201,12 +216,14 @@ export function AgendaUpcomingTab({
 }
 
 /**
- * "Sutra, 4. jun" for tomorrow, otherwise "Petak, 5. jun" (weekday capitalized;
- * date-fns srLatn yields lowercase weekdays).
+ * "Danas, 4. jun" / "Sutra, 5. jun" for today / tomorrow, otherwise
+ * "Petak, 6. jun" (weekday capitalized; date-fns srLatn yields lowercase
+ * weekdays).
  */
-function dayHeader(day: string, tomorrow: string): string {
+function dayHeader(day: string, today: string, tomorrow: string): string {
   const date = parseISO(day + "T12:00:00");
   const datePart = format(date, "d. MMMM", { locale: srLocale });
+  if (day === today) return `Danas, ${datePart}`;
   if (day === tomorrow) return `Sutra, ${datePart}`;
   const weekday = format(date, "EEEE", { locale: srLocale });
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${datePart}`;

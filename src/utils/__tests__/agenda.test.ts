@@ -11,7 +11,7 @@ import type {
 } from "@/types/database";
 import { resolveBlocksInRange } from "../activity";
 import { expandBirthdayOccurrences } from "../birthday";
-import { expandPaymentOccurrences, overrideKey } from "../payment";
+import { expandPaymentOccurrences, isPaymentOverdue, overrideKey } from "../payment";
 
 /* ------------------------------------------------------------------------- */
 /* expandPaymentOccurrences                                                  */
@@ -179,6 +179,61 @@ describe("expandPaymentOccurrences", () => {
         NO_OVERRIDES,
       ),
     ).toHaveLength(0);
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* isPaymentOverdue                                                          */
+/* ------------------------------------------------------------------------- */
+
+const TODAY = "2026-06-15";
+
+describe("isPaymentOverdue", () => {
+  it("is overdue when the live due_date is before today", () => {
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-10" }), NO_OVERRIDES, TODAY)).toBe(true);
+  });
+
+  it("is not overdue when due today or later", () => {
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-15" }), NO_OVERRIDES, TODAY)).toBe(false);
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-20" }), NO_OVERRIDES, TODAY)).toBe(false);
+  });
+
+  it("ignores paid and paused payments", () => {
+    expect(
+      isPaymentOverdue(payment({ due_date: "2026-06-10", is_paid: true }), NO_OVERRIDES, TODAY),
+    ).toBe(false);
+    expect(
+      isPaymentOverdue(payment({ due_date: "2026-06-10", is_paused: true }), NO_OVERRIDES, TODAY),
+    ).toBe(false);
+  });
+
+  it("follows a reschedule: moved into the future is no longer overdue", () => {
+    const overrides = overrideMap(
+      paymentOverride({
+        occurrence_date: "2026-06-10",
+        action: "reschedule",
+        override_date: "2026-06-20",
+      }),
+    );
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-10" }), overrides, TODAY)).toBe(false);
+  });
+
+  it("follows a reschedule: still-past effective date stays overdue", () => {
+    const overrides = overrideMap(
+      paymentOverride({
+        occurrence_date: "2026-06-10",
+        action: "reschedule",
+        override_date: "2026-06-12",
+      }),
+    );
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-10" }), overrides, TODAY)).toBe(true);
+  });
+
+  it("is not overdue when the live occurrence is canceled", () => {
+    const overrides = overrideMap(
+      paymentOverride({ occurrence_date: "2026-06-10", action: "cancel" }),
+    );
+    expect(isPaymentOverdue(payment({ due_date: "2026-06-10" }), overrides, TODAY)).toBe(false);
   });
 });
 
