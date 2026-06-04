@@ -39,7 +39,7 @@ export function ConfirmDialog({
         <ResponsiveDialogFooter>
           <ResponsiveDialogClose asChild>
             <Button variant="outline" disabled={loading}>
-              Otkaži
+              Odustani
             </Button>
           </ResponsiveDialogClose>
           <Button variant="destructive" disabled={loading} onClick={onConfirm}>

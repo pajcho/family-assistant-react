@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { fallbackColorForProfile, normalizeTime, timeToMinutes } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
+import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
@@ -247,52 +248,74 @@ export function TimedBlock({
   );
 }
 
-export function AllDayChip({
-  item,
-  todayStr,
-  onClick,
-}: {
-  item: AgendaItem;
-  /** Today (yyyy-MM-dd). A payment dated after it is "nadolazeće" — rendered
-   *  read-only and dimmed here too, mirroring the agenda list. */
-  todayStr: string;
-  onClick: () => void;
-}) {
-  const base =
-    "inline-flex max-w-full items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700/60";
+/**
+ * All-day chips fill the width of their (often narrow, in the weekly grid) cell
+ * as small tinted cards. Tints mirror the Uskoro filter pills — payment amber,
+ * event blue, birthday emerald — so the row reads by kind at a glance, and the
+ * colored 3px left border echoes the timed blocks below.
+ */
+const ALL_DAY_CARD =
+  "block w-full rounded-md border border-l-[3px] px-2 py-1 text-left transition-colors " +
+  "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none";
+const PAYMENT_TINT =
+  "border-amber-300/70 border-l-amber-500 bg-amber-50 hover:bg-amber-100 " +
+  "dark:border-amber-500/25 dark:border-l-amber-400 dark:bg-amber-500/10 dark:hover:bg-amber-500/20";
+const EVENT_TINT =
+  "border-blue-300/70 border-l-blue-500 bg-blue-50 hover:bg-blue-100 " +
+  "dark:border-blue-500/25 dark:border-l-blue-400 dark:bg-blue-500/10 dark:hover:bg-blue-500/20";
+const BIRTHDAY_TINT =
+  "border-emerald-300/70 border-l-emerald-500 bg-emerald-50 hover:bg-emerald-100 " +
+  "dark:border-emerald-500/25 dark:border-l-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20";
 
+export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   if (item.kind === "payment") {
     const amount = new Intl.NumberFormat("sr-Latn", { maximumFractionDigits: 0 }).format(
       item.payment.amount,
     );
-    // Not yet due → read-only + dimmed + "Nadolazeće" tag (matches the list).
-    const upcoming = item.date > todayStr;
+    // A future repetition (not the live due_date occurrence) → read-only + dimmed
+    // + "Nadolazeće" tag (matches the list). The live occurrence stays tappable
+    // even when due in the future.
+    const upcoming = isUpcomingPaymentOccurrence(item);
+    // Two rows so the narrow weekly columns stay readable: name on its own line
+    // (up to two), then amount + tag + members underneath, aligned past the icon.
     const inner = (
       <>
-        <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
-        <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
-          {item.payment.name}
-        </span>
-        <span className="shrink-0 text-gray-500 dark:text-gray-400">{amount} RSD</span>
-        {upcoming ? (
-          <span className="shrink-0 rounded bg-gray-100 px-1 text-[9px] font-medium tracking-wide text-gray-500 uppercase dark:bg-gray-700 dark:text-gray-400">
-            Nadolazeće
+        <div className="flex min-w-0 items-start gap-1.5">
+          <BanknotesIcon className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="line-clamp-2 min-w-0 text-[11px] leading-snug font-medium text-gray-900 dark:text-gray-100">
+            {item.payment.name}
           </span>
-        ) : null}
-        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5">
+          <span className="text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+            {amount} RSD
+          </span>
+          {upcoming ? (
+            <span className="rounded bg-amber-200/60 px-1 py-px text-[9px] font-medium tracking-wide text-amber-700 uppercase dark:bg-amber-500/25 dark:text-amber-200">
+              Nadolazeće
+            </span>
+          ) : null}
+          {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+        </div>
       </>
     );
     if (upcoming) {
+      // Read-only future occurrence: keep the tint but cancel the hover-bg so it
+      // doesn't read as tappable.
       return (
-        <span
-          className={cn(base, "cursor-default opacity-60 hover:bg-white dark:hover:bg-gray-800")}
+        <div
+          className={cn(
+            ALL_DAY_CARD,
+            PAYMENT_TINT,
+            "cursor-default opacity-60 hover:bg-amber-50 dark:hover:bg-amber-500/10",
+          )}
         >
           {inner}
-        </span>
+        </div>
       );
     }
     return (
-      <button type="button" onClick={onClick} className={base}>
+      <button type="button" onClick={onClick} className={cn(ALL_DAY_CARD, PAYMENT_TINT)}>
         {inner}
       </button>
     );
@@ -300,9 +323,13 @@ export function AllDayChip({
 
   if (item.kind === "birthday") {
     return (
-      <button type="button" onClick={onClick} className={base}>
-        <CakeIcon className="size-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
-        <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(ALL_DAY_CARD, BIRTHDAY_TINT, "flex items-center gap-1.5")}
+      >
+        <CakeIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
           {item.birthday.name}
         </span>
       </button>
@@ -311,9 +338,13 @@ export function AllDayChip({
 
   // All-day event.
   return (
-    <button type="button" onClick={onClick} className={base}>
-      <CalendarIcon className="size-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
-      <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
+    >
+      <CalendarIcon className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+      <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
         {item.kind === "event" ? item.event.name : ""}
       </span>
       {item.kind === "event" && item.personIds.length > 0 ? (

@@ -99,7 +99,7 @@ export function PaymentRescheduleDialog({
         </div>
         <ResponsiveDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Otkaži
+            Odustani
           </Button>
           <Button
             disabled={saving || !date || date === currentDate}

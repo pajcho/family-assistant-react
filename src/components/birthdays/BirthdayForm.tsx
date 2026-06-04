@@ -91,7 +91,7 @@ export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: B
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-          Otkaži
+          Odustani
         </Button>
         <Button type="submit" disabled={saving || !name.trim() || !birthDate}>
           {isEdit ? "Sačuvaj izmene" : "Dodaj"}

@@ -11,7 +11,12 @@ import type {
 } from "@/types/database";
 import { resolveBlocksInRange } from "../activity";
 import { expandBirthdayOccurrences } from "../birthday";
-import { expandPaymentOccurrences, isPaymentOverdue, overrideKey } from "../payment";
+import {
+  expandPaymentOccurrences,
+  isPaymentOverdue,
+  isUpcomingPaymentOccurrence,
+  overrideKey,
+} from "../payment";
 
 /* ------------------------------------------------------------------------- */
 /* expandPaymentOccurrences                                                  */
@@ -179,6 +184,41 @@ describe("expandPaymentOccurrences", () => {
         NO_OVERRIDES,
       ),
     ).toHaveLength(0);
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* isUpcomingPaymentOccurrence                                               */
+/* ------------------------------------------------------------------------- */
+
+describe("isUpcomingPaymentOccurrence", () => {
+  it("treats the live occurrence (keyed on due_date) as editable, even when due in the future", () => {
+    // The next/first instalment — e.g. due tomorrow — IS the live row, so it
+    // must stay actionable, not be locked as "Nadolazeće".
+    expect(
+      isUpcomingPaymentOccurrence({
+        occurrenceDate: "2026-06-10",
+        payment: payment({ due_date: "2026-06-10" }),
+      }),
+    ).toBe(false);
+  });
+
+  it("treats a later repetition as upcoming (read-only)", () => {
+    expect(
+      isUpcomingPaymentOccurrence({
+        occurrenceDate: "2026-07-10",
+        payment: payment({ due_date: "2026-06-10" }),
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps an overdue live occurrence editable (anchor in the past, not a repetition)", () => {
+    expect(
+      isUpcomingPaymentOccurrence({
+        occurrenceDate: "2026-01-10",
+        payment: payment({ due_date: "2026-01-10" }),
+      }),
+    ).toBe(false);
   });
 });
 
