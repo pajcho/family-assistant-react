@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "@tanstack/react-router";
 
+import { ActivityEditDialog } from "@/components/activities/ActivityEditDialog";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
 import { BirthdayDetailDialog } from "@/components/dashboard/BirthdayDetailDialog";
 import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
@@ -19,8 +19,9 @@ import type { ResolvedActivityBlock } from "@/utils/activity";
  * and "Uskoro" tabs route a row click to the same dialog set. Activity / event
  * / payment rows open the same popups the dedicated feature cards used; "Izmeni"
  * inside event/payment/birthday flows back to the dashboard's form dialogs via
- * `onEditEvent` / `onEditPayment` / `onEditBirthday`. Activity edit deep-links to
- * /activities (that page owns the activity form).
+ * `onEditEvent` / `onEditPayment` / `onEditBirthday`. Activity edit opens the full
+ * form INLINE via the self-contained `ActivityEditDialog` (no /activities
+ * redirect) — its schedule/participants data is already warm from `useAgenda`.
  */
 export function useAgendaDetails({
   onEditEvent,
@@ -31,7 +32,6 @@ export function useAgendaDetails({
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
 }): { onSelect: (item: AgendaItem) => void; dialogs: ReactNode } {
-  const navigate = useNavigate();
   const { byId: peopleById } = useFamilyMembers();
   const { byEvent } = useEventParticipants();
   const { byPayment } = usePaymentParticipants();
@@ -47,6 +47,8 @@ export function useAgendaDetails({
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<ResolvedActivityBlock | null>(null);
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
+  // The activity whose full edit form is open inline (no /activities redirect).
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
   const onSelect = (item: AgendaItem) => {
     switch (item.kind) {
@@ -95,8 +97,16 @@ export function useAgendaDetails({
         block={selectedBlock}
         activity={selectedBlock ? activitiesById.get(selectedBlock.activityId) : undefined}
         person={selectedBlock ? peopleById.get(selectedBlock.personId) : undefined}
-        onEditActivity={(activity) => {
-          void navigate({ to: "/activities", search: { edit: activity.id } });
+        onEditActivity={(activity) => setEditingActivity(activity)}
+      />
+
+      {/* Full edit form, opened inline from the block action menu — no redirect
+          to /activities (the schedule/participants queries are already warm). */}
+      <ActivityEditDialog
+        activity={editingActivity}
+        open={!!editingActivity}
+        onOpenChange={(open) => {
+          if (!open) setEditingActivity(null);
         }}
       />
 
