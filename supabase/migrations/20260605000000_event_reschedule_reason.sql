@@ -1,0 +1,12 @@
+-- Capture an OPTIONAL free-text reason when an event is moved ("Pomeri"),
+-- mirroring the reschedule reason already stored for payments
+-- (payment_overrides.reason) and activities (activity_overrides.note).
+--
+-- An event reschedule is an in-place UPDATE of events.date / start_time /
+-- end_time — there is no per-occurrence override row — so the reason lives on
+-- the event itself. It reflects the MOST RECENT move: each "Pomeri" overwrites
+-- it (NULL when left blank). Independent of cancel_reason.
+--
+-- UPDATE is already permitted by the existing "Users can update own family
+-- data" policy on events, so no policy change is needed.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS reschedule_reason TEXT;

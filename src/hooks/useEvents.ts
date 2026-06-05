@@ -49,6 +49,7 @@ export type UpdateEventInput = Partial<
     | "remind_minutes_before"
     | "canceled_at"
     | "cancel_reason"
+    | "reschedule_reason"
   >
 > & {
   /**

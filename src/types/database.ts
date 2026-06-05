@@ -59,6 +59,13 @@ export interface Event {
   canceled_at: string | null;
   /** Optional free-text reason entered when canceling. Cleared on restore. */
   cancel_reason: string | null;
+  /**
+   * Optional free-text reason entered the last time the event was moved
+   * ("Pomeri"). A reschedule overwrites `date`/times in place with no history,
+   * so this reflects only the MOST RECENT move (NULL when left blank).
+   * Independent of `cancel_reason`.
+   */
+  reschedule_reason: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -11,8 +11,8 @@ import { format, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
   ResponsiveDialog,
@@ -32,7 +32,8 @@ import { useDeleteActivityOverride, useUpsertActivityOverride } from "@/hooks/us
  * Four actions:
  *
  *   • Izmeni aktivnost      → close + delegate to parent's edit-activity dialog
- *   • Otkaži ovaj termin    → upsert override { action: 'cancel' }
+ *   • Otkaži ovaj termin    → switch to inline cancel form (OPTIONAL reason),
+ *                             upsert override { action: 'cancel', note } on confirm
  *   • Pomeri vreme…         → switch to inline reschedule form, upsert on save
  *   • Vrati u redovan termin → delete the existing override (rescheduled or canceled)
  *
@@ -59,10 +60,10 @@ export function BlockActionDialog({
   const upsertOverride = useUpsertActivityOverride();
   const deleteOverride = useDeleteActivityOverride();
 
-  // Local mode flips between the action list and the inline reschedule
-  // form. Reset every time the dialog opens for a new block so stale state
-  // from the previous occurrence doesn't carry over.
-  const [mode, setMode] = useState<"actions" | "reschedule">("actions");
+  // Local mode flips between the action list and the inline cancel /
+  // reschedule forms. Reset every time the dialog opens for a new block so
+  // stale state from the previous occurrence doesn't carry over.
+  const [mode, setMode] = useState<"actions" | "cancel" | "reschedule">("actions");
   useEffect(() => {
     if (open) setMode("actions");
   }, [open, block?.scheduleId, block?.date]);
@@ -95,13 +96,14 @@ export function BlockActionDialog({
   // else `block.date` already equals the original.
   const originalDate = block.override?.movedFrom ?? block.date;
 
-  const handleCancel = async () => {
+  const handleCancel = async (note: string | null) => {
     try {
       await upsertOverride.mutateAsync({
         schedule_id: block.scheduleId,
         person_id: block.personId,
         date: originalDate,
         action: "cancel",
+        note,
       });
       onOpenChange(false);
     } catch {
@@ -168,9 +170,15 @@ export function BlockActionDialog({
             isRescheduled={isRescheduled}
             saving={upsertOverride.isPending || deleteOverride.isPending}
             onEdit={handleEdit}
-            onCancel={() => void handleCancel()}
+            onCancel={() => setMode("cancel")}
             onReschedule={() => setMode("reschedule")}
             onRestore={() => void handleRestore()}
+          />
+        ) : mode === "cancel" ? (
+          <CancelForm
+            saving={upsertOverride.isPending}
+            onBack={() => setMode("actions")}
+            onConfirm={(note) => void handleCancel(note)}
           />
         ) : (
           <RescheduleForm
@@ -374,6 +382,48 @@ function OverrideBanner({
   );
 }
 
+interface CancelFormProps {
+  saving: boolean;
+  onBack: () => void;
+  onConfirm: (note: string | null) => void;
+}
+
+/** Confirm canceling a single occurrence, with an OPTIONAL free-text reason. */
+function CancelForm({ saving, onBack, onConfirm }: CancelFormProps) {
+  const [note, setNote] = useState("");
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Otkazuje se samo ovaj termin — ostali ostaju u rasporedu.
+      </p>
+      <div className="space-y-1.5">
+        <Label htmlFor="cancel-note">Razlog (opciono)</Label>
+        <Textarea
+          id="cancel-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="npr. dete bolesno"
+          rows={3}
+        />
+      </div>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="outline" onClick={onBack} disabled={saving}>
+          Nazad
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={saving}
+          onClick={() => onConfirm(note.trim() || null)}
+        >
+          {saving ? "Čuva…" : "Otkaži termin"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 interface RescheduleFormProps {
   block: ResolvedActivityBlock;
   /** Original date the rule would have fired on — the override's lookup key. */
@@ -451,11 +501,12 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="reschedule-note">Razlog (opciono)</Label>
-        <Input
+        <Textarea
           id="reschedule-note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="npr. trener pomerio termin"
+          rows={2}
         />
       </div>
       <div className="flex justify-end gap-2 pt-1">
