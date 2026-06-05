@@ -56,6 +56,7 @@ export function EventDetailDialog({
   const [mode, setMode] = useState<Mode>("detail");
   const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
   const [reason, setReason] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
 
   // Reset to the detail view whenever the dialog closes.
   useEffect(() => {
@@ -66,6 +67,7 @@ export function EventDetailDialog({
     setMode("detail");
     setDtValue(eventToDateTimeValue(event));
     setReason("");
+    setRescheduleReason("");
   }, [event]);
 
   const saving = updateEvent.isPending;
@@ -74,6 +76,20 @@ export function EventDetailDialog({
     if (!event) return;
     onOpenChange(false);
     onEdit(event);
+  };
+
+  // Seed a clean slate each time a mode is entered (not just per-event), so a
+  // back-and-forth within one open doesn't carry stale unsaved input. Mirrors
+  // PaymentDetailDialog's openReschedule/openCancel.
+  const openReschedule = () => {
+    setDtValue(eventToDateTimeValue(event));
+    setRescheduleReason("");
+    setMode("reschedule");
+  };
+
+  const openCancel = () => {
+    setReason("");
+    setMode("cancel");
   };
 
   const handleCancelConfirm = async () => {
@@ -92,7 +108,13 @@ export function EventDetailDialog({
   const handleRescheduleSave = async () => {
     if (!event || !dtValue.date) return;
     try {
-      await updateEvent.mutateAsync({ id: event.id, payload: dateTimeValueToColumns(dtValue) });
+      await updateEvent.mutateAsync({
+        id: event.id,
+        payload: {
+          ...dateTimeValueToColumns(dtValue),
+          reschedule_reason: rescheduleReason.trim() || null,
+        },
+      });
       onOpenChange(false);
     } catch {
       // Error toast surfaced by the hook.
@@ -115,11 +137,23 @@ export function EventDetailDialog({
 
         {event ? (
           mode === "reschedule" ? (
-            <EventDateTimeFields
-              value={dtValue}
-              onChange={setDtValue}
-              idPrefix="detail-reschedule"
-            />
+            <div className="space-y-4">
+              <EventDateTimeFields
+                value={dtValue}
+                onChange={setDtValue}
+                idPrefix="detail-reschedule"
+              />
+              <div className="space-y-2">
+                <Label htmlFor="detail-reschedule-reason">Razlog (opciono)</Label>
+                <Textarea
+                  id="detail-reschedule-reason"
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  placeholder="npr. termin pomeren zbog vremena"
+                  rows={2}
+                />
+              </div>
+            </div>
           ) : mode === "cancel" ? (
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -185,6 +219,22 @@ export function EventDetailDialog({
                       </dd>
                     </div>
                   ) : null}
+                  {event.reschedule_reason ? (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-gray-500 dark:text-gray-400">Razlog pomeranja:</dt>
+                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+                        {event.reschedule_reason}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {event.canceled_at && event.cancel_reason ? (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-gray-500 dark:text-gray-400">Razlog otkazivanja:</dt>
+                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+                        {event.cancel_reason}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
               </div>
             </div>
@@ -223,7 +273,7 @@ export function EventDetailDialog({
         ) : (
           <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex justify-center gap-2 sm:justify-start">
-              <Button variant="ghost" size="sm" onClick={() => setMode("reschedule")}>
+              <Button variant="ghost" size="sm" onClick={openReschedule}>
                 <CalendarDaysIcon className="mr-1 h-4 w-4" />
                 Pomeri
               </Button>
@@ -231,7 +281,7 @@ export function EventDetailDialog({
                 variant="ghost"
                 size="sm"
                 className="text-red-600 hover:text-red-700 dark:text-red-400"
-                onClick={() => setMode("cancel")}
+                onClick={openCancel}
               >
                 <XCircleIcon className="mr-1 h-4 w-4" />
                 Otkaži

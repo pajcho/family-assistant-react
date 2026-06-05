@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -20,6 +22,8 @@ export type EventReschedulePayload = {
   date: string;
   start_time: string | null;
   end_time: string | null;
+  /** Optional free-text reason for the move; NULL when left blank. */
+  reschedule_reason: string | null;
 };
 
 /**
@@ -43,9 +47,11 @@ export function EventRescheduleDialog({
   onSubmit,
 }: EventRescheduleDialogProps) {
   const [value, setValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     setValue(eventToDateTimeValue(event));
+    setReason("");
   }, [event]);
 
   return (
@@ -54,7 +60,19 @@ export function EventRescheduleDialog({
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Pomeri događaj</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
-        <EventDateTimeFields value={value} onChange={setValue} idPrefix="reschedule" />
+        <div className="space-y-4">
+          <EventDateTimeFields value={value} onChange={setValue} idPrefix="reschedule" />
+          <div className="space-y-2">
+            <Label htmlFor="reschedule-reason">Razlog (opciono)</Label>
+            <Textarea
+              id="reschedule-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="npr. termin pomeren zbog vremena"
+              rows={2}
+            />
+          </div>
+        </div>
         <ResponsiveDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Odustani
@@ -62,7 +80,11 @@ export function EventRescheduleDialog({
           <Button
             disabled={saving || !value.date}
             onClick={() => {
-              if (value.date) onSubmit(dateTimeValueToColumns(value));
+              if (value.date)
+                onSubmit({
+                  ...dateTimeValueToColumns(value),
+                  reschedule_reason: reason.trim() || null,
+                });
             }}
           >
             Pomeri

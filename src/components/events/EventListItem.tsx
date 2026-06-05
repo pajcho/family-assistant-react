@@ -84,6 +84,18 @@ export function EventListItem({
         {event.notes ? (
           <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">{event.notes}</p>
         ) : null}
+        {isCanceled && event.cancel_reason ? (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-gray-400 dark:text-gray-500">Razlog otkazivanja:</span>{" "}
+            {event.cancel_reason}
+          </p>
+        ) : null}
+        {event.reschedule_reason ? (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-gray-400 dark:text-gray-500">Razlog pomeranja:</span>{" "}
+            {event.reschedule_reason}
+          </p>
+        ) : null}
         {personIds.length > 0 ? <MemberBadges personIds={personIds} className="mt-2" /> : null}
       </div>
 

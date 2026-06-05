@@ -20,6 +20,12 @@ export type EventFormPayload = {
   remind_minutes_before: number | null;
   /** Family members the event is for. Empty = unassigned (family-wide). */
   personIds: string[];
+  /**
+   * Set to `null` only when a full-form edit changed the date/time — clearing
+   * any stale "Razlog pomeranja" so it can't outlive the move it described.
+   * Omitted otherwise (leaves the stored value untouched).
+   */
+  reschedule_reason?: string | null;
 };
 
 export type EventFormProps = {
@@ -95,18 +101,29 @@ export function EventForm({
     const startTime = (form.start_time ?? "").trim();
     const endTime = (form.end_time ?? "").trim();
     const resolvedStart = form.allDay ? null : startTime || null;
+    const resolvedEnd = form.allDay ? null : endTime || null;
+    // A full-form edit that shifts the date/time is itself a "move", so any
+    // reschedule reason left over from an earlier "Pomeri" no longer matches
+    // the new date — drop it (mirrors how the Pomeri dialogs overwrite it).
+    // Untouched otherwise so a pure name/notes edit keeps a legitimate reason.
+    const scheduleChanged =
+      !!event &&
+      (form.date !== event.date ||
+        resolvedStart !== (event.start_time ?? null) ||
+        resolvedEnd !== (event.end_time ?? null));
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim() || null,
       date: form.date,
       start_time: resolvedStart,
-      end_time: form.allDay ? null : endTime || null,
+      end_time: resolvedEnd,
       notes: form.notes.trim() || null,
       // Reminders only fire when there's a wall-clock start_time to
       // anchor the offset against — clear the field if the user toggled
       // back to all-day or removed the start time after picking one.
       remind_minutes_before: resolvedStart ? form.remind_minutes_before : null,
       personIds: form.personIds,
+      ...(scheduleChanged ? { reschedule_reason: null } : {}),
     });
   };
 
