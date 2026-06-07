@@ -57,9 +57,9 @@ export function AgendaUpcomingList({
   const [horizonDays, setHorizonDays] = useState(INITIAL_DAYS);
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
-  // Animated tap-to-scroll: the rAF handle, a flag that pins the scroll-spy to the
-  // tapped day while the tween runs, and a teardown for the interrupt listeners.
-  const scrollAnimRef = useRef<number | null>(null);
+  // Tap-to-scroll: a flag that pins the scroll-spy to the tapped day while a
+  // (native, compositor-driven) smooth scroll runs, plus a teardown for the
+  // listeners/timer that release that pin.
   const programmaticScrollRef = useRef(false);
   const scrollCleanupRef = useRef<(() => void) | null>(null);
 
@@ -171,23 +171,16 @@ export function AgendaUpcomingList({
     resetKey: horizonDays,
   });
 
-  // Stop an in-flight tween and release the scroll-spy pin + interrupt listeners.
-  const cancelDayScroll = () => {
-    if (scrollAnimRef.current !== null) {
-      cancelAnimationFrame(scrollAnimRef.current);
-      scrollAnimRef.current = null;
-    }
+  // Release the scroll-spy pin and tear down its listeners/timer.
+  const releaseScrollPin = () => {
     programmaticScrollRef.current = false;
     scrollCleanupRef.current?.();
     scrollCleanupRef.current = null;
   };
 
-  // Tear down a tween left running if the list unmounts mid-scroll.
+  // Tear down the pin's listeners if the list unmounts mid-scroll.
   useEffect(() => {
-    return () => {
-      if (scrollAnimRef.current !== null) cancelAnimationFrame(scrollAnimRef.current);
-      scrollCleanupRef.current?.();
-    };
+    return () => scrollCleanupRef.current?.();
   }, []);
 
   const scrollToDay = (day: string) => {
@@ -209,35 +202,30 @@ export function AgendaUpcomingList({
       0,
       startY + el.getBoundingClientRect().top - (STICKY_HEADER_PX + stripHeight + 8),
     );
-    const distance = targetY - startY;
 
-    cancelDayScroll();
-    if (Math.abs(distance) < 1) return;
+    releaseScrollPin();
+    if (Math.abs(targetY - startY) < 1) return;
 
-    // A short custom rAF tween — snappier than the browser's native smooth scroll,
-    // and with a definite end so we know exactly when to release the spy pin.
-    const duration = Math.min(420, Math.max(180, Math.abs(distance) * 0.4));
+    // Native, compositor-driven smooth scroll — NOT a main-thread rAF tween. On
+    // iOS, a per-frame JS scrollTo lets the list paint over the sticky header for a
+    // frame while scrolling up (the reported "items over the header"); the browser's
+    // own smooth scroll keeps the sticky layers ordered. Pin the spy for the scroll
+    // and release it on scrollend (or when a user gesture takes over, or a safety
+    // timeout — covers the rare browser without a scrollend event).
     programmaticScrollRef.current = true;
-
-    // Let a real user gesture take over instead of fighting the tween.
-    const onInterrupt = () => cancelDayScroll();
-    window.addEventListener("wheel", onInterrupt, { passive: true });
-    window.addEventListener("touchstart", onInterrupt, { passive: true });
+    const release = () => releaseScrollPin();
+    window.addEventListener("scrollend", release, { once: true });
+    window.addEventListener("wheel", release, { once: true, passive: true });
+    window.addEventListener("touchstart", release, { once: true, passive: true });
+    const timer = window.setTimeout(release, 1500);
     scrollCleanupRef.current = () => {
-      window.removeEventListener("wheel", onInterrupt);
-      window.removeEventListener("touchstart", onInterrupt);
+      window.removeEventListener("scrollend", release);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchstart", release);
+      window.clearTimeout(timer);
     };
 
-    const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
-    let startTs: number | null = null;
-    const step = (ts: number) => {
-      if (startTs === null) startTs = ts;
-      const t = Math.min(1, (ts - startTs) / duration);
-      window.scrollTo(0, startY + distance * easeOutCubic(t));
-      if (t < 1) scrollAnimRef.current = requestAnimationFrame(step);
-      else cancelDayScroll();
-    };
-    scrollAnimRef.current = requestAnimationFrame(step);
+    window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
   // A filter that matches nothing shows the reason (not a long run of empty
