@@ -86,7 +86,11 @@ const MORE_ITEMS: readonly NavItem[] = [
 export function AppNav() {
   return (
     <>
-      <nav className="sticky top-0 z-40 w-full border-b border-gray-200/80 bg-white/80 backdrop-blur-md dark:border-gray-700/80 dark:bg-gray-800/80">
+      {/* Opaque, NOT translucent + backdrop-blur: iOS Safari fails to repaint a
+          `backdrop-filter` on a sticky bar during fast scroll (the header flickers/
+          blanks), and blanks it entirely when a Radix menu toggles body overflow.
+          A solid background sidesteps both. */}
+      <nav className="sticky top-0 z-40 w-full border-b border-gray-200/80 bg-white dark:border-gray-700/80 dark:bg-gray-800">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2" aria-label="Početna">
@@ -261,8 +265,10 @@ function MobileBottomNav() {
   return (
     <nav
       // `pb-[env(safe-area-inset-bottom)]` keeps the row above the iPhone
-      // home indicator when launched from the home screen as a PWA.
-      className="fixed right-0 bottom-0 left-0 z-30 border-t border-gray-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden dark:border-gray-700/80 dark:bg-gray-800/95"
+      // home indicator when launched from the home screen as a PWA. Opaque
+      // background (no backdrop-blur) for the same iOS repaint reason as the
+      // top header — a fixed `backdrop-filter` bar flickers during scroll.
+      className="fixed right-0 bottom-0 left-0 z-30 border-t border-gray-200/80 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-gray-700/80 dark:bg-gray-800"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5 pb-1.5">
         {BOTTOM_PRIMARY_ITEMS.map((item) => (

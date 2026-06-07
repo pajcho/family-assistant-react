@@ -249,7 +249,10 @@ export function AgendaUpcomingList({
     <div>
       <div
         ref={stripRef}
-        className="sticky top-14 z-30 -mx-4 mb-4 border-b border-gray-200/70 bg-gray-50/90 px-4 pt-3 pb-2 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 dark:border-gray-700/70 dark:bg-gray-900/90"
+        // Opaque (matches the page bg), NOT translucent + backdrop-blur: stacked
+        // under the sticky app header, an iOS `backdrop-filter` here flickers/blanks
+        // during fast scroll (e.g. tapping a day a few days back). Solid avoids it.
+        className="sticky top-14 z-30 -mx-4 mb-4 border-b border-gray-200/70 bg-gray-50 px-4 pt-3 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 dark:border-gray-700/70 dark:bg-gray-900"
       >
         <WeekStrip
           weeks={weeks}
