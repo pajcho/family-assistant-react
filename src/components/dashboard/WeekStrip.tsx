@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import { cn } from "@/lib/cn";
 import { getWeekStart } from "@/utils/activity";
@@ -17,8 +17,9 @@ import { getWeekStart } from "@/utils/activity";
  * It follows the list: `activeDay` (the day at the top of the scrolled list) is
  * marked with a filled circle, and the pager pages to that day's week, so
  * scrolling the list walks the strip forward/back in step. Tapping a day scrolls
- * the list to it; swiping the strip to its last week loads more (`onReachEnd`).
- * Today is marked even when scrolled away; days with items carry a dot.
+ * the list to it; swiping to an adjacent week carries the selection along (Thu →
+ * next/prev Thu); swiping to the last week loads more (`onReachEnd`). Today is
+ * marked even when scrolled away; days with items carry a dot.
  */
 
 /** Monday-first two-letter weekday initials. */
@@ -82,10 +83,24 @@ export function WeekStrip({
 
   const restingTransform = (i: number) => `translateX(${-i * 100}%)`;
 
+  // A user swipe/wheel paged the strip. Carry the selection across: select the
+  // same weekday in the week we moved to (Thu → next/prev Thu), clamped to the
+  // first selectable day. NOT used by the list-follow effect above, so scrolling
+  // the list pages the strip without re-selecting (no feedback loop).
   const goToPage = (target: number) => {
     const next = Math.min(Math.max(target, 0), lastIndex);
     if (next === page) return;
     setPageIndex(next);
+    const monday = weeks[next];
+    if (monday) {
+      const refDay = activeDay ?? today;
+      const dow = differenceInCalendarDays(
+        parseISO(refDay + "T12:00:00"),
+        parseISO(getWeekStart(refDay) + "T12:00:00"),
+      );
+      const sameWeekday = format(addDays(parseISO(monday + "T12:00:00"), dow), "yyyy-MM-dd");
+      onSelectDay(sameWeekday < from ? from : sameWeekday);
+    }
     if (next === lastIndex) onReachEndRef.current();
   };
 
