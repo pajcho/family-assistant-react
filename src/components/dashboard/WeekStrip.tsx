@@ -100,7 +100,10 @@ export function WeekStrip({
                 const isToday = day === today;
                 const isActive = day === activeDay;
                 const isPast = day < today;
-                const selectable = day >= from && count > 0;
+                // Any day from today on is tappable — the list renders a section
+                // per day (empty ones too), so there's always somewhere to land.
+                // The green dot below the number signals which days have events.
+                const selectable = day >= from;
                 return (
                   <button
                     key={day}
