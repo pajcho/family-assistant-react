@@ -57,6 +57,11 @@ export function AgendaUpcomingList({
   const [horizonDays, setHorizonDays] = useState(INITIAL_DAYS);
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  // Animated tap-to-scroll: the rAF handle, a flag that pins the scroll-spy to the
+  // tapped day while the tween runs, and a teardown for the interrupt listeners.
+  const scrollAnimRef = useRef<number | null>(null);
+  const programmaticScrollRef = useRef(false);
+  const scrollCleanupRef = useRef<(() => void) | null>(null);
 
   // Window = [today, end of the week containing today + horizonDays]. Today is
   // the first day group (the Todoist "Upcoming" model), prefixed by the overdue
@@ -132,6 +137,9 @@ export function AgendaUpcomingList({
     let raf = 0;
     const compute = () => {
       raf = 0;
+      // While tweening to a tapped day, keep that day pinned as active — don't let
+      // the spy re-select each day we pass on the way there.
+      if (programmaticScrollRef.current) return;
       const line = (stripRef.current?.getBoundingClientRect().bottom ?? 140) + 12;
       let current = allDays[0];
       for (const day of allDays) {
@@ -163,9 +171,32 @@ export function AgendaUpcomingList({
     resetKey: horizonDays,
   });
 
+  // Stop an in-flight tween and release the scroll-spy pin + interrupt listeners.
+  const cancelDayScroll = () => {
+    if (scrollAnimRef.current !== null) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = null;
+    }
+    programmaticScrollRef.current = false;
+    scrollCleanupRef.current?.();
+    scrollCleanupRef.current = null;
+  };
+
+  // Tear down a tween left running if the list unmounts mid-scroll.
+  useEffect(() => {
+    return () => {
+      if (scrollAnimRef.current !== null) cancelAnimationFrame(scrollAnimRef.current);
+      scrollCleanupRef.current?.();
+    };
+  }, []);
+
   const scrollToDay = (day: string) => {
     const el = document.getElementById(`agenda-day-${day}`);
     if (!el) return;
+    // Select the tapped day at once (it turns blue immediately) and pin it so the
+    // scroll-spy doesn't walk activeDay through every day we pass on the way.
+    setActiveDay(day);
+
     // Land the day's header just below the sticky app header (h-14) + week strip
     // with a small gap, so it isn't tucked under the strip. Derived from the
     // strip's measured height (not a fixed scroll-margin) so it stays correct if
@@ -173,8 +204,40 @@ export function AgendaUpcomingList({
     // line (stripBottom + 12), so the strip still marks this as the active day.
     const STICKY_HEADER_PX = 56; // app header h-14; the strip sticks just below it (top-14)
     const stripHeight = stripRef.current?.offsetHeight ?? 0;
-    const delta = el.getBoundingClientRect().top - (STICKY_HEADER_PX + stripHeight + 8);
-    window.scrollBy({ top: delta, behavior: "smooth" });
+    const startY = window.scrollY;
+    const targetY = Math.max(
+      0,
+      startY + el.getBoundingClientRect().top - (STICKY_HEADER_PX + stripHeight + 8),
+    );
+    const distance = targetY - startY;
+
+    cancelDayScroll();
+    if (Math.abs(distance) < 1) return;
+
+    // A short custom rAF tween — snappier than the browser's native smooth scroll,
+    // and with a definite end so we know exactly when to release the spy pin.
+    const duration = Math.min(420, Math.max(180, Math.abs(distance) * 0.4));
+    programmaticScrollRef.current = true;
+
+    // Let a real user gesture take over instead of fighting the tween.
+    const onInterrupt = () => cancelDayScroll();
+    window.addEventListener("wheel", onInterrupt, { passive: true });
+    window.addEventListener("touchstart", onInterrupt, { passive: true });
+    scrollCleanupRef.current = () => {
+      window.removeEventListener("wheel", onInterrupt);
+      window.removeEventListener("touchstart", onInterrupt);
+    };
+
+    const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+    let startTs: number | null = null;
+    const step = (ts: number) => {
+      if (startTs === null) startTs = ts;
+      const t = Math.min(1, (ts - startTs) / duration);
+      window.scrollTo(0, startY + distance * easeOutCubic(t));
+      if (t < 1) scrollAnimRef.current = requestAnimationFrame(step);
+      else cancelDayScroll();
+    };
+    scrollAnimRef.current = requestAnimationFrame(step);
   };
 
   // A filter that matches nothing shows the reason (not a long run of empty
