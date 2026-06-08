@@ -293,7 +293,10 @@ function ExternalEventRow({
     <li>
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
         <span className={TIME_GUTTER_CLASS}>{timeLabel}</span>
-        <GlobeAltIcon className="size-3.5 shrink-0 text-sky-500 dark:text-sky-400" />
+        <GlobeAltIcon
+          className="size-3.5 shrink-0 text-sky-500 dark:text-sky-400"
+          style={event.color ? { color: event.color } : undefined}
+        />
         <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">
             {event.title ?? "(bez naslova)"}

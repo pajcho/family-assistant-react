@@ -232,7 +232,7 @@ export function TimedBlock({
       : "—";
     label = `${personName} · ${item.activity?.name ?? "Aktivnost"}`;
   } else if (item.kind === "external") {
-    color = EXTERNAL_COLOR;
+    color = item.event.color ?? EXTERNAL_COLOR;
     label = item.event.title ?? "(bez naslova)";
   } else {
     color = EVENT_COLOR;
@@ -286,9 +286,6 @@ const EVENT_TINT =
 const BIRTHDAY_TINT =
   "border-emerald-300/70 border-l-emerald-500 bg-emerald-50 hover:bg-emerald-100 " +
   "dark:border-emerald-500/25 dark:border-l-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20";
-const EXTERNAL_TINT =
-  "border-sky-300/70 border-l-sky-500 bg-sky-50 hover:bg-sky-100 " +
-  "dark:border-sky-500/25 dark:border-l-sky-400 dark:bg-sky-500/10 dark:hover:bg-sky-500/20";
 
 export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   if (item.kind === "payment") {
@@ -360,13 +357,17 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
   }
 
   if (item.kind === "external") {
+    // Tint by the source calendar's color (inline, since it's dynamic) — same
+    // bg/left-border treatment as the timed blocks.
+    const color = item.event.color ?? EXTERNAL_COLOR;
     return (
       <button
         type="button"
         onClick={onClick}
-        className={cn(ALL_DAY_CARD, EXTERNAL_TINT, "flex items-center gap-1.5")}
+        style={{ backgroundColor: `${color}14`, borderColor: `${color}55`, borderLeftColor: color }}
+        className={cn(ALL_DAY_CARD, "flex items-center gap-1.5 hover:brightness-95")}
       >
-        <GlobeAltIcon className="size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+        <GlobeAltIcon className="size-3.5 shrink-0" style={{ color }} />
         <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
           {item.event.title ?? "(bez naslova)"}
         </span>

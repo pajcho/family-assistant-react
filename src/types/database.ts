@@ -529,6 +529,8 @@ export interface ExternalCalendarEvent {
   html_link: string | null;
   /** fromGmail events: deep link to the originating Gmail/source item. */
   source_url: string | null;
+  /** Source calendar's hex color, for tinting the event in the agenda. */
+  color: string | null;
 }
 
 /** Per-calendar privacy gate for what gets mirrored into the family agenda. */

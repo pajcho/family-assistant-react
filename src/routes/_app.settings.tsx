@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow, parseISO } from "date-fns";
@@ -56,8 +56,17 @@ function SettingsPage() {
 
   // The Google OAuth callback bounces back here with a one-shot ?gcal flag.
   // Toast it, then strip the params so a refresh doesn't re-fire the toast.
+  // Guard against StrictMode's double effect-invoke in dev: fire once per
+  // distinct result, re-arming when the param clears so a later reconnect toasts.
+  const handledGcal = useRef<string | null>(null);
   useEffect(() => {
-    if (!gcal) return;
+    if (!gcal) {
+      handledGcal.current = null;
+      return;
+    }
+    const key = `${gcal}:${reason ?? ""}`;
+    if (handledGcal.current === key) return;
+    handledGcal.current = key;
     if (gcal === "connected") toast.success("Google kalendar je povezan.");
     else toast.error(`Povezivanje nije uspelo${reason ? ` (${reason})` : ""}.`);
     void navigate({ to: "/settings", search: { tab: "calendar" }, replace: true });

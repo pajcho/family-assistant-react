@@ -27,7 +27,7 @@ async function fetchExternalEvents(
   let q = supabase
     .from("external_calendar_events")
     .select(
-      "id, calendar_id, family_id, owner_user_id, visibility, google_event_id, ical_uid, recurring_event_id, title, description, location, start_at, end_at, local_date, start_time, end_time, is_all_day, event_type, status, html_link, source_url",
+      "id, calendar_id, family_id, owner_user_id, visibility, google_event_id, ical_uid, recurring_event_id, title, description, location, start_at, end_at, local_date, start_time, end_time, is_all_day, event_type, status, html_link, source_url, color",
     )
     .order("local_date", { ascending: true })
     .order("start_time", { ascending: true, nullsFirst: true });

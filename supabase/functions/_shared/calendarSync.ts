@@ -19,7 +19,7 @@ const DEFAULT_TZ = "Europe/Belgrade";
 
 /** Columns (incl. the connection embed) syncOneCalendar needs — shared by both callers. */
 export const CALENDAR_SELECT =
-  "id, google_calendar_id, sharing, family_id, owner_user_id, sync_token, connection:google_connections(id, access_token, refresh_token, token_expires_at)";
+  "id, google_calendar_id, sharing, family_id, owner_user_id, sync_token, color, connection:google_connections(id, access_token, refresh_token, token_expires_at)";
 
 export interface SyncCalendarRow {
   id: string;
@@ -28,6 +28,7 @@ export interface SyncCalendarRow {
   family_id: string;
   owner_user_id: string;
   sync_token: string | null;
+  color: string | null;
   connection: {
     id: string;
     access_token: string | null;
@@ -248,6 +249,7 @@ async function applyEvent(
       title: ev.summary ?? null,
       description: ev.description ?? null,
       location: ev.location ?? null,
+      color: cal.color,
       start_at: when.startAt,
       end_at: when.endAt,
       local_date: when.localDate,
