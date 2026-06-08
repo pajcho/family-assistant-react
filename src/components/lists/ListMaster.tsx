@@ -1,11 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ChevronRightIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   UserGroupIcon,
-  UserIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
@@ -280,14 +278,7 @@ export function ListMaster({ variant }: ListMasterProps) {
 
 function ListMasterRow({ list, variant }: { list: ListWithItems; variant: MasterVariant }) {
   const active = list.list_items.filter((i) => !i.is_completed).length;
-  const completed = list.list_items.filter((i) => i.is_completed).length;
-
-  const ScopeIcon = list.scope === "family" ? UserGroupIcon : UserIcon;
-  const scopeLabel = list.scope === "family" ? "Porodica" : "Lično";
-
-  const countLabel = `${active} ${active === 1 ? "aktivna" : "aktivnih"}${
-    completed > 0 ? ` · ${completed} završeno` : ""
-  }`;
+  const isFamily = list.scope === "family";
 
   if (variant === "sidebar") {
     return (
@@ -304,15 +295,26 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-            {list.name}
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+              {list.name}
+            </span>
+            {isFamily ? (
+              <UserGroupIcon
+                className="h-3.5 w-3.5 shrink-0 text-purple-500 dark:text-purple-400"
+                aria-label="Porodična lista"
+              />
+            ) : null}
+          </div>
+          <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+            {active}
           </span>
-          <ScopeIcon
-            className="h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500"
-            aria-label={scopeLabel}
-          />
         </div>
-        <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{countLabel}</p>
+        {list.description && previewLine(list.description) ? (
+          <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+            {previewLine(list.description)}
+          </p>
+        ) : null}
       </Link>
     );
   }
@@ -324,30 +326,26 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
       className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
     >
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-base font-medium text-gray-900 dark:text-gray-100">
-          {list.name}
-        </span>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-              list.scope === "family"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                : "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-            )}
-          >
-            <ScopeIcon className="h-3.5 w-3.5" />
-            {scopeLabel}
+        <div className="flex items-center gap-1.5">
+          <span className="min-w-0 truncate text-base font-medium text-gray-900 dark:text-gray-100">
+            {list.name}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{countLabel}</span>
+          {isFamily ? (
+            <UserGroupIcon
+              className="h-4 w-4 shrink-0 text-purple-500 dark:text-purple-400"
+              aria-label="Porodična lista"
+            />
+          ) : null}
         </div>
         {list.description && previewLine(list.description) ? (
-          <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
             {previewLine(list.description)}
           </p>
         ) : null}
       </div>
-      <ChevronRightIcon className="h-5 w-5 shrink-0 text-gray-400 dark:text-gray-500" />
+      <span className="shrink-0 text-sm tabular-nums text-gray-500 dark:text-gray-400">
+        {active}
+      </span>
     </Link>
   );
 }
