@@ -175,9 +175,19 @@ export function useMinuteTick(): Date {
       },
       60_000 - (Date.now() % 60_000),
     );
+    // iOS freezes timers while the PWA is backgrounded, so on resume `now` —
+    // and the date + red now-line derived from it — is stuck at the suspend
+    // moment. Snap back to the real clock whenever the app returns to focus.
+    const sync = () => {
+      if (document.visibilityState === "visible") setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("focus", sync);
     return () => {
       clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("focus", sync);
     };
   }, []);
   return now;
