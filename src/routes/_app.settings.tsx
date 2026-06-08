@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimePicker } from "@/components/ui/time-picker";
 import { UserAvatar } from "@/components/layout/UserAvatar";
 import { FamilyTab } from "@/components/family/FamilyTab";
+import { CalendarTab } from "@/components/calendar/CalendarTab";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import {
@@ -26,22 +27,41 @@ import { parseUserAgent } from "@/utils/userAgent";
 import { readFunctionsError } from "@/utils/functionsError";
 import type { PushSubscriptionRow } from "@/types/database";
 
-type SettingsTab = "profile" | "family" | "notifications";
+type SettingsTab = "profile" | "family" | "notifications" | "calendar";
 
 export const Route = createFileRoute("/_app/settings")({
   // Deep-linkable active tab (e.g. /settings?tab=family from the Activities
   // options sheet). Unknown / missing values fall back to the Profil tab.
-  validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => {
+  // `gcal`/`reason` are the one-shot flags the Google OAuth callback redirects
+  // back with — kept in the schema so SettingsPage can read and then clear them.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: SettingsTab; gcal?: "connected" | "error"; reason?: string } => {
     const tab = search.tab;
-    return tab === "family" || tab === "notifications" || tab === "profile" ? { tab } : {};
+    const result: { tab?: SettingsTab; gcal?: "connected" | "error"; reason?: string } = {};
+    if (tab === "family" || tab === "notifications" || tab === "profile" || tab === "calendar") {
+      result.tab = tab;
+    }
+    if (search.gcal === "connected" || search.gcal === "error") result.gcal = search.gcal;
+    if (typeof search.reason === "string") result.reason = search.reason;
+    return result;
   },
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const { tab } = Route.useSearch();
+  const { tab, gcal, reason } = Route.useSearch();
   const navigate = useNavigate();
   const active: SettingsTab = tab ?? "profile";
+
+  // The Google OAuth callback bounces back here with a one-shot ?gcal flag.
+  // Toast it, then strip the params so a refresh doesn't re-fire the toast.
+  useEffect(() => {
+    if (!gcal) return;
+    if (gcal === "connected") toast.success("Google kalendar je povezan.");
+    else toast.error(`Povezivanje nije uspelo${reason ? ` (${reason})` : ""}.`);
+    void navigate({ to: "/settings", search: { tab: "calendar" }, replace: true });
+  }, [gcal, reason, navigate]);
 
   return (
     <div className="space-y-6">
@@ -62,10 +82,11 @@ function SettingsPage() {
         }
         className="gap-6"
       >
-        <TabsList className="w-full max-w-md">
+        <TabsList className="w-full max-w-xl">
           <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="family">Porodica</TabsTrigger>
           <TabsTrigger value="notifications">Obaveštenja</TabsTrigger>
+          <TabsTrigger value="calendar">Kalendar</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <ProfileCard />
@@ -75,6 +96,9 @@ function SettingsPage() {
         </TabsContent>
         <TabsContent value="notifications">
           <NotificationsTab />
+        </TabsContent>
+        <TabsContent value="calendar">
+          <CalendarTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -476,3 +476,25 @@ export interface NotificationLogRow {
   ref_id: string;
   sent_at: string;
 }
+
+/**
+ * Token-free view of a member's Google Calendar connection
+ * (`google_connections_safe`). The OAuth tokens live only on the base
+ * `google_connections` table, reachable solely by the sync Edge Functions; the
+ * client only ever sees this status row.
+ */
+export interface GoogleConnectionSafe {
+  id: string;
+  user_id: string;
+  family_id: string;
+  google_account_email: string;
+  scopes: string | null;
+  /**
+   * True after a token refresh failed (e.g. the 7-day refresh-token expiry that
+   * applies while the OAuth app is in Google "Testing" mode) — the UI shows a
+   * "Poveži ponovo" prompt until the member re-consents.
+   */
+  needs_reauth: boolean;
+  created_at: string;
+  updated_at: string;
+}
