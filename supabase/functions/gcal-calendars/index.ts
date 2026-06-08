@@ -15,7 +15,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getFreshAccessToken, googleGet, ReauthRequiredError } from "../_shared/google.ts";
-import { CALENDAR_SELECT, syncOneCalendar, type SyncCalendarRow } from "../_shared/calendarSync.ts";
+import {
+  CALENDAR_SELECT,
+  fetchEventCount,
+  syncOneCalendar,
+  type SyncCalendarRow,
+} from "../_shared/calendarSync.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -199,6 +204,9 @@ async function listCalendars(
     .select("id, family_id, access_token, refresh_token, token_expires_at")
     .eq("user_id", callerId);
 
+  // google_calendar_id -> "events found" in the sync window, for the picker hint.
+  const counts = new Map<string, { count: number; capped: boolean }>();
+
   for (const conn of connections ?? []) {
     let accessToken: string;
     try {
@@ -220,8 +228,8 @@ async function listCalendars(
       continue; // transient Google error — don't fail the whole request
     }
 
-    for (const cal of list.items ?? []) {
-      if (cal.deleted) continue;
+    const active = (list.items ?? []).filter((cal) => !cal.deleted);
+    for (const cal of active) {
       // Omit `sharing` from the payload so an existing choice is preserved on
       // conflict, and new rows fall back to the column default ('none').
       await admin.from("google_calendars").upsert(
@@ -238,9 +246,17 @@ async function listCalendars(
         { onConflict: "connection_id,google_calendar_id" },
       );
     }
+
+    // "Events found" per calendar — fetched in parallel (ids only, so light).
+    const found = await Promise.all(active.map((cal) => fetchEventCount(accessToken, cal.id)));
+    active.forEach((cal, i) => {
+      const r = found[i];
+      if (r) counts.set(cal.id, r);
+    });
   }
 
-  // Return the caller's calendars (primary first, then by name) for the picker.
+  // Return the caller's calendars (primary first, then by name) for the picker,
+  // each tagged with its "events found" count.
   const { data: calendars, error } = await admin
     .from("google_calendars")
     .select(
@@ -250,7 +266,23 @@ async function listCalendars(
     .order("is_primary", { ascending: false })
     .order("summary", { ascending: true });
   if (error) return json({ error: error.message }, 500);
-  return json({ calendars: calendars ?? [] });
+
+  const withCounts = ((calendars ?? []) as unknown as CalendarRow[]).map((c) => {
+    const found = counts.get(c.google_calendar_id);
+    return { ...c, event_count: found?.count ?? null, event_count_capped: found?.capped ?? false };
+  });
+  return json({ calendars: withCounts });
+}
+
+interface CalendarRow {
+  id: string;
+  connection_id: string;
+  google_calendar_id: string;
+  summary: string | null;
+  color: string | null;
+  access_role: string | null;
+  is_primary: boolean;
+  sharing: string;
 }
 
 function json(payload: unknown, status = 200): Response {

@@ -552,6 +552,13 @@ export interface GoogleCalendar {
   access_role: string | null;
   is_primary: boolean;
   sharing: GoogleCalendarSharing;
+  /**
+   * Events found in the sync window, surfaced by the picker `list` action so a
+   * member can judge whether importing a calendar is worth it. Null if the count
+   * couldn't be fetched; `event_count_capped` = more than the 2500 probe cap.
+   */
+  event_count?: number | null;
+  event_count_capped?: boolean;
 }
 
 /**

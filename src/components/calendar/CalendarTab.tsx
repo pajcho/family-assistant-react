@@ -155,6 +155,15 @@ function ConnectionCalendars({
               ) : null}
             </span>
           </div>
+          {typeof cal.event_count === "number" ? (
+            <span
+              className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500"
+              title="Događaja pronađeno (oko godinu dana unapred)"
+            >
+              {cal.event_count}
+              {cal.event_count_capped ? "+" : ""}
+            </span>
+          ) : null}
           <SharingSelect
             value={cal.sharing}
             onChange={(sharing) => onSharingChange(cal.id, sharing)}

@@ -107,6 +107,36 @@ export async function syncOneCalendar(admin: Admin, cal: SyncCalendarRow): Promi
   return "synced";
 }
 
+/**
+ * Counts events in the sync window for a calendar (one page, capped at 2500),
+ * using `fields=items/id` so only event ids come over the wire — for the
+ * picker's "events found" hint. Same window/expansion as the real sync so the
+ * number reflects what would be mirrored. Returns null on error.
+ */
+export async function fetchEventCount(
+  accessToken: string,
+  googleCalendarId: string,
+): Promise<{ count: number; capped: boolean } | null> {
+  const now = Date.now();
+  const p = new URLSearchParams({
+    singleEvents: "true",
+    maxResults: "2500",
+    timeMin: new Date(now - WINDOW_PAST_DAYS * 86_400_000).toISOString(),
+    timeMax: new Date(now + WINDOW_FUTURE_DAYS * 86_400_000).toISOString(),
+    fields: "items/id,nextPageToken",
+  });
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(googleCalendarId)}/events?${p.toString()}`;
+  try {
+    const page = await googleGet<{ items?: { id: string }[]; nextPageToken?: string }>(
+      accessToken,
+      url,
+    );
+    return { count: (page.items ?? []).length, capped: !!page.nextPageToken };
+  } catch {
+    return null;
+  }
+}
+
 /** Takes the per-calendar lock; returns false if another run holds a fresh one. */
 async function acquireLock(admin: Admin, calendarId: string): Promise<boolean> {
   const staleBefore = new Date(Date.now() - LOCK_STALE_MS).toISOString();
