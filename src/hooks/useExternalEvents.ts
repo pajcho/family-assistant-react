@@ -1,5 +1,5 @@
 import { useEffect, useId } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ExternalCalendarEvent } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -48,6 +48,11 @@ export function useExternalEventsList(filters: ExternalEventFilters = {}) {
     queryKey: ["external_calendar_events", familyId, { from, to }],
     queryFn: () => fetchExternalEvents({ from, to }),
     enabled: !!familyId,
+    // Keep the prior window's rows while a wider [from, to] refetches — same
+    // reason as useEventsList: this query is range-scoped too, so a horizon
+    // grow on "Uskoro" would otherwise blank it mid-scroll and (under a filter)
+    // collapse the list, jumping the scroll to the top.
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {

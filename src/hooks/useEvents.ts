@@ -1,5 +1,5 @@
 import { useEffect, useId } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Event } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -101,6 +101,12 @@ export function useEventsList(filters: EventListFilters = {}) {
     queryKey: ["events", familyId, { from, to }],
     queryFn: () => fetchEvents(familyId as string, { from, to }),
     enabled: !!familyId,
+    // Keep the prior window's rows while a wider [from, to] refetches. On the
+    // "Uskoro" infinite scroll, growing the horizon changes this key; without a
+    // placeholder the list goes momentarily empty, and with a type filter active
+    // (e.g. only events) that empties the whole filtered list, collapsing the
+    // page height and snapping the scroll back to the top.
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
