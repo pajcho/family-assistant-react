@@ -3,6 +3,7 @@ import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
 import { Button } from "@/components/ui/button";
+import { Linkify } from "@/components/common/Linkify";
 import { previewLine } from "@/components/common/MarkdownText";
 import { cn } from "@/lib/cn";
 import type { ListItem } from "@/types/database";
@@ -84,18 +85,41 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           `items-stretch` lets the button still fill the row vertically so
           the area above/below the text remains forgiving. */}
       <div className="flex min-w-0 flex-1 items-stretch pr-3 pointer-fine:pr-2">
-        <button
-          type="button"
+        {/* role="button" rather than a real <button>: the title may contain
+            autolinked URLs (<a> elements), which HTML forbids nesting inside
+            a <button>. We re-add the button keyboard contract (Enter/Space)
+            and gate it on the row itself so key presses on a focused inner
+            link aren't hijacked into opening the dialog. */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => onOpen(item)}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen(item);
+            }
+          }}
           className={cn(
-            "flex max-w-full min-w-0 flex-col justify-center py-3 text-left text-sm pointer-fine:py-1.5",
+            "flex max-w-full min-w-0 cursor-pointer flex-col justify-center rounded py-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 pointer-fine:py-1.5",
             item.is_completed
               ? "text-gray-400 dark:text-gray-500"
               : "text-gray-900 dark:text-gray-100",
           )}
           aria-label={`Otvori detalje za "${item.name}"`}
         >
-          <span className={cn("truncate", item.is_completed && "line-through")}>{item.name}</span>
+          <span className={cn("truncate", item.is_completed && "line-through")}>
+            <Linkify
+              text={item.name}
+              linkClassName={cn(
+                "underline underline-offset-2",
+                item.is_completed
+                  ? "text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+                  : "text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300",
+              )}
+            />
+          </span>
           {descriptionPreview ? (
             <span
               className={cn(
@@ -108,7 +132,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
               {descriptionPreview}
             </span>
           ) : null}
-        </button>
+        </div>
       </div>
       {/* Inline action buttons — mouse-only. Touch users get the same
           operations via tap-to-open + swipe gestures, so the icons would
