@@ -498,3 +498,26 @@ export interface GoogleConnectionSafe {
   created_at: string;
   updated_at: string;
 }
+
+/** Per-calendar privacy gate for what gets mirrored into the family agenda. */
+export type GoogleCalendarSharing = "none" | "private" | "family";
+
+/**
+ * A calendar under a connected Google account (`google_calendars`), as shown in
+ * the Settings picker. `sharing` controls whether — and to whom — this
+ * calendar's events are mirrored: 'none' = don't import, 'private' = only the
+ * connecting member, 'family' = the whole family. The OAuth tokens stay on
+ * `google_connections`; this row carries no secrets.
+ */
+export interface GoogleCalendar {
+  id: string;
+  connection_id: string;
+  google_calendar_id: string;
+  summary: string | null;
+  /** Hex background color from Google (e.g. "#0088aa"), or null. */
+  color: string | null;
+  /** owner | writer | reader | freeBusyReader. */
+  access_role: string | null;
+  is_primary: boolean;
+  sharing: GoogleCalendarSharing;
+}
