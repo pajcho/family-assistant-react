@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
 
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentsList } from "@/hooks/usePayments";
+import { useToday } from "@/hooks/useToday";
 import { effectivePaymentDueDate, isPaymentOverdue } from "@/utils/payment";
 
 /**
@@ -27,7 +27,7 @@ export function useOverduePayments(): UseOverduePaymentsResult {
   const { byPayment } = usePaymentParticipants();
   const { byKey: overridesByKey } = usePaymentOverrides();
 
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = useToday().str;
 
   const items = useMemo<AgendaItem[]>(() => {
     const out: AgendaItem[] = [];

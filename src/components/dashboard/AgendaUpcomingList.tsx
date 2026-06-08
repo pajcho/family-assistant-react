@@ -9,6 +9,7 @@ import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
+import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { getWeekStart, weeksBetween } from "@/utils/activity";
 import {
@@ -17,7 +18,7 @@ import {
   groupAgendaByDay,
   isAgendaFilterActive,
 } from "@/utils/agendaFilters";
-import { addDays, srLocale, startOfToday } from "@/utils/date";
+import { addDays, srLocale } from "@/utils/date";
 
 /**
  * "Uskoro" LIST view — an overdue "Prekoračeno" section, then everything from
@@ -68,17 +69,18 @@ export function AgendaUpcomingList({
   // section; it also shows on the Danas tab. The end is snapped out to that
   // week's Sunday so the window covers whole Mon–Sun weeks — every day the strip
   // shows then has a rendered section to scroll to when tapped. Derive per horizon.
+  const { str: todayStr, date: todayDate } = useToday();
   const { from, to, today, tomorrow } = useMemo(() => {
-    const base = startOfToday();
+    const base = todayDate;
     const horizonEnd = format(addDays(base, horizonDays), "yyyy-MM-dd");
     const lastWeekMonday = parseISO(getWeekStart(horizonEnd) + "T12:00:00");
     return {
       from: format(base, "yyyy-MM-dd"),
       to: format(addDays(lastWeekMonday, 6), "yyyy-MM-dd"),
-      today: format(base, "yyyy-MM-dd"),
+      today: todayStr,
       tomorrow: format(addDays(base, 1), "yyyy-MM-dd"),
     };
-  }, [horizonDays]);
+  }, [horizonDays, todayStr, todayDate]);
 
   const { items: allItems, isLoading } = useAgenda({ from, to });
   const overdue = useOverduePayments();

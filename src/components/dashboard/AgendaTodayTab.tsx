@@ -11,6 +11,7 @@ import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import type { AgendaView } from "@/hooks/useAgendaView";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
 import { useProfile } from "@/hooks/useProfile";
+import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
 import { addDays } from "@/utils/date";
@@ -41,9 +42,8 @@ export function AgendaTodayTab({
   onEditPayment,
   onEditBirthday,
 }: AgendaTodayTabProps) {
-  const now = new Date();
-  const today = format(now, "yyyy-MM-dd");
-  const tomorrow = format(addDays(now, 1), "yyyy-MM-dd");
+  const { str: today, date: todayDate } = useToday();
+  const tomorrow = format(addDays(todayDate, 1), "yyyy-MM-dd");
   const { items: allItems, isLoading } = useAgenda({ from: today, to: today });
   const overdue = useOverduePayments();
   const { profile } = useProfile();

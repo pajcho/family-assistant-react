@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
@@ -21,7 +21,7 @@ import {
 } from "@/components/dashboard/agendaCalendarShared";
 import { type AgendaItem, agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import type { Birthday, Event, Payment } from "@/types/database";
-import { DAY_LABELS_SHORT, getThisWeekStart } from "@/utils/activity";
+import { DAY_LABELS_SHORT, getThisWeekStart, getWeekStart } from "@/utils/activity";
 import { type AgendaFilter, filterAgendaItems } from "@/utils/agendaFilters";
 import { srLocale } from "@/utils/date";
 import { cn } from "@/lib/cn";
@@ -63,7 +63,21 @@ export function AgendaWeekCalendar({
   const now = useMinuteTick();
   const todayStr = format(now, "yyyy-MM-dd");
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const isCurrentWeek = weekStart === getThisWeekStart();
+  const thisWeekStart = getWeekStart(todayStr);
+  const isCurrentWeek = weekStart === thisWeekStart;
+
+  // Follow the week as the day rolls over. `useMinuteTick` re-syncs on focus, so
+  // when the app resumes after the week changed while suspended, `thisWeekStart`
+  // updates and we advance the visible week to match — but ONLY if the user was
+  // parked on the current week; if they'd navigated elsewhere, leave them put.
+  const prevWeekStartRef = useRef(thisWeekStart);
+  useEffect(() => {
+    const prev = prevWeekStartRef.current;
+    if (thisWeekStart !== prev) {
+      prevWeekStartRef.current = thisWeekStart;
+      setWeekStart((w) => (w === prev ? thisWeekStart : w));
+    }
+  }, [thisWeekStart]);
 
   const days = useMemo(() => {
     const base = parseISO(weekStart + "T12:00:00");
@@ -111,7 +125,7 @@ export function AgendaWeekCalendar({
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), -7), "yyyy-MM-dd"));
   const goNext = () =>
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), 7), "yyyy-MM-dd"));
-  const goToday = () => setWeekStart(getThisWeekStart());
+  const goToday = () => setWeekStart(thisWeekStart);
 
   // Land on today's column when the week renders — only matters once the days
   // overflow (viewports too narrow for 7×165px). Horizontal only; the page owns
