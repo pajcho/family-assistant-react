@@ -15,6 +15,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getFreshAccessToken, googleGet, ReauthRequiredError } from "../_shared/google.ts";
+import { CALENDAR_SELECT, syncOneCalendar, type SyncCalendarRow } from "../_shared/calendarSync.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,6 +106,28 @@ async function setSharing(
       .from("external_calendar_events")
       .update({ visibility: sharing })
       .eq("calendar_id", body.calendarId);
+
+    // Immediately pull this calendar so newly-shared events appear right away
+    // instead of waiting for the 15-min cron. Run it AFTER the response
+    // (EdgeRuntime.waitUntil) so the click resolves instantly — a first full
+    // sync can take a moment. Errors are logged, never surfaced to the toggle.
+    const syncNow = (async () => {
+      const { data: cal } = await admin
+        .from("google_calendars")
+        .select(CALENDAR_SELECT)
+        .eq("id", body.calendarId)
+        .maybeSingle();
+      if (!cal) return;
+      try {
+        await syncOneCalendar(admin, cal as unknown as SyncCalendarRow);
+      } catch (e) {
+        console.error("gcal-calendars immediate sync failed:", e instanceof Error ? e.message : e);
+      }
+    })();
+    const er = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } })
+      .EdgeRuntime;
+    if (er) er.waitUntil(syncNow);
+    else await syncNow;
   }
   return json({ ok: true });
 }

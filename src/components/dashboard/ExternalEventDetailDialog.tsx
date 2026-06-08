@@ -45,6 +45,12 @@ export function ExternalEventDetailDialog({
   onOpenChange,
   event,
 }: ExternalEventDetailDialogProps) {
+  // fromGmail events (flights/hotels/reservations) carry a useless boilerplate
+  // description; surface a deep link to the originating Gmail message instead.
+  const isFromGmail = event?.event_type === "fromGmail";
+  const openHref = isFromGmail && event?.source_url ? event.source_url : (event?.html_link ?? null);
+  const openLabel = isFromGmail && event?.source_url ? "Otvori email" : "Otvori u Google";
+
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent>
@@ -72,7 +78,9 @@ export function ExternalEventDetailDialog({
               <dl className="space-y-2 text-sm">
                 <DetailRow label="Vreme:" value={timeRangeLabel(event)} />
                 {event.location ? <DetailRow label="Lokacija:" value={event.location} /> : null}
-                {event.description ? <DetailRow label="Opis:" value={event.description} /> : null}
+                {event.description && !isFromGmail ? (
+                  <DetailRow label="Opis:" value={event.description} />
+                ) : null}
                 {event.event_type === "fromGmail" ? (
                   <DetailRow label="Izvor:" value="Automatski iz Gmaila" />
                 ) : null}
@@ -86,10 +94,10 @@ export function ExternalEventDetailDialog({
         ) : null}
 
         <ResponsiveDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          {event?.html_link ? (
+          {openHref ? (
             <Button variant="outline" asChild>
-              <a href={event.html_link} target="_blank" rel="noopener noreferrer">
-                Otvori u Google
+              <a href={openHref} target="_blank" rel="noopener noreferrer">
+                {openLabel}
               </a>
             </Button>
           ) : null}
