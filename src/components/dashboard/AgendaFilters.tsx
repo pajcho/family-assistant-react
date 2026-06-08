@@ -4,6 +4,7 @@ import {
   CakeIcon,
   CalendarIcon,
   FunnelIcon,
+  GlobeAltIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
@@ -63,6 +64,13 @@ const KIND_META: Record<AgendaKind, KindMeta> = {
     activeClass:
       "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300",
     iconClass: "text-blue-500 dark:text-blue-400",
+  },
+  external: {
+    label: "Google",
+    Icon: GlobeAltIcon,
+    activeClass:
+      "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300",
+    iconClass: "text-sky-500 dark:text-sky-400",
   },
   payment: {
     label: "Plaćanja",

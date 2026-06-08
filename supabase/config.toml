@@ -25,3 +25,16 @@ verify_jwt = false
 # a user session. Same X-Cron-Secret pattern as send-due-pushes.
 [functions.notify-on-create]
 verify_jwt = false
+
+# gcal-oauth-callback is hit by Google's OAuth redirect — a top-level browser
+# navigation with no Supabase session, so there's no JWT to verify. Security
+# comes from the HMAC-signed `state` that gcal-oauth-start issued. The other
+# gcal functions (gcal-oauth-start, gcal-disconnect, gcal-calendars) are called
+# from the client with the user's session and keep the default verify_jwt = true.
+[functions.gcal-oauth-callback]
+verify_jwt = false
+
+# gcal-sync is fired by pg_cron, not a user session — same X-Cron-Secret pattern
+# as send-due-pushes.
+[functions.gcal-sync]
+verify_jwt = false

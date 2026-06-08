@@ -466,7 +466,8 @@ export type NotificationKind =
   | "evening_digest"
   | "event_reminder"
   | "payment_reminder"
-  | "activity_reminder";
+  | "activity_reminder"
+  | "external_reminder";
 
 export interface NotificationLogRow {
   id: string;
@@ -475,4 +476,122 @@ export interface NotificationLogRow {
   /** Date (YYYY-MM-DD) for digests, item UUID for reminders */
   ref_id: string;
   sent_at: string;
+}
+
+/**
+ * Token-free view of a member's Google Calendar connection
+ * (`google_connections_safe`). The OAuth tokens live only on the base
+ * `google_connections` table, reachable solely by the sync Edge Functions; the
+ * client only ever sees this status row.
+ */
+export interface GoogleConnectionSafe {
+  id: string;
+  user_id: string;
+  family_id: string;
+  google_account_email: string;
+  scopes: string | null;
+  /**
+   * True after a token refresh failed (e.g. the 7-day refresh-token expiry that
+   * applies while the OAuth app is in Google "Testing" mode) — the UI shows a
+   * "Poveži ponovo" prompt until the member re-consents.
+   */
+  needs_reauth: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A read-only event mirrored from Google (`external_calendar_events`). Surfaced
+ * in the agenda alongside native events; never edited. `local_date` /
+ * `start_time` / `end_time` are the wall-clock projection used for bucketing
+ * (matching native `events`); `html_link` deep-links back to Google.
+ */
+export interface ExternalCalendarEvent {
+  id: string;
+  calendar_id: string;
+  family_id: string;
+  owner_user_id: string;
+  visibility: "family" | "private";
+  google_event_id: string;
+  ical_uid: string | null;
+  recurring_event_id: string | null;
+  title: string | null;
+  description: string | null;
+  location: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  local_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  is_all_day: boolean;
+  /** default | fromGmail | birthday | outOfOffice | focusTime | workingLocation */
+  event_type: string | null;
+  status: string | null;
+  html_link: string | null;
+  /** fromGmail events: deep link to the originating Gmail/source item. */
+  source_url: string | null;
+  /** Source calendar's hex color, for tinting the event in the agenda. */
+  color: string | null;
+  /**
+   * Local enrichment, merged client-side from `external_event_local` by
+   * `ical_uid` (not columns on this row). `assigned_person_id` puts the event in
+   * a family member's person filter + shows their badge; `remind_minutes_before`
+   * drives a family push reminder.
+   */
+  assigned_person_id?: string | null;
+  remind_minutes_before?: number | null;
+}
+
+/**
+ * App-local metadata for a mirrored Google event (`external_event_local`), keyed
+ * by the stable `ical_uid` so it survives re-syncs. Never written back to Google.
+ */
+export interface ExternalEventLocal {
+  ical_uid: string;
+  assigned_person_id: string | null;
+  remind_minutes_before: number | null;
+}
+
+/** Per-calendar privacy gate for what gets mirrored into the family agenda. */
+export type GoogleCalendarSharing = "none" | "private" | "family";
+
+/**
+ * A calendar under a connected Google account (`google_calendars`), as shown in
+ * the Settings picker. `sharing` controls whether — and to whom — this
+ * calendar's events are mirrored: 'none' = don't import, 'private' = only the
+ * connecting member, 'family' = the whole family. The OAuth tokens stay on
+ * `google_connections`; this row carries no secrets.
+ */
+export interface GoogleCalendar {
+  id: string;
+  connection_id: string;
+  google_calendar_id: string;
+  summary: string | null;
+  /** Hex background color from Google (e.g. "#0088aa"), or null. */
+  color: string | null;
+  /** owner | writer | reader | freeBusyReader. */
+  access_role: string | null;
+  is_primary: boolean;
+  sharing: GoogleCalendarSharing;
+  /**
+   * Events found in the sync window, surfaced by the picker `list` action so a
+   * member can judge whether importing a calendar is worth it. Null if the count
+   * couldn't be fetched; `event_count_capped` = more than the 2500 probe cap.
+   */
+  event_count?: number | null;
+  event_count_capped?: boolean;
+}
+
+/**
+ * Per-member "what to import from Google" preferences. `default` events are
+ * always mirrored; these gate the special event types (skip-list semantics).
+ * One row per connecting member; applies across all their calendars.
+ */
+export interface GoogleSyncPreferences {
+  /** Gmail-auto travel events (flights / hotels / reservations). */
+  import_from_gmail: boolean;
+  /** Contact birthdays + anniversaries. */
+  import_birthdays: boolean;
+  /** Out-of-office / focus-time / working-location markers. */
+  import_work_markers: boolean;
 }

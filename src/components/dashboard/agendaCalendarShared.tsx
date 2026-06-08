@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BanknotesIcon, CakeIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
@@ -27,6 +27,8 @@ const MIN_BLOCK_HEIGHT_PX = 24;
 const DEFAULT_EVENT_MINUTES = 60;
 /** blue-500 — matches the event row icon / list accent. */
 const EVENT_COLOR = "#3b82f6";
+/** sky-500 — the mirrored-Google-event accent (distinct from native blue). */
+const EXTERNAL_COLOR = "#0ea5e9";
 
 export type TimedEntry = { startTime: string; endTime: string; item: AgendaItem };
 export type PositionedEntry = Laned<TimedEntry> & { topPx: number; heightPx: number };
@@ -36,6 +38,7 @@ export function isAllDayItem(item: AgendaItem): boolean {
     case "activity":
       return false;
     case "event":
+    case "external":
       return item.isAllDay;
     case "payment":
     case "birthday":
@@ -53,7 +56,11 @@ export function timedRange(item: AgendaItem): { startTime: string; endTime: stri
   if (item.kind === "activity") {
     return { startTime: item.block.startTime, endTime: item.block.endTime };
   }
-  if (item.kind === "event" && !item.isAllDay && item.event.start_time) {
+  if (
+    (item.kind === "event" || item.kind === "external") &&
+    !item.isAllDay &&
+    item.event.start_time
+  ) {
     const startTime = normalizeTime(item.event.start_time);
     const endTime = item.event.end_time
       ? normalizeTime(item.event.end_time)
@@ -224,6 +231,9 @@ export function TimedBlock({
         }) || "Bez imena"
       : "—";
     label = `${personName} · ${item.activity?.name ?? "Aktivnost"}`;
+  } else if (item.kind === "external") {
+    color = item.event.color ?? EXTERNAL_COLOR;
+    label = item.event.title ?? "(bez naslova)";
   } else {
     color = EVENT_COLOR;
     label = item.kind === "event" ? item.event.name : "";
@@ -342,6 +352,26 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
           {item.birthday.name}
         </span>
+      </button>
+    );
+  }
+
+  if (item.kind === "external") {
+    // Tint by the source calendar's color (inline, since it's dynamic) — same
+    // bg/left-border treatment as the timed blocks.
+    const color = item.event.color ?? EXTERNAL_COLOR;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{ backgroundColor: `${color}14`, borderColor: `${color}55`, borderLeftColor: color }}
+        className={cn(ALL_DAY_CARD, "flex items-center gap-1.5 hover:brightness-95")}
+      >
+        <GlobeAltIcon className="size-3.5 shrink-0" style={{ color }} />
+        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+          {item.event.title ?? "(bez naslova)"}
+        </span>
+        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
       </button>
     );
   }

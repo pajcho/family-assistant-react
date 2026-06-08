@@ -4,13 +4,14 @@ import { ActivityEditDialog } from "@/components/activities/ActivityEditDialog";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
 import { BirthdayDetailDialog } from "@/components/dashboard/BirthdayDetailDialog";
 import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
+import { ExternalEventDetailDialog } from "@/components/dashboard/ExternalEventDetailDialog";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { useActivities } from "@/hooks/useActivities";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import type { Activity, Birthday, Event, Payment } from "@/types/database";
+import type { Activity, Birthday, Event, ExternalCalendarEvent, Payment } from "@/types/database";
 import type { ResolvedActivityBlock } from "@/utils/activity";
 
 /**
@@ -47,6 +48,7 @@ export function useAgendaDetails({
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<ResolvedActivityBlock | null>(null);
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
+  const [selectedExternal, setSelectedExternal] = useState<ExternalCalendarEvent | null>(null);
   // The activity whose full edit form is open inline (no /activities redirect).
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
@@ -63,6 +65,9 @@ export function useAgendaDetails({
         break;
       case "birthday":
         setSelectedBirthday(item.birthday);
+        break;
+      case "external":
+        setSelectedExternal(item.event);
         break;
     }
   };
@@ -117,6 +122,14 @@ export function useAgendaDetails({
         }}
         birthday={selectedBirthday}
         onEdit={onEditBirthday}
+      />
+
+      <ExternalEventDetailDialog
+        open={!!selectedExternal}
+        onOpenChange={(open) => {
+          if (!open) setSelectedExternal(null);
+        }}
+        event={selectedExternal}
       />
     </>
   );
