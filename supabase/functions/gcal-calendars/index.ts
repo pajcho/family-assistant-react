@@ -91,6 +91,21 @@ async function setSharing(
     .maybeSingle();
   if (error) return json({ error: error.message }, 500);
   if (!data) return json({ error: "not_found" }, 404);
+
+  // Reflect the change on already-mirrored events right away (the next sync only
+  // brings CHANGED events, so unchanged rows would otherwise keep stale state):
+  //  - 'none'    -> stop mirroring: drop the events + reset the sync cursor so a
+  //                 future re-enable does a clean full sync.
+  //  - else      -> flip visibility so RLS exposes them to the right audience.
+  if (sharing === "none") {
+    await admin.from("external_calendar_events").delete().eq("calendar_id", body.calendarId);
+    await admin.from("google_calendars").update({ sync_token: null }).eq("id", body.calendarId);
+  } else {
+    await admin
+      .from("external_calendar_events")
+      .update({ visibility: sharing })
+      .eq("calendar_id", body.calendarId);
+  }
   return json({ ok: true });
 }
 

@@ -83,12 +83,25 @@ async function flagReauth(admin: Admin, connectionId: string): Promise<void> {
   await admin.from("google_connections").update({ needs_reauth: true }).eq("id", connectionId);
 }
 
+/**
+ * A non-2xx response from the Google API. `status` lets callers branch — most
+ * importantly on 410 GONE, which means a `syncToken` expired and the caller must
+ * wipe + full-resync that calendar.
+ */
+export class GoogleApiError extends Error {
+  status: number;
+  constructor(status: number, body: string) {
+    super(`google_api_${status}: ${body.slice(0, 200)}`);
+    this.name = "GoogleApiError";
+    this.status = status;
+  }
+}
+
 /** GETs a Google API URL with the bearer token; returns parsed JSON or throws. */
 export async function googleGet<T>(accessToken: string, url: string): Promise<T> {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`google_api_${res.status}: ${body.slice(0, 200)}`);
+    throw new GoogleApiError(res.status, await res.text());
   }
   return (await res.json()) as T;
 }
