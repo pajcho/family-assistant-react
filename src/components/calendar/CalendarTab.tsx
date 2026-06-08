@@ -2,7 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useGoogleCalendars } from "@/hooks/useGoogleCalendars";
-import type { GoogleCalendar, GoogleCalendarSharing } from "@/types/database";
+import { useGoogleSyncPrefs } from "@/hooks/useGoogleSyncPrefs";
+import type {
+  GoogleCalendar,
+  GoogleCalendarSharing,
+  GoogleSyncPreferences,
+} from "@/types/database";
 import { cn } from "@/lib/cn";
 
 /**
@@ -85,6 +90,8 @@ export function CalendarTab() {
             ))}
           </div>
         )}
+
+        {connections.length > 0 ? <ImportPrefs /> : null}
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void connect()} disabled={isConnecting}>
@@ -201,6 +208,81 @@ function SharingSelect({ value, onChange }: SharingSelectProps) {
       >
         <path d="m6 9 6 6 6-6" />
       </svg>
+    </div>
+  );
+}
+
+/**
+ * Per-member "what to import" toggles (skip-list — `default` events always come).
+ * Applies across all the member's calendars; changing one re-syncs them.
+ */
+function ImportPrefs() {
+  const { prefs, isLoading, setPrefs, isSaving } = useGoogleSyncPrefs(true);
+  const toggle = (key: keyof GoogleSyncPreferences) => setPrefs({ ...prefs, [key]: !prefs[key] });
+  const disabled = isLoading || isSaving;
+
+  return (
+    <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+      <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Šta uvozim sa Google-a
+      </h4>
+      <PrefRow
+        id="from-gmail"
+        label="Putovanja iz Gmaila (letovi, hoteli)"
+        checked={prefs.import_from_gmail}
+        onChange={() => toggle("import_from_gmail")}
+        disabled={disabled}
+      />
+      <PrefRow
+        id="birthdays"
+        label="Rođendani iz kontakata"
+        checked={prefs.import_birthdays}
+        onChange={() => toggle("import_birthdays")}
+        disabled={disabled}
+      />
+      <PrefRow
+        id="work-markers"
+        label="Radni markeri (van kancelarije, fokus, lokacija)"
+        checked={prefs.import_work_markers}
+        onChange={() => toggle("import_work_markers")}
+        disabled={disabled}
+      />
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Obični događaji se uvek uvoze. Promena odmah re-sinhronizuje tvoje kalendare.
+      </p>
+    </div>
+  );
+}
+
+function PrefRow({
+  id,
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        id={`gcal-pref-${id}`}
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+      />
+      <label
+        htmlFor={`gcal-pref-${id}`}
+        className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+      >
+        {label}
+      </label>
     </div>
   );
 }

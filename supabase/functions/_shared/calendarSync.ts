@@ -88,15 +88,16 @@ export async function syncOneCalendar(admin: Admin, cal: SyncCalendarRow): Promi
 
   const visibility = cal.sharing === "family" ? "family" : "private";
   const tz = await getOwnerTz(admin, cal.owner_user_id);
+  const skipTypes = await getSkipTypes(admin, cal.owner_user_id);
 
   try {
-    const newToken = await pull(admin, accessToken, cal, visibility, tz, cal.sync_token);
+    const newToken = await pull(admin, accessToken, cal, visibility, tz, skipTypes, cal.sync_token);
     await finishSync(admin, cal.id, newToken);
   } catch (e) {
     if (e instanceof GoogleApiError && e.status === 410) {
       // Expired syncToken: drop everything for this calendar and full-resync.
       await admin.from("external_calendar_events").delete().eq("calendar_id", cal.id);
-      const newToken = await pull(admin, accessToken, cal, visibility, tz, null);
+      const newToken = await pull(admin, accessToken, cal, visibility, tz, skipTypes, null);
       await finishSync(admin, cal.id, newToken);
     } else {
       await unlock(admin, cal.id);
@@ -144,6 +145,7 @@ async function pull(
   cal: SyncCalendarRow,
   visibility: "family" | "private",
   tz: string,
+  skipTypes: Set<string>,
   syncToken: string | null,
 ): Promise<string | null> {
   let pageToken: string | undefined;
@@ -154,7 +156,7 @@ async function pull(
       eventsUrl(cal.google_calendar_id, syncToken, pageToken),
     );
     for (const ev of page.items ?? []) {
-      await applyEvent(admin, cal, visibility, tz, ev);
+      await applyEvent(admin, cal, visibility, tz, skipTypes, ev);
     }
     pageToken = page.nextPageToken;
     if (page.nextSyncToken) nextSyncToken = page.nextSyncToken;
@@ -185,11 +187,14 @@ async function applyEvent(
   cal: SyncCalendarRow,
   visibility: "family" | "private",
   tz: string,
+  skipTypes: Set<string>,
   ev: GEvent,
 ): Promise<void> {
-  // Cancelled, or an invite the connecting member declined → ensure it's gone.
+  // Cancelled, an invite the connecting member declined, or an event type they
+  // chose not to import (contact birthdays / work markers / Gmail travel) →
+  // ensure it's gone (it may have been stored before the rule changed).
   const selfDeclined = (ev.attendees ?? []).some((a) => a.self && a.responseStatus === "declined");
-  if (ev.status === "cancelled" || selfDeclined) {
+  if (ev.status === "cancelled" || selfDeclined || (ev.eventType && skipTypes.has(ev.eventType))) {
     await admin
       .from("external_calendar_events")
       .delete()
@@ -286,4 +291,37 @@ async function getOwnerTz(admin: Admin, ownerUserId: string): Promise<string> {
     .eq("user_id", ownerUserId)
     .maybeSingle();
   return data?.timezone || DEFAULT_TZ;
+}
+
+interface SyncPrefs {
+  import_from_gmail: boolean;
+  import_birthdays: boolean;
+  import_work_markers: boolean;
+}
+
+// Member with no prefs row uses these — Gmail travel ON, the rest OFF (noise).
+const DEFAULT_PREFS: SyncPrefs = {
+  import_from_gmail: true,
+  import_birthdays: false,
+  import_work_markers: false,
+};
+
+/** The set of eventTypes NOT to mirror, from the owner's import prefs. `default`
+ *  (and any unknown/future type) is never skipped — skip-list, not allow-list. */
+async function getSkipTypes(admin: Admin, ownerUserId: string): Promise<Set<string>> {
+  const { data } = await admin
+    .from("google_sync_preferences")
+    .select("import_from_gmail, import_birthdays, import_work_markers")
+    .eq("user_id", ownerUserId)
+    .maybeSingle();
+  const p = (data as SyncPrefs | null) ?? DEFAULT_PREFS;
+  const skip = new Set<string>();
+  if (!p.import_from_gmail) skip.add("fromGmail");
+  if (!p.import_birthdays) skip.add("birthday");
+  if (!p.import_work_markers) {
+    skip.add("outOfOffice");
+    skip.add("focusTime");
+    skip.add("workingLocation");
+  }
+  return skip;
 }

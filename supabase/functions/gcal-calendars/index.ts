@@ -37,9 +37,14 @@ interface CalendarListEntry {
 }
 
 interface Body {
-  action?: "list" | "set_sharing";
+  action?: "list" | "set_sharing" | "set_sync_prefs";
   calendarId?: string;
   sharing?: string;
+  prefs?: {
+    import_from_gmail?: boolean;
+    import_birthdays?: boolean;
+    import_work_markers?: boolean;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -67,11 +72,64 @@ Deno.serve(async (req) => {
   if (body.action === "set_sharing") {
     return await setSharing(admin, callerId, body);
   }
+  if (body.action === "set_sync_prefs") {
+    return await setSyncPrefs(admin, callerId, body);
+  }
   if (body.action === "list") {
     return await listCalendars(admin, callerId);
   }
   return json({ error: "invalid_request" }, 400);
 });
+
+async function setSyncPrefs(
+  admin: ReturnType<typeof createClient>,
+  callerId: string,
+  body: Body,
+): Promise<Response> {
+  const prefs = body.prefs;
+  if (!prefs || typeof prefs !== "object") return json({ error: "invalid_request" }, 400);
+
+  const { error } = await admin.from("google_sync_preferences").upsert(
+    {
+      user_id: callerId,
+      import_from_gmail: prefs.import_from_gmail ?? true,
+      import_birthdays: prefs.import_birthdays ?? false,
+      import_work_markers: prefs.import_work_markers ?? false,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+  if (error) return json({ error: error.message }, 500);
+
+  // Reset the cursor on the caller's shared calendars so a full re-pull applies
+  // the new filter (now-excluded types get deleted, newly-allowed ones fetched),
+  // then re-sync them immediately. Heavy-ish but rare (a settings change).
+  await admin
+    .from("google_calendars")
+    .update({ sync_token: null })
+    .eq("owner_user_id", callerId)
+    .neq("sharing", "none");
+
+  const resync = (async () => {
+    const { data: cals } = await admin
+      .from("google_calendars")
+      .select(CALENDAR_SELECT)
+      .eq("owner_user_id", callerId)
+      .neq("sharing", "none");
+    for (const cal of (cals ?? []) as unknown as SyncCalendarRow[]) {
+      try {
+        await syncOneCalendar(admin, cal);
+      } catch (e) {
+        console.error("gcal-calendars prefs re-sync failed:", e instanceof Error ? e.message : e);
+      }
+    }
+  })();
+  const er = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
+  if (er) er.waitUntil(resync);
+  else await resync;
+
+  return json({ ok: true });
+}
 
 async function setSharing(
   admin: ReturnType<typeof createClient>,

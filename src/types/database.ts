@@ -553,3 +553,17 @@ export interface GoogleCalendar {
   is_primary: boolean;
   sharing: GoogleCalendarSharing;
 }
+
+/**
+ * Per-member "what to import from Google" preferences. `default` events are
+ * always mirrored; these gate the special event types (skip-list semantics).
+ * One row per connecting member; applies across all their calendars.
+ */
+export interface GoogleSyncPreferences {
+  /** Gmail-auto travel events (flights / hotels / reservations). */
+  import_from_gmail: boolean;
+  /** Contact birthdays + anniversaries. */
+  import_birthdays: boolean;
+  /** Out-of-office / focus-time / working-location markers. */
+  import_work_markers: boolean;
+}
