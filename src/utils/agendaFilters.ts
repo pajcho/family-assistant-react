@@ -50,13 +50,14 @@ export function agendaItemPersonIds(item: AgendaItem): string[] {
  *
  * - Type: with kinds selected, only those kinds pass.
  * - Person: with people selected, an item passes only if it's assigned to at
- *   least one of them. **Birthdays and Google events are exempt — always
- *   shown** (they carry no person assignment). An unassigned event/payment is
- *   hidden while a person filter is active (it's nobody's).
+ *   least one of them. **Birthdays are exempt — always shown** (they carry no
+ *   person). An unassigned event / payment / Google event is hidden while a
+ *   person filter is active (it's nobody's); assigning a Google event to a
+ *   member makes it appear under their filter.
  */
 export function matchesAgendaFilter(item: AgendaItem, filter: AgendaFilter): boolean {
   if (filter.kinds.size > 0 && !filter.kinds.has(item.kind)) return false;
-  if (filter.personIds.size > 0 && item.kind !== "birthday" && item.kind !== "external") {
+  if (filter.personIds.size > 0 && item.kind !== "birthday") {
     const ids = agendaItemPersonIds(item);
     if (!ids.some((id) => filter.personIds.has(id))) return false;
   }

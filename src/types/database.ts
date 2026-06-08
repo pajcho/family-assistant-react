@@ -531,6 +531,24 @@ export interface ExternalCalendarEvent {
   source_url: string | null;
   /** Source calendar's hex color, for tinting the event in the agenda. */
   color: string | null;
+  /**
+   * Local enrichment, merged client-side from `external_event_local` by
+   * `ical_uid` (not columns on this row). `assigned_person_id` puts the event in
+   * a family member's person filter + shows their badge; `remind_minutes_before`
+   * drives a family push reminder.
+   */
+  assigned_person_id?: string | null;
+  remind_minutes_before?: number | null;
+}
+
+/**
+ * App-local metadata for a mirrored Google event (`external_event_local`), keyed
+ * by the stable `ical_uid` so it survives re-syncs. Never written back to Google.
+ */
+export interface ExternalEventLocal {
+  ical_uid: string;
+  assigned_person_id: string | null;
+  remind_minutes_before: number | null;
 }
 
 /** Per-calendar privacy gate for what gets mirrored into the family agenda. */

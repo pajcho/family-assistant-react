@@ -89,7 +89,14 @@ export function AgendaItemRow({
     case "birthday":
       return <BirthdayRow birthday={item.birthday} onClick={onClick} />;
     case "external":
-      return <ExternalEventRow event={item.event} isAllDay={item.isAllDay} onClick={onClick} />;
+      return (
+        <ExternalEventRow
+          event={item.event}
+          isAllDay={item.isAllDay}
+          personIds={item.personIds}
+          onClick={onClick}
+        />
+      );
   }
 }
 
@@ -278,10 +285,12 @@ function isExternalEventPast(event: ExternalCalendarEvent): boolean {
 function ExternalEventRow({
   event,
   isAllDay,
+  personIds,
   onClick,
 }: {
   event: ExternalCalendarEvent;
   isAllDay: boolean;
+  personIds: string[];
   onClick: () => void;
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
@@ -311,6 +320,7 @@ function ExternalEventRow({
         <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-sky-700 uppercase dark:bg-sky-500/15 dark:text-sky-300">
           Google
         </span>
+        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
       </button>
     </li>
   );

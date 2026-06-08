@@ -19,6 +19,7 @@ import { useBirthdaysList } from "@/hooks/useBirthdays";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useEventsList } from "@/hooks/useEvents";
 import { useExternalEventsList } from "@/hooks/useExternalEvents";
+import { useExternalEventLocal } from "@/hooks/useExternalEventLocal";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
@@ -130,6 +131,8 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
   const eventsQuery = useEventsList({ from, to });
   // Mirrored Google events are range-scoped on local_date, same as events.
   const externalQuery = useExternalEventsList({ from, to });
+  // Local enrichment (assignment / reminder) merged in by ical_uid.
+  const { byUid: externalLocalByUid } = useExternalEventLocal();
   const { byEvent } = useEventParticipants();
   const paymentsQuery = usePaymentsList();
   const { byPayment } = usePaymentParticipants();
@@ -189,13 +192,19 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
     // Read-only mirror; declined/cancelled were already dropped at sync time.
     for (const ext of externalQuery.data ?? []) {
       const startTime = ext.start_time ? normalizeTime(ext.start_time) : null;
+      const local = ext.ical_uid ? externalLocalByUid.get(ext.ical_uid) : undefined;
+      const assigned = local?.assigned_person_id ?? null;
       out.push({
         kind: "external",
         date: ext.local_date,
         sortKey: startTime ? timeToMin(startTime) : ALL_DAY_SORT_KEY,
-        event: ext,
+        event: {
+          ...ext,
+          assigned_person_id: assigned,
+          remind_minutes_before: local?.remind_minutes_before ?? null,
+        },
         isAllDay: ext.is_all_day || !startTime,
-        personIds: [],
+        personIds: assigned ? [assigned] : [],
       });
     }
 
@@ -238,6 +247,7 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
     activitiesById,
     eventsQuery.data,
     externalQuery.data,
+    externalLocalByUid,
     byEvent,
     paymentsQuery.data,
     paymentOverridesByKey,

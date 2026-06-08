@@ -371,6 +371,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
           {item.event.title ?? "(bez naslova)"}
         </span>
+        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
       </button>
     );
   }
