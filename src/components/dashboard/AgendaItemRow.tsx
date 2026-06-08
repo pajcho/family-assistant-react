@@ -1,10 +1,17 @@
 import { format } from "date-fns";
-import { BanknotesIcon, CakeIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
-import type { Activity, Birthday, Event, Payment, Profile } from "@/types/database";
+import type {
+  Activity,
+  Birthday,
+  Event,
+  ExternalCalendarEvent,
+  Payment,
+  Profile,
+} from "@/types/database";
 import {
   fallbackColorForProfile,
   normalizeTime,
@@ -81,6 +88,8 @@ export function AgendaItemRow({
       );
     case "birthday":
       return <BirthdayRow birthday={item.birthday} onClick={onClick} />;
+    case "external":
+      return <ExternalEventRow event={item.event} isAllDay={item.isAllDay} onClick={onClick} />;
   }
 }
 
@@ -252,6 +261,52 @@ function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () =>
           <span className="font-medium text-gray-900 dark:text-gray-100">{birthday.name}</span>
           <span className="text-muted-foreground"> · </span>
           <span className="text-gray-700 dark:text-gray-300">{nextAge}. rođendan</span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** Past once its end (or start, if no end) has elapsed; all-day past after its day. */
+function isExternalEventPast(event: ExternalCalendarEvent): boolean {
+  if (event.is_all_day || !event.start_at) {
+    return event.local_date < format(new Date(), "yyyy-MM-dd");
+  }
+  return new Date(event.end_at ?? event.start_at) < new Date();
+}
+
+function ExternalEventRow({
+  event,
+  isAllDay,
+  onClick,
+}: {
+  event: ExternalCalendarEvent;
+  isAllDay: boolean;
+  onClick: () => void;
+}) {
+  const startTime = event.start_time ? normalizeTime(event.start_time) : null;
+  const endTime = event.end_time ? normalizeTime(event.end_time) : null;
+  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}–${endTime}` : (startTime ?? "");
+  const isPast = isExternalEventPast(event);
+
+  return (
+    <li>
+      <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
+        <span className={TIME_GUTTER_CLASS}>{timeLabel}</span>
+        <GlobeAltIcon className="size-3.5 shrink-0 text-sky-500 dark:text-sky-400" />
+        <span className="min-w-0 truncate">
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {event.title ?? "(bez naslova)"}
+          </span>
+          {event.location ? (
+            <>
+              <span className="text-muted-foreground"> · </span>
+              <span className="text-gray-700 dark:text-gray-300">{event.location}</span>
+            </>
+          ) : null}
+        </span>
+        <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-sky-700 uppercase dark:bg-sky-500/15 dark:text-sky-300">
+          Google
         </span>
       </button>
     </li>

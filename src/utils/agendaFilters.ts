@@ -9,8 +9,14 @@ import type { AgendaItem } from "@/hooks/useAgenda";
 
 export type AgendaKind = AgendaItem["kind"];
 
-/** Canonical display order for the four item kinds. */
-export const AGENDA_KINDS: readonly AgendaKind[] = ["activity", "event", "payment", "birthday"];
+/** Canonical display order for the item kinds. */
+export const AGENDA_KINDS: readonly AgendaKind[] = [
+  "activity",
+  "event",
+  "external",
+  "payment",
+  "birthday",
+];
 
 export interface AgendaFilter {
   /** Selected kinds. Empty = no type filter (all kinds shown). */
@@ -32,6 +38,7 @@ export function agendaItemPersonIds(item: AgendaItem): string[] {
       return [item.block.personId];
     case "event":
     case "payment":
+    case "external":
       return item.personIds;
     case "birthday":
       return [];
@@ -43,13 +50,13 @@ export function agendaItemPersonIds(item: AgendaItem): string[] {
  *
  * - Type: with kinds selected, only those kinds pass.
  * - Person: with people selected, an item passes only if it's assigned to at
- *   least one of them. **Birthdays are exempt — always shown** (they carry no
- *   person, and there are few of them). An unassigned event/payment is hidden
- *   while a person filter is active (it's nobody's).
+ *   least one of them. **Birthdays and Google events are exempt — always
+ *   shown** (they carry no person assignment). An unassigned event/payment is
+ *   hidden while a person filter is active (it's nobody's).
  */
 export function matchesAgendaFilter(item: AgendaItem, filter: AgendaFilter): boolean {
   if (filter.kinds.size > 0 && !filter.kinds.has(item.kind)) return false;
-  if (filter.personIds.size > 0 && item.kind !== "birthday") {
+  if (filter.personIds.size > 0 && item.kind !== "birthday" && item.kind !== "external") {
     const ids = agendaItemPersonIds(item);
     if (!ids.some((id) => filter.personIds.has(id))) return false;
   }

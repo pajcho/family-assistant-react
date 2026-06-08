@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BanknotesIcon, CakeIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
@@ -27,6 +27,8 @@ const MIN_BLOCK_HEIGHT_PX = 24;
 const DEFAULT_EVENT_MINUTES = 60;
 /** blue-500 — matches the event row icon / list accent. */
 const EVENT_COLOR = "#3b82f6";
+/** sky-500 — the mirrored-Google-event accent (distinct from native blue). */
+const EXTERNAL_COLOR = "#0ea5e9";
 
 export type TimedEntry = { startTime: string; endTime: string; item: AgendaItem };
 export type PositionedEntry = Laned<TimedEntry> & { topPx: number; heightPx: number };
@@ -36,6 +38,7 @@ export function isAllDayItem(item: AgendaItem): boolean {
     case "activity":
       return false;
     case "event":
+    case "external":
       return item.isAllDay;
     case "payment":
     case "birthday":
@@ -53,7 +56,11 @@ export function timedRange(item: AgendaItem): { startTime: string; endTime: stri
   if (item.kind === "activity") {
     return { startTime: item.block.startTime, endTime: item.block.endTime };
   }
-  if (item.kind === "event" && !item.isAllDay && item.event.start_time) {
+  if (
+    (item.kind === "event" || item.kind === "external") &&
+    !item.isAllDay &&
+    item.event.start_time
+  ) {
     const startTime = normalizeTime(item.event.start_time);
     const endTime = item.event.end_time
       ? normalizeTime(item.event.end_time)
@@ -224,6 +231,9 @@ export function TimedBlock({
         }) || "Bez imena"
       : "—";
     label = `${personName} · ${item.activity?.name ?? "Aktivnost"}`;
+  } else if (item.kind === "external") {
+    color = EXTERNAL_COLOR;
+    label = item.event.title ?? "(bez naslova)";
   } else {
     color = EVENT_COLOR;
     label = item.kind === "event" ? item.event.name : "";
@@ -276,6 +286,9 @@ const EVENT_TINT =
 const BIRTHDAY_TINT =
   "border-emerald-300/70 border-l-emerald-500 bg-emerald-50 hover:bg-emerald-100 " +
   "dark:border-emerald-500/25 dark:border-l-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20";
+const EXTERNAL_TINT =
+  "border-sky-300/70 border-l-sky-500 bg-sky-50 hover:bg-sky-100 " +
+  "dark:border-sky-500/25 dark:border-l-sky-400 dark:bg-sky-500/10 dark:hover:bg-sky-500/20";
 
 export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   if (item.kind === "payment") {
@@ -341,6 +354,21 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         <CakeIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
         <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
           {item.birthday.name}
+        </span>
+      </button>
+    );
+  }
+
+  if (item.kind === "external") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(ALL_DAY_CARD, EXTERNAL_TINT, "flex items-center gap-1.5")}
+      >
+        <GlobeAltIcon className="size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+          {item.event.title ?? "(bez naslova)"}
         </span>
       </button>
     );

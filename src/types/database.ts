@@ -499,6 +499,38 @@ export interface GoogleConnectionSafe {
   updated_at: string;
 }
 
+/**
+ * A read-only event mirrored from Google (`external_calendar_events`). Surfaced
+ * in the agenda alongside native events; never edited. `local_date` /
+ * `start_time` / `end_time` are the wall-clock projection used for bucketing
+ * (matching native `events`); `html_link` deep-links back to Google.
+ */
+export interface ExternalCalendarEvent {
+  id: string;
+  calendar_id: string;
+  family_id: string;
+  owner_user_id: string;
+  visibility: "family" | "private";
+  google_event_id: string;
+  ical_uid: string | null;
+  recurring_event_id: string | null;
+  title: string | null;
+  description: string | null;
+  location: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  local_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  is_all_day: boolean;
+  /** default | fromGmail | birthday | outOfOffice | focusTime | workingLocation */
+  event_type: string | null;
+  status: string | null;
+  html_link: string | null;
+  /** fromGmail events: deep link to the originating Gmail/source item. */
+  source_url: string | null;
+}
+
 /** Per-calendar privacy gate for what gets mirrored into the family agenda. */
 export type GoogleCalendarSharing = "none" | "private" | "family";
 
