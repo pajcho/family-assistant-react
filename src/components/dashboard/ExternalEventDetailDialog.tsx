@@ -159,16 +159,18 @@ export function ExternalEventDetailDialog({
                     onChange={onAssign}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="ext-remind">Podsetnik</Label>
-                  <ReminderSelect
-                    id="ext-remind"
-                    value={remind}
-                    onChange={onRemind}
-                    options={EVENT_REMINDER_OPTIONS}
-                    className="w-44"
-                  />
-                </div>
+                {!event.is_all_day ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="ext-remind">Podsetnik</Label>
+                    <ReminderSelect
+                      id="ext-remind"
+                      value={remind}
+                      onChange={onRemind}
+                      options={EVENT_REMINDER_OPTIONS}
+                      className="w-44"
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

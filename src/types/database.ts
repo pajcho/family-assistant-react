@@ -466,7 +466,8 @@ export type NotificationKind =
   | "evening_digest"
   | "event_reminder"
   | "payment_reminder"
-  | "activity_reminder";
+  | "activity_reminder"
+  | "external_reminder";
 
 export interface NotificationLogRow {
   id: string;

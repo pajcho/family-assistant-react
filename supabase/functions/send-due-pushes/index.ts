@@ -28,7 +28,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// SERVICE_KEY override mirrors the other functions: local dev's auto-injected
+// SUPABASE_SERVICE_ROLE_KEY can be the legacy HS256 JWT that the new auth service
+// rejects (so RLS-scoped reads come back empty); the override is the correct key.
+// SERVICE_KEY is unset in prod, so we fall back to the injected key there.
+const SERVICE_ROLE = Deno.env.get("SERVICE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
@@ -111,6 +115,11 @@ Deno.serve(async (req) => {
   // active-from/to seasons, and per-person overrides).
   const activityResults = await processActivityReminders(supabase);
   results.push(...activityResults);
+
+  // Per-mirrored-Google-event reminders — like event reminders, but the time
+  // lives on the synced external event and the offset on external_event_local.
+  const externalResults = await processExternalReminders(supabase);
+  results.push(...externalResults);
 
   return Response.json({ ok: true, force, processed: results });
 });
@@ -357,6 +366,167 @@ async function dispatchEventReminder(
       }
     }
     out.push({ user_id: userId, kind: "event_reminder", event_id: ev.id, sent, dead });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Per-mirrored-Google-event reminders
+// ---------------------------------------------------------------------------
+//
+// The reminder offset lives on external_event_local (per family + ical_uid); the
+// fire time comes from the matching mirrored event instance(s) in
+// external_calendar_events. Recurring events share an ical_uid, so the reminder
+// applies to each occurrence. Only TIMED events get reminders (all-day has no
+// start). ref_id `<ical_uid>:<local_date>` is stable across re-syncs (the event
+// row's own id is not) so an occurrence fires exactly once.
+
+interface ExternalReminderEvent {
+  id: string;
+  family_id: string;
+  title: string | null;
+  local_date: string;
+  start_time: string;
+  ical_uid: string;
+  remind_minutes_before: number;
+}
+
+async function processExternalReminders(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<unknown[]> {
+  const { data: locals, error: lErr } = await supabase
+    .from("external_event_local")
+    .select("family_id, ical_uid, remind_minutes_before")
+    .not("remind_minutes_before", "is", null);
+  if (lErr) return [{ kind: "external_reminder", error: lErr.message }];
+  const reminders = (locals ?? []) as {
+    family_id: string;
+    ical_uid: string;
+    remind_minutes_before: number;
+  }[];
+  if (reminders.length === 0) return [];
+
+  const remindByKey = new Map<string, number>();
+  const uids: string[] = [];
+  for (const r of reminders) {
+    remindByKey.set(`${r.family_id}|${r.ical_uid}`, r.remind_minutes_before);
+    uids.push(r.ical_uid);
+  }
+
+  // Mirrored timed events for those uids, within ±1 day of UTC today (the exact
+  // fire minute is decided per recipient tz below).
+  const utcDate = new Date().toISOString().slice(0, 10);
+  const window = [addDays(utcDate, -1), utcDate, addDays(utcDate, 1)];
+  const { data: events, error: eErr } = await supabase
+    .from("external_calendar_events")
+    .select("id, family_id, title, local_date, start_time, ical_uid")
+    .in("ical_uid", uids)
+    .not("start_time", "is", null)
+    .in("local_date", window);
+  if (eErr) return [{ kind: "external_reminder", error: eErr.message }];
+
+  const out: unknown[] = [];
+  for (const ev of (events ?? []) as Omit<ExternalReminderEvent, "remind_minutes_before">[]) {
+    const remind = remindByKey.get(`${ev.family_id}|${ev.ical_uid}`);
+    if (remind == null) continue;
+    out.push(
+      ...(await dispatchExternalReminder(supabase, { ...ev, remind_minutes_before: remind })),
+    );
+  }
+  return out;
+}
+
+async function dispatchExternalReminder(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  ev: ExternalReminderEvent,
+): Promise<unknown[]> {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("family_id", ev.family_id);
+  const memberIds = ((profiles ?? []) as { id: string }[]).map((p) => p.id);
+  if (memberIds.length === 0) return [];
+
+  const fire = eventLocalFireTime(ev.local_date, ev.start_time, ev.remind_minutes_before);
+  const refId = `${ev.ical_uid}:${ev.local_date}`;
+  const out: unknown[] = [];
+
+  for (const userId of memberIds) {
+    const { data: pref } = await supabase
+      .from("notification_preferences")
+      .select("timezone")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const tz = (pref as { timezone?: string } | null)?.timezone ?? "Europe/Belgrade";
+
+    if (localDateISO(tz) !== fire.date || localTime(tz) !== fire.time) continue;
+
+    const { error: logError } = await supabase
+      .from("notification_log")
+      .insert({ user_id: userId, kind: "external_reminder", ref_id: refId });
+    if (logError) {
+      if (logError.code === "23505") {
+        out.push({
+          user_id: userId,
+          kind: "external_reminder",
+          ref_id: refId,
+          status: "already_sent",
+        });
+        continue;
+      }
+      out.push({
+        user_id: userId,
+        kind: "external_reminder",
+        ref_id: refId,
+        error: logError.message,
+      });
+      continue;
+    }
+
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth")
+      .eq("user_id", userId);
+    const subList = (subs ?? []) as PushSub[];
+    if (subList.length === 0) {
+      out.push({
+        user_id: userId,
+        kind: "external_reminder",
+        ref_id: refId,
+        status: "no_subscriptions",
+      });
+      continue;
+    }
+
+    const startHHMM = ev.start_time.slice(0, 5);
+    const payload = JSON.stringify({
+      title: ev.title ?? "Google događaj",
+      body: `Počinje za ${ev.remind_minutes_before} min (u ${startHHMM}).`,
+      url: "/uskoro",
+      tag: `external-reminder-${refId}`,
+    });
+
+    let sent = 0;
+    let dead = 0;
+    for (const sub of subList) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        sent++;
+      } catch (e) {
+        // deno-lint-ignore no-explicit-any
+        const status = (e as any)?.statusCode as number | undefined;
+        if (status === 404 || status === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+          dead++;
+        }
+      }
+    }
+    out.push({ user_id: userId, kind: "external_reminder", ref_id: refId, sent, dead });
   }
   return out;
 }
