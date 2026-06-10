@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { GlobeAltIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState, type ReactNode } from "react";
+import { GlobeAltIcon, MapPinIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -39,11 +39,43 @@ function timeRangeLabel(event: ExternalCalendarEvent): string {
   return end ? `${start}–${end}` : start;
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+/** Google Maps "search" deep link for a free-text location — opens the Maps app
+ *  on mobile, maps.google.com on desktop. */
+function mapsSearchUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
+function DetailRow({
+  label,
+  value,
+  href,
+  icon,
+}: {
+  label: string;
+  value: string;
+  /** When set, the value renders as a link opening in a new tab. */
+  href?: string;
+  /** Optional inline icon shown before the value (e.g. a map pin). */
+  icon?: ReactNode;
+}) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">{value}</dd>
+      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
+          >
+            {icon}
+            <span className="underline underline-offset-2">{value}</span>
+          </a>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }
@@ -135,7 +167,14 @@ export function ExternalEventDetailDialog({
             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
               <dl className="space-y-2 text-sm">
                 <DetailRow label="Vreme:" value={timeRangeLabel(event)} />
-                {event.location ? <DetailRow label="Lokacija:" value={event.location} /> : null}
+                {event.location ? (
+                  <DetailRow
+                    label="Lokacija:"
+                    value={event.location}
+                    href={mapsSearchUrl(event.location)}
+                    icon={<MapPinIcon className="mr-0.5 inline size-3.5 align-[-2px]" />}
+                  />
+                ) : null}
                 {event.description && !isFromGmail ? (
                   <DetailRow label="Opis:" value={event.description} />
                 ) : null}

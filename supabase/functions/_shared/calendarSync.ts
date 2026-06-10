@@ -9,6 +9,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getFreshAccessToken, googleGet, GoogleApiError, ReauthRequiredError } from "./google.ts";
+import { expandWhen } from "./expandEvent.ts";
 
 type Admin = ReturnType<typeof createClient>;
 
@@ -57,15 +58,6 @@ interface EventsPage {
   items?: GEvent[];
   nextPageToken?: string;
   nextSyncToken?: string;
-}
-
-interface When {
-  startAt: string | null;
-  endAt: string | null;
-  localDate: string;
-  startTime: string | null;
-  endTime: string | null;
-  isAllDay: boolean;
 }
 
 export type SyncOutcome = "synced" | "reauth" | "skipped";
@@ -234,86 +226,54 @@ async function applyEvent(
     return;
   }
 
-  const when = mapWhen(ev, tz);
-  if (!when) return; // no start time — shouldn't happen with singleEvents=true
+  // A Google event spanning several days becomes one row per day — we have no
+  // multi-day model locally, and the agenda buckets purely on local_date.
+  const whens = expandWhen(ev, tz);
+  if (whens.length === 0) return; // no usable start — shouldn't happen with singleEvents=true
 
-  await admin.from("external_calendar_events").upsert(
-    {
-      calendar_id: cal.id,
-      family_id: cal.family_id,
-      owner_user_id: cal.owner_user_id,
-      visibility,
-      google_event_id: ev.id,
-      ical_uid: ev.iCalUID ?? null,
-      recurring_event_id: ev.recurringEventId ?? null,
-      title: ev.summary ?? null,
-      description: ev.description ?? null,
-      location: ev.location ?? null,
-      color: cal.color,
-      start_at: when.startAt,
-      end_at: when.endAt,
-      local_date: when.localDate,
-      start_time: when.startTime,
-      end_time: when.endTime,
-      is_all_day: when.isAllDay,
-      event_type: ev.eventType ?? "default",
-      status: ev.status ?? null,
-      html_link: ev.htmlLink ?? null,
-      source_url: ev.source?.url ?? null,
-      synced_at: new Date().toISOString(),
-    },
-    { onConflict: "calendar_id,google_event_id" },
-  );
-}
-
-function mapWhen(ev: GEvent, tz: string): When | null {
-  // All-day: Google uses `date` (no time). Bucket on the start date as-is.
-  if (ev.start?.date) {
-    return {
-      startAt: null,
-      endAt: null,
-      localDate: ev.start.date,
-      startTime: null,
-      endTime: null,
-      isAllDay: true,
-    };
-  }
-  if (!ev.start?.dateTime) return null;
-
-  const startAt = new Date(ev.start.dateTime);
-  const startParts = partsInTz(startAt, tz);
-  let endTime: string | null = null;
-  let endAt: string | null = null;
-  if (ev.end?.dateTime) {
-    const e = new Date(ev.end.dateTime);
-    endAt = e.toISOString();
-    endTime = partsInTz(e, tz).time;
-  }
-  return {
-    startAt: startAt.toISOString(),
-    endAt,
-    localDate: startParts.date,
-    startTime: startParts.time,
-    endTime,
-    isAllDay: false,
+  // Fields shared by every day-row of this event.
+  const common = {
+    calendar_id: cal.id,
+    family_id: cal.family_id,
+    owner_user_id: cal.owner_user_id,
+    visibility,
+    google_event_id: ev.id,
+    ical_uid: ev.iCalUID ?? null,
+    recurring_event_id: ev.recurringEventId ?? null,
+    title: ev.summary ?? null,
+    description: ev.description ?? null,
+    location: ev.location ?? null,
+    color: cal.color,
+    event_type: ev.eventType ?? "default",
+    status: ev.status ?? null,
+    html_link: ev.htmlLink ?? null,
+    source_url: ev.source?.url ?? null,
+    synced_at: new Date().toISOString(),
   };
-}
+  const rows = whens.map((w) => ({
+    ...common,
+    start_at: w.startAt,
+    end_at: w.endAt,
+    local_date: w.localDate,
+    start_time: w.startTime,
+    end_time: w.endTime,
+    is_all_day: w.isAllDay,
+  }));
 
-/** Formats an instant into the family timezone's wall-clock date + HH:MM. */
-function partsInTz(date: Date, tz: string): { date: string; time: string } {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const p: Record<string, string> = {};
-  for (const part of fmt.formatToParts(date)) p[part.type] = part.value;
-  const hour = p.hour === "24" ? "00" : p.hour; // some runtimes emit 24 at midnight
-  return { date: `${p.year}-${p.month}-${p.day}`, time: `${hour}:${p.minute}` };
+  await admin
+    .from("external_calendar_events")
+    .upsert(rows, { onConflict: "calendar_id,google_event_id,local_date" });
+
+  // Prune day-rows left over from a previously longer span (e.g. the event was
+  // shortened from 11–14 to 11–12): drop this event's rows whose day is no
+  // longer part of it. Normal re-syncs match exactly here and delete nothing.
+  const keep = whens.map((w) => `"${w.localDate}"`).join(",");
+  await admin
+    .from("external_calendar_events")
+    .delete()
+    .eq("calendar_id", cal.id)
+    .eq("google_event_id", ev.id)
+    .not("local_date", "in", `(${keep})`);
 }
 
 async function getOwnerTz(admin: Admin, ownerUserId: string): Promise<string> {
