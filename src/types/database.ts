@@ -217,8 +217,10 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
 /**
  * One spend entry. Auto rows (`source='payment'`) carry `payment_id` +
  * `payment_due_date` (the occurrence they came from — also the trigger's
- * idempotency key) and inherit the payment's category/link. `activity_id` /
- * `event_id` are XOR, mirroring payments.
+ * idempotency key) and inherit the payment's category/link. Receipt rows
+ * (`source='receipt'`) carry `merchant` + `receipt_url` (the SUF verification
+ * link, globally-unique dedup key) and own a set of `expense_items` loaded
+ * lazily on detail. `activity_id` / `event_id` are XOR, mirroring payments.
  */
 export interface Expense {
   id: string;
@@ -235,8 +237,30 @@ export interface Expense {
   payment_due_date: string | null;
   activity_id: string | null;
   event_id: string | null;
+  /** Store name parsed from a scanned receipt (source='receipt'); else null. */
+  merchant: string | null;
+  /** suf.purs.gov.rs verification URL for a scanned receipt; else null. */
+  receipt_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * One line of a scanned receipt, child of an `expenses` row (source='receipt').
+ * `total` is authoritative (discount-safe); `quantity` / `unit_price` are
+ * best-effort (nullable) since odd receipt layouts hide the price×qty split.
+ * Immutable + not realtime-published — loaded lazily with the parent's detail.
+ */
+export interface ExpenseItem {
+  id: string;
+  expense_id: string;
+  family_id: string;
+  name: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total: number;
+  sort_order: number;
+  created_at: string;
 }
 
 /**

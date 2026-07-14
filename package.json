@@ -30,6 +30,7 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "date-fns": "latest",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.16.0",
     "radix-ui": "^1.4.3",
     "react": "latest",

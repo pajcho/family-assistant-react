@@ -173,6 +173,33 @@
     }
   }
 
+  /* Receipt scanner: sweeping scan line inside the QR frame overlay. `top` is a
+     percentage of the frame, so it travels the full height regardless of size. */
+  .animate-scanline {
+    animation: scanline 2.4s ease-in-out infinite;
+  }
+
+  @keyframes scanline {
+    0% {
+      top: 6%;
+      opacity: 0.25;
+    }
+    50% {
+      top: 92%;
+      opacity: 1;
+    }
+    100% {
+      top: 6%;
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-scanline {
+      animation: none;
+    }
+  }
+
   /* Hover lift effect for cards */
   .hover-lift {
     @apply transition-all duration-200;
