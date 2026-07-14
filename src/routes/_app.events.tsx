@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { AddButton } from "@/components/common/AddButton";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventListItem } from "@/components/events/EventListItem";
@@ -31,6 +32,9 @@ function EventsPage() {
   const [hideCompleted, setHideCompleted] = useState(true);
   const [filterFrom, setFilterFrom] = useState<string | null>(null);
   const [filterTo, setFilterTo] = useState<string | null>(null);
+  // Person filter — same convention as the dashboard's person facet: an empty
+  // set means "no filter"; a non-empty set narrows to those members.
+  const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,9 +62,31 @@ function EventsPage() {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
 
-  const events: Event[] = eventsQuery.data ?? [];
-  const filteredEvents = hideCompleted ? events.filter((e) => !isEventEnded(e)) : events;
+  const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  // "Sakrij završene" + the person facet. Person semantics mirror the
+  // dashboard's `matchesAgendaFilter`: empty selection shows everything; with
+  // members selected only events assigned to at least one of them pass
+  // (unassigned events hide while the filter is active).
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (hideCompleted && isEventEnded(e)) return false;
+      if (selectedPersonIds.size > 0) {
+        const personIds = byEvent.get(e.id) ?? [];
+        if (!personIds.some((id) => selectedPersonIds.has(id))) return false;
+      }
+      return true;
+    });
+  }, [events, hideCompleted, selectedPersonIds, byEvent]);
   const editingPersonIds = editingEvent ? (byEvent.get(editingEvent.id) ?? []) : [];
+
+  const togglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
+      return next;
+    });
+  };
 
   const openAdd = () => {
     setEditingEvent(null);
@@ -219,6 +245,7 @@ function EventsPage() {
         <Button variant="secondary" size="sm" onClick={clearFilters}>
           Prikaži sve
         </Button>
+        <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
       </div>
 
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
