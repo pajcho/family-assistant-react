@@ -21,8 +21,10 @@ import { StaleWhileRevalidate } from "workbox-strategies";
  *   • Supabase REST/Realtime traffic is intentionally NOT cached — RLS and
  *     auth tokens make stale responses dangerous, and TanStack Query already
  *     handles in-memory caching.
- *
- * Push handlers are stubs today. Phase 2 (notifications) fills them in.
+ *   • Push: the `push` handler shows a notification for payloads sent by the
+ *     Edge Functions (`send-due-pushes` digests/reminders, `notify-on-create`
+ *     instant pushes); `notificationclick` focuses/opens the app on the
+ *     payload's deep-link. See the "Push notifications" section below.
  */
 
 // `__WB_MANIFEST` is injected by vite-plugin-pwa at build time.
@@ -68,7 +70,7 @@ registerRoute(
 
 // --- Push notifications ----------------------------------------------------
 //
-// Expected payload shape (sent by the future Edge Function and by the
+// Expected payload shape (sent by the Edge Functions and by the
 // `web-push` CLI used to validate this end-to-end on a real iPhone):
 //
 //   { "title": "Morning summary",
