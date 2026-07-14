@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { cn } from "@/lib/cn";
@@ -28,6 +29,8 @@ export type PaymentFormPayload = {
   activity_id: string | null;
   /** Linked event — XOR with `activity_id`. */
   event_id: string | null;
+  /** Optional budget category (inherited by each paid occurrence's auto-expense). */
+  category_id: string | null;
   /** Family members the payment is for. Empty = unassigned (shared bill). */
   personIds: string[];
 };
@@ -57,6 +60,8 @@ type FormState = {
   remind_days_before: number | null;
   /** Single Jira-style link to an activity or event — see PaymentLinkField. */
   link: PaymentLinkValue | null;
+  /** Optional budget category id, or null for "Bez kategorije". */
+  category_id: string | null;
   personIds: string[];
 };
 
@@ -150,6 +155,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
     is_paused: payment?.is_paused ?? false,
     remind_days_before: payment?.remind_days_before ?? null,
     link: initialLink(payment),
+    category_id: payment?.category_id ?? null,
     personIds,
   };
 }
@@ -224,6 +230,7 @@ export function PaymentForm({
       remind_days_before: form.remind_days_before,
       activity_id: form.link?.kind === "activity" ? form.link.id : null,
       event_id: form.link?.kind === "event" ? form.link.id : null,
+      category_id: form.category_id,
       personIds: form.personIds,
     });
   };
@@ -260,6 +267,11 @@ export function PaymentForm({
         // Only suggest while ADDING — an edited payment's name matching its
         // own (or another) entity is noise, not a signal.
         suggestFromName={isEdit ? undefined : form.name}
+      />
+      <CategorySelect
+        id="payment-category"
+        value={form.category_id}
+        onChange={(category_id) => setForm((s) => ({ ...s, category_id }))}
       />
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
