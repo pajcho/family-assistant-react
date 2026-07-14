@@ -63,6 +63,8 @@ export type CreatePaymentInput = {
   activity_id?: string | null;
   /** Linked event — XOR with `activity_id` (DB CHECK `payments_single_link`). */
   event_id?: string | null;
+  /** Optional budget category — inherited by each paid occurrence's auto-expense. */
+  category_id?: string | null;
   /** Family members this payment is for. Omit/empty = unassigned. */
   personIds?: string[];
 };
@@ -82,6 +84,7 @@ export type UpdatePaymentInput = Partial<
     | "remind_days_before"
     | "activity_id"
     | "event_id"
+    | "category_id"
   >
 > & {
   /**
