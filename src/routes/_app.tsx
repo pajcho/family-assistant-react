@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
 import { AppNav } from "@/components/layout/AppNav";
+import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
+import { useVisibilityRefetch } from "@/hooks/useVisibilityRefetch";
 import { cn } from "@/lib/cn";
 
 /**
@@ -27,6 +29,11 @@ function AppLayout() {
   // padding while the keyboard is up so the page collapses to the
   // input's natural bottom.
   const keyboardOpen = useIsKeyboardOpen();
+
+  // Standalone-PWA refresh reliability: refetch active queries when the app
+  // resumes from a suspend (realtime channels rejoin on their own, but events
+  // fired while suspended are lost), plus a pull-to-refresh gesture below.
+  useVisibilityRefetch();
 
   // SW update toast lives in __root.tsx (covers login too). The iOS install
   // banner lives on the login route — once you're signed in you've already
@@ -60,6 +67,7 @@ function AppLayout() {
         >
           <Outlet />
         </main>
+        <PullToRefresh />
       </div>
     </AuthGate>
   );
