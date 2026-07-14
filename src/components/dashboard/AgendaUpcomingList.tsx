@@ -58,6 +58,9 @@ export function AgendaUpcomingList({
 }: AgendaUpcomingListProps) {
   const [horizonDays, setHorizonDays] = useState(INITIAL_DAYS);
   const [activeDay, setActiveDay] = useState<string | null>(null);
+  // Month-picker jump target beyond the loaded window — scrolled to once the
+  // horizon has grown enough for its day section to exist.
+  const [pendingJumpDay, setPendingJumpDay] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   // Tap-to-scroll: a flag that pins the scroll-spy to the tapped day while a
   // (native, compositor-driven) smooth scroll runs, plus a teardown for the
@@ -231,6 +234,38 @@ export function AgendaUpcomingList({
     window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
+  // Last day the month picker may jump to — the same 12-month cap the
+  // infinite scroll stops at.
+  const maxDay = useMemo(
+    () => format(addDays(todayDate, MAX_HORIZON_DAYS), "yyyy-MM-dd"),
+    [todayDate],
+  );
+
+  // Month-picker jump: inside the loaded window it's a plain scroll; beyond it,
+  // grow the horizon to cover the day first (same mechanics as the infinite
+  // scroll — costs at most one events fetch) and scroll once the section exists.
+  const jumpToDay = (day: string) => {
+    if (day <= to) {
+      scrollToDay(day);
+      return;
+    }
+    const needed = differenceInCalendarDays(parseISO(day + "T12:00:00"), todayDate);
+    setHorizonDays(Math.min(Math.max(needed, INITIAL_DAYS), MAX_HORIZON_DAYS));
+    setPendingJumpDay(day);
+  };
+
+  // Day sections render for EVERY day in [from, to] (they don't wait for data),
+  // so as soon as the grown window covers the pending day we can scroll to it —
+  // one frame later, so layout has settled.
+  useEffect(() => {
+    if (!pendingJumpDay || pendingJumpDay > to) return;
+    const day = pendingJumpDay;
+    setPendingJumpDay(null);
+    requestAnimationFrame(() => scrollToDay(day));
+    // scrollToDay is re-created per render but only reads refs + DOM — safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingJumpDay, to]);
+
   // A filter that matches nothing shows the reason (not a long run of empty
   // days); first load shows a spinner; otherwise render every day in the window.
   const showEmptyMsg = filterActive && !hasItems && overdueItems.length === 0;
@@ -252,7 +287,9 @@ export function AgendaUpcomingList({
           activeDay={activeDay}
           countByDay={countByDay}
           monthLabel={monthLabel}
+          maxDay={maxDay}
           onSelectDay={scrollToDay}
+          onJumpToDay={jumpToDay}
           onReachEnd={growHorizon}
         />
       </div>
