@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { EyeSlashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
@@ -203,48 +203,62 @@ function EventsPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Događaji</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              checked={hideCompleted}
-              onChange={(e) => setHideCompleted(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-            />
-            Sakrij završene
-          </label>
-          <AddButton label="Dodaj događaj" onClick={openAdd} />
-        </div>
+        <AddButton label="Dodaj događaj" onClick={openAdd} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4 sm:flex-row">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="from" className="shrink-0">
-            Od
-          </Label>
+      <div className="mt-4 space-y-3">
+        {/* Compact control row in the app's chip idiom: date-range pickers, a
+            "Sakrij završene" toggle chip and a reset that appears only while a
+            date bound is set. On narrow screens the row scrolls horizontally
+            (edge-to-edge via the negative margin) instead of wrapping. */}
+        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           <DatePicker
             id="from"
             value={filterFrom}
             onChange={setFilterFrom}
-            placeholder="Od"
-            className="w-40"
+            placeholder="Od datuma"
+            className="w-36 shrink-0"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="to" className="shrink-0">
-            Do
-          </Label>
           <DatePicker
             id="to"
             value={filterTo}
             onChange={setFilterTo}
-            placeholder="Do"
-            className="w-40"
+            placeholder="Do datuma"
+            className="w-36 shrink-0"
           />
+          <button
+            type="button"
+            onClick={() => setHideCompleted((prev) => !prev)}
+            aria-pressed={hideCompleted}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+              hideCompleted
+                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+                : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
+            )}
+          >
+            <EyeSlashIcon
+              className={cn(
+                "size-4 shrink-0",
+                hideCompleted
+                  ? "text-blue-500 dark:text-blue-400"
+                  : "text-gray-400 dark:text-gray-500",
+              )}
+            />
+            Sakrij završene
+          </button>
+          {filterFrom || filterTo ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-muted-foreground"
+              onClick={clearFilters}
+            >
+              Resetuj
+            </Button>
+          ) : null}
         </div>
-        <Button variant="secondary" size="sm" onClick={clearFilters}>
-          Prikaži sve
-        </Button>
         <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
       </div>
 
