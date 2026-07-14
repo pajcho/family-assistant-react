@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -18,6 +19,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
+import { PaymentLinkChip } from "@/components/payments/PaymentLinkChip";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   useCancelPaymentOccurrence,
@@ -31,6 +33,7 @@ import {
   usePaymentOverrides,
   useUpsertPaymentOverride,
 } from "@/hooks/usePaymentOverrides";
+import { usePaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
@@ -80,6 +83,7 @@ export function PaymentDetailDialog({
   const [mode, setMode] = useState<Mode>("detail");
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const navigate = useNavigate();
 
   const markPaid = useMarkPaymentPaid();
   const updatePayment = useUpdatePayment();
@@ -87,6 +91,7 @@ export function PaymentDetailDialog({
   const deleteOverride = useDeletePaymentOverride();
   const cancelOccurrence = useCancelPaymentOccurrence();
   const { byKey: overridesByKey } = usePaymentOverrides();
+  const linkTarget = usePaymentLinkTarget(payment);
 
   const override = payment
     ? (overridesByKey.get(overrideKey(payment.id, payment.due_date)) ?? null)
@@ -130,6 +135,19 @@ export function PaymentDetailDialog({
   const openHistory = () => {
     onOpenChange(false);
     setHistoryOpen(true);
+  };
+
+  // "Povezano sa" tap — close the popup and jump to the linked entity:
+  // activity deep-links its edit dialog open via ?edit=, events has no
+  // per-item detail route so the list page is the landing spot.
+  const handleOpenLink = () => {
+    if (!linkTarget) return;
+    onOpenChange(false);
+    if (linkTarget.kind === "activity") {
+      void navigate({ to: "/activities", search: { edit: linkTarget.id } });
+    } else {
+      void navigate({ to: "/events" });
+    }
   };
 
   const handleMarkAsPaid = async () => {
@@ -326,6 +344,14 @@ export function PaymentDetailDialog({
                         <dt className="text-gray-500 dark:text-gray-400">Za:</dt>
                         <dd>
                           <MemberBadges personIds={personIds} />
+                        </dd>
+                      </div>
+                    ) : null}
+                    {linkTarget ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Povezano sa:</dt>
+                        <dd className="min-w-0">
+                          <PaymentLinkChip target={linkTarget} onClick={handleOpenLink} />
                         </dd>
                       </div>
                     ) : null}

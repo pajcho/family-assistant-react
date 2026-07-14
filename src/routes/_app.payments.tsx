@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
@@ -37,6 +37,7 @@ import {
   usePaymentOverrides,
   useUpsertPaymentOverride,
 } from "@/hooks/usePaymentOverrides";
+import { usePaymentLinkTargets, type PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment, PaymentHistoryStatus, PaymentOverride } from "@/types/database";
 import {
   currentMonthYYYYMM,
@@ -500,6 +501,18 @@ function PaymentsPage() {
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
   const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
+  // "Povezano sa" chips — resolve every linked payment's target once for the
+  // whole list; tapping one jumps to the linked entity.
+  const navigate = useNavigate();
+  const { targetFor } = usePaymentLinkTargets(payments);
+  const handleOpenLink = (target: PaymentLinkTarget) => {
+    if (target.kind === "activity") {
+      void navigate({ to: "/activities", search: { edit: target.id } });
+    } else {
+      void navigate({ to: "/events" });
+    }
+  };
+
   const combinedList = useMemo(
     () => computeCombinedList({ payments, history, selectedMonth, overridesByKey }),
     [payments, history, selectedMonth, overridesByKey],
@@ -758,6 +771,8 @@ function PaymentsPage() {
               <PaymentListItem
                 item={item}
                 personIds={byPayment.get(paymentIdForItem(item)) ?? []}
+                linkTarget={item.type === "payment" ? targetFor(item) : null}
+                onOpenLink={handleOpenLink}
                 onMarkPaid={handleMarkPaid}
                 onTogglePause={handleTogglePause}
                 onOpenHistory={openHistory}

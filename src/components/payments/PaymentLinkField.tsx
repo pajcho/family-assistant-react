@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { CalendarIcon, UserGroupIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
 import { useActivities } from "@/hooks/useActivities";
 import { useEventsList } from "@/hooks/useEvents";
 import { usePaymentLinkTarget, type PaymentLinkKind } from "@/hooks/usePaymentLinks";
@@ -33,14 +34,6 @@ type LinkOption = {
 
 /** How far back the event options reach — recent past + everything upcoming. */
 const EVENT_LOOKBACK_MONTHS = 3;
-
-function optionIcon(kind: PaymentLinkKind, className: string) {
-  return kind === "activity" ? (
-    <UserGroupIcon className={cn(className, "text-violet-500 dark:text-violet-400")} />
-  ) : (
-    <CalendarIcon className={cn(className, "text-blue-500 dark:text-blue-400")} />
-  );
-}
 
 /**
  * Jira-style issue-link combobox for the payment form ("Poveži sa"): one field
@@ -153,7 +146,7 @@ export function PaymentLinkField({ value, onChange }: PaymentLinkFieldProps) {
               : "hover:bg-gray-100 dark:hover:bg-gray-700",
           )}
         >
-          {optionIcon(option.kind, "size-4 shrink-0")}
+          <PaymentLinkIcon kind={option.kind} className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
             {option.name}
           </span>
@@ -183,7 +176,7 @@ export function PaymentLinkField({ value, onChange }: PaymentLinkFieldProps) {
             >
               {selected ? (
                 <>
-                  {optionIcon(selected.kind, "size-4 shrink-0")}
+                  <PaymentLinkIcon kind={selected.kind} className="size-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate text-left text-gray-900 dark:text-gray-100">
                     {selected.name}
                   </span>
