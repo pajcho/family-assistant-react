@@ -160,6 +160,9 @@ export interface UseGlobalSearchResult {
 /** Minimum characters before firing the queries. */
 export const MIN_SEARCH_CHARS = 2;
 
+/** Stable empty result — keeps consumers' memo/effect deps quiet while disabled. */
+const NO_RESULTS: SearchResult[] = [];
+
 export function useGlobalSearch(term: string): UseGlobalSearchResult {
   const { familyId } = useProfile();
   const trimmed = term.trim();
@@ -175,7 +178,7 @@ export function useGlobalSearch(term: string): UseGlobalSearchResult {
   });
 
   return {
-    results: enabled ? (query.data ?? []) : [],
+    results: enabled ? (query.data ?? NO_RESULTS) : NO_RESULTS,
     isSearching: enabled && query.isFetching,
     enabled,
   };
