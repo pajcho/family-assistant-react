@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
+import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -431,6 +432,8 @@ function BudgetPage() {
           ) : null}
         </section>
       ) : null}
+
+      <BudgetTrend month={month} onSelectMonth={setMonth} />
 
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} />
 
