@@ -16,6 +16,11 @@ export type ListFormPayload = {
   auto_delete_completed_after_hours: number | null;
   /** Optional free-text description, Markdown supported. Empty string normalised to null. */
   description: string | null;
+  /**
+   * Duplicate mode only: also clone the source list's items into the new
+   * list (as not-completed). Undefined in create/edit mode.
+   */
+  copyItems?: boolean;
 };
 
 /**
@@ -42,6 +47,8 @@ type FormState = {
   /** Stored as string for the controlled <select>; serialised at submit. */
   autoDelete: string;
   description: string;
+  /** "Kopiraj i stavke" — only shown (and submitted) in duplicate mode. */
+  copyItems: boolean;
 };
 
 /**
@@ -66,6 +73,9 @@ function initialState(list: List | null | undefined): FormState {
         ? String(list.auto_delete_completed_after_hours)
         : "",
     description: list?.description ?? "",
+    // Default ON: the main duplicate use-case is a fresh copy of a template
+    // shopping list, items included.
+    copyItems: true,
   };
 }
 
@@ -96,6 +106,7 @@ export function ListForm({
       // Whitespace-only descriptions collapse to NULL so the preview row
       // doesn't render a blank line under the title.
       description: trimmedDescription === "" ? null : trimmedDescription,
+      copyItems: mode === "duplicate" ? form.copyItems : undefined,
     });
   };
 
@@ -177,6 +188,29 @@ export function ListForm({
           Korisno za duge liste poput šopinga — završene stavke same nestaju.
         </p>
       </div>
+
+      {mode === "duplicate" ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <input
+              id="list-copy-items"
+              type="checkbox"
+              checked={form.copyItems}
+              onChange={(e) => setForm((s) => ({ ...s, copyItems: e.target.checked }))}
+              className="h-4 w-4 cursor-pointer rounded border-gray-300"
+            />
+            <label
+              htmlFor="list-copy-items"
+              className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+            >
+              Kopiraj i stavke
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Stavke se kopiraju kao nezavršene — kao sveža lista iz šablona.
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>

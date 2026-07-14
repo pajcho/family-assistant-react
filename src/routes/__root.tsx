@@ -1,7 +1,5 @@
 import { Link, Outlet, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "sonner";
 import { queryClient } from "@/lib/queryClient";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -20,13 +18,6 @@ export const Route = createRootRoute({
   notFoundComponent: NotFound,
 });
 
-/**
- * TanStack Router/Query devtools are hidden by default — their floating
- * buttons crowd the mobile layout and we don't use them right now. Flip to
- * `true` to bring them back (dev builds only either way).
- */
-const SHOW_DEVTOOLS = false;
-
 function RootLayout() {
   // SW registers at the root so the login page is also installable + cached.
   // The hook surfaces a sonner toast when a deploy ships a new bundle.
@@ -37,12 +28,6 @@ function RootLayout() {
         <AuthProvider>
           <Outlet />
           <Toaster richColors position="top-center" />
-          {SHOW_DEVTOOLS && import.meta.env.DEV ? (
-            <>
-              <TanStackRouterDevtools position="bottom-right" />
-              <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
-            </>
-          ) : null}
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

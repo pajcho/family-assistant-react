@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -91,6 +91,21 @@ export function ListMaster({ variant }: ListMasterProps) {
     setFormError(null);
     setFormOpen(true);
   };
+
+  // Dashboard "Dodaj → Lista" deep-link (`/lists?new=1`): open the create
+  // dialog, then strip the param so it won't reopen on a re-render or back
+  // navigation — same pattern as `?edit=` on /activities. The param lives on
+  // the layout route, so this fires for whichever variant is mounted (sidebar
+  // on desktop, page on mobile). `to: "."` keeps the strip on the current
+  // URL even if the desktop index has already redirected to /lists/$listId.
+  const { new: openNew } = useSearch({ from: "/_app/lists" });
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!openNew) return;
+    setFormError(null);
+    setFormOpen(true);
+    void navigate({ to: ".", search: (prev) => ({ ...prev, new: undefined }), replace: true });
+  }, [openNew, navigate]);
 
   const handleFormSubmit = async (payload: ListFormPayload) => {
     setFormError(null);

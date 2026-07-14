@@ -167,6 +167,7 @@ export function useCreateList() {
           name: payload.name,
           scope: payload.scope,
           sort_order: nextOrder,
+          auto_delete_completed_after_hours: payload.auto_delete_completed_after_hours ?? null,
           description: payload.description ?? null,
         })
         .select()
@@ -221,6 +222,48 @@ export function useDeleteList() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri brisanju liste");
+    },
+  });
+}
+
+/**
+ * Bulk-clone items into a (freshly created) list — the "Dupliraj sa
+ * stavkama" half of the duplicate flow. Copies name, notes and the manual
+ * sort_order, but always inserts as NOT completed: the use-case is a fresh
+ * shopping list from a template, not an archive copy. No optimistic update —
+ * this runs right after the list insert, so the invalidate is what surfaces
+ * the new list + items together.
+ */
+export type CopyListItemsInput = {
+  /** Source items to clone (their persisted sort_order carries over). */
+  items: ListItem[];
+  /** The list that receives the copies. */
+  targetListId: string;
+};
+
+export function useCopyListItems() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ items, targetListId }: CopyListItemsInput): Promise<void> => {
+      if (items.length === 0) return;
+      const rows = items.map((item) => ({
+        list_id: targetListId,
+        name: item.name,
+        description: item.description,
+        sort_order: item.sort_order,
+        is_completed: false,
+        // family_id is filled in by the BEFORE INSERT trigger
+      }));
+      const { error } = await supabase.from("list_items").insert(rows);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri kopiranju stavki");
     },
   });
 }
