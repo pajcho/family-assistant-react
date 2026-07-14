@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ComponentType, SVGProps } from "react";
+import type { ComponentType, KeyboardEvent as ReactKeyboardEvent, SVGProps } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   BanknotesIcon,
@@ -111,14 +111,30 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const { results, isSearching, enabled } = useGlobalSearch(debouncedTerm);
 
-  // Group in the canonical order.
+  // Group in the canonical order, numbering the rows straight through — the
+  // flat list drives the arrow-key highlight across group boundaries.
   const groups = useMemo(() => {
+    let index = 0;
     return GROUP_ORDER.map((kind) => ({
       kind,
-      items: results.filter((r) => r.kind === kind),
+      items: results.filter((r) => r.kind === kind).map((result) => ({ result, index: index++ })),
     })).filter((g) => g.items.length > 0);
   }, [results]);
-  const hasResults = groups.length > 0;
+  const flatResults = useMemo(
+    () => groups.flatMap((g) => g.items.map((item) => item.result)),
+    [groups],
+  );
+  const hasResults = flatResults.length > 0;
+
+  // Keyboard highlight — reset to the top on every new result set, keep the
+  // highlighted row scrolled into view while arrowing.
+  const [highlight, setHighlight] = useState(0);
+  useEffect(() => {
+    setHighlight(0);
+  }, [results]);
+  useEffect(() => {
+    document.getElementById(optionId(highlight))?.scrollIntoView({ block: "nearest" });
+  }, [highlight]);
 
   const select = (result: SearchResult) => {
     onOpenChange(false);
@@ -154,6 +170,21 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const showNoResults = enabled && !isSearching && !hasResults;
 
+  const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (flatResults.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => (h + 1) % flatResults.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => (h - 1 + flatResults.length) % flatResults.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const target = flatResults[highlight] ?? flatResults[0];
+      if (target) select(target);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -172,8 +203,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             type="text"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
+            onKeyDown={onInputKeyDown}
             placeholder="Pretraži…"
             aria-label="Pretraga"
+            aria-controls="global-search-results"
+            aria-activedescendant={hasResults ? optionId(highlight) : undefined}
             className="h-12 w-full bg-transparent text-base text-gray-900 outline-none placeholder:text-gray-400 md:text-sm dark:text-gray-100 dark:placeholder:text-gray-500"
           />
           {isSearching ? (
@@ -184,7 +218,12 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
           ) : null}
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-2">
+        <div
+          id="global-search-results"
+          role="listbox"
+          aria-label="Rezultati pretrage"
+          className="max-h-[60vh] overflow-y-auto p-2"
+        >
           {!enabled ? (
             <p className="px-2 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
               {`Ukucaj bar ${MIN_SEARCH_CHARS} znaka za pretragu.`}
@@ -198,13 +237,19 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
               const { label } = GROUP_META[group.kind];
               return (
                 <div key={group.kind}>
-                  <div className="px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  <div
+                    role="presentation"
+                    className="px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                  >
                     {label}
                   </div>
-                  {group.items.map((result) => (
+                  {group.items.map(({ result, index }) => (
                     <SearchResultRow
                       key={`${result.kind}-${result.id}`}
                       result={result}
+                      index={index}
+                      highlighted={index === highlight}
+                      onHover={() => setHighlight(index)}
                       onSelect={() => select(result)}
                     />
                   ))}
@@ -218,13 +263,40 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   );
 }
 
-function SearchResultRow({ result, onSelect }: { result: SearchResult; onSelect: () => void }) {
+/** DOM id for the flat result at `index` — aria-activedescendant target. */
+function optionId(index: number): string {
+  return `global-search-option-${index}`;
+}
+
+function SearchResultRow({
+  result,
+  index,
+  highlighted,
+  onHover,
+  onSelect,
+}: {
+  result: SearchResult;
+  index: number;
+  highlighted: boolean;
+  onHover: () => void;
+  onSelect: () => void;
+}) {
   const { Icon, iconClass } = GROUP_META[result.kind];
   return (
     <button
       type="button"
+      id={optionId(index)}
+      role="option"
+      aria-selected={highlighted}
+      tabIndex={-1}
       onClick={onSelect}
-      className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700/60"
+      // Highlight follows the pointer too, so mouse and arrows never fight
+      // over two different "active" rows.
+      onMouseEnter={onHover}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors",
+        highlighted && "bg-gray-100 dark:bg-gray-700/60",
+      )}
     >
       <Icon className={cn("size-4 shrink-0", iconClass)} />
       <span className="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100">
