@@ -22,6 +22,14 @@ export type PaymentLinkValue = {
 export type PaymentLinkFieldProps = {
   value: PaymentLinkValue | null;
   onChange: (value: PaymentLinkValue | null) => void;
+  /**
+   * Auto-suggest source — the form's live Naziv value (ADD mode only). When
+   * it substring-matches an activity/event name (either direction,
+   * case-insensitive) and nothing is linked yet, a one-tap
+   * "Poveži sa: <name>?" chip appears under the field. Silent, non-blocking,
+   * dismissible per suggestion. Omit to disable (edit mode).
+   */
+  suggestFromName?: string;
 };
 
 type LinkOption = {
@@ -49,10 +57,13 @@ const EVENT_LOOKBACK_MONTHS = 3;
  * A linked event OLDER than the lookback window isn't in the options, so the
  * closed-state label falls back to `usePaymentLinkTarget` (by-id fetch).
  */
-export function PaymentLinkField({ value, onChange }: PaymentLinkFieldProps) {
+export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLinkFieldProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  // `${kind}-${id}` of the dismissed suggestion — per suggestion, so a
+  // different match can still surface later while this one stays gone.
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
 
   const today = useToday();
   const activitiesQuery = useActivities();
@@ -97,6 +108,25 @@ export function PaymentLinkField({ value, onChange }: PaymentLinkFieldProps) {
   const selected = value
     ? (options.find((o) => o.kind === value.kind && o.id === value.id) ?? fallbackTarget)
     : null;
+
+  // Auto-suggest: first option whose name substring-matches the typed payment
+  // name (either direction — "Engleski Lucija jun" ⊃ "Engleski Lucija", and
+  // "Engl" ⊂ it). Min 3 chars so single letters don't light it up. Live while
+  // typing — effectively the debounce-free version of "on blur", and just as
+  // silent since the chip never steals focus.
+  const suggestion = useMemo(() => {
+    if (value) return null;
+    const name = (suggestFromName ?? "").trim().toLowerCase();
+    if (name.length < 3) return null;
+    return (
+      options.find((o) => {
+        const optionName = o.name.trim().toLowerCase();
+        return optionName.includes(name) || name.includes(optionName);
+      }) ?? null
+    );
+  }, [options, suggestFromName, value]);
+  const showSuggestion =
+    !!suggestion && dismissedSuggestion !== `${suggestion.kind}-${suggestion.id}`;
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -249,6 +279,26 @@ export function PaymentLinkField({ value, onChange }: PaymentLinkFieldProps) {
           </svg>
         )}
       </div>
+      {showSuggestion ? (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => pick(suggestion)}
+            className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+          >
+            <PaymentLinkIcon kind={suggestion.kind} className="size-3.5 shrink-0" />
+            <span className="truncate">Poveži sa: {suggestion.name}?</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Odbaci predlog"
+            onClick={() => setDismissedSuggestion(`${suggestion.kind}-${suggestion.id}`)}
+            className="rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
+          >
+            <XMarkIcon className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

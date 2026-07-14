@@ -254,7 +254,13 @@ export function PaymentForm({
         value={form.personIds}
         onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
       />
-      <PaymentLinkField value={form.link} onChange={(link) => setForm((s) => ({ ...s, link }))} />
+      <PaymentLinkField
+        value={form.link}
+        onChange={(link) => setForm((s) => ({ ...s, link }))}
+        // Only suggest while ADDING — an edited payment's name matching its
+        // own (or another) entity is noise, not a signal.
+        suggestFromName={isEdit ? undefined : form.name}
+      />
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="amount">Iznos (RSD) *</Label>
