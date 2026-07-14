@@ -278,6 +278,9 @@ export function useSaveReceiptExpense() {
     },
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
+      // The saved category becomes this merchant's remembered default, so the
+      // cached lookup (staleTime 60s) must not serve the pre-save answer.
+      void queryClient.invalidateQueries({ queryKey: ["merchant-category", familyId] });
       if (!res.itemsSaved) {
         toast.warning("Trošak je sačuvan, ali stavke nisu.");
       }
