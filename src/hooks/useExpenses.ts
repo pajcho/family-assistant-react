@@ -312,6 +312,35 @@ export function useExpenseItems(expenseId: string | null) {
   return { ...query, items };
 }
 
+async function fetchReceiptItemCounts(expenseIds: string[]): Promise<Record<string, number>> {
+  if (expenseIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("expense_items")
+    .select("expense_id")
+    .in("expense_id", expenseIds);
+  if (error || !data) return {};
+  const counts: Record<string, number> = {};
+  for (const row of data as { expense_id: string }[]) {
+    counts[row.expense_id] = (counts[row.expense_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Item counts for a set of receipt expenses (for the "N stavki" list subtitle).
+ * One bounded query over the month's receipt rows — items themselves load lazily
+ * only when a detail opens.
+ */
+export function useReceiptItemCounts(expenseIds: string[]) {
+  const key = [...expenseIds].sort().join(",");
+  return useQuery({
+    queryKey: ["expense-item-counts", key],
+    queryFn: () => fetchReceiptItemCounts(expenseIds),
+    enabled: expenseIds.length > 0,
+    staleTime: 60_000,
+  });
+}
+
 async function fetchMerchantCategory(familyId: string, merchant: string): Promise<string | null> {
   const { data, error } = await supabase
     .from("expenses")

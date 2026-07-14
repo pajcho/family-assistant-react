@@ -6,6 +6,7 @@ import {
   LockClosedIcon,
   PencilSquareIcon,
   QrCodeIcon,
+  ReceiptPercentIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
@@ -14,6 +15,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { Button } from "@/components/ui/button";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
+import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
@@ -23,6 +25,7 @@ import {
   useCreateExpense,
   useDeleteExpense,
   useExpenses,
+  useReceiptItemCounts,
   useUpdateExpense,
 } from "@/hooks/useExpenses";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
@@ -65,6 +68,7 @@ function BudgetPage() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
+  const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -130,6 +134,13 @@ function BudgetPage() {
   }, [expenses, categoriesById]);
 
   const maxCategoryTotal = breakdown.length > 0 ? breakdown[0].total : 0;
+
+  // Line-item counts for the month's receipt rows (the "N stavki" subtitle).
+  const receiptExpenseIds = useMemo(
+    () => expenses.filter((e) => e.source === "receipt").map((e) => e.id),
+    [expenses],
+  );
+  const { data: itemCounts } = useReceiptItemCounts(receiptExpenseIds);
 
   // Category-limit lookup (spent vs monthly_limit) from the cycle, for the
   // amber (≥80%) / red (≥100%) breakdown coloring.
@@ -389,43 +400,90 @@ function BudgetPage() {
               const category = e.category_id ? categoriesById.get(e.category_id) : null;
               const Icon = categoryIcon(category?.icon);
               const color = category?.color ?? "#9ca3af";
-              const isAuto = e.source !== "manual";
-              const primary = e.note?.trim() || category?.name || "Trošak";
+              const isReceipt = e.source === "receipt";
+              const isPayment = e.source === "payment";
+              const itemCount = isReceipt ? (itemCounts?.[e.id] ?? 0) : 0;
+              const primary = isReceipt
+                ? e.merchant || e.note?.trim() || category?.name || "Račun"
+                : e.note?.trim() || category?.name || "Trošak";
+
+              const iconEl = (
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${color}22` }}
+                >
+                  <Icon className="size-5" style={{ color }} />
+                </span>
+              );
+
+              const textEl = (
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {primary}
+                    </span>
+                    {isPayment ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                        <LockClosedIcon className="size-2.5" />
+                        iz plaćanja
+                      </span>
+                    ) : isReceipt ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        <ReceiptPercentIcon className="size-2.5" />
+                        račun
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{dayLabel(e.spent_on)}</span>
+                    {isReceipt && itemCount > 0 ? (
+                      <span>
+                        · {itemCount} {itemCount === 1 ? "stavka" : "stavki"}
+                      </span>
+                    ) : category && (e.note?.trim() ?? "") !== "" ? (
+                      <span className="truncate">· {category.name}</span>
+                    ) : null}
+                    <MemberBadges personIds={e.person_id ? [e.person_id] : []} size="xs" />
+                  </div>
+                </div>
+              );
+
+              const amountEl = (
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                  {formatAmount(e.amount)}
+                </span>
+              );
+
+              // Receipt rows open a read-only-amount detail (recategorize + items).
+              if (isReceipt) {
+                return (
+                  <li
+                    key={e.id}
+                    className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setReceiptDetail(e)}
+                      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
+                    >
+                      {iconEl}
+                      {textEl}
+                      {amountEl}
+                      <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+                    </button>
+                  </li>
+                );
+              }
+
               return (
                 <li
                   key={e.id}
                   className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
                 >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${color}22` }}
-                  >
-                    <Icon className="size-5" style={{ color }} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {primary}
-                      </span>
-                      {isAuto ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-                          <LockClosedIcon className="size-2.5" />
-                          iz plaćanja
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{dayLabel(e.spent_on)}</span>
-                      {category && (e.note?.trim() ?? "") !== "" ? (
-                        <span className="truncate">· {category.name}</span>
-                      ) : null}
-                      <MemberBadges personIds={e.person_id ? [e.person_id] : []} size="xs" />
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                    {formatAmount(e.amount)}
-                  </span>
-                  {!isAuto ? (
+                  {iconEl}
+                  {textEl}
+                  {amountEl}
+                  {!isPayment ? (
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
@@ -483,6 +541,18 @@ function BudgetPage() {
           <ReceiptScanDialog open={scanOpen} onOpenChange={setScanOpen} onJumpToMonth={setMonth} />
         </Suspense>
       ) : null}
+
+      <ReceiptExpenseDialog
+        open={!!receiptDetail}
+        onOpenChange={(open) => {
+          if (!open) setReceiptDetail(null);
+        }}
+        expense={receiptDetail}
+        onRequestDelete={(expense) => {
+          setReceiptDetail(null);
+          setToDelete(expense);
+        }}
+      />
 
       <ConfirmDialog
         open={!!toDelete}
