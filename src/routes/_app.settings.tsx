@@ -29,6 +29,16 @@ import type { PushSubscriptionRow } from "@/types/database";
 
 type SettingsTab = "profile" | "family" | "notifications" | "calendar";
 
+// Serbian aliases accepted in hand-typed / shared URLs, mapped to the
+// canonical tab ids (e.g. /settings?tab=kalendar).
+const TAB_ALIASES: Record<string, SettingsTab> = {
+  profil: "profile",
+  porodica: "family",
+  obavestenja: "notifications",
+  obaveštenja: "notifications",
+  kalendar: "calendar",
+};
+
 export const Route = createFileRoute("/_app/settings")({
   // Deep-linkable active tab (e.g. /settings?tab=family from the Activities
   // options sheet). Unknown / missing values fall back to the Profil tab.
@@ -41,6 +51,12 @@ export const Route = createFileRoute("/_app/settings")({
     const result: { tab?: SettingsTab; gcal?: "connected" | "error"; reason?: string } = {};
     if (tab === "family" || tab === "notifications" || tab === "profile" || tab === "calendar") {
       result.tab = tab;
+    } else if (tab != null) {
+      // Unknown values must be *normalized*, not just dropped: the router
+      // merges this result over the parent match's raw search
+      // (`{ ...parentSearch, ...validated }`), so omitting `tab` would leak
+      // the raw URL value through and Tabs would render with no active tab.
+      result.tab = (typeof tab === "string" && TAB_ALIASES[tab.toLowerCase()]) || "profile";
     }
     if (search.gcal === "connected" || search.gcal === "error") result.gcal = search.gcal;
     if (typeof search.reason === "string") result.reason = search.reason;
