@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
+import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
 import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
 import { PaymentRescheduleDialog } from "@/components/payments/PaymentRescheduleDialog";
 import { PaymentUndoDialog } from "@/components/payments/PaymentUndoDialog";
@@ -802,7 +803,7 @@ function PaymentsPage() {
         </label>
       </div>
 
-      {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
+      {isLoading ? <PaymentListSkeleton className="mt-6" /> : null}
 
       {showEmpty ? (
         <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">

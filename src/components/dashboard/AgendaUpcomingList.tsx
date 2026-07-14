@@ -3,6 +3,7 @@ import { differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
+import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { WeekStrip } from "@/components/dashboard/WeekStrip";
@@ -264,7 +265,7 @@ export function AgendaUpcomingList({
             Nema stavki za izabrane filtere.
           </p>
         ) : showLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+          <AgendaListSkeleton rows={6} />
         ) : (
           <div className="space-y-6">
             {allDays.map((day) => {

@@ -5,6 +5,7 @@ import { SunIcon } from "@heroicons/react/24/outline";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaDayCalendar } from "@/components/dashboard/AgendaDayCalendar";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
+import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
@@ -84,7 +85,7 @@ export function AgendaTodayTab({
       <section>
         <AgendaDateHeader day={today} today={today} tomorrow={tomorrow} />
         {loading ? (
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+          <AgendaListSkeleton rows={4} />
         ) : hasToday ? (
           <ul className="mt-2 space-y-1">
             {items.map((item) => (
