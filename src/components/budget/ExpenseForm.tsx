@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { QrCodeIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -31,6 +32,8 @@ export type ExpenseFormProps = {
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
   onCancel: () => void;
+  /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
+  onScanReceipt?: () => void;
 };
 
 function todayISO(): string {
@@ -72,7 +75,13 @@ function initialState(expense: Expense | null | undefined): FormState {
  * of category chips, then "Dodaj". Everything below (date defaults to danas,
  * person, note, link) is optional.
  */
-export function ExpenseForm({ expense, saving = false, onSubmit, onCancel }: ExpenseFormProps) {
+export function ExpenseForm({
+  expense,
+  saving = false,
+  onSubmit,
+  onCancel,
+  onScanReceipt,
+}: ExpenseFormProps) {
   const { categories } = useExpenseCategories();
   const { members } = useFamilyMembers();
   const [form, setForm] = useState<FormState>(() => initialState(expense));
@@ -101,6 +110,20 @@ export function ExpenseForm({ expense, saving = false, onSubmit, onCancel }: Exp
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
+      {/* Scan a fiscal receipt instead of typing (add mode only). */}
+      {onScanReceipt && !isEdit ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={onScanReceipt}
+          disabled={saving}
+        >
+          <QrCodeIcon className="size-4" />
+          Skeniraj račun
+        </Button>
+      ) : null}
+
       {/* Amount — the star of the quick-add. Big, autofocused, numeric keypad. */}
       <div className="space-y-2">
         <Label htmlFor="expense-amount">Iznos (RSD) *</Label>

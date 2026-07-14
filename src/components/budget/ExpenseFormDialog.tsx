@@ -16,6 +16,8 @@ export type ExpenseFormDialogProps = {
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
+  /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
+  onScanReceipt?: () => void;
 };
 
 /**
@@ -29,6 +31,7 @@ export function ExpenseFormDialog({
   error,
   saving,
   onSubmit,
+  onScanReceipt,
 }: ExpenseFormDialogProps) {
   const isEdit = !!expense?.id;
   return (
@@ -50,6 +53,7 @@ export function ExpenseFormDialog({
           saving={saving}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}
+          onScanReceipt={onScanReceipt}
         />
       </ResponsiveDialogContent>
     </ResponsiveDialog>

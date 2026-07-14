@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   LockClosedIcon,
   PencilSquareIcon,
+  QrCodeIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
@@ -34,6 +35,10 @@ import { formatAmount } from "@/utils/format";
 import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
+// Lazy chunk: the scanner pulls in the camera code + jsQR, so it must stay out
+// of the main bundle. Loaded on the first "Skeniraj račun".
+const ReceiptScanDialog = lazy(() => import("@/components/budget/receipt/ReceiptScanDialog"));
+
 export const Route = createFileRoute("/_app/budget")({
   component: BudgetPage,
 });
@@ -62,6 +67,10 @@ function BudgetPage() {
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  // Stays true after the first open so the lazy chunk loads once and the close
+  // animation can play; the dialog releases the camera whenever `open` is false.
+  const [scanMounted, setScanMounted] = useState(false);
 
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -138,6 +147,11 @@ function BudgetPage() {
     setAddOpen(true);
   };
 
+  const openScan = () => {
+    setScanMounted(true);
+    setScanOpen(true);
+  };
+
   const openEdit = (expense: Expense) => {
     // Auto rows (from payments) are read-only.
     if (expense.source !== "manual") return;
@@ -192,6 +206,16 @@ function BudgetPage() {
           </Button>
           <Button type="button" variant="outline" onClick={() => setCategoriesOpen(true)}>
             Kategorije
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={openScan}
+            aria-label="Skeniraj račun"
+            title="Skeniraj račun"
+          >
+            <QrCodeIcon className="size-5" />
+            <span className="hidden lg:inline">Skeniraj račun</span>
           </Button>
           <AddButton label="Dodaj trošak" onClick={openAdd} />
         </div>
@@ -448,7 +472,17 @@ function BudgetPage() {
         onSubmit={(payload) => {
           void handleSubmit(payload);
         }}
+        onScanReceipt={() => {
+          setAddOpen(false);
+          openScan();
+        }}
       />
+
+      {scanMounted ? (
+        <Suspense fallback={null}>
+          <ReceiptScanDialog open={scanOpen} onOpenChange={setScanOpen} onJumpToMonth={setMonth} />
+        </Suspense>
+      ) : null}
 
       <ConfirmDialog
         open={!!toDelete}
