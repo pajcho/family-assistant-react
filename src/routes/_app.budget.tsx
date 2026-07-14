@@ -14,6 +14,7 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { Button } from "@/components/ui/button";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
+import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -59,6 +60,7 @@ function BudgetPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -119,6 +121,16 @@ function BudgetPage() {
 
   const maxCategoryTotal = breakdown.length > 0 ? breakdown[0].total : 0;
 
+  // Category-limit lookup (spent vs monthly_limit) from the cycle, for the
+  // amber (≥80%) / red (≥100%) breakdown coloring.
+  const limitByCategory = useMemo(() => {
+    const m = new Map<string, { limit: number; pct: number }>();
+    for (const c of cycle.perCategory) {
+      if (c.limit != null && c.limit > 0) m.set(c.categoryId, { limit: c.limit, pct: c.pct });
+    }
+    return m;
+  }, [cycle.perCategory]);
+
   const openAdd = () => {
     setEditing(null);
     setFormError(null);
@@ -176,6 +188,9 @@ function BudgetPage() {
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" onClick={() => setIncomesOpen(true)}>
             Prihodi
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setCategoriesOpen(true)}>
+            Kategorije
           </Button>
           <AddButton label="Dodaj trošak" onClick={openAdd} />
         </div>
@@ -282,6 +297,14 @@ function BudgetPage() {
             {breakdown.map((row) => {
               const Icon = categoryIcon(row.icon);
               const pct = maxCategoryTotal > 0 ? (row.total / maxCategoryTotal) * 100 : 0;
+              const limitInfo = limitByCategory.get(row.key);
+              // Bar fills toward the LIMIT when one exists (so "how close am I to
+              // the cap" is the signal); otherwise it's relative to the biggest
+              // category. Amber ≥80%, red ≥100%.
+              const overLimit = limitInfo ? limitInfo.pct >= 100 : false;
+              const nearLimit = limitInfo ? limitInfo.pct >= 80 : false;
+              const barColor = overLimit ? "#ef4444" : nearLimit ? "#f59e0b" : row.color;
+              const barPct = limitInfo ? Math.min(limitInfo.pct, 100) : pct;
               return (
                 <li key={row.key}>
                   <div className="mb-1 flex items-center justify-between gap-2">
@@ -296,12 +319,27 @@ function BudgetPage() {
                     </div>
                     <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
                       {formatAmount(row.total)}
+                      {limitInfo ? (
+                        <span
+                          className={cn(
+                            "font-normal",
+                            overLimit
+                              ? "text-red-600 dark:text-red-400"
+                              : nearLimit
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-gray-400 dark:text-gray-500",
+                          )}
+                        >
+                          {" "}
+                          / {formatAmount(limitInfo.limit)}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
                     <div
                       className="h-full rounded-full transition-[width]"
-                      style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: row.color }}
+                      style={{ width: `${Math.max(barPct, 2)}%`, backgroundColor: barColor }}
                     />
                   </div>
                 </li>
@@ -395,6 +433,8 @@ function BudgetPage() {
       ) : null}
 
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} />
+
+      <CategoriesSheet open={categoriesOpen} onOpenChange={setCategoriesOpen} />
 
       <ExpenseFormDialog
         open={addOpen}
