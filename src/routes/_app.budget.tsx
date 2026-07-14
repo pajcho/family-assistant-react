@@ -23,10 +23,14 @@ import {
   useUpdateExpense,
 } from "@/hooks/useExpenses";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import { useIncomes } from "@/hooks/useIncomes";
+import { usePaymentsList } from "@/hooks/usePayments";
+import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import type { Expense } from "@/types/database";
 import { currentMonthYYYYMM } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { monthLabel, monthRange, shiftMonth } from "@/utils/budget";
+import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
+import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/_app/budget")({
   component: BudgetPage,
@@ -59,12 +63,28 @@ function BudgetPage() {
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
   const { categories, byId: categoriesById } = useExpenseCategories();
+  const { incomes } = useIncomes();
+  const paymentsQuery = usePaymentsList({ hidePaid: false });
+  const { byKey: paymentOverrides } = usePaymentOverrides();
 
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
 
-  const totalSpent = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
+  const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
+
+  const cycle = useMemo(
+    () =>
+      computeMonthlyCycle({
+        month,
+        incomes,
+        expenses,
+        payments,
+        paymentOverrides,
+        categories,
+      }),
+    [month, incomes, expenses, payments, paymentOverrides, categories],
+  );
 
   // Per-category totals, sorted most-spent first (an "Bez kategorije" bucket
   // collects null-category rows).
@@ -184,13 +204,71 @@ function BudgetPage() {
         </button>
       </div>
 
-      {/* Summary header */}
-      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
-        <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
-          {formatAmount(totalSpent)}
+      {/* Cycle header — when the family has incomes it shows the full cycle
+          (Prihodi · Potrošeno · Preostalo + projection); otherwise just the
+          month's spend, with a nudge to add incomes. */}
+      {cycle.hasIncome ? (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Prihodi</div>
+              <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(cycle.totalIncome)}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Potrošeno</div>
+              <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(cycle.totalSpent)}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Preostalo</div>
+              <div
+                className={cn(
+                  "mt-0.5 text-base font-semibold tabular-nums",
+                  cycle.remaining < 0
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {formatAmount(cycle.remaining)}
+              </div>
+            </div>
+          </div>
+          {cycle.projectedUnpaid > 0 ? (
+            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700/60">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Projekcija do kraja meseca
+              </span>
+              <span
+                className={cn(
+                  "text-sm font-semibold tabular-nums",
+                  cycle.projectedRemaining < 0
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-gray-900 dark:text-gray-100",
+                )}
+              >
+                {formatAmount(cycle.projectedRemaining)}
+              </span>
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
+          <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
+            {formatAmount(cycle.totalSpent)}
+          </div>
+          <button
+            type="button"
+            onClick={() => setIncomesOpen(true)}
+            className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Dodaj prihode za mesečni pregled →
+          </button>
+        </div>
+      )}
 
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
