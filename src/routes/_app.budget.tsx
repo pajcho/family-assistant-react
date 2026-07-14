@@ -11,7 +11,9 @@ import {
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { Button } from "@/components/ui/button";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
+import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -52,6 +54,7 @@ function BudgetPage() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
+  const [incomesOpen, setIncomesOpen] = useState(false);
 
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -150,7 +153,12 @@ function BudgetPage() {
     <div className="animate-fade-in pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Budžet</h1>
-        <AddButton label="Dodaj trošak" onClick={openAdd} />
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={() => setIncomesOpen(true)}>
+            Prihodi
+          </Button>
+          <AddButton label="Dodaj trošak" onClick={openAdd} />
+        </div>
       </div>
 
       {/* Month switcher */}
@@ -307,6 +315,8 @@ function BudgetPage() {
           ) : null}
         </section>
       ) : null}
+
+      <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} />
 
       <ExpenseFormDialog
         open={addOpen}

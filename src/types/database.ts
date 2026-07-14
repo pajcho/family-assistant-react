@@ -239,6 +239,25 @@ export interface Expense {
   updated_at: string;
 }
 
+/**
+ * A recurring household income (Faza 4). `day_of_month` is the nominal pay-day
+ * (1..31; the cycle math caps it to the month's last day). `active=false`
+ * pauses it without deleting; `is_recurring=false` marks a one-off (still
+ * counted in its month).
+ */
+export interface Income {
+  id: string;
+  family_id: string;
+  person_id: string | null;
+  name: string;
+  amount: number;
+  day_of_month: number;
+  is_recurring: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Activities (recurring weekly schedule per family member)
 // ---------------------------------------------------------------------------
