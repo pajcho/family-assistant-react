@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 
 import { AddMenu } from "@/components/dashboard/AddMenu";
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
@@ -35,6 +36,7 @@ import type { Birthday, Event, Payment } from "@/types/database";
  */
 export function DashboardScope({ scope }: { scope: AgendaPage }) {
   const { familyId, familyName } = useProfile();
+  const navigate = useNavigate();
 
   const filters = useAgendaFilters();
   const view = useAgendaView(scope);
@@ -221,6 +223,9 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             onAddEvent={openAddEvent}
             onAddPayment={openAddPayment}
             onAddBirthday={openAddBirthday}
+            // Lists live on /lists — deep-link there with the create dialog
+            // already open (`?new=1`, consumed by ListMaster).
+            onAddList={() => void navigate({ to: "/lists", search: { new: true } })}
           />
         ) : null}
       </div>

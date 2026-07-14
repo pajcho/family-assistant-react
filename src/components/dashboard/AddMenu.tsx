@@ -2,6 +2,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  ClipboardDocumentListIcon,
   PlusIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
@@ -15,19 +16,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * The dashboard's "Dodaj" affordance — a menu over the four agenda types.
- * A labelled header dropdown on desktop (lg+), a floating action button below
- * lg (where the bottom nav lives). Two dropdown instances (one per trigger)
- * share the same items.
+ * The dashboard's "Dodaj" affordance — a menu over the four agenda types plus
+ * a "Lista" shortcut (lists live on /lists, so that entry navigates there with
+ * the create dialog open instead of opening a dialog in place). A labelled
+ * header dropdown on desktop (lg+), a floating action button below lg (where
+ * the bottom nav lives). Two dropdown instances (one per trigger) share the
+ * same items.
  */
 export type AddMenuProps = {
   onAddActivity: () => void;
   onAddEvent: () => void;
   onAddPayment: () => void;
   onAddBirthday: () => void;
+  onAddList: () => void;
 };
 
-export function AddMenu({ onAddActivity, onAddEvent, onAddPayment, onAddBirthday }: AddMenuProps) {
+export function AddMenu({
+  onAddActivity,
+  onAddEvent,
+  onAddPayment,
+  onAddBirthday,
+  onAddList,
+}: AddMenuProps) {
   const renderItems = () => (
     <>
       <DropdownMenuItem onClick={onAddActivity}>
@@ -45,6 +55,10 @@ export function AddMenu({ onAddActivity, onAddEvent, onAddPayment, onAddBirthday
       <DropdownMenuItem onClick={onAddBirthday}>
         <CakeIcon className="size-4 text-emerald-500 dark:text-emerald-400" />
         Rođendan
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onAddList}>
+        <ClipboardDocumentListIcon className="size-4 text-purple-500 dark:text-purple-400" />
+        Lista
       </DropdownMenuItem>
     </>
   );

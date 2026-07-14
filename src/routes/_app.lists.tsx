@@ -16,6 +16,13 @@ import { useIsWide } from "@/hooks/useIsWide";
  * position is remembered per-device in localStorage.
  */
 export const Route = createFileRoute("/_app/lists")({
+  // `?new=1` deep-links the create-list dialog open — used by the dashboard's
+  // "Dodaj → Lista" entry. Lives on the layout route (not the index) so it
+  // reaches the sidebar's ListMaster on desktop even while the index route is
+  // busy redirecting to a concrete list. Consumed + stripped by ListMaster.
+  validateSearch: (search: Record<string, unknown>): { new?: boolean } => ({
+    new: search.new === true || search.new === 1 || search.new === "1" ? true : undefined,
+  }),
   component: ListsLayout,
 });
 
