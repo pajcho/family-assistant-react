@@ -6,7 +6,8 @@ import type { AgendaView } from "@/hooks/useAgendaView";
 /**
  * List ↔ calendar segmented toggle, shown top-right of a dashboard page. Drives
  * the per-page `useAgendaView` preference. Icon + label on sm+, icon-only on the
- * narrowest screens (the label is always available to assistive tech).
+ * narrowest screens — `sr-only` (not `hidden`, which would drop the text from
+ * the accessibility tree) keeps the label available to assistive tech there.
  */
 const SEGMENT_CLASS =
   "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset";
@@ -34,7 +35,7 @@ export function ViewToggle({
         className={cn(SEGMENT_CLASS, value === "list" ? ACTIVE_CLASS : INACTIVE_CLASS)}
       >
         <ListBulletIcon className="size-4 shrink-0" />
-        <span className="hidden sm:inline">Lista</span>
+        <span className="sr-only sm:not-sr-only">Lista</span>
       </button>
       <button
         type="button"
@@ -47,7 +48,7 @@ export function ViewToggle({
         )}
       >
         <CalendarDaysIcon className="size-4 shrink-0" />
-        <span className="hidden sm:inline">Kalendar</span>
+        <span className="sr-only sm:not-sr-only">Kalendar</span>
       </button>
     </div>
   );
