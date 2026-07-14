@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeSlashIcon } from "@heroicons/react/24/outline";
+import { EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
@@ -265,9 +265,19 @@ function EventsPage() {
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
       {showEmpty ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Nema događaja za prikaz. Dodajte prvi događaj.
-        </div>
+        events.length === 0 ? (
+          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-gray-500 dark:text-gray-400">Nema događaja za prikaz.</p>
+            <Button onClick={openAdd} className="mt-4">
+              <PlusIcon className="mr-2 h-5 w-5" />
+              Dodaj događaj
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+            Nema događaja za izabrane filtere.
+          </div>
+        )
       ) : null}
 
       {!isLoading && filteredEvents.length > 0 ? (
