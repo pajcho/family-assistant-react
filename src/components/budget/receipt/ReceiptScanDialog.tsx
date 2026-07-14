@@ -136,8 +136,10 @@ export default function ReceiptScanDialog({
         items: receipt.items,
       },
       {
-        onSuccess: () => {
-          toast.success("Račun je sačuvan");
+        onSuccess: (res) => {
+          // On a partial item-save failure the hook already warns; don't stack
+          // a contradictory success toast on top of it.
+          if (res.itemsSaved) toast.success("Račun je sačuvan");
           onOpenChange(false);
         },
         onError: async (err: Error) => {
