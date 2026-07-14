@@ -1,10 +1,12 @@
 import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { SunIcon } from "@heroicons/react/24/outline";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaDayCalendar } from "@/components/dashboard/AgendaDayCalendar";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
+import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
@@ -84,7 +86,7 @@ export function AgendaTodayTab({
       <section>
         <AgendaDateHeader day={today} today={today} tomorrow={tomorrow} />
         {loading ? (
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+          <AgendaListSkeleton rows={4} />
         ) : hasToday ? (
           <ul className="mt-2 space-y-1">
             {items.map((item) => (
@@ -98,15 +100,35 @@ export function AgendaTodayTab({
         ) : hasOverdue ? (
           // Today itself is clear, but there's overdue above — stay matter-of-fact
           // rather than celebratory.
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-            Za danas nemaš zakazanih obaveza.
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Za danas nemaš zakazanih obaveza.
+            </p>
+            <UskoroCta />
+          </div>
         ) : (
           <TodayEmptyState firstName={firstName} />
         )}
       </section>
       {dialogs}
     </div>
+  );
+}
+
+/**
+ * "See what's next" link shown when today is clear. The Danas scope only loads
+ * today (`from === to === today`), so tomorrow's count isn't available without
+ * a second `useAgenda` — which must never be mounted twice (double realtime
+ * subscription) — hence a plain CTA without the count.
+ */
+function UskoroCta() {
+  return (
+    <Link
+      to="/uskoro"
+      className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+    >
+      Pogledaj Uskoro →
+    </Link>
   );
 }
 
@@ -125,6 +147,7 @@ function TodayEmptyState({ firstName }: { firstName: string | null }) {
           Nemaš ništa zakazano za danas, slobodno predahni.
         </p>
       </div>
+      <UskoroCta />
     </div>
   );
 }

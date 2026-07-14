@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
 import { getWeekStart } from "@/utils/activity";
+import { srLocale } from "@/utils/date";
 
 /**
  * Todoist-style week strip for the "Uskoro" tab. A fixed Mon–Sun weekday header
@@ -25,6 +29,15 @@ import { getWeekStart } from "@/utils/activity";
 /** Monday-first two-letter weekday initials. */
 const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
 
+/** Serbian plural form of "stavka" for a count (1 stavka, 2 stavke, 5 stavki). */
+function stavkeLabel(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return "stavka";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "stavke";
+  return "stavki";
+}
+
 /** A swipe counts as a page change past this fraction of the strip width… */
 const SWIPE_DISTANCE_RATIO = 0.2;
 /** …or if it's a quick flick: under this many ms with at least a little travel. */
@@ -45,7 +58,15 @@ export type WeekStripProps = {
   countByDay: Map<string, number>;
   /** e.g. "Jun 2026". */
   monthLabel: string;
+  /** Last jumpable day (the agenda horizon cap, today + 12 months). */
+  maxDay: string;
   onSelectDay: (day: string) => void;
+  /**
+   * A day was picked in the month-picker popover. Unlike `onSelectDay`, the
+   * target may lie beyond the loaded window — the owner grows the horizon
+   * first, then scrolls.
+   */
+  onJumpToDay: (day: string) => void;
   /** Fired when the pager is swiped to its last week — load more. */
   onReachEnd: () => void;
 };
@@ -57,7 +78,9 @@ export function WeekStrip({
   activeDay,
   countByDay,
   monthLabel,
+  maxDay,
   onSelectDay,
+  onJumpToDay,
   onReachEnd,
 }: WeekStripProps) {
   const onReachEndRef = useRef(onReachEnd);
@@ -80,6 +103,13 @@ export function WeekStrip({
   const trackRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null } | null>(null);
   const wheelLock = useRef(false);
+
+  // Month-picker popover state + bounds (today → the horizon cap). Selecting a
+  // day closes the popover and hands off to the owner's jump mechanics.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const fromDate = useMemo(() => parseISO(from + "T12:00:00"), [from]);
+  const maxDate = useMemo(() => parseISO(maxDay + "T12:00:00"), [maxDay]);
+  const activeDate = activeDay ? parseISO(activeDay + "T12:00:00") : undefined;
 
   const restingTransform = (i: number) => `translateX(${-i * 100}%)`;
 
@@ -170,9 +200,36 @@ export function WeekStrip({
 
   return (
     <div>
-      <div className="mb-1.5 px-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
-        {monthLabel}
-      </div>
+      {/* Month label doubles as the "jump to a day" affordance — a popover
+          mini-calendar bounded to [today, horizon cap]. */}
+      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${monthLabel} — izaberi dan`}
+            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:bg-gray-700/60"
+          >
+            {monthLabel}
+            <ChevronDownIcon className="size-3.5 text-gray-400 dark:text-gray-500" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-0">
+          <Calendar
+            mode="single"
+            locale={srLocale}
+            selected={activeDate}
+            defaultMonth={activeDate ?? fromDate}
+            startMonth={fromDate}
+            endMonth={maxDate}
+            disabled={{ before: fromDate, after: maxDate }}
+            onSelect={(date) => {
+              if (!date) return;
+              setPickerOpen(false);
+              onJumpToDay(format(date, "yyyy-MM-dd"));
+            }}
+          />
+        </PopoverContent>
+      </Popover>
 
       {/* Fixed weekday header — every week shares the same Mon–Sun columns. */}
       <div className="grid grid-cols-7 gap-1 px-1">
@@ -205,7 +262,8 @@ export function WeekStrip({
             return (
               <div key={weekStart} className="grid w-full shrink-0 grid-cols-7 gap-1 px-1">
                 {Array.from({ length: 7 }, (_, dow) => {
-                  const day = format(addDays(base, dow), "yyyy-MM-dd");
+                  const date = addDays(base, dow);
+                  const day = format(date, "yyyy-MM-dd");
                   const count = countByDay.get(day) ?? 0;
                   const isToday = day === today;
                   const isActive = day === activeDay;
@@ -214,12 +272,16 @@ export function WeekStrip({
                   // per day (empty ones too), so there's always somewhere to land.
                   // The green dot below the number signals which days have events.
                   const selectable = day >= from;
+                  // Humanized for screen readers: "ponedeljak, 20. jul — 6 stavki".
+                  const spokenDay = format(date, "EEEE, d. MMMM", { locale: srLocale });
                   return (
                     <button
                       key={day}
                       type="button"
                       disabled={!selectable}
-                      aria-label={`${day}${count > 0 ? ` — ${count}` : ""}`}
+                      aria-label={
+                        count > 0 ? `${spokenDay} — ${count} ${stavkeLabel(count)}` : spokenDay
+                      }
                       onClick={() => onSelectDay(day)}
                       className={cn(
                         "flex flex-col items-center gap-1 rounded-lg py-1.5 transition-colors",

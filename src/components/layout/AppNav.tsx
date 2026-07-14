@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -12,6 +13,7 @@ import {
   ComputerDesktopIcon,
   EllipsisHorizontalIcon,
   HomeIcon,
+  MagnifyingGlassIcon,
   MoonIcon,
   Squares2X2Icon,
   SunIcon,
@@ -22,6 +24,7 @@ import {
 import { cn } from "@/lib/cn";
 import { AppNavLink } from "@/components/layout/AppNavLink";
 import { UserAvatar } from "@/components/layout/UserAvatar";
+import { GlobalSearchDialog } from "@/components/search/GlobalSearchDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +90,20 @@ const MORE_ITEMS: readonly NavItem[] = [
 ];
 
 export function AppNav() {
+  // Global search: ⌘/Ctrl+K toggles, the magnifying-glass button opens.
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <>
       {/* Opaque, NOT translucent + backdrop-blur: iOS Safari fails to repaint a
@@ -107,10 +124,22 @@ export function AppNav() {
               ))}
             </div>
           </div>
-          <AppMenu />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Pretraga"
+              title="Pretraga (⌘K)"
+              onClick={() => setSearchOpen(true)}
+              className="flex size-9 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <MagnifyingGlassIcon className="h-5 w-5" />
+            </button>
+            <AppMenu />
+          </div>
         </div>
       </nav>
       <MobileBottomNav />
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );
 }

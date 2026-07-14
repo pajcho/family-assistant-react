@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import type { Birthday } from "@/types/database";
+import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { BirthdayListItem } from "@/components/birthdays/BirthdayListItem";
@@ -129,8 +131,12 @@ function BirthdaysPage() {
       {isLoading ? (
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
       ) : sortedBirthdays.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Nema unetih rođendana.
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-gray-500 dark:text-gray-400">Nema unetih rođendana.</p>
+          <Button onClick={openAdd} className="mt-4">
+            <PlusIcon className="mr-2 h-5 w-5" />
+            Dodaj rođendan
+          </Button>
         </div>
       ) : (
         <ul className="mt-6 space-y-3">

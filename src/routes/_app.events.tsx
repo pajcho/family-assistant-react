@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventListItem } from "@/components/events/EventListItem";
@@ -31,6 +32,9 @@ function EventsPage() {
   const [hideCompleted, setHideCompleted] = useState(true);
   const [filterFrom, setFilterFrom] = useState<string | null>(null);
   const [filterTo, setFilterTo] = useState<string | null>(null);
+  // Person filter — same convention as the dashboard's person facet: an empty
+  // set means "no filter"; a non-empty set narrows to those members.
+  const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,9 +62,31 @@ function EventsPage() {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
 
-  const events: Event[] = eventsQuery.data ?? [];
-  const filteredEvents = hideCompleted ? events.filter((e) => !isEventEnded(e)) : events;
+  const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  // "Sakrij završene" + the person facet. Person semantics mirror the
+  // dashboard's `matchesAgendaFilter`: empty selection shows everything; with
+  // members selected only events assigned to at least one of them pass
+  // (unassigned events hide while the filter is active).
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (hideCompleted && isEventEnded(e)) return false;
+      if (selectedPersonIds.size > 0) {
+        const personIds = byEvent.get(e.id) ?? [];
+        if (!personIds.some((id) => selectedPersonIds.has(id))) return false;
+      }
+      return true;
+    });
+  }, [events, hideCompleted, selectedPersonIds, byEvent]);
   const editingPersonIds = editingEvent ? (byEvent.get(editingEvent.id) ?? []) : [];
+
+  const togglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
+      return next;
+    });
+  };
 
   const openAdd = () => {
     setEditingEvent(null);
@@ -177,56 +203,81 @@ function EventsPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Događaji</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              checked={hideCompleted}
-              onChange={(e) => setHideCompleted(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-            />
-            Sakrij završene
-          </label>
-          <AddButton label="Dodaj događaj" onClick={openAdd} />
-        </div>
+        <AddButton label="Dodaj događaj" onClick={openAdd} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4 sm:flex-row">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="from" className="shrink-0">
-            Od
-          </Label>
+      <div className="mt-4 space-y-3">
+        {/* Compact control row in the app's chip idiom: date-range pickers, a
+            "Sakrij završene" toggle chip and a reset that appears only while a
+            date bound is set. On narrow screens the row scrolls horizontally
+            (edge-to-edge via the negative margin) instead of wrapping. */}
+        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           <DatePicker
             id="from"
             value={filterFrom}
             onChange={setFilterFrom}
-            placeholder="Od"
-            className="w-40"
+            placeholder="Od datuma"
+            className="w-36 shrink-0"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="to" className="shrink-0">
-            Do
-          </Label>
           <DatePicker
             id="to"
             value={filterTo}
             onChange={setFilterTo}
-            placeholder="Do"
-            className="w-40"
+            placeholder="Do datuma"
+            className="w-36 shrink-0"
           />
+          <button
+            type="button"
+            onClick={() => setHideCompleted((prev) => !prev)}
+            aria-pressed={hideCompleted}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+              hideCompleted
+                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
+                : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
+            )}
+          >
+            <EyeSlashIcon
+              className={cn(
+                "size-4 shrink-0",
+                hideCompleted
+                  ? "text-blue-500 dark:text-blue-400"
+                  : "text-gray-400 dark:text-gray-500",
+              )}
+            />
+            Sakrij završene
+          </button>
+          {filterFrom || filterTo ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-muted-foreground"
+              onClick={clearFilters}
+            >
+              Resetuj
+            </Button>
+          ) : null}
         </div>
-        <Button variant="secondary" size="sm" onClick={clearFilters}>
-          Prikaži sve
-        </Button>
+        <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
       </div>
 
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
       {showEmpty ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Nema događaja za prikaz. Dodajte prvi događaj.
-        </div>
+        events.length === 0 ? (
+          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-gray-500 dark:text-gray-400">Nema događaja za prikaz.</p>
+            <Button onClick={openAdd} className="mt-4">
+              <PlusIcon className="mr-2 h-5 w-5" />
+              Dodaj događaj
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+            Nema događaja za izabrane filtere.
+          </div>
+        )
       ) : null}
 
       {!isLoading && filteredEvents.length > 0 ? (
