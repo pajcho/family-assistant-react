@@ -1,10 +1,10 @@
 // supabase/functions/receipt-import/index.ts
 //
 // Fetches a Serbian fiscal-receipt verification page (suf.purs.gov.rs/v/?vl=…),
-// parses its journal into structured data, and returns it. The function does NO
-// database work — the client previews the result and then saves it through the
-// normal `expenses` insert path so RLS + mutations stay uniform (see
-// useReceiptImport / useExpenses).
+// parses its journal into structured data, transliterates every text field to
+// Serbian Latin, and returns it. The function does NO database work — the client
+// previews the result and then saves it through the normal `expenses` insert
+// path so RLS + mutations stay uniform (see useReceiptImport / useExpenses).
 //
 // verify_jwt = true (see supabase/config.toml): called from the client with the
 // member's session, so the platform rejects unauthenticated calls before we run.
@@ -13,10 +13,11 @@
 // host and path prefix are all validated before the outbound fetch, so this
 // endpoint can't be turned into a proxy for arbitrary URLs.
 //
-// The parser lives in the sibling pure module parse.ts (no Deno APIs) so vitest
-// can exercise it directly (parse.test.ts).
+// The parser + transliterator live in sibling pure modules parse.ts /
+// transliterate.ts (no Deno APIs) so vitest exercises them directly.
 
 import { parseReceiptHtml, ReceiptParseError } from "./parse.ts";
+import { transliterateReceipt } from "./transliterate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,9 +83,9 @@ Deno.serve(async (req) => {
     clearTimeout(timer);
   }
 
-  // ── Parse ──────────────────────────────────────────────────────────────────
+  // ── Parse + transliterate to Latin ─────────────────────────────────────────
   try {
-    const receipt = parseReceiptHtml(html);
+    const receipt = transliterateReceipt(parseReceiptHtml(html));
     return json({ receipt: { ...receipt, receiptUrl: target } }, 200);
   } catch (err) {
     if (err instanceof ReceiptParseError) {

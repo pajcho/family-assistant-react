@@ -4,12 +4,19 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { parseJournal, parseReceiptHtml, parseSerbianAmount, ReceiptParseError } from "./parse.ts";
+import { transliterateReceipt } from "./transliterate.ts";
 
 // vitest runs with cwd = repo root; resolve the real captured fixtures from there.
 const FIXTURE_DIR = join(process.cwd(), "supabase/functions/receipt-import/__fixtures__");
 
 function fixture(name: string): string {
   return readFileSync(join(FIXTURE_DIR, name), "utf8");
+}
+
+// Helper mirroring the Edge Function: parse the page HTML, then transliterate
+// every text field to Latin (the shape the client + DB actually receive).
+function parseHtmlToLatin(html: string) {
+  return transliterateReceipt(parseReceiptHtml(html));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -43,11 +50,11 @@ describe("parseSerbianAmount", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// REAL captured pages (ground truth) — merchant/items already Latin on these
+// REAL captured pages (ground truth) — asserted through the Latin pipeline
 // ───────────────────────────────────────────────────────────────────────────
 
 describe("parseReceiptHtml — real ZARA capture", () => {
-  const r = parseReceiptHtml(fixture("zara.html"));
+  const r = parseHtmlToLatin(fixture("zara.html"));
 
   it("reads the required fields", () => {
     expect(r.totalAmount).toBe(4990);
@@ -71,7 +78,7 @@ describe("parseReceiptHtml — real ZARA capture", () => {
 });
 
 describe("parseReceiptHtml — real Planeta Sport capture", () => {
-  const r = parseReceiptHtml(fixture("planeta.html"));
+  const r = parseHtmlToLatin(fixture("planeta.html"));
 
   it("reads the required fields; falls back to company name when store is a code", () => {
     expect(r.totalAmount).toBe(7219.98);
