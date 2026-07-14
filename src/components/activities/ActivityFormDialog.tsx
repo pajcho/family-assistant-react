@@ -5,6 +5,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { ActivityForm, type ActivityFormPayload } from "@/components/activities/ActivityForm";
+import { ActivityPaymentsSection } from "@/components/activities/ActivityPaymentsSection";
 import type { Activity, ActivitySchedule, Profile } from "@/types/database";
 
 export type ActivityFormDialogProps = {
@@ -24,6 +25,11 @@ export type ActivityFormDialogProps = {
 /**
  * Same shell pattern as EventFormDialog — error banner above, form below.
  * Mobile renders the form as a bottom-sheet via ResponsiveDialog.
+ *
+ * When editing (and the dialog is open — the section fetches payments), the
+ * read-only "Plaćanja" block is slotted into the form so linked payments and
+ * the per-month attendance breakdown show up on the activity's own side of
+ * the link. It renders nothing for activities without linked payments.
  */
 export function ActivityFormDialog({
   open,
@@ -59,6 +65,9 @@ export function ActivityFormDialog({
           peopleWithShift={peopleWithShift}
           defaultPersonId={defaultPersonId}
           saving={saving}
+          paymentsSection={
+            activity && open ? <ActivityPaymentsSection activity={activity} /> : undefined
+          }
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}
         />

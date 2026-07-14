@@ -18,6 +18,7 @@ import {
   dateTimeValueToColumns,
   eventToDateTimeValue,
 } from "@/components/events/EventDateTimeFields";
+import { EventPaymentsSection } from "@/components/events/EventPaymentsSection";
 import type { Event } from "@/types/database";
 import { useUpdateEvent } from "@/hooks/useEvents";
 import { formatDate } from "@/utils/date";
@@ -237,6 +238,11 @@ export function EventDetailDialog({
                   ) : null}
                 </dl>
               </div>
+
+              {/* Linked payments — the event side of the payment link. Renders
+                  nothing (and only fetches while an event is selected) when
+                  the event has none. */}
+              <EventPaymentsSection eventId={event.id} />
             </div>
           )
         ) : null}

@@ -38,6 +38,8 @@ function payment(over: Partial<Payment> = {}): Payment {
     is_paused: false,
     paid_date: null,
     remind_days_before: null,
+    activity_id: null,
+    event_id: null,
     created_at: "",
     updated_at: "",
     ...over,

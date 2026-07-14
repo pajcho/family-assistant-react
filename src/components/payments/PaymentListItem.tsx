@@ -20,7 +20,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { PaymentLinkChip } from "@/components/payments/PaymentLinkChip";
 import { cn } from "@/lib/cn";
+import type { PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type {
   Payment,
   PaymentHistoryStatus,
@@ -87,6 +89,10 @@ export type PaymentListItemProps = {
   item: PaymentListItemUnion;
   /** Assignees of the underlying payment (empty = unassigned). */
   personIds: string[];
+  /** Resolved "Povezano sa" target — only live payment rows carry one. */
+  linkTarget?: PaymentLinkTarget | null;
+  /** Open the linked entity (activity → /activities?edit=, event → /events). */
+  onOpenLink?: (target: PaymentLinkTarget) => void;
   onMarkPaid: (item: PaymentRowItem) => void;
   onTogglePause: (item: PaymentRowItem) => void;
   onOpenHistory: (item: PaymentRowItem) => void;
@@ -433,7 +439,7 @@ function PaymentActions({
  * immutable.
  */
 export function PaymentListItem(props: PaymentListItemProps) {
-  const { item, personIds } = props;
+  const { item, personIds, linkTarget, onOpenLink } = props;
   const description = "description" in item ? item.description : null;
   const override = overrideOf(item);
   const isCanceled =
@@ -475,6 +481,15 @@ export function PaymentListItem(props: PaymentListItemProps) {
             <span className="text-gray-500 italic dark:text-gray-400">„{override.reason}"</span>
           ) : null}
         </div>
+        {linkTarget && onOpenLink ? (
+          <div className="mt-1">
+            <PaymentLinkChip
+              target={linkTarget}
+              onClick={() => onOpenLink(linkTarget)}
+              className="text-xs"
+            />
+          </div>
+        ) : null}
         {personIds.length > 0 ? (
           <MemberBadges personIds={personIds} className="mt-2" size="xs" />
         ) : null}

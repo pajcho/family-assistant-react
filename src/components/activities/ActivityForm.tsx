@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,12 @@ export type ActivityFormProps = {
   /** Default person to preselect when creating (e.g. current user's id). */
   defaultPersonId?: string | null;
   saving?: boolean;
+  /**
+   * Read-only "Plaćanja" block (linked payments + monthly breakdown), slotted
+   * in above the footer buttons when editing. The dialog owns the data — the
+   * form stays a dumb layout shell for it.
+   */
+  paymentsSection?: ReactNode;
   onSubmit: (payload: ActivityFormPayload) => void;
   onCancel: () => void;
 };
@@ -228,6 +234,7 @@ export function ActivityForm({
   peopleWithShift,
   defaultPersonId,
   saving = false,
+  paymentsSection,
   onSubmit,
   onCancel,
 }: ActivityFormProps) {
@@ -485,6 +492,8 @@ export function ActivityForm({
           placeholder="lokacija, trener, itd."
         />
       </div>
+
+      {paymentsSection}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
