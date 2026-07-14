@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { cn } from "@/lib/cn";
 
@@ -23,6 +24,10 @@ export type PaymentFormPayload = {
   remaining_occurrences?: number | null;
   is_paused?: boolean;
   remind_days_before: number | null;
+  /** Linked activity — XOR with `event_id`; both null when unlinked. */
+  activity_id: string | null;
+  /** Linked event — XOR with `activity_id`. */
+  event_id: string | null;
   /** Family members the payment is for. Empty = unassigned (shared bill). */
   personIds: string[];
 };
@@ -50,6 +55,8 @@ type FormState = {
   remaining_occurrences: string;
   is_paused: boolean;
   remind_days_before: number | null;
+  /** Single Jira-style link to an activity or event — see PaymentLinkField. */
+  link: PaymentLinkValue | null;
   personIds: string[];
 };
 
@@ -124,6 +131,12 @@ function NativeSelect<T extends string | number>({
   );
 }
 
+function initialLink(payment: Payment | null | undefined): PaymentLinkValue | null {
+  if (payment?.activity_id) return { kind: "activity", id: payment.activity_id };
+  if (payment?.event_id) return { kind: "event", id: payment.event_id };
+  return null;
+}
+
 function initialState(payment: Payment | null | undefined, personIds: string[]): FormState {
   return {
     name: payment?.name ?? "",
@@ -136,6 +149,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
       payment?.remaining_occurrences != null ? String(payment.remaining_occurrences) : "4",
     is_paused: payment?.is_paused ?? false,
     remind_days_before: payment?.remind_days_before ?? null,
+    link: initialLink(payment),
     personIds,
   };
 }
@@ -144,6 +158,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
  * Layout:
  *   • Naziv / Opis — full width
  *   • Za koga — assignee pills (optional)
+ *   • Poveži sa — link combobox to one activity/event (optional)
  *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`
  *   • Tip — native select (Jednokratno / Nedeljno / Mesečno / Ograničeno).
  *     Disabled when `hasHistory` is true.
@@ -207,6 +222,8 @@ export function PaymentForm({
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
       is_paused: isRecurring ? form.is_paused : false,
       remind_days_before: form.remind_days_before,
+      activity_id: form.link?.kind === "activity" ? form.link.id : null,
+      event_id: form.link?.kind === "event" ? form.link.id : null,
       personIds: form.personIds,
     });
   };
@@ -237,6 +254,7 @@ export function PaymentForm({
         value={form.personIds}
         onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
       />
+      <PaymentLinkField value={form.link} onChange={(link) => setForm((s) => ({ ...s, link }))} />
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="amount">Iznos (RSD) *</Label>
