@@ -33,6 +33,7 @@ import { writeLastOpenedListId } from "@/lib/lastOpenedList";
 import type { ListFormMode, ListFormPayload } from "@/components/lists/ListForm";
 import {
   useClearCompletedItems,
+  useCopyListItems,
   useCreateList,
   useCreateListItem,
   useDeleteList,
@@ -126,6 +127,7 @@ function ListDetailLoaded({
 
   const updateList = useUpdateList();
   const createList = useCreateList();
+  const copyListItems = useCopyListItems();
   const deleteList = useDeleteList();
   const createItem = useCreateListItem();
   const updateItem = useUpdateListItem();
@@ -153,9 +155,10 @@ function ListDetailLoaded({
     setFormOpen(true);
   };
 
-  // Duplicate copies only the list's *settings* into a fresh, empty list —
-  // items are intentionally not cloned. The "(kopija)" suffix stops a blind
-  // Save from producing two identically-named lists.
+  // Duplicate copies the list's *settings* into a fresh list; the form's
+  // "Kopiraj i stavke" checkbox (default on) additionally clones the items
+  // as not-completed. The "(kopija)" suffix stops a blind Save from
+  // producing two identically-named lists.
   const openDuplicate = () => {
     setFormMode("duplicate");
     setFormInitial({ ...list, name: `${list.name} (kopija)` });
@@ -169,7 +172,16 @@ function ListDetailLoaded({
       if (formMode === "edit") {
         await updateList.mutateAsync({ id: list.id, payload });
       } else {
-        await createList.mutateAsync(payload);
+        const created = await createList.mutateAsync(payload);
+        // "Dupliraj sa stavkama": clone this list's items into the new one.
+        // The list itself already exists at this point, so a copy failure
+        // only toasts (via the hook's onError) instead of holding the form
+        // open — a retry would create a second duplicate list.
+        if (formMode === "duplicate" && payload.copyItems) {
+          await copyListItems
+            .mutateAsync({ items: list.list_items, targetListId: created.id })
+            .catch(() => undefined);
+        }
       }
       setFormOpen(false);
       setFormInitial(null);
@@ -260,7 +272,7 @@ function ListDetailLoaded({
         list={formInitial}
         mode={formMode}
         error={formError}
-        saving={updateList.isPending || createList.isPending}
+        saving={updateList.isPending || createList.isPending || copyListItems.isPending}
         onSubmit={(payload) => {
           void handleFormSubmit(payload);
         }}
@@ -387,10 +399,10 @@ function ListHeader({
             <PencilIcon className="h-4 w-4" />
             Izmeni listu
           </DropdownMenuItem>
-          {/* Duplicate copies only the list's settings (name, scope,
-              description, retention) into a fresh, empty list — items are
-              intentionally not cloned. Grouped with "Izmeni" since both are
-              "set up a list" actions. */}
+          {/* Duplicate copies the list's settings (name, scope, description,
+              retention) into a fresh list; the form offers "Kopiraj i stavke"
+              to also clone the items as not-completed. Grouped with "Izmeni"
+              since both are "set up a list" actions. */}
           <DropdownMenuItem onSelect={onDuplicate}>
             <DocumentDuplicateIcon className="h-4 w-4" />
             Dupliraj listu
