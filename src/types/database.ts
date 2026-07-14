@@ -116,6 +116,12 @@ export interface Payment {
   activity_id: string | null;
   /** Optional link to the event this payment pays for. XOR with `activity_id` — see above. */
   event_id: string | null;
+  /**
+   * Optional budget category (Faza 3). Categorize a recurring bill once and
+   * every paid occurrence's auto-expense inherits it. ON DELETE SET NULL, so
+   * removing a category detaches without touching the payment.
+   */
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,6 +182,59 @@ export interface Birthday {
   name: string;
   description: string | null;
   birth_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Budget (Faza 3/4) — expense categories + the expenses ledger + incomes
+// ---------------------------------------------------------------------------
+
+/**
+ * A family-editable spend bucket. `icon` is a short key the UI maps to a
+ * heroicon (see `categoryIcon`); `color` is a hex string like profiles.color.
+ * `monthly_limit` (Faza 4) is an optional RSD ceiling — NULL = untracked.
+ */
+export interface ExpenseCategory {
+  id: string;
+  family_id: string;
+  name: string;
+  color: string;
+  icon: string;
+  sort_order: number;
+  monthly_limit: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * How an expense entered the ledger. `manual` = typed in the quick-add;
+ * `payment` = auto-written by the payment trigger when an occurrence is marked
+ * paid (read-only in the UI); `receipt` = fiscal QR import (Faza 5).
+ */
+export type ExpenseSource = "manual" | "payment" | "receipt";
+
+/**
+ * One spend entry. Auto rows (`source='payment'`) carry `payment_id` +
+ * `payment_due_date` (the occurrence they came from — also the trigger's
+ * idempotency key) and inherit the payment's category/link. `activity_id` /
+ * `event_id` are XOR, mirroring payments.
+ */
+export interface Expense {
+  id: string;
+  family_id: string;
+  amount: number;
+  currency: string;
+  /** YYYY-MM-DD — the day the money is counted against (occurrence date for auto rows). */
+  spent_on: string;
+  category_id: string | null;
+  person_id: string | null;
+  note: string | null;
+  source: ExpenseSource;
+  payment_id: string | null;
+  payment_due_date: string | null;
+  activity_id: string | null;
+  event_id: string | null;
   created_at: string;
   updated_at: string;
 }
