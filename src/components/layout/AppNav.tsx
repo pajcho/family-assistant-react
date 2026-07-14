@@ -16,6 +16,7 @@ import {
   Squares2X2Icon,
   SunIcon,
   UserGroupIcon,
+  WalletIcon,
 } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
@@ -63,6 +64,7 @@ const DESKTOP_NAV_ITEMS: readonly NavItem[] = [
   { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
   { to: "/events", label: "Događaji", icon: CalendarIcon },
   { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
+  { to: "/budget", label: "Budžet", icon: WalletIcon },
   { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ];
@@ -80,6 +82,7 @@ const MORE_ITEMS: readonly NavItem[] = [
   { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
   { to: "/events", label: "Događaji", icon: CalendarIcon },
   { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
+  { to: "/budget", label: "Budžet", icon: WalletIcon },
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ];
 
