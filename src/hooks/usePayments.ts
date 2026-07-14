@@ -59,6 +59,10 @@ export type CreatePaymentInput = {
   recurrence_interval?: number;
   remaining_occurrences?: number | null;
   remind_days_before?: number | null;
+  /** Linked activity — at most one of `activity_id` / `event_id` may be set. */
+  activity_id?: string | null;
+  /** Linked event — XOR with `activity_id` (DB CHECK `payments_single_link`). */
+  event_id?: string | null;
   /** Family members this payment is for. Omit/empty = unassigned. */
   personIds?: string[];
 };
@@ -76,6 +80,8 @@ export type UpdatePaymentInput = Partial<
     | "remaining_occurrences"
     | "is_paused"
     | "remind_days_before"
+    | "activity_id"
+    | "event_id"
   >
 > & {
   /**

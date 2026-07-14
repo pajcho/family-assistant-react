@@ -104,6 +104,18 @@ export interface Payment {
   is_paused: boolean;
   paid_date: string | null;
   remind_days_before: number | null;
+  /**
+   * Optional link to the activity this payment pays for (e.g. "Engleski
+   * Lucija" ← monthly tuition). A payment links to AT MOST ONE thing — one
+   * activity OR one event — enforced by the `payments_single_link` CHECK
+   * (`num_nonnulls(activity_id, event_id) <= 1`). The reverse direction is
+   * unbounded: an activity/event can have many linked payments. ON DELETE
+   * SET NULL, so removing the activity detaches the link but keeps the
+   * payment (and its history) intact.
+   */
+  activity_id: string | null;
+  /** Optional link to the event this payment pays for. XOR with `activity_id` — see above. */
+  event_id: string | null;
   created_at: string;
   updated_at: string;
 }
