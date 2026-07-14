@@ -38,3 +38,11 @@ verify_jwt = false
 # as send-due-pushes.
 [functions.gcal-sync]
 verify_jwt = false
+
+# receipt-import is called from the client with the member's session to fetch +
+# parse a fiscal-receipt page (suf.purs.gov.rs). verify_jwt = true (the default,
+# stated explicitly) so only authenticated members can invoke it; the function
+# itself does no DB work (the client saves the parsed receipt through the normal
+# RLS-protected expenses insert path).
+[functions.receipt-import]
+verify_jwt = true
