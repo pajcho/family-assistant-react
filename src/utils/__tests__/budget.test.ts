@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Expense, ExpenseCategory, Income, Payment, PaymentOverride } from "@/types/database";
+import type {
+  Expense,
+  ExpenseCategory,
+  Income,
+  IncomeEntry,
+  Payment,
+  PaymentOverride,
+} from "@/types/database";
 import { computeMonthlyCycle, monthLabel, monthOf, monthRange, shiftMonth } from "../budget";
 import { overrideKey } from "../payment";
 
@@ -17,6 +24,24 @@ function income(over: Partial<Income> = {}): Income {
     day_of_month: 1,
     is_recurring: true,
     active: true,
+    created_at: "",
+    updated_at: "",
+    ...over,
+  };
+}
+
+function incomeEntry(over: Partial<IncomeEntry> = {}): IncomeEntry {
+  return {
+    id: "ie1",
+    family_id: "fam",
+    income_id: "inc1",
+    person_id: null,
+    name: "Plata",
+    amount: 100000,
+    month: "2026-07",
+    received_on: "2026-07-05",
+    note: null,
+    is_one_time: false,
     created_at: "",
     updated_at: "",
     ...over,
@@ -92,7 +117,9 @@ const NO_OVERRIDES = new Map<string, PaymentOverride>();
 function base(over: Partial<Parameters<typeof computeMonthlyCycle>[0]> = {}) {
   return {
     month: "2026-07",
+    currentMonth: "2026-07",
     incomes: [],
+    incomeEntries: [],
     expenses: [],
     payments: [],
     paymentOverrides: NO_OVERRIDES,
@@ -129,17 +156,18 @@ describe("month helpers", () => {
 /* ------------------------------------------------------------------------- */
 
 describe("computeMonthlyCycle", () => {
-  it("empty month with no incomes → hasIncome false, zeroed", () => {
+  it("empty month with no income → hasIncome false, zeroed", () => {
     const c = computeMonthlyCycle(base());
     expect(c.hasIncome).toBe(false);
-    expect(c.totalIncome).toBe(0);
+    expect(c.confirmedIncome).toBe(0);
+    expect(c.expectedIncome).toBe(0);
     expect(c.totalSpent).toBe(0);
     expect(c.remaining).toBe(0);
     expect(c.projectedUnpaid).toBe(0);
     expect(c.projectedRemaining).toBe(0);
   });
 
-  it("sums only ACTIVE incomes", () => {
+  it("projects expected income from active sources (current month, unconfirmed)", () => {
     const c = computeMonthlyCycle(
       base({
         incomes: [
@@ -150,13 +178,58 @@ describe("computeMonthlyCycle", () => {
       }),
     );
     expect(c.hasIncome).toBe(true);
-    expect(c.totalIncome).toBe(150000);
+    // Nothing confirmed yet → 0 confirmed; the two ACTIVE sources are expected.
+    expect(c.confirmedIncome).toBe(0);
+    expect(c.expectedIncome).toBe(150000);
+    expect(c.projectedRemaining).toBe(150000);
+  });
+
+  it("confirmed income counts; a confirmed source is not also 'expected'", () => {
+    const c = computeMonthlyCycle(
+      base({
+        incomes: [income({ id: "a", amount: 100000 }), income({ id: "b", amount: 50000 })],
+        incomeEntries: [incomeEntry({ income_id: "a", amount: 95000 })],
+      }),
+    );
+    expect(c.confirmedIncome).toBe(95000); // actual, not the 100000 source amount
+    expect(c.expectedIncome).toBe(50000); // only source "b" still outstanding
+    expect(c.projectedRemaining).toBe(145000);
+  });
+
+  it("one-off income (no source) counts toward confirmed income", () => {
+    const c = computeMonthlyCycle(
+      base({
+        incomeEntries: [
+          incomeEntry({ id: "bonus", income_id: null, is_one_time: true, amount: 20000 }),
+        ],
+      }),
+    );
+    expect(c.hasIncome).toBe(true);
+    expect(c.confirmedIncome).toBe(20000);
+    expect(c.expectedIncome).toBe(0);
+  });
+
+  it("past month is frozen — no expected projection, only what was confirmed", () => {
+    const c = computeMonthlyCycle(
+      base({
+        month: "2026-05",
+        currentMonth: "2026-07",
+        // A source that exists TODAY must not leak into May's budget.
+        incomes: [income({ id: "a", amount: 100000 })],
+        incomeEntries: [
+          incomeEntry({ id: "may", income_id: "a", amount: 88000, month: "2026-05" }),
+        ],
+      }),
+    );
+    expect(c.confirmedIncome).toBe(88000);
+    expect(c.expectedIncome).toBe(0);
+    expect(c.remaining).toBe(88000);
   });
 
   it("counts only expenses whose spent_on is in the month (boundaries)", () => {
     const c = computeMonthlyCycle(
       base({
-        incomes: [income({ amount: 100000 })],
+        incomeEntries: [incomeEntry({ amount: 100000 })],
         expenses: [
           expense({ id: "in1", amount: 3000, spent_on: "2026-07-01" }),
           expense({ id: "in2", amount: 2000, spent_on: "2026-07-31" }),
@@ -172,12 +245,12 @@ describe("computeMonthlyCycle", () => {
   it("projects an unpaid monthly occurrence due this month", () => {
     const c = computeMonthlyCycle(
       base({
-        incomes: [income({ amount: 200000 })],
+        incomeEntries: [incomeEntry({ amount: 200000 })],
         expenses: [expense({ amount: 30000, spent_on: "2026-07-05" })],
         payments: [payment({ amount: 50000, due_date: "2026-07-10" })],
       }),
     );
-    // 200000 income − 30000 spent = 170000 remaining; − 50000 unpaid = 120000.
+    // 200000 confirmed − 30000 spent = 170000 remaining; − 50000 unpaid = 120000.
     expect(c.totalSpent).toBe(30000);
     expect(c.remaining).toBe(170000);
     expect(c.projectedUnpaid).toBe(50000);
@@ -187,7 +260,7 @@ describe("computeMonthlyCycle", () => {
   it("skips paid and paused payments from the projection", () => {
     const c = computeMonthlyCycle(
       base({
-        incomes: [income({ amount: 100000 })],
+        incomeEntries: [incomeEntry({ amount: 100000 })],
         payments: [
           payment({
             id: "paid",

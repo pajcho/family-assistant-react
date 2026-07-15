@@ -1,6 +1,13 @@
 import { addMonths, format, lastDayOfMonth, parseISO } from "date-fns";
 
-import type { Expense, ExpenseCategory, Income, Payment, PaymentOverride } from "@/types/database";
+import type {
+  Expense,
+  ExpenseCategory,
+  Income,
+  IncomeEntry,
+  Payment,
+  PaymentOverride,
+} from "@/types/database";
 import { expandPaymentOccurrences } from "@/utils/payment";
 
 /**
@@ -63,15 +70,24 @@ export interface CategoryCycle {
 }
 
 export interface MonthlyCycle {
-  /** False when the family has no active incomes — the UI hides the cycle. */
+  /** False when the family tracks no income at all — the UI shows spend-only. */
   hasIncome: boolean;
-  totalIncome: number;
+  /** Actual income CONFIRMED for the month (recurring confirmations + one-offs). */
+  confirmedIncome: number;
   totalSpent: number;
-  /** totalIncome − totalSpent (money left after what's already been spent). */
+  /** confirmedIncome − totalSpent (money left after what's already been spent). */
   remaining: number;
+  /**
+   * Still-to-come income this month: active recurring SOURCES not yet confirmed.
+   * Zero for past months — history is only ever what was actually confirmed.
+   */
+  expectedIncome: number;
   /** Sum of still-unpaid known payment occurrences due within this month. */
   projectedUnpaid: number;
-  /** remaining − projectedUnpaid (expected money left at month-end). */
+  /**
+   * Expected money left at month-end:
+   * (confirmedIncome + expectedIncome) − (totalSpent + projectedUnpaid).
+   */
   projectedRemaining: number;
   /** One entry per category (spend + limit math), for the breakdown coloring. */
   perCategory: CategoryCycle[];
@@ -79,7 +95,12 @@ export interface MonthlyCycle {
 
 export interface MonthlyCycleInput {
   month: string;
+  /** Today's month "YYYY-MM". Expected income only projects for month ≥ this. */
+  currentMonth: string;
+  /** Recurring income SOURCES (templates). Used ONLY to project expected income. */
   incomes: Income[];
+  /** Confirmed income receipts for `month` (recurring confirmations + one-offs). */
+  incomeEntries: IncomeEntry[];
   /** Any expenses; filtered to `month` by spent_on internally. */
   expenses: Expense[];
   /** All payments (paused / paid ones are skipped for the projection). */
@@ -93,26 +114,45 @@ export interface MonthlyCycleInput {
  * The monthly budget cycle. Pure — the projection reuses the shared payment
  * occurrence resolver (`expandPaymentOccurrences`), never a private copy.
  *
- * Semantics:
- *   - `totalIncome` = sum of ACTIVE incomes (the household's monthly income;
- *     one-offs without a date anchor are treated as this month's income).
- *   - `totalSpent`  = sum of expenses whose `spent_on` is in `month` (this
- *     already includes the auto-expenses written when a payment was paid).
- *   - `projectedUnpaid` = sum of payment occurrences that are still unpaid and
- *     fall within `month`. The live `due_date` is the next-unpaid occurrence, so
- *     the resolver never re-counts an occurrence already paid (its auto-expense
- *     is in `totalSpent`). Paid one-time / paused payments are skipped outright.
- *   - `projectedRemaining` = `remaining − projectedUnpaid`.
+ * Income is confirmation-based (mirrors the spend side, where actual `expenses`
+ * — not live payments — drive `totalSpent`):
+ *   - `confirmedIncome` = sum of `income_entries` for `month`. This is FROZEN
+ *     history: editing a recurring source today never rewrites a past month.
+ *   - `expectedIncome` = active recurring SOURCES with no confirmation this
+ *     month, but ONLY for `month ≥ currentMonth`. A past month projects nothing
+ *     — it's exactly what was confirmed at the time.
+ *   - `totalSpent` = expenses whose `spent_on` is in `month` (already includes
+ *     the auto-expenses written when a payment was paid).
+ *   - `projectedUnpaid` = still-unpaid known occurrences due within `month`. The
+ *     live `due_date` is the next-unpaid occurrence, so the resolver never
+ *     re-counts an occurrence already paid. Paid one-time / paused are skipped.
+ *   - `projectedRemaining` = (confirmed + expected) − (spent + unpaid).
  *
- * A month with no active incomes returns `hasIncome=false` (and zeroed totals
- * except `totalSpent`) so the page can show spend-only.
+ * A family with no sources and no confirmed income returns `hasIncome=false`
+ * (spend-only view).
  */
 export function computeMonthlyCycle(input: MonthlyCycleInput): MonthlyCycle {
-  const { month, incomes, expenses, payments, paymentOverrides, categories } = input;
+  const { month, currentMonth, incomes, incomeEntries, expenses, payments, paymentOverrides } =
+    input;
+  const { categories } = input;
   const { from, to } = monthRange(month);
 
-  const activeIncomes = incomes.filter((i) => i.active);
-  const totalIncome = activeIncomes.reduce((sum, i) => sum + i.amount, 0);
+  // Confirmed income = actual receipts for the month (defensively re-filtered).
+  const monthEntries = incomeEntries.filter((e) => e.month === month);
+  const confirmedIncome = monthEntries.reduce((sum, e) => sum + e.amount, 0);
+
+  // Expected income = active sources not yet confirmed this month — current /
+  // future only. A past month never re-projects; it's frozen at what came in.
+  const activeSources = incomes.filter((i) => i.active);
+  const confirmedSourceIds = new Set(
+    monthEntries.filter((e) => e.income_id).map((e) => e.income_id as string),
+  );
+  const expectedIncome =
+    month >= currentMonth
+      ? activeSources
+          .filter((i) => !confirmedSourceIds.has(i.id))
+          .reduce((sum, i) => sum + i.amount, 0)
+      : 0;
 
   const monthExpenses = expenses.filter((e) => monthOf(e.spent_on) === month);
   const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -126,8 +166,8 @@ export function computeMonthlyCycle(input: MonthlyCycleInput): MonthlyCycle {
     projectedUnpaid += occurrences.length * payment.amount;
   }
 
-  const remaining = totalIncome - totalSpent;
-  const projectedRemaining = remaining - projectedUnpaid;
+  const remaining = confirmedIncome - totalSpent;
+  const projectedRemaining = confirmedIncome + expectedIncome - totalSpent - projectedUnpaid;
 
   // Per-category spend + limit math.
   const spentByCategory = new Map<string, number>();
@@ -143,10 +183,11 @@ export function computeMonthlyCycle(input: MonthlyCycleInput): MonthlyCycle {
   });
 
   return {
-    hasIncome: activeIncomes.length > 0,
-    totalIncome,
+    hasIncome: incomes.length > 0 || confirmedIncome > 0,
+    confirmedIncome,
     totalSpent,
     remaining,
+    expectedIncome,
     projectedUnpaid,
     projectedRemaining,
     perCategory,

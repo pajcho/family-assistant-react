@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/cn";
 import { getWeekStart } from "@/utils/activity";
 import { srLocale } from "@/utils/date";
+import { stavkeLabel } from "@/utils/plural";
 
 /**
  * Todoist-style week strip for the "Uskoro" tab. A fixed Mon–Sun weekday header
@@ -28,15 +29,6 @@ import { srLocale } from "@/utils/date";
 
 /** Monday-first two-letter weekday initials. */
 const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
-
-/** Serbian plural form of "stavka" for a count (1 stavka, 2 stavke, 5 stavki). */
-function stavkeLabel(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return "stavka";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "stavke";
-  return "stavki";
-}
 
 /** A swipe counts as a page change past this fraction of the strip width… */
 const SWIPE_DISTANCE_RATIO = 0.2;

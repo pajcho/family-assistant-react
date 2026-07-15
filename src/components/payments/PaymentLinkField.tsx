@@ -5,10 +5,13 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MemberBadges } from "@/components/common/MemberBadges";
 import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
 import { useActivities } from "@/hooks/useActivities";
+import { useActivityParticipants } from "@/hooks/useActivityParticipants";
 import { useBirthdaysData } from "@/hooks/useBirthdays";
 import { useEventsList } from "@/hooks/useEvents";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { usePaymentLinkTarget, type PaymentLinkKind } from "@/hooks/usePaymentLinks";
 import { useToday } from "@/hooks/useToday";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
@@ -41,6 +44,11 @@ type LinkOption = {
   name: string;
   /** Event date — shown next to the name so same-named events stay tellable apart. */
   date?: string;
+  /**
+   * Assigned family members — shown as badges so same-named activities/events
+   * for DIFFERENT members are tellable apart ("Engleski" for Nikola vs Sonja).
+   */
+  personIds: string[];
 };
 
 /** How far back the event options reach — recent past + everything upcoming. */
@@ -70,18 +78,44 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
 
   const today = useToday();
   const activitiesQuery = useActivities();
+  const activityParticipantsQuery = useActivityParticipants();
   const eventsQuery = useEventsList({ from: subtractMonth(today.str, EVENT_LOOKBACK_MONTHS) });
+  const { byEvent } = useEventParticipants();
   const birthdaysQuery = useBirthdaysData();
+
+  // activity_id → assigned person ids (siblings can share one activity name).
+  const byActivity = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const row of activityParticipantsQuery.data ?? []) {
+      const list = m.get(row.activity_id);
+      if (list) list.push(row.person_id);
+      else m.set(row.activity_id, [row.person_id]);
+    }
+    return m;
+  }, [activityParticipantsQuery.data]);
 
   const options = useMemo<LinkOption[]>(() => {
     const activities = (activitiesQuery.data ?? []).map(
-      (a): LinkOption => ({ kind: "activity", id: a.id, name: a.name }),
+      (a): LinkOption => ({
+        kind: "activity",
+        id: a.id,
+        name: a.name,
+        personIds: byActivity.get(a.id) ?? [],
+      }),
     );
     // Canceled events drop out — linking a payment to something that isn't
     // happening is never the intent (an existing link still displays fine).
     const events = (eventsQuery.data ?? [])
       .filter((e) => !e.canceled_at)
-      .map((e): LinkOption => ({ kind: "event", id: e.id, name: e.name, date: e.date }));
+      .map(
+        (e): LinkOption => ({
+          kind: "event",
+          id: e.id,
+          name: e.name,
+          date: e.date,
+          personIds: byEvent.get(e.id) ?? [],
+        }),
+      );
     // Birthdays (poklon tracking) — soonest upcoming first, next date shown.
     const birthdays = [...(birthdaysQuery.data ?? [])]
       .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
@@ -91,10 +125,11 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
           id: b.id,
           name: b.name,
           date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
+          personIds: [],
         }),
       );
     return [...activities, ...events, ...birthdays];
-  }, [activitiesQuery.data, eventsQuery.data, birthdaysQuery.data]);
+  }, [activitiesQuery.data, eventsQuery.data, birthdaysQuery.data, byActivity, byEvent]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -197,6 +232,9 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
           <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
             {option.name}
           </span>
+          {option.personIds.length > 0 ? (
+            <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
+          ) : null}
           {option.date ? (
             <span className="shrink-0 text-xs text-muted-foreground">
               {formatDate(option.date)}

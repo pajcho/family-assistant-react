@@ -402,10 +402,13 @@ export function useMarkPaymentPaid() {
       const historyDueDate =
         (rescheduleOverride?.override_date as string | undefined) ?? row.due_date;
 
-      // Insert into payment_history before updating
+      // Insert into payment_history before updating. `name` + `amount` are
+      // snapshotted here so a later rename / re-price on the live payment never
+      // rewrites this occurrence's history.
       const { error: historyErr } = await supabase.from("payment_history").insert({
         payment_id: id,
         family_id: row.family_id,
+        name: row.name,
         amount: row.amount,
         due_date: historyDueDate,
         paid_date: now,
@@ -534,6 +537,7 @@ export function useCancelPaymentOccurrence() {
       const { error: histErr } = await supabase.from("payment_history").insert({
         payment_id: args.id,
         family_id: row.family_id,
+        name: row.name,
         amount: row.amount,
         due_date: occurrenceDate,
         paid_date: null,
