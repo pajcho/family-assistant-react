@@ -14,7 +14,7 @@ import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
 import type { HistoryRowItem, UpcomingRowItem } from "@/components/payments/paymentRowTypes";
 import type { Payment } from "@/types/database";
 import { formatDate } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -107,7 +107,7 @@ export function PaymentOccurrenceDialog({
                   <div className="flex justify-between">
                     <dt className="text-gray-500 dark:text-gray-400">Iznos:</dt>
                     <dd className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatAmount(item.amount)}
+                      <Amount value={item.amount} />
                     </dd>
                   </div>
                   <div className="flex justify-between">

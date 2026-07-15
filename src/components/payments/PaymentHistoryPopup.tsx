@@ -13,7 +13,7 @@ import { PaymentUndoDialog } from "@/components/payments/PaymentUndoDialog";
 import { usePaymentHistoryByPaymentId, useUndoLastPayment } from "@/hooks/usePayments";
 import type { Payment } from "@/types/database";
 import { formatDate } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
 
 export type PaymentHistoryPopupProps = {
@@ -115,7 +115,7 @@ export function PaymentHistoryPopup({ open, onOpenChange, payment }: PaymentHist
                           : "text-emerald-700 dark:text-emerald-400",
                       )}
                     >
-                      {formatAmount(entry.amount)}
+                      <Amount value={entry.amount} />
                     </span>
                     {index === 0 ? (
                       <button

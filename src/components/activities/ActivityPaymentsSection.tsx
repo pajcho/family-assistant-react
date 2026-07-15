@@ -9,7 +9,7 @@ import { usePaymentHistory, usePaymentsList } from "@/hooks/usePayments";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import { useToday } from "@/hooks/useToday";
 import { computeActivityMonthlySummaries } from "@/utils/activityAttendance";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 
 /**
  * Read-only "Plaćanja" section inside the activity edit dialog — the reverse
@@ -65,7 +65,7 @@ export function ActivityPaymentsSection({ activity }: { activity: Activity }) {
             {months.map((m) => (
               <li key={m.month} className="text-xs text-muted-foreground tabular-nums">
                 {m.label} · {m.heldSessions === 1 ? "1 termin" : `${m.heldSessions} termina`} ·{" "}
-                {formatAmount(m.paidTotal)}
+                <Amount value={m.paidTotal} />
               </li>
             ))}
           </ul>

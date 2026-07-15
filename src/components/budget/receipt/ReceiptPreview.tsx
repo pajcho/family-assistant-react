@@ -11,7 +11,7 @@ import { useMerchantCategory } from "@/hooks/useExpenses";
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { stavkeLabel } from "@/utils/plural";
 import { cn } from "@/lib/cn";
 
@@ -69,7 +69,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
       {/* Amount — the hero. */}
       <div className="text-center">
         <div className="text-4xl font-semibold tabular-nums text-gray-900 dark:text-white">
-          {formatAmount(receipt.totalAmount)}
+          <Amount value={receipt.totalAmount} />
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-sm text-gray-500 dark:text-gray-400">
           {receipt.merchant ? (
@@ -154,7 +154,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
                   </span>
                 ) : null}
                 <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
-                  {formatAmount(it.total)}
+                  <Amount value={it.total} />
                 </span>
               </li>
             ))}

@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import type { PaymentListItemUnion } from "@/components/payments/paymentRowTypes";
 import { useToday } from "@/hooks/useToday";
 import { addDays, formatDate, isOverdue } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -142,7 +142,7 @@ function PaymentTimelineRow({
             {item.name}
           </span>
           <span className="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-            {formatAmount(item.amount)}
+            <Amount value={item.amount} />
           </span>
         </span>
         <span className="mt-0.5 flex items-center gap-2">

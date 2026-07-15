@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
+import { Amount } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
@@ -289,9 +290,6 @@ const BIRTHDAY_TINT =
 
 export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   if (item.kind === "payment") {
-    const amount = new Intl.NumberFormat("sr-Latn", { maximumFractionDigits: 0 }).format(
-      item.payment.amount,
-    );
     // A future repetition (not the live due_date occurrence) → read-only + dimmed
     // + "Nadolazeće" tag (matches the list). The live occurrence stays tappable
     // even when due in the future.
@@ -308,7 +306,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5">
           <span className="text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-            {amount} RSD
+            <Amount value={item.payment.amount} round />
           </span>
           {upcoming ? (
             <span className="rounded bg-amber-200/60 px-1 py-px text-[9px] font-medium tracking-wide text-amber-700 uppercase dark:bg-amber-500/25 dark:text-amber-200">

@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
 import { srLocale } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 
 /**
  * The "Prekoračeno" (overdue) section shared by the Danas and Uskoro tabs — the
@@ -33,7 +33,13 @@ export function OverdueSection({
   return (
     <section>
       <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-red-600 uppercase dark:text-red-400">
-        Prekoračeno{totalAmount > 0 ? ` · ${formatAmount(totalAmount)}` : null}
+        Prekoračeno
+        {totalAmount > 0 ? (
+          <>
+            {" · "}
+            <Amount value={totalAmount} />
+          </>
+        ) : null}
       </h3>
       <ul className="space-y-1">
         {items.map((item) => (
