@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import type { Expense, ExpenseItem } from "@/types/database";
@@ -287,6 +287,93 @@ export function useSaveReceiptExpense() {
     },
     // Errors (incl. DuplicateReceiptError) are handled inline by the scan dialog.
   });
+}
+
+/** Escape `ilike` wildcards so a literal % / _ in the term stays literal. */
+function escapeIlikeTerm(term: string): string {
+  return term.replace(/[\\%_]/g, "\\$&");
+}
+
+export interface ExpenseSearchHit {
+  expense: Expense;
+  /** Receipt line items whose name matched the term (empty for field matches). */
+  matchedItems: string[];
+}
+
+/**
+ * Family-wide expense search across ALL months: `note` + `merchant` on the
+ * expense itself, plus receipt line items by name — so "mleko" finds the
+ * receipt it was bought on. Item matches pull in their parent expense even
+ * when the expense's own fields don't match.
+ */
+async function searchExpenses(familyId: string, term: string): Promise<ExpenseSearchHit[]> {
+  const pattern = `%${escapeIlikeTerm(term)}%`;
+  const [byNote, byMerchant, itemRows] = await Promise.all([
+    supabase
+      .from("expenses")
+      .select("*")
+      .eq("family_id", familyId)
+      .ilike("note", pattern)
+      .order("spent_on", { ascending: false })
+      .limit(30),
+    supabase
+      .from("expenses")
+      .select("*")
+      .eq("family_id", familyId)
+      .ilike("merchant", pattern)
+      .order("spent_on", { ascending: false })
+      .limit(30),
+    supabase
+      .from("expense_items")
+      .select("expense_id,name")
+      .eq("family_id", familyId)
+      .ilike("name", pattern)
+      .limit(200),
+  ]);
+
+  const matchedItemsByExpense = new Map<string, string[]>();
+  for (const row of (itemRows.data ?? []) as { expense_id: string; name: string }[]) {
+    const arr = matchedItemsByExpense.get(row.expense_id) ?? [];
+    arr.push(row.name);
+    matchedItemsByExpense.set(row.expense_id, arr);
+  }
+
+  const byId = new Map<string, Expense>();
+  for (const e of [...(byNote.data ?? []), ...(byMerchant.data ?? [])] as Expense[]) {
+    byId.set(e.id, e);
+  }
+  const missingParentIds = [...matchedItemsByExpense.keys()].filter((id) => !byId.has(id));
+  if (missingParentIds.length > 0) {
+    const { data } = await supabase
+      .from("expenses")
+      .select("*")
+      .in("id", missingParentIds.slice(0, 50));
+    for (const e of (data ?? []) as Expense[]) byId.set(e.id, e);
+  }
+
+  return [...byId.values()]
+    .sort((a, b) => b.spent_on.localeCompare(a.spent_on))
+    .map((expense) => ({ expense, matchedItems: matchedItemsByExpense.get(expense.id) ?? [] }));
+}
+
+/** Minimum characters before the expense search fires. */
+export const MIN_EXPENSE_SEARCH_CHARS = 2;
+
+export function useExpenseSearch(term: string) {
+  const { familyId } = useProfile();
+  const trimmed = term.trim();
+  const enabled = !!familyId && trimmed.length >= MIN_EXPENSE_SEARCH_CHARS;
+
+  const query = useQuery({
+    queryKey: ["expense-search", familyId, trimmed.toLowerCase()],
+    queryFn: () => searchExpenses(familyId as string, trimmed),
+    enabled,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const hits = useMemo(() => (enabled ? (query.data ?? []) : []), [enabled, query.data]);
+  return { hits, isSearching: enabled && query.isFetching, enabled };
 }
 
 async function fetchExpenseItems(expenseId: string): Promise<ExpenseItem[]> {

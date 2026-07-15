@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
 import { PaymentLinkChip } from "@/components/payments/PaymentLinkChip";
+import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   useCancelPaymentOccurrence,
@@ -33,7 +33,7 @@ import {
   usePaymentOverrides,
   useUpsertPaymentOverride,
 } from "@/hooks/usePaymentOverrides";
-import { usePaymentLinkTarget } from "@/hooks/usePaymentLinks";
+import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
@@ -83,7 +83,7 @@ export function PaymentDetailDialog({
   const [mode, setMode] = useState<Mode>("detail");
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const navigate = useNavigate();
+  const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
 
   const markPaid = useMarkPaymentPaid();
   const updatePayment = useUpdatePayment();
@@ -137,17 +137,12 @@ export function PaymentDetailDialog({
     setHistoryOpen(true);
   };
 
-  // "Povezano sa" tap — close the popup and jump to the linked entity:
-  // activity deep-links its edit dialog open via ?edit=, events has no
-  // per-item detail route so the list page is the landing spot.
+  // "Povezano sa" tap — close this popup and open the linked entity's edit
+  // form right here (LinkedEntityEditor), no navigation.
   const handleOpenLink = () => {
     if (!linkTarget) return;
     onOpenChange(false);
-    if (linkTarget.kind === "activity") {
-      void navigate({ to: "/activities", search: { edit: linkTarget.id } });
-    } else {
-      void navigate({ to: "/events" });
-    }
+    setLinkEditTarget(linkTarget);
   };
 
   const handleMarkAsPaid = async () => {
@@ -481,6 +476,8 @@ export function PaymentDetailDialog({
       </ResponsiveDialog>
 
       <PaymentHistoryPopup open={historyOpen} onOpenChange={setHistoryOpen} payment={payment} />
+
+      <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </>
   );
 }

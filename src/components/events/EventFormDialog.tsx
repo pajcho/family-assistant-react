@@ -4,7 +4,11 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { EventForm, type EventFormPayload } from "@/components/events/EventForm";
+import {
+  EventForm,
+  type EventFormPayload,
+  type EventFormProps,
+} from "@/components/events/EventForm";
 import type { Event } from "@/types/database";
 
 export type EventFormDialogProps = {
@@ -13,6 +17,10 @@ export type EventFormDialogProps = {
   event: Event | null;
   /** Assignees of the event being edited; empty/omitted when adding. */
   initialPersonIds?: string[];
+  /** ADD-mode prefill (e.g. "Organizuj proslavu") — see EventForm.defaults. */
+  defaults?: EventFormProps["defaults"];
+  /** Dialog title override; falls back to Dodaj/Izmeni događaj. */
+  title?: string;
   /** Inline error banner shown above the form (e.g. mutation failure). */
   error?: string | null;
   saving?: boolean;
@@ -34,11 +42,13 @@ export function EventFormDialog({
   onOpenChange,
   event,
   initialPersonIds,
+  defaults,
+  title: titleOverride,
   error,
   saving,
   onSubmit,
 }: EventFormDialogProps) {
-  const title = event ? "Izmeni događaj" : "Dodaj događaj";
+  const title = titleOverride ?? (event ? "Izmeni događaj" : "Dodaj događaj");
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -54,6 +64,7 @@ export function EventFormDialog({
         <EventForm
           event={event}
           initialPersonIds={initialPersonIds}
+          defaults={defaults}
           saving={saving}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}

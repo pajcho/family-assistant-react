@@ -59,10 +59,12 @@ export type CreatePaymentInput = {
   recurrence_interval?: number;
   remaining_occurrences?: number | null;
   remind_days_before?: number | null;
-  /** Linked activity — at most one of `activity_id` / `event_id` may be set. */
+  /** Linked activity — at most one link may be set (DB CHECK `payments_single_link`). */
   activity_id?: string | null;
-  /** Linked event — XOR with `activity_id` (DB CHECK `payments_single_link`). */
+  /** Linked event — XOR with the other two links. */
   event_id?: string | null;
+  /** Linked birthday (poklon tracking) — XOR with the other two links. */
+  birthday_id?: string | null;
   /** Optional budget category — inherited by each paid occurrence's auto-expense. */
   category_id?: string | null;
   /** Family members this payment is for. Omit/empty = unassigned. */
@@ -84,6 +86,7 @@ export type UpdatePaymentInput = Partial<
     | "remind_days_before"
     | "activity_id"
     | "event_id"
+    | "birthday_id"
     | "category_id"
   >
 > & {

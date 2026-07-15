@@ -41,6 +41,23 @@ async function fetchBirthdays(familyId: string): Promise<Birthday[]> {
   return (data as Birthday[]) ?? [];
 }
 
+/**
+ * Read-only birthdays query sharing `useBirthdaysList`'s cache key but WITHOUT
+ * the realtime channel. The channel topic is fixed per family (no useId), so a
+ * second simultaneous subscription — e.g. the payment link picker while the
+ * birthdays page is open — would collide. Secondary surfaces use this one; the
+ * shared query key keeps the data in sync with the page's subscription and
+ * with mutation invalidations.
+ */
+export function useBirthdaysData() {
+  const { familyId } = useProfile();
+  return useQuery({
+    queryKey: ["birthdays", familyId],
+    queryFn: () => fetchBirthdays(familyId as string),
+    enabled: !!familyId,
+  });
+}
+
 export function useBirthdaysList() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();

@@ -25,10 +25,12 @@ export type PaymentFormPayload = {
   remaining_occurrences?: number | null;
   is_paused?: boolean;
   remind_days_before: number | null;
-  /** Linked activity — XOR with `event_id`; both null when unlinked. */
+  /** Linked activity — XOR with the other two; all null when unlinked. */
   activity_id: string | null;
-  /** Linked event — XOR with `activity_id`. */
+  /** Linked event — XOR with the other two. */
   event_id: string | null;
+  /** Linked birthday (poklon tracking) — XOR with the other two. */
+  birthday_id: string | null;
   /** Optional budget category (inherited by each paid occurrence's auto-expense). */
   category_id: string | null;
   /** Family members the payment is for. Empty = unassigned (shared bill). */
@@ -139,6 +141,7 @@ function NativeSelect<T extends string | number>({
 function initialLink(payment: Payment | null | undefined): PaymentLinkValue | null {
   if (payment?.activity_id) return { kind: "activity", id: payment.activity_id };
   if (payment?.event_id) return { kind: "event", id: payment.event_id };
+  if (payment?.birthday_id) return { kind: "birthday", id: payment.birthday_id };
   return null;
 }
 
@@ -230,6 +233,7 @@ export function PaymentForm({
       remind_days_before: form.remind_days_before,
       activity_id: form.link?.kind === "activity" ? form.link.id : null,
       event_id: form.link?.kind === "event" ? form.link.id : null,
+      birthday_id: form.link?.kind === "birthday" ? form.link.id : null,
       category_id: form.category_id,
       personIds: form.personIds,
     });

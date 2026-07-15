@@ -1,9 +1,9 @@
-import { CalendarIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { CakeIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import type { PaymentLinkKind, PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import { cn } from "@/lib/cn";
 
-/** Type icon for a payment link — activity violet, event blue (matches AddMenu). */
+/** Type icon for a payment link — activity violet, event blue, birthday pink. */
 export function PaymentLinkIcon({
   kind,
   className,
@@ -11,12 +11,20 @@ export function PaymentLinkIcon({
   kind: PaymentLinkKind;
   className?: string;
 }) {
-  return kind === "activity" ? (
-    <UserGroupIcon
-      className={cn("text-violet-500 dark:text-violet-400", className)}
-      aria-hidden="true"
-    />
-  ) : (
+  if (kind === "activity") {
+    return (
+      <UserGroupIcon
+        className={cn("text-violet-500 dark:text-violet-400", className)}
+        aria-hidden="true"
+      />
+    );
+  }
+  if (kind === "birthday") {
+    return (
+      <CakeIcon className={cn("text-pink-500 dark:text-pink-400", className)} aria-hidden="true" />
+    );
+  }
+  return (
     <CalendarIcon
       className={cn("text-blue-500 dark:text-blue-400", className)}
       aria-hidden="true"

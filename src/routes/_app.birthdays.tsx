@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { PlusIcon } from "@heroicons/react/24/outline";
-import type { Birthday } from "@/types/database";
+import { format } from "date-fns";
+import type { Birthday, Event } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -11,13 +12,17 @@ import {
   type BirthdayFormDialogProps,
 } from "@/components/birthdays/BirthdayFormDialog";
 import { type BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
+import { EventFormDialog } from "@/components/events/EventFormDialog";
+import type { EventFormPayload } from "@/components/events/EventForm";
 import {
   useBirthdaysList,
   useCreateBirthday,
   useUpdateBirthday,
   useDeleteBirthday,
 } from "@/hooks/useBirthdays";
-import { daysUntilBirthday } from "@/utils/birthday";
+import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
+import { useEventParticipants } from "@/hooks/useEventParticipants";
+import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 
 /**
  * `/birthdays` — list + CRUD for the family's birthdays.
@@ -43,6 +48,17 @@ function BirthdaysPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [birthdayToDelete, setBirthdayToDelete] = useState<Birthday | null>(null);
+
+  // "Organizuj proslavu" — the event form opens prefilled with the person's
+  // next birthday; the created event carries `birthday_id` so the row can show
+  // the celebration chip. The same dialog re-opens an existing celebration.
+  const [organizingFor, setOrganizingFor] = useState<Birthday | null>(null);
+  const [editingCelebration, setEditingCelebration] = useState<Event | null>(null);
+  const [celebrationError, setCelebrationError] = useState<string | null>(null);
+  const { data: celebrationByBirthday } = useBirthdayCelebrations();
+  const { byEvent } = useEventParticipants();
+  const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent();
 
   // Sort by next-occurrence so the soonest birthday is always on top, matching
   // the Vue page's `sortedBirthdays` computed.
@@ -119,6 +135,32 @@ function BirthdaysPage() {
     if (!next) setBirthdayToDelete(null);
   };
 
+  const handleCelebrationSubmit = async (payload: EventFormPayload) => {
+    setCelebrationError(null);
+    try {
+      if (editingCelebration) {
+        await updateEvent.mutateAsync({ id: editingCelebration.id, payload });
+      } else if (organizingFor) {
+        await createEvent.mutateAsync({ ...payload, birthday_id: organizingFor.id });
+      }
+      setOrganizingFor(null);
+      setEditingCelebration(null);
+    } catch (err) {
+      const fallback = editingCelebration
+        ? "Greška pri izmeni proslave"
+        : "Greška pri kreiranju proslave";
+      setCelebrationError(err instanceof Error && err.message ? err.message : fallback);
+    }
+  };
+
+  const handleCelebrationOpenChange = (next: boolean) => {
+    if (!next) {
+      setOrganizingFor(null);
+      setEditingCelebration(null);
+      setCelebrationError(null);
+    }
+  };
+
   const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -145,7 +187,22 @@ function BirthdaysPage() {
               key={b.id}
               className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
             >
-              <BirthdayListItem birthday={b} onEdit={openEdit} onDelete={confirmDelete} />
+              <BirthdayListItem
+                birthday={b}
+                celebration={celebrationByBirthday?.get(b.id) ?? null}
+                onEdit={openEdit}
+                onDelete={confirmDelete}
+                onOrganize={(birthday) => {
+                  setCelebrationError(null);
+                  setEditingCelebration(null);
+                  setOrganizingFor(birthday);
+                }}
+                onOpenCelebration={(event) => {
+                  setCelebrationError(null);
+                  setOrganizingFor(null);
+                  setEditingCelebration(event);
+                }}
+              />
             </li>
           ))}
         </ul>
@@ -167,6 +224,27 @@ function BirthdaysPage() {
         message={`Da li ste sigurni da želite da obrišete "${birthdayToDelete?.name ?? ""}"?`}
         loading={deleteMutation.isPending}
         onConfirm={doDelete}
+      />
+
+      <EventFormDialog
+        open={!!organizingFor || !!editingCelebration}
+        onOpenChange={handleCelebrationOpenChange}
+        event={editingCelebration}
+        initialPersonIds={editingCelebration ? (byEvent.get(editingCelebration.id) ?? []) : []}
+        defaults={
+          organizingFor
+            ? {
+                name: `Proslava — ${organizingFor.name}`,
+                date: format(nextBirthdayDate(organizingFor.birth_date), "yyyy-MM-dd"),
+              }
+            : undefined
+        }
+        title={organizingFor ? "Organizuj proslavu" : "Izmeni proslavu"}
+        error={celebrationError}
+        saving={createEvent.isPending || updateEvent.isPending}
+        onSubmit={(payload) => {
+          void handleCelebrationSubmit(payload);
+        }}
       />
     </div>
   );

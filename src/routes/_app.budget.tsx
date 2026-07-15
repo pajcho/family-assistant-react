@@ -1,19 +1,22 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  ChevronLeftIcon,
   ChevronRightIcon,
   LockClosedIcon,
+  MagnifyingGlassIcon,
   PencilSquareIcon,
   QrCodeIcon,
   ReceiptPercentIcon,
   TrashIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { MonthPicker } from "@/components/common/PeriodPicker";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
@@ -22,20 +25,23 @@ import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
+  MIN_EXPENSE_SEARCH_CHARS,
   useCreateExpense,
   useDeleteExpense,
   useExpenses,
+  useExpenseSearch,
   useReceiptItemCounts,
   useUpdateExpense,
+  type ExpenseSearchHit,
 } from "@/hooks/useExpenses";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useIncomes } from "@/hooks/useIncomes";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
-import type { Expense } from "@/types/database";
-import { currentMonthYYYYMM } from "@/utils/date";
+import type { Expense, ExpenseCategory } from "@/types/database";
+import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
+import { computeMonthlyCycle, monthRange } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
 // Lazy chunk: the scanner pulls in the camera code + jsQR, so it must stay out
@@ -75,6 +81,12 @@ function BudgetPage() {
   // Stays true after the first open so the lazy chunk loads once and the close
   // animation can play; the dialog releases the camera whenever `open` is false.
   const [scanMounted, setScanMounted] = useState(false);
+
+  // Search (note/merchant + receipt line items) — spans ALL months, so while
+  // active it replaces the month sections below.
+  const [searchTerm, setSearchTerm] = useState("");
+  const search = useExpenseSearch(searchTerm);
+  const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -232,33 +244,46 @@ function BudgetPage() {
         </div>
       </div>
 
-      {/* Month switcher */}
-      <div className="mt-4 flex items-center justify-center gap-2 sm:justify-start">
-        <button
-          type="button"
-          aria-label="Prethodni mesec"
-          onClick={() => setMonth((m) => shiftMonth(m, -1))}
-          className="inline-flex size-9 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          <ChevronLeftIcon className="size-5" />
-        </button>
-        <div className="min-w-[9rem] text-center text-base font-medium text-gray-900 dark:text-gray-100">
-          {monthLabel(month)}
+      {/* Month switcher + expense search — the same picker pill as the
+          activities week switcher (unified control across pages). */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <MonthPicker value={month} onChange={setMonth} />
+        <div className="relative min-w-0 flex-1 basis-52">
+          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Pretraži troškove i stavke…"
+            aria-label="Pretraži troškove"
+            className="pl-9"
+          />
+          {searchTerm ? (
+            <button
+              type="button"
+              aria-label="Obriši pretragu"
+              onClick={() => setSearchTerm("")}
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
+            >
+              <XMarkIcon className="size-4" />
+            </button>
+          ) : null}
         </div>
-        <button
-          type="button"
-          aria-label="Sledeći mesec"
-          onClick={() => setMonth((m) => shiftMonth(m, 1))}
-          className="inline-flex size-9 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
-          <ChevronRightIcon className="size-5" />
-        </button>
       </div>
+
+      {searchActive ? (
+        <BudgetSearchResults
+          hits={search.hits}
+          isSearching={search.isSearching}
+          categoriesById={categoriesById}
+          onOpenReceipt={setReceiptDetail}
+          onEditManual={openEdit}
+        />
+      ) : null}
 
       {/* Cycle header — when the family has incomes it shows the full cycle
           (Prihodi · Potrošeno · Preostalo + projection); otherwise just the
           month's spend, with a nudge to add incomes. */}
-      {cycle.hasIncome ? (
+      {!searchActive && cycle.hasIncome ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
@@ -305,7 +330,7 @@ function BudgetPage() {
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : !searchActive ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
@@ -319,12 +344,12 @@ function BudgetPage() {
             Dodaj prihode za mesečni pregled →
           </button>
         </div>
-      )}
+      ) : null}
 
-      {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
+      {!searchActive && isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
       {/* Per-category breakdown */}
-      {breakdown.length > 0 ? (
+      {!searchActive && breakdown.length > 0 ? (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
             Po kategorijama
@@ -386,13 +411,13 @@ function BudgetPage() {
       ) : null}
 
       {/* Expenses list */}
-      {showEmpty ? (
+      {!searchActive && showEmpty ? (
         <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
           Nema troškova za ovaj mesec. Dodaj prvi trošak.
         </div>
       ) : null}
 
-      {!isLoading && expenses.length > 0 ? (
+      {!searchActive && !isLoading && expenses.length > 0 ? (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Troškovi</h2>
           <ul className="space-y-2">
@@ -515,7 +540,7 @@ function BudgetPage() {
         </section>
       ) : null}
 
-      <BudgetTrend month={month} onSelectMonth={setMonth} />
+      {!searchActive ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
 
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} />
 
@@ -569,5 +594,121 @@ function BudgetPage() {
         }}
       />
     </div>
+  );
+}
+
+interface BudgetSearchResultsProps {
+  hits: ExpenseSearchHit[];
+  isSearching: boolean;
+  categoriesById: ReadonlyMap<string, ExpenseCategory>;
+  onOpenReceipt: (expense: Expense) => void;
+  onEditManual: (expense: Expense) => void;
+}
+
+/**
+ * Search-mode replacement for the month sections: flat list of matches across
+ * ALL months. Receipt rows open the receipt detail, manual rows the edit form;
+ * auto rows (from payments) are informational.
+ */
+function BudgetSearchResults({
+  hits,
+  isSearching,
+  categoriesById,
+  onOpenReceipt,
+  onEditManual,
+}: BudgetSearchResultsProps) {
+  return (
+    <section className="mt-6">
+      <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+        Rezultati pretrage <span className="font-normal">· svi meseci</span>
+      </h2>
+      {hits.length === 0 ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+          {isSearching ? "Pretraga…" : "Nema troškova koji odgovaraju pretrazi."}
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {hits.map(({ expense: e, matchedItems }) => {
+            const category = e.category_id ? categoriesById.get(e.category_id) : null;
+            const Icon = categoryIcon(category?.icon);
+            const color = category?.color ?? "#9ca3af";
+            const isReceipt = e.source === "receipt";
+            const isManual = e.source === "manual";
+            const primary = isReceipt
+              ? e.merchant || e.note?.trim() || category?.name || "Račun"
+              : e.note?.trim() || category?.name || "Trošak";
+
+            const inner = (
+              <>
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${color}22` }}
+                >
+                  <Icon className="size-5" style={{ color }} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {primary}
+                    </span>
+                    {isReceipt ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        <ReceiptPercentIcon className="size-2.5" />
+                        račun
+                      </span>
+                    ) : e.source === "payment" ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                        <LockClosedIcon className="size-2.5" />
+                        iz plaćanja
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{formatDate(e.spent_on)}</span>
+                    {category ? <span className="truncate">· {category.name}</span> : null}
+                  </div>
+                  {matchedItems.length > 0 ? (
+                    <div className="mt-0.5 truncate text-xs text-violet-600 dark:text-violet-400">
+                      Stavka: {matchedItems.slice(0, 3).join(", ")}
+                      {matchedItems.length > 3 ? ` +${matchedItems.length - 3}` : ""}
+                    </div>
+                  ) : null}
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                  {formatAmount(e.amount)}
+                </span>
+              </>
+            );
+
+            if (isReceipt || isManual) {
+              return (
+                <li
+                  key={e.id}
+                  className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <button
+                    type="button"
+                    onClick={() => (isReceipt ? onOpenReceipt(e) : onEditManual(e))}
+                    className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
+                  >
+                    {inner}
+                    <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+                  </button>
+                </li>
+              );
+            }
+
+            return (
+              <li
+                key={e.id}
+                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+              >
+                {inner}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
