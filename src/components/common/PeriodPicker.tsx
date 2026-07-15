@@ -92,6 +92,9 @@ export type MonthPickerProps = {
   allOptionLabel?: string;
   /** Label of the back-to-current-month button. */
   resetLabel?: string;
+  /** Inclusive "YYYY-MM" bounds — arrows/grid can't leave the range (e.g. birthdays: current year only). */
+  minMonth?: string;
+  maxMonth?: string;
   className?: string;
 };
 
@@ -100,6 +103,8 @@ export function MonthPicker({
   onChange,
   allOptionLabel,
   resetLabel = "Ovaj mesec",
+  minMonth,
+  maxMonth,
   className,
 }: MonthPickerProps) {
   const [open, setOpen] = useState(false);
@@ -120,11 +125,20 @@ export function MonthPicker({
     setOpen(false);
   };
 
+  const inRange = (month: string) =>
+    (!minMonth || month >= minMonth) && (!maxMonth || month <= maxMonth);
+  const step = (delta: number) => {
+    const next = shiftMonth(baseMonth, delta);
+    if (inRange(next)) onChange(next);
+  };
+  const minYear = minMonth ? Number(minMonth.slice(0, 4)) : null;
+  const maxYear = maxMonth ? Number(maxMonth.slice(0, 4)) : null;
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <PeriodPickerShell
-        onPrev={() => onChange(shiftMonth(baseMonth, -1))}
-        onNext={() => onChange(shiftMonth(baseMonth, 1))}
+        onPrev={() => step(-1)}
+        onNext={() => step(1)}
         prevAriaLabel="Prethodni mesec"
         nextAriaLabel="Sledeći mesec"
       >
@@ -144,7 +158,8 @@ export function MonthPicker({
                 type="button"
                 aria-label="Prethodna godina"
                 onClick={() => setGridYear((y) => y - 1)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700"
+                disabled={minYear != null && gridYear <= minYear}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
               >
                 <ChevronLeftIcon className="size-4" />
               </button>
@@ -155,7 +170,8 @@ export function MonthPicker({
                 type="button"
                 aria-label="Sledeća godina"
                 onClick={() => setGridYear((y) => y + 1)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-700"
+                disabled={maxYear != null && gridYear >= maxYear}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
               >
                 <ChevronRightIcon className="size-4" />
               </button>
@@ -170,8 +186,9 @@ export function MonthPicker({
                     key={month}
                     type="button"
                     onClick={() => pick(month)}
+                    disabled={!inRange(month)}
                     className={cn(
-                      "rounded-md px-2 py-1.5 text-sm transition-colors",
+                      "rounded-md px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40",
                       selected
                         ? "bg-blue-600 font-medium text-white"
                         : isCurrent

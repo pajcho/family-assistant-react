@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { EyeSlashIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
+import { ToggleChip } from "@/components/common/ToggleChip";
 import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
 import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -824,17 +825,15 @@ function PaymentsPage() {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              checked={hidePaid}
-              onChange={(e) => setHidePaid(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-            />
+          <ToggleChip
+            active={hidePaid}
+            onToggle={() => setHidePaid((prev) => !prev)}
+            icon={EyeSlashIcon}
+          >
             Sakrij plaćena
-          </label>
+          </ToggleChip>
         </div>
       </div>
 

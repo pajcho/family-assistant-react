@@ -17,6 +17,7 @@ import { formatDate } from "@/utils/date";
  */
 
 export type SearchResultKind =
+  | "page"
   | "activity"
   | "event"
   | "payment"

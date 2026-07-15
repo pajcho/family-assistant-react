@@ -1,12 +1,19 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  EyeSlashIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
-import { DatePicker } from "@/components/ui/date-picker";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
+import { ToggleChip } from "@/components/common/ToggleChip";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventListItem } from "@/components/events/EventListItem";
@@ -25,13 +32,18 @@ export const Route = createFileRoute("/_app/events")({
   component: EventsPage,
 });
 
+/** Minimum characters before the client-side search kicks in. */
+const MIN_SEARCH_CHARS = 2;
+
 function EventsPage() {
-  // Filter state. `null` means "no bound" — passed as `undefined` into the
-  // query hook so it's omitted from the Supabase query entirely. The
-  // checkbox filters the already-fetched list client-side (mirrors Vue).
+  // Filters — the same control set as /payments: a month picker (default
+  // "Svi događaji" = no bound, with the "Ovaj mesec" shortcut visible), a
+  // text search, person chips and a "Sakrij završene" toggle chip. The list
+  // is fetched unbounded and filtered client-side.
+  const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [hideCompleted, setHideCompleted] = useState(true);
-  const [filterFrom, setFilterFrom] = useState<string | null>(null);
-  const [filterTo, setFilterTo] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person filter — same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -53,30 +65,40 @@ function EventsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [eventToCancel, setEventToCancel] = useState<Event | null>(null);
 
-  const eventsQuery = useEventsList({
-    from: filterFrom ?? undefined,
-    to: filterTo ?? undefined,
-  });
+  const eventsQuery = useEventsList();
   const { byEvent } = useEventParticipants();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
 
   const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
-  // "Sakrij završene" + the person facet. Person semantics mirror the
+  // Month + "Sakrij završene" + the person facet. Person semantics mirror the
   // dashboard's `matchesAgendaFilter`: empty selection shows everything; with
   // members selected only events assigned to at least one of them pass
   // (unassigned events hide while the filter is active).
+  //
+  // Search mode (≥ MIN_SEARCH_CHARS) matches name/description/notes and
+  // ignores the month + completed filters — they'd hide exactly what the
+  // user is looking for. The person facet still applies.
   const filteredEvents = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
     return events.filter((e) => {
-      if (hideCompleted && isEventEnded(e)) return false;
       if (selectedPersonIds.size > 0) {
         const personIds = byEvent.get(e.id) ?? [];
         if (!personIds.some((id) => selectedPersonIds.has(id))) return false;
       }
+      if (searchActive) {
+        return (
+          e.name.toLowerCase().includes(q) ||
+          (e.description ?? "").toLowerCase().includes(q) ||
+          (e.notes ?? "").toLowerCase().includes(q)
+        );
+      }
+      if (selectedMonth !== ALL_MONTHS && !e.date.startsWith(selectedMonth)) return false;
+      if (hideCompleted && isEventEnded(e)) return false;
       return true;
     });
-  }, [events, hideCompleted, selectedPersonIds, byEvent]);
+  }, [events, searchActive, searchTerm, selectedMonth, hideCompleted, selectedPersonIds, byEvent]);
   const editingPersonIds = editingEvent ? (byEvent.get(editingEvent.id) ?? []) : [];
 
   const togglePerson = (personId: string) => {
@@ -98,11 +120,6 @@ function EventsPage() {
     setEditingEvent(eventItem);
     setErrorMessage(null);
     setDialogOpen(true);
-  };
-
-  const clearFilters = () => {
-    setFilterFrom(null);
-    setFilterTo(null);
   };
 
   const handleSubmit = async (payload: EventFormPayload) => {
@@ -207,60 +224,50 @@ function EventsPage() {
       </div>
 
       <div className="mt-4 space-y-3">
-        {/* Compact control row in the app's chip idiom: date-range pickers, a
-            "Sakrij završene" toggle chip and a reset that appears only while a
-            date bound is set. On narrow screens the row scrolls horizontally
-            (edge-to-edge via the negative margin) instead of wrapping. */}
-        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          <DatePicker
-            id="from"
-            value={filterFrom}
-            onChange={setFilterFrom}
-            placeholder="Od datuma"
-            className="w-36 shrink-0"
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthPicker
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            allOptionLabel="Svi događaji"
           />
-          <DatePicker
-            id="to"
-            value={filterTo}
-            onChange={setFilterTo}
-            placeholder="Do datuma"
-            className="w-36 shrink-0"
-          />
-          <button
-            type="button"
-            onClick={() => setHideCompleted((prev) => !prev)}
-            aria-pressed={hideCompleted}
-            className={cn(
-              "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-              hideCompleted
-                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
-                : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
-            )}
-          >
-            <EyeSlashIcon
-              className={cn(
-                "size-4 shrink-0",
-                hideCompleted
-                  ? "text-blue-500 dark:text-blue-400"
-                  : "text-gray-400 dark:text-gray-500",
-              )}
+          <div className="relative min-w-0 flex-1 basis-52">
+            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Pretraži događaje…"
+              aria-label="Pretraži događaje"
+              className="pl-9"
             />
-            Sakrij završene
-          </button>
-          {filterFrom || filterTo ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 text-muted-foreground"
-              onClick={clearFilters}
-            >
-              Resetuj
-            </Button>
-          ) : null}
+            {searchTerm ? (
+              <button
+                type="button"
+                aria-label="Obriši pretragu"
+                onClick={() => setSearchTerm("")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
+              >
+                <XMarkIcon className="size-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
-        <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+          <ToggleChip
+            active={hideCompleted}
+            onToggle={() => setHideCompleted((prev) => !prev)}
+            icon={EyeSlashIcon}
+          >
+            Sakrij završene
+          </ToggleChip>
+        </div>
       </div>
+
+      {searchActive ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Rezultati pretrage obuhvataju sve mesece (filteri meseca i završenih se ne primenjuju).
+        </p>
+      ) : null}
 
       {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
@@ -275,7 +282,9 @@ function EventsPage() {
           </div>
         ) : (
           <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            Nema događaja za izabrane filtere.
+            {searchActive
+              ? "Nema događaja koji odgovaraju pretrazi."
+              : "Nema događaja za izabrane filtere."}
           </div>
         )
       ) : null}

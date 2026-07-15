@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
@@ -7,6 +7,8 @@ import { EventFormDialog } from "@/components/events/EventFormDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import type { BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
+import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
+import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import { useActivities, useUpdateActivity } from "@/hooks/useActivities";
 import {
   useActivityParticipants,
@@ -19,21 +21,27 @@ import { useUpdateEvent } from "@/hooks/useEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
-import type { PaymentLinkTarget } from "@/hooks/usePaymentLinks";
-import type { Event } from "@/types/database";
+import { hasPaymentHistory, useUpdatePayment } from "@/hooks/usePayments";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import type { Event, Payment } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 
 /**
- * In-place edit dialog for a payment's linked entity. Tapping a "Povezano sa"
- * chip used to NAVIGATE (activity → /activities?edit=, event → /events);
- * now the caller mounts this instead and the edit form opens right where the
- * user is — no page change.
+ * In-place edit dialog for an entity referenced from somewhere else — a
+ * payment's "Povezano sa" chip, or a global-search hit. Instead of navigating
+ * to the entity's page, the caller mounts this and the edit form opens right
+ * where the user is.
  *
  * Renders nothing until `target` is set, so the data hooks below only fire
- * once a chip is actually tapped (the inner component mounts lazily).
+ * once actually opened (the inner component mounts lazily).
  */
+export type EditableEntityRef = {
+  kind: "activity" | "event" | "birthday" | "payment";
+  id: string;
+};
+
 export type LinkedEntityEditorProps = {
-  target: PaymentLinkTarget | null;
+  target: EditableEntityRef | null;
   onClose: () => void;
 };
 
@@ -41,6 +49,7 @@ export function LinkedEntityEditor({ target, onClose }: LinkedEntityEditorProps)
   if (!target) return null;
   if (target.kind === "activity") return <ActivityLinkEditor id={target.id} onClose={onClose} />;
   if (target.kind === "event") return <EventLinkEditor id={target.id} onClose={onClose} />;
+  if (target.kind === "payment") return <PaymentEditor id={target.id} onClose={onClose} />;
   return <BirthdayLinkEditor id={target.id} onClose={onClose} />;
 }
 
@@ -163,6 +172,67 @@ function EventLinkEditor({ id, onClose }: EditorProps) {
       initialPersonIds={byEvent.get(id) ?? []}
       error={formError}
       saving={updateEvent.isPending}
+      onSubmit={(payload) => {
+        void handleSubmit(payload);
+      }}
+    />
+  );
+}
+
+/** Mirrors the /payments page edit wiring (by-id fetch + hasHistory check). */
+function PaymentEditor({ id, onClose }: EditorProps) {
+  const [formError, setFormError] = useState<string | null>(null);
+  const [hasHistory, setHasHistory] = useState(false);
+  const { familyId } = useProfile();
+  const { byPayment } = usePaymentParticipants();
+  const updatePayment = useUpdatePayment();
+
+  const paymentQuery = useQuery({
+    queryKey: ["payment_by_id", familyId, id],
+    queryFn: async (): Promise<Payment | null> => {
+      const { data, error } = await supabase.from("payments").select("*").eq("id", id).single();
+      if (error || !data) return null;
+      return data as Payment;
+    },
+    enabled: !!familyId,
+  });
+  const payment = paymentQuery.data ?? null;
+
+  // Recurrence radios lock once real history exists (same as /payments).
+  useEffect(() => {
+    let alive = true;
+    void hasPaymentHistory(id).then((exists) => {
+      if (alive) setHasHistory(exists);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  const handleSubmit = async (payload: PaymentFormPayload) => {
+    setFormError(null);
+    try {
+      await updatePayment.mutateAsync({ id, payload });
+      onClose();
+    } catch (err) {
+      const fallback = "Greška pri izmeni plaćanja";
+      setFormError(err instanceof Error && err.message ? err.message : fallback);
+    }
+  };
+
+  if (!payment) return null;
+
+  return (
+    <PaymentFormDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      payment={payment}
+      initialPersonIds={byPayment.get(id) ?? []}
+      hasHistory={hasHistory}
+      error={formError}
+      saving={updatePayment.isPending}
       onSubmit={(payload) => {
         void handleSubmit(payload);
       }}
