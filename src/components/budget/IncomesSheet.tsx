@@ -135,18 +135,20 @@ export function IncomesSheet({ open, onOpenChange }: IncomesSheetProps) {
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      {/* Mobile: member and pay-day stack (no mid-word wrapping
+                          in the narrow row); sm+: inline. */}
+                      <div className="mt-0.5 flex flex-col gap-0.5 text-xs text-gray-500 sm:flex-row sm:items-center sm:gap-2 dark:text-gray-400">
                         {personName ? (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex min-w-0 items-center gap-1">
                             <span
-                              className="inline-block size-2 rounded-full"
+                              className="inline-block size-2 shrink-0 rounded-full"
                               style={{ backgroundColor: color }}
                               aria-hidden="true"
                             />
-                            {personName}
+                            <span className="truncate">{personName}</span>
                           </span>
                         ) : null}
-                        <span>{income.day_of_month}. u mesecu</span>
+                        <span className="whitespace-nowrap">{income.day_of_month}. u mesecu</span>
                       </div>
                     </div>
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
