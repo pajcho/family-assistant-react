@@ -24,7 +24,7 @@ import {
   useExpenseCategories,
   useUpdateExpenseCategory,
 } from "@/hooks/useExpenseCategories";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
 
 export type CategoriesSheetProps = {
@@ -135,9 +135,13 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                       {c.name}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {c.monthly_limit != null
-                        ? `Limit ${formatAmount(c.monthly_limit)}`
-                        : "Bez limita"}
+                      {c.monthly_limit != null ? (
+                        <>
+                          Limit <Amount value={c.monthly_limit} />
+                        </>
+                      ) : (
+                        "Bez limita"
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">

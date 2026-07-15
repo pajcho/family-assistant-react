@@ -41,7 +41,7 @@ import {
 import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -352,7 +352,7 @@ export function PaymentDetailDialog({
                     <div className="flex justify-between">
                       <dt className="text-gray-500 dark:text-gray-400">Iznos:</dt>
                       <dd className="font-medium text-gray-900 dark:text-gray-100">
-                        {formatAmount(payment.amount)}
+                        <Amount value={payment.amount} />
                       </dd>
                     </div>
                     <div className="flex justify-between">

@@ -38,7 +38,7 @@ import {
   getWeeklyOccurrencesInMonth,
   isMonthlyOccurrenceMonth,
 } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 
 export const Route = createFileRoute("/_app/payments")({
   component: PaymentsPage,
@@ -692,7 +692,7 @@ function PaymentsPage() {
               Ukupno za platiti
             </div>
             <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-              {formatAmount(summary.total)}
+              <Amount value={summary.total} />
             </div>
           </div>
         ) : (
@@ -703,7 +703,7 @@ function PaymentsPage() {
                 Za platiti
               </div>
               <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                {formatAmount(summary.unpaidTotal)}
+                <Amount value={summary.unpaidTotal} />
               </div>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
@@ -712,7 +712,7 @@ function PaymentsPage() {
                 Plaćeno
               </div>
               <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                {formatAmount(summary.paidTotal)}
+                <Amount value={summary.paidTotal} />
               </div>
             </div>
           </div>

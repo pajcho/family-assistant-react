@@ -35,7 +35,7 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useToday } from "@/hooks/useToday";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { monthLabel } from "@/utils/budget";
 
 export type IncomesSheetProps = {
@@ -176,7 +176,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
           </div>
           {view.kind === "list" ? (
             <ResponsiveDialogDescription>
-              Potvrđeno ovog meseca: {formatAmount(confirmedTotal)}.
+              Potvrđeno ovog meseca: <Amount value={confirmedTotal} />.
             </ResponsiveDialogDescription>
           ) : null}
         </ResponsiveDialogHeader>
@@ -204,7 +204,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
                           {personChip(source.person_id)}
                           <span className="whitespace-nowrap">
-                            očekivano {formatAmount(source.amount)}
+                            očekivano <Amount value={source.amount} />
                           </span>
                         </div>
                       </div>
@@ -254,7 +254,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                           </div>
                         </div>
                         <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                          {formatAmount(entry.amount)}
+                          <Amount value={entry.amount} />
                         </span>
                         <div className="flex shrink-0 items-center gap-1">
                           <button
@@ -342,7 +342,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                             </div>
                           </div>
                           <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                            {formatAmount(income.amount)}
+                            <Amount value={income.amount} />
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
                             <button

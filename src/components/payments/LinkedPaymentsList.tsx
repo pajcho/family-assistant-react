@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
 /** Compact status pill — same colorway as the payments list row states. */
@@ -66,7 +66,7 @@ export function LinkedPaymentsList({
               </p>
             </div>
             <span className="shrink-0 text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {formatAmount(payment.amount)}
+              <Amount value={payment.amount} />
             </span>
           </li>
         ))}

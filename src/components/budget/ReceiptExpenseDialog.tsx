@@ -18,7 +18,7 @@ import { useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
 import type { Expense } from "@/types/database";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
-import { formatAmount } from "@/utils/format";
+import { Amount } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
 
 /**
@@ -98,7 +98,7 @@ export function ReceiptExpenseDialog({
             {/* Amount (read-only) + date. */}
             <div className="text-center">
               <div className="text-4xl font-semibold tabular-nums text-gray-900 dark:text-white">
-                {formatAmount(expense.amount)}
+                <Amount value={expense.amount} />
               </div>
               <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {formatDate(expense.spent_on)}
@@ -174,7 +174,7 @@ export function ReceiptExpenseDialog({
                         </span>
                       ) : null}
                       <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
-                        {formatAmount(it.total)}
+                        <Amount value={it.total} />
                       </span>
                     </li>
                   ))}

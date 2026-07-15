@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
+import { Amount } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
@@ -205,12 +206,6 @@ function PaymentRow({
    *  it before its due date. */
   upcoming?: boolean;
 }) {
-  // Locale-aware integer formatting so amounts read "2.500" not "2500" in
-  // Serbian. Currency is always RSD across the app.
-  const amountStr = new Intl.NumberFormat("sr-Latn", {
-    maximumFractionDigits: 0,
-  }).format(payment.amount);
-
   const content = (
     <>
       <span className={TIME_GUTTER_CLASS}>{dateLabel ?? ""}</span>
@@ -218,7 +213,9 @@ function PaymentRow({
       <span className="min-w-0 truncate">
         <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>
         <span className="text-muted-foreground"> · </span>
-        <span className="text-gray-700 dark:text-gray-300">{amountStr} RSD</span>
+        <span className="text-gray-700 dark:text-gray-300">
+          <Amount value={payment.amount} round />
+        </span>
       </span>
       {upcoming ? (
         <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-gray-500 uppercase dark:bg-gray-700 dark:text-gray-400">
