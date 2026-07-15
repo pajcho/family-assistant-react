@@ -32,6 +32,12 @@ export type EventFormProps = {
   event?: Event | null;
   /** Assignees for the event being edited; empty/omitted for a new event. */
   initialPersonIds?: string[];
+  /**
+   * Prefill for ADD mode only (ignored while editing) — e.g. "Organizuj
+   * proslavu" seeds the name and the next birthday date. The form still
+   * submits as a create.
+   */
+  defaults?: Partial<Pick<Event, "name" | "description" | "date" | "notes">>;
   saving?: boolean;
   onSubmit: (payload: EventFormPayload) => void;
   onCancel: () => void;
@@ -49,17 +55,21 @@ type FormState = {
   personIds: string[];
 };
 
-function initialState(event: Event | null | undefined, personIds: string[]): FormState {
+function initialState(
+  event: Event | null | undefined,
+  personIds: string[],
+  defaults?: EventFormProps["defaults"],
+): FormState {
   return {
-    name: event?.name ?? "",
-    description: event?.description ?? "",
-    date: event?.date ?? null,
+    name: event?.name ?? defaults?.name ?? "",
+    description: event?.description ?? defaults?.description ?? "",
+    date: event?.date ?? defaults?.date ?? null,
     // New events default to "not all day" (matching the Vue form);
     // existing events derive allDay from whether both times are null.
     allDay: event ? event.start_time == null && event.end_time == null : false,
     start_time: event?.start_time ?? null,
     end_time: event?.end_time ?? null,
-    notes: event?.notes ?? "",
+    notes: event?.notes ?? defaults?.notes ?? "",
     remind_minutes_before: event?.remind_minutes_before ?? null,
     personIds,
   };
@@ -75,23 +85,33 @@ function initialState(event: Event | null | undefined, personIds: string[]): For
 export function EventForm({
   event,
   initialPersonIds,
+  defaults,
   saving = false,
   onSubmit,
   onCancel,
 }: EventFormProps) {
-  const [form, setForm] = useState<FormState>(() => initialState(event, initialPersonIds ?? []));
+  const [form, setForm] = useState<FormState>(() =>
+    initialState(event, initialPersonIds ?? [], defaults),
+  );
 
   // Serialized so the effect reseeds when the assignees finish loading
   // (the parent looks them up from a query that resolves after open) without
   // firing on every render from a fresh array reference.
   const personSeed = (initialPersonIds ?? []).join(",");
+  const defaultsSeed = defaults ? JSON.stringify(defaults) : "";
 
   // When the parent swaps `event` (e.g. opening edit vs. switching between
   // events without unmounting the form), reseed local state. Mirrors Vue's
   // `watch(() => props.event, ..., { immediate: true })`.
   useEffect(() => {
-    setForm(initialState(event, personSeed ? personSeed.split(",") : []));
-  }, [event, personSeed]);
+    setForm(
+      initialState(
+        event,
+        personSeed ? personSeed.split(",") : [],
+        defaultsSeed ? (JSON.parse(defaultsSeed) as EventFormProps["defaults"]) : undefined,
+      ),
+    );
+  }, [event, personSeed, defaultsSeed]);
 
   const isEdit = !!event?.id;
 

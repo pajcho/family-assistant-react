@@ -60,6 +60,12 @@ export interface Event {
   /** Optional free-text reason entered when canceling. Cleared on restore. */
   cancel_reason: string | null;
   /**
+   * Set when the event was created via "Organizuj proslavu" on the birthdays
+   * page — links the celebration back to its birthday so the birthday row can
+   * show a "proslava zakazana" chip. ON DELETE SET NULL.
+   */
+  birthday_id: string | null;
+  /**
    * Optional free-text reason entered the last time the event was moved
    * ("Pomeri"). A reschedule overwrites `date`/times in place with no history,
    * so this reflects only the MOST RECENT move (NULL when left blank).
@@ -116,6 +122,12 @@ export interface Payment {
   activity_id: string | null;
   /** Optional link to the event this payment pays for. XOR with `activity_id` — see above. */
   event_id: string | null;
+  /**
+   * Optional link to a birthday (poklon-tracking: "poklon za Markov
+   * rođendan"). Part of the same `payments_single_link` CHECK — a payment
+   * links to at most ONE of activity/event/birthday. ON DELETE SET NULL.
+   */
+  birthday_id: string | null;
   /**
    * Optional budget category (Faza 3). Categorize a recurring bill once and
    * every paid occurrence's auto-expense inherits it. ON DELETE SET NULL, so

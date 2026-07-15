@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpenIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   Cog6ToothIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -13,6 +11,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PeriodPickerShell } from "@/components/common/PeriodPicker";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
@@ -284,27 +283,16 @@ function ActivitiesPage() {
       {/* Sticky just under the app header (h-14) so the week navigation + school
           toggle stay put while the grid below scrolls. */}
       <div className="sticky top-14 z-30 flex flex-wrap items-center gap-2 bg-gray-50 py-2 dark:bg-gray-900">
-        <div className="inline-flex items-center rounded-md border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
-          <button
-            type="button"
-            onClick={goPrevWeek}
-            className="rounded-l-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
-            aria-label="Prethodna nedelja"
-          >
-            <ChevronLeftIcon className="h-4 w-4" />
-          </button>
-          <div className="border-x border-gray-200 px-3 py-1.5 text-sm font-medium tabular-nums dark:border-gray-700">
+        <PeriodPickerShell
+          onPrev={goPrevWeek}
+          onNext={goNextWeek}
+          prevAriaLabel="Prethodna nedelja"
+          nextAriaLabel="Sledeća nedelja"
+        >
+          <div className="flex items-center border-x border-gray-200 px-3 py-1.5 text-sm font-medium tabular-nums dark:border-gray-700">
             {rangeLabel}
           </div>
-          <button
-            type="button"
-            onClick={goNextWeek}
-            className="rounded-r-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
-            aria-label="Sledeća nedelja"
-          >
-            <ChevronRightIcon className="h-4 w-4" />
-          </button>
-        </div>
+        </PeriodPickerShell>
         {!isCurrentWeek ? (
           <Button variant="outline" size="sm" onClick={goToToday}>
             Ova sedmica

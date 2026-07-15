@@ -7,10 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
 import { useActivities } from "@/hooks/useActivities";
+import { useBirthdaysData } from "@/hooks/useBirthdays";
 import { useEventsList } from "@/hooks/useEvents";
 import { usePaymentLinkTarget, type PaymentLinkKind } from "@/hooks/usePaymentLinks";
 import { useToday } from "@/hooks/useToday";
+import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 import { formatDate, subtractMonth } from "@/utils/date";
+import { format } from "date-fns";
 import { cn } from "@/lib/cn";
 
 /** The payment form's link state — maps to `activity_id` XOR `event_id` on submit. */
@@ -68,6 +71,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
   const today = useToday();
   const activitiesQuery = useActivities();
   const eventsQuery = useEventsList({ from: subtractMonth(today.str, EVENT_LOOKBACK_MONTHS) });
+  const birthdaysQuery = useBirthdaysData();
 
   const options = useMemo<LinkOption[]>(() => {
     const activities = (activitiesQuery.data ?? []).map(
@@ -78,8 +82,19 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     const events = (eventsQuery.data ?? [])
       .filter((e) => !e.canceled_at)
       .map((e): LinkOption => ({ kind: "event", id: e.id, name: e.name, date: e.date }));
-    return [...activities, ...events];
-  }, [activitiesQuery.data, eventsQuery.data]);
+    // Birthdays (poklon tracking) — soonest upcoming first, next date shown.
+    const birthdays = [...(birthdaysQuery.data ?? [])]
+      .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
+      .map(
+        (b): LinkOption => ({
+          kind: "birthday",
+          id: b.id,
+          name: b.name,
+          date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
+        }),
+      );
+    return [...activities, ...events, ...birthdays];
+  }, [activitiesQuery.data, eventsQuery.data, birthdaysQuery.data]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,9 +103,10 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
   }, [options, query]);
 
   // Grouped for display; keyboard navigation walks the same flat `filtered`
-  // order (activities first, then events), so index math stays trivial.
+  // order (activities, then events, then birthdays), so index math stays trivial.
   const activityOptions = filtered.filter((o) => o.kind === "activity");
   const eventOptions = filtered.filter((o) => o.kind === "event");
+  const birthdayOptions = filtered.filter((o) => o.kind === "birthday");
 
   // Closed-state label: prefer the warm options (covers everything pickable),
   // fall back to the by-id lookup for an old linked event outside the window.
@@ -100,6 +116,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
         ? {
             activity_id: value.kind === "activity" ? value.id : null,
             event_id: value.kind === "event" ? value.id : null,
+            birthday_id: value.kind === "birthday" ? value.id : null,
           }
         : null,
     [value],
@@ -194,7 +211,10 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     <div className="space-y-2">
       <Label htmlFor="payment-link">Poveži sa (opciono)</Label>
       <div className="relative">
-        <Popover open={open} onOpenChange={handleOpenChange}>
+        {/* `modal` — required for touch scrolling of the option list when the
+            popover opens inside a dialog/drawer: the dialog's scroll-lock
+            otherwise swallows touchmove on the portaled popover content. */}
+        <Popover open={open} onOpenChange={handleOpenChange} modal>
           <PopoverTrigger asChild>
             <button
               id="payment-link"
@@ -213,7 +233,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
                 </>
               ) : (
                 <span className="flex-1 truncate text-left text-muted-foreground">
-                  Aktivnost ili događaj…
+                  Aktivnost, događaj ili rođendan…
                 </span>
               )}
             </button>
@@ -229,7 +249,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
               placeholder="Pretraži…"
               aria-label="Pretraži aktivnosti i događaje"
             />
-            <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+            <div className="mt-2 max-h-56 space-y-2 overflow-y-auto overscroll-contain">
               {filtered.length === 0 ? (
                 <p className="px-2 py-1.5 text-sm text-muted-foreground">Nema rezultata.</p>
               ) : (
@@ -248,6 +268,14 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
                         Događaji
                       </p>
                       <ul>{eventOptions.map(renderOption)}</ul>
+                    </div>
+                  ) : null}
+                  {birthdayOptions.length > 0 ? (
+                    <div>
+                      <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        Rođendani
+                      </p>
+                      <ul>{birthdayOptions.map(renderOption)}</ul>
                     </div>
                   ) : null}
                 </>

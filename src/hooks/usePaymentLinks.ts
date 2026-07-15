@@ -4,21 +4,22 @@ import { useQuery } from "@tanstack/react-query";
 import type { Event, Payment } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useActivities } from "@/hooks/useActivities";
+import { useBirthdaysData } from "@/hooks/useBirthdays";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Read-side lookup for payment ↔ activity/event links: resolves the
- * `activity_id` / `event_id` columns on a payment into a displayable target
- * (kind + name) for the "Povezano sa" rows.
+ * Read-side lookup for payment ↔ activity/event/birthday links: resolves the
+ * `activity_id` / `event_id` / `birthday_id` columns on a payment into a
+ * displayable target (kind + name) for the "Povezano sa" rows.
  *
- * Activities come from the existing family-wide `useActivities` cache (they're
+ * Activities and birthdays come from the existing family-wide caches (they're
  * few and always fetched wholesale). Events can't lean on `useEventsList` the
  * same way — its caches are windowed by `[from, to]`, and a linked event may
  * sit outside whatever window happens to be warm — so the hook batch-fetches
  * exactly the linked event ids in one query instead.
  */
 
-export type PaymentLinkKind = "activity" | "event";
+export type PaymentLinkKind = "activity" | "event" | "birthday";
 
 export interface PaymentLinkTarget {
   kind: PaymentLinkKind;
@@ -40,7 +41,9 @@ export interface UsePaymentLinkTargetsResult {
    * payment has no link OR the target hasn't loaded yet (callers just skip the
    * row — it appears on the next render).
    */
-  targetFor: (payment: Pick<Payment, "activity_id" | "event_id">) => PaymentLinkTarget | null;
+  targetFor: (
+    payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id">,
+  ) => PaymentLinkTarget | null;
 }
 
 /**
@@ -48,10 +51,11 @@ export interface UsePaymentLinkTargetsResult {
  * row through `targetFor`, instead of one hook per row.
  */
 export function usePaymentLinkTargets(
-  payments: ReadonlyArray<Pick<Payment, "activity_id" | "event_id">>,
+  payments: ReadonlyArray<Pick<Payment, "activity_id" | "event_id" | "birthday_id">>,
 ): UsePaymentLinkTargetsResult {
   const { familyId } = useProfile();
   const activitiesQuery = useActivities();
+  const birthdaysQuery = useBirthdaysData();
 
   // Serialized so the query key stays stable across renders that rebuild the
   // payments array with the same links (same trick as PaymentForm's personSeed).
@@ -72,7 +76,10 @@ export function usePaymentLinkTargets(
   const targetFor = useMemo(() => {
     const activitiesById = new Map((activitiesQuery.data ?? []).map((a) => [a.id, a]));
     const eventsById = new Map((eventsQuery.data ?? []).map((e) => [e.id, e]));
-    return (payment: Pick<Payment, "activity_id" | "event_id">): PaymentLinkTarget | null => {
+    const birthdaysById = new Map((birthdaysQuery.data ?? []).map((b) => [b.id, b]));
+    return (
+      payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id">,
+    ): PaymentLinkTarget | null => {
       if (payment.activity_id) {
         const activity = activitiesById.get(payment.activity_id);
         return activity ? { kind: "activity", id: activity.id, name: activity.name } : null;
@@ -81,16 +88,20 @@ export function usePaymentLinkTargets(
         const event = eventsById.get(payment.event_id);
         return event ? { kind: "event", id: event.id, name: event.name, date: event.date } : null;
       }
+      if (payment.birthday_id) {
+        const birthday = birthdaysById.get(payment.birthday_id);
+        return birthday ? { kind: "birthday", id: birthday.id, name: birthday.name } : null;
+      }
       return null;
     };
-  }, [activitiesQuery.data, eventsQuery.data]);
+  }, [activitiesQuery.data, eventsQuery.data, birthdaysQuery.data]);
 
   return { targetFor };
 }
 
 /** Single-payment convenience for the detail dialogs. */
 export function usePaymentLinkTarget(
-  payment: Pick<Payment, "activity_id" | "event_id"> | null,
+  payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id"> | null,
 ): PaymentLinkTarget | null {
   const paymentList = useMemo(() => (payment ? [payment] : []), [payment]);
   const { targetFor } = usePaymentLinkTargets(paymentList);

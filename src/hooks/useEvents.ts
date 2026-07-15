@@ -33,6 +33,8 @@ export type CreateEventInput = {
   end_time?: string | null;
   notes?: string | null;
   remind_minutes_before?: number | null;
+  /** Links a celebration event back to its birthday ("Organizuj proslavu"). */
+  birthday_id?: string | null;
   /** Family members this event is for. Omit/empty = unassigned. */
   personIds?: string[];
 };
@@ -130,6 +132,46 @@ export function useEventsList(filters: EventListFilters = {}) {
   }, [familyId, queryClient, channelKey]);
 
   return query;
+}
+
+/**
+ * Upcoming celebration per birthday — active (non-canceled) events carrying a
+ * `birthday_id` with a date from today on, keyed by that birthday. Powers the
+ * "Proslava zakazana" chip on the birthdays page. The query key lives under
+ * ["events", familyId] so every event mutation's invalidation refreshes it.
+ */
+export function useBirthdayCelebrations() {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["events", familyId, "birthday-celebrations"],
+    queryFn: async (): Promise<Map<string, Event>> => {
+      // Local wall-clock date, NOT toISOString() (UTC would flip the day
+      // around midnight for UTC+ timezones).
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate(),
+      ).padStart(2, "0")}`;
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("family_id", familyId as string)
+        .not("birthday_id", "is", null)
+        .is("canceled_at", null)
+        .gte("date", today)
+        .order("date", { ascending: true });
+      if (error) return new Map();
+      const map = new Map<string, Event>();
+      // Ascending order → the FIRST (soonest) celebration per birthday wins.
+      for (const event of (data as Event[]) ?? []) {
+        if (event.birthday_id && !map.has(event.birthday_id)) {
+          map.set(event.birthday_id, event);
+        }
+      }
+      return map;
+    },
+    enabled: !!familyId,
+  });
 }
 
 export function useCreateEvent() {

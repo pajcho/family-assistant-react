@@ -33,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useProfile } from "@/hooks/useProfile";
@@ -46,9 +47,11 @@ import { getDisplayName } from "@/utils/identity";
  * account dropdown (theme / settings / logout). No bottom bar.
  *
  * Mobile + tablet (< lg): top header is logo + the account dropdown. Navigation
- * lives in a fixed bottom tab bar — Danas · Uskoro · Liste · Više, where "Više"
- * is a dropup to the management pages (Aktivnosti / Događaji / Plaćanja /
- * Rođendani) + Podešavanja, staying highlighted while you're on any of them.
+ * lives in a fixed bottom tab bar — Danas · Uskoro · Plaćanja · Liste · Više.
+ * "Više" opens a bottom SHEET (vaul drawer) with a tile grid to the remaining
+ * pages (Aktivnosti / Događaji / Budžet / Rođendani + Podešavanja) — roomier
+ * tap targets than the old dropup menu, and the trigger stays highlighted
+ * while you're on any of those pages.
  *
  * The breakpoint is `lg` (1024px), not `md`: the desktop row carries 7 items now
  * (Danas + Uskoro replaced the single dashboard link), which is tight at 768px —
@@ -72,21 +75,56 @@ const DESKTOP_NAV_ITEMS: readonly NavItem[] = [
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ];
 
-// Bottom bar primaries (< lg) — the three highest-frequency destinations; the
-// rest live under "Više".
+// Bottom bar primaries (< lg) — the four highest-frequency destinations
+// (iOS-standard 5-slot bar with "Više" as the fifth); the rest live in the
+// "Više" sheet.
 const BOTTOM_PRIMARY_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Danas", icon: HomeIcon },
   { to: "/uskoro", label: "Uskoro", icon: CalendarDaysIcon },
+  { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
   { to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
 ];
 
-// Pages reached through the "Više" dropup (Podešavanja appended after a divider).
-const MORE_ITEMS: readonly NavItem[] = [
-  { to: "/activities", label: "Aktivnosti", icon: Squares2X2Icon },
-  { to: "/events", label: "Događaji", icon: CalendarIcon },
-  { to: "/payments", label: "Plaćanja", icon: BanknotesIcon },
-  { to: "/budget", label: "Budžet", icon: WalletIcon },
-  { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
+// Tile accent colors follow the app's per-type convention (activity violet,
+// event blue, budget emerald, birthday pink; settings neutral).
+type MoreItem = NavItem & { iconClass: string; iconBgClass: string };
+
+const MORE_ITEMS: readonly MoreItem[] = [
+  {
+    to: "/activities",
+    label: "Aktivnosti",
+    icon: Squares2X2Icon,
+    iconClass: "text-violet-600 dark:text-violet-400",
+    iconBgClass: "bg-violet-100 dark:bg-violet-900/40",
+  },
+  {
+    to: "/events",
+    label: "Događaji",
+    icon: CalendarIcon,
+    iconClass: "text-blue-600 dark:text-blue-400",
+    iconBgClass: "bg-blue-100 dark:bg-blue-900/40",
+  },
+  {
+    to: "/budget",
+    label: "Budžet",
+    icon: WalletIcon,
+    iconClass: "text-emerald-600 dark:text-emerald-400",
+    iconBgClass: "bg-emerald-100 dark:bg-emerald-900/40",
+  },
+  {
+    to: "/birthdays",
+    label: "Rođendani",
+    icon: CakeIcon,
+    iconClass: "text-pink-600 dark:text-pink-400",
+    iconBgClass: "bg-pink-100 dark:bg-pink-900/40",
+  },
+  {
+    to: "/settings",
+    label: "Podešavanja",
+    icon: Cog6ToothIcon,
+    iconClass: "text-gray-600 dark:text-gray-300",
+    iconBgClass: "bg-gray-100 dark:bg-gray-700",
+  },
 ];
 
 export function AppNav() {
@@ -319,50 +357,68 @@ function MobileBottomNav() {
 }
 
 /**
- * "Više" — a dropup (Radix DropdownMenu, content `side="top"`) to the management
+ * "Više" — a bottom sheet (vaul drawer) with a tile grid to the remaining
  * pages. The trigger looks like a bottom-nav item and stays highlighted while
  * the current route is one of those pages, mirroring Todoist's "Browse".
  */
 function MoreNavMenu() {
+  const [open, setOpen] = useState(false);
   const matchRoute = useMatchRoute();
-  const isMoreRoute =
-    MORE_ITEMS.some((item) => !!matchRoute({ to: item.to, fuzzy: true })) ||
-    !!matchRoute({ to: "/settings", fuzzy: true });
+  const isMoreRoute = MORE_ITEMS.some((item) => !!matchRoute({ to: item.to, fuzzy: true }));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Više"
-          className={cn(
-            "flex flex-1 flex-col items-center gap-0.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
-            isMoreRoute
-              ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white"
-              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white",
-          )}
-        >
-          <EllipsisHorizontalIcon className="h-5 w-5 shrink-0" />
-          <span>Više</span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-52">
-        {MORE_ITEMS.map((item) => (
-          <DropdownMenuItem key={item.to} asChild>
-            <Link to={item.to} className="flex w-full cursor-pointer items-center gap-2">
-              <item.icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </Link>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
-            <Cog6ToothIcon className="h-4 w-4" />
-            <span>Podešavanja</span>
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <button
+        type="button"
+        aria-label="Više"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex flex-1 flex-col items-center gap-0.5 rounded-md px-3 py-2 text-xs font-medium transition-colors",
+          isMoreRoute
+            ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white"
+            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white",
+        )}
+      >
+        <EllipsisHorizontalIcon className="h-5 w-5 shrink-0" />
+        <span>Više</span>
+      </button>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-left text-lg leading-none">Više</DrawerTitle>
+          </DrawerHeader>
+          <div className="grid grid-cols-3 gap-2 px-4 pt-1 pb-8">
+            {MORE_ITEMS.map((item) => {
+              const active = !!matchRoute({ to: item.to, fuzzy: true });
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border px-2 py-4 transition-colors",
+                    active
+                      ? "border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-950/30"
+                      : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/40",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-11 items-center justify-center rounded-full",
+                      item.iconBgClass,
+                    )}
+                  >
+                    <item.icon className={cn("size-5", item.iconClass)} />
+                  </span>
+                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 }

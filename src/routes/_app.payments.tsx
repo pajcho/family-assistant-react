@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { EyeSlashIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
+import { ToggleChip } from "@/components/common/ToggleChip";
+import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
 import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
@@ -58,37 +63,12 @@ export const Route = createFileRoute("/_app/payments")({
   component: PaymentsPage,
 });
 
-/* --- Month filter chips (Sva + next 3 months) ----------------------------- */
+/* --- Search + pagination constants ----------------------------------------- */
 
-const MONTH_NAMES_SR = [
-  "Januar",
-  "Februar",
-  "Mart",
-  "April",
-  "Maj",
-  "Jun",
-  "Jul",
-  "Avgust",
-  "Septembar",
-  "Oktobar",
-  "Novembar",
-  "Decembar",
-] as const;
-
-type MonthFilter = { label: string; value: string };
-
-function buildMonthFilters(today: Date): MonthFilter[] {
-  const filters: MonthFilter[] = [{ label: "Sva", value: "all" }];
-  for (let i = 0; i < 3; i++) {
-    const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    const monthIndex = date.getMonth();
-    filters.push({
-      label: MONTH_NAMES_SR[monthIndex],
-      value: `${date.getFullYear()}-${String(monthIndex + 1).padStart(2, "0")}`,
-    });
-  }
-  return filters;
-}
+/** Minimum characters before the client-side search kicks in. */
+const MIN_SEARCH_CHARS = 2;
+/** Rows revealed per "Prikaži još" click (and the initial page size). */
+const PAGE_SIZE = 30;
 
 /* --- Summary computation -------------------------------------------------- */
 
@@ -453,9 +433,14 @@ function paymentIdForItem(item: PaymentListItemUnion): string {
 /* --- The page itself ------------------------------------------------------ */
 
 function PaymentsPage() {
-  // Filters
-  const [selectedMonth, setSelectedMonth] = useState("all");
+  // Filters — default to the CURRENT month (the "Sva plaćanja" all-time view
+  // lives inside the month picker's popup).
+  const [selectedMonth, setSelectedMonth] = useState(() => currentMonthYYYYMM());
   const [hidePaid, setHidePaid] = useState(true);
+  // Free-text search over name + description. While active it spans ALL
+  // months (the month filter would hide the thing you're looking for).
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person filter — same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -499,23 +484,16 @@ function PaymentsPage() {
   const deleteOverride = useDeletePaymentOverride();
   const cancelOccurrence = useCancelPaymentOccurrence();
 
-  // Stable today reference — chips only need to recompute on month boundary,
-  // but we accept the once-per-mount cost.
-  const monthFilters = useMemo(() => buildMonthFilters(new Date()), []);
-
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
   const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
 
   // "Povezano sa" chips — resolve every linked payment's target once for the
-  // whole list; tapping one jumps to the linked entity.
-  const navigate = useNavigate();
+  // whole list; tapping one opens the linked entity's edit form IN PLACE
+  // (LinkedEntityEditor) instead of navigating away.
+  const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
   const { targetFor } = usePaymentLinkTargets(payments);
   const handleOpenLink = (target: PaymentLinkTarget) => {
-    if (target.kind === "activity") {
-      void navigate({ to: "/activities", search: { edit: target.id } });
-    } else {
-      void navigate({ to: "/events" });
-    }
+    setLinkEditTarget(target);
   };
 
   const togglePerson = (personId: string) => {
@@ -556,14 +534,54 @@ function PaymentsPage() {
     [visiblePayments, visibleHistory, selectedMonth, overridesByKey],
   );
 
+  // Search mode: match name/description over ALL payments (live rows, every
+  // month, ignoring "Sakrij plaćena"), newest due date first. The month and
+  // paid filters would hide exactly what the user is trying to find.
+  const searchResults = useMemo<PaymentListItemUnion[]>(() => {
+    if (!searchActive) return [];
+    const q = searchTerm.trim().toLowerCase();
+    const items: PaymentListItemUnion[] = visiblePayments
+      .filter(
+        (p) => p.name.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q),
+      )
+      .map((payment) => {
+        const override = overridesByKey.get(overrideKey(payment.id, payment.due_date)) ?? null;
+        const effectiveDate =
+          override?.action === "reschedule" && override.override_date
+            ? override.override_date
+            : payment.due_date;
+        return {
+          ...payment,
+          type: "payment" as const,
+          occurrenceDate: payment.due_date,
+          override,
+          due_date: effectiveDate,
+        };
+      });
+    items.sort((a, b) => b.due_date.localeCompare(a.due_date));
+    return items;
+  }, [searchActive, searchTerm, visiblePayments, overridesByKey]);
+
   const displayedList = useMemo<PaymentListItemUnion[]>(() => {
+    if (searchActive) return searchResults;
     if (!hidePaid) return combinedList;
     return combinedList.filter((item) => {
       // Keep canceled history visible (so skips stay on screen); hide paid.
       if (item.type === "history") return item.status === "canceled";
       return !(item.type === "payment" && item.is_paid);
     });
-  }, [combinedList, hidePaid]);
+  }, [searchActive, searchResults, combinedList, hidePaid]);
+
+  // Long lists (all-time view, search) reveal in pages of PAGE_SIZE.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [selectedMonth, hidePaid, searchTerm, selectedPersonIds]);
+  const pagedList = useMemo(
+    () => displayedList.slice(0, visibleCount),
+    [displayedList, visibleCount],
+  );
+  const remainingCount = displayedList.length - pagedList.length;
 
   const summary = useMemo(
     () =>
@@ -578,8 +596,9 @@ function PaymentsPage() {
 
   const isLoading = paymentsQuery.isLoading || historyQuery.isLoading;
   const showEmpty = !isLoading && displayedList.length === 0;
-  const emptyListMessage =
-    combinedList.length === 0
+  const emptyListMessage = searchActive
+    ? "Nema plaćanja koja odgovaraju pretrazi."
+    : combinedList.length === 0
       ? selectedPersonIds.size > 0
         ? "Nema plaćanja za izabrane članove."
         : "Nema plaćanja za prikaz."
@@ -778,30 +797,51 @@ function PaymentsPage() {
         <AddButton label="Dodaj plaćanje" onClick={openAdd} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <div className="flex flex-wrap gap-2">
-          {monthFilters.map((filter) => (
-            <Button
-              key={filter.value}
-              variant={selectedMonth === filter.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedMonth(filter.value)}
-            >
-              {filter.label}
-            </Button>
-          ))}
-        </div>
-        <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <input
-            type="checkbox"
-            checked={hidePaid}
-            onChange={(e) => setHidePaid(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
+      <div className="mt-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthPicker
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            allOptionLabel="Sva plaćanja"
           />
-          Sakrij plaćena
-        </label>
+          <div className="relative min-w-0 flex-1 basis-52">
+            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Pretraži plaćanja…"
+              aria-label="Pretraži plaćanja"
+              className="pl-9"
+            />
+            {searchTerm ? (
+              <button
+                type="button"
+                aria-label="Obriši pretragu"
+                onClick={() => setSearchTerm("")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
+              >
+                <XMarkIcon className="size-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+          <ToggleChip
+            active={hidePaid}
+            onToggle={() => setHidePaid((prev) => !prev)}
+            icon={EyeSlashIcon}
+          >
+            Sakrij plaćena
+          </ToggleChip>
+        </div>
       </div>
+
+      {searchActive ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Rezultati pretrage obuhvataju sve mesece (filteri meseca i plaćenih se ne primenjuju).
+        </p>
+      ) : null}
 
       {isLoading ? <PaymentListSkeleton className="mt-6" /> : null}
 
@@ -811,9 +851,9 @@ function PaymentsPage() {
         </div>
       ) : null}
 
-      {!isLoading && displayedList.length > 0 ? (
+      {!isLoading && pagedList.length > 0 ? (
         <ul className="mt-6 space-y-3">
-          {displayedList.map((item) => (
+          {pagedList.map((item) => (
             <li key={item.id} className={cn("rounded-lg p-4 shadow-sm", getItemClass(item))}>
               <PaymentListItem
                 item={item}
@@ -837,7 +877,15 @@ function PaymentsPage() {
         </ul>
       ) : null}
 
-      {combinedList.length > 0 ? (
+      {remainingCount > 0 ? (
+        <div className="mt-4 flex justify-center">
+          <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+            Prikaži još ({remainingCount})
+          </Button>
+        </div>
+      ) : null}
+
+      {!searchActive && combinedList.length > 0 ? (
         <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
           {summary.type === "all" ? (
             <div className="flex items-center justify-between">
@@ -941,6 +989,9 @@ function PaymentsPage() {
           void handleCancelSubmit(reason);
         }}
       />
+
+      {/* "Povezano sa" chip → edit the linked entity right here, no redirect. */}
+      <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </div>
   );
 }

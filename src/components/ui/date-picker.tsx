@@ -7,6 +7,15 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { srLocale } from "@/utils/date";
+
+/**
+ * Year range for the caption dropdowns: far enough back for birth dates
+ * (100 years) and forward for scheduling (10 years). A `maxDate` cap
+ * tightens the upper bound so the year dropdown can't outrun it.
+ */
+const YEARS_BACK = 100;
+const YEARS_FORWARD = 10;
 
 export type DatePickerProps = {
   /** ISO date (YYYY-MM-DD) or null when unset. */
@@ -93,6 +102,15 @@ export function DatePicker({
             selected={selected}
             onSelect={handleSelect}
             autoFocus
+            locale={srLocale}
+            // Month + year dropdowns in the caption — jumping 10 years back is
+            // two dropdown picks instead of 120 arrow clicks.
+            captionLayout="dropdown"
+            startMonth={new Date(new Date().getFullYear() - YEARS_BACK, 0)}
+            endMonth={maxParsed ?? new Date(new Date().getFullYear() + YEARS_FORWARD, 11)}
+            formatters={{
+              formatMonthDropdown: (date) => format(date, "LLL", { locale: srLocale }),
+            }}
             disabled={maxParsed ? { after: maxParsed } : undefined}
             modifiers={markedParsed ? { nextDue: markedParsed } : undefined}
             modifiersClassNames={{
