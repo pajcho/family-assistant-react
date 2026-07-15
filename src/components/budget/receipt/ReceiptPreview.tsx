@@ -12,6 +12,7 @@ import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import { formatAmount } from "@/utils/format";
+import { stavkeLabel } from "@/utils/plural";
 import { cn } from "@/lib/cn";
 
 /**
@@ -131,7 +132,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
         >
           <span className="font-medium">
             {hasItems
-              ? `${receipt.items.length} ${receipt.items.length === 1 ? "stavka" : "stavki"}`
+              ? `${receipt.items.length} ${stavkeLabel(receipt.items.length)}`
               : "Nema prepoznatih stavki"}
           </span>
           {hasItems ? (

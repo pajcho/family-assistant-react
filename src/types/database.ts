@@ -152,6 +152,13 @@ export interface PaymentHistory {
   status: PaymentHistoryStatus;
   /** Optional reason — currently used for cancellations. */
   note: string | null;
+  /**
+   * Snapshot of the payment's name at the moment this occurrence was
+   * paid/canceled — frozen so a later rename on the live payment doesn't
+   * rewrite history. NULL only for rows created before this column existed
+   * (the UI falls back to the live payment name).
+   */
+  name: string | null;
   created_at: string;
 }
 
@@ -290,6 +297,31 @@ export interface Income {
   day_of_month: number;
   is_recurring: boolean;
   active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One actual income receipt for a given month — the frozen counterpart to a
+ * recurring {@link Income} source, mirroring how `payment_history` freezes a
+ * paid payment occurrence. Either a confirmation of a recurring source
+ * (`income_id` set, one row per source per `month`) or a one-off
+ * (`income_id = null`, `is_one_time = true`, e.g. a bonus). The monthly budget
+ * cycle sums these — never the live sources — so editing a source today never
+ * rewrites a past month's income. `month` is "YYYY-MM"; `received_on` is the
+ * day it actually landed (informational).
+ */
+export interface IncomeEntry {
+  id: string;
+  family_id: string;
+  income_id: string | null;
+  person_id: string | null;
+  name: string;
+  amount: number;
+  month: string;
+  received_on: string | null;
+  note: string | null;
+  is_one_time: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BanknotesIcon,
   ChevronRightIcon,
   LockClosedIcon,
   MagnifyingGlassIcon,
@@ -36,11 +37,13 @@ import {
 } from "@/hooks/useExpenses";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useIncomes } from "@/hooks/useIncomes";
+import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import type { Expense, ExpenseCategory } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
+import { stavkeLabel } from "@/utils/plural";
 import { computeMonthlyCycle, monthRange } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
@@ -88,10 +91,12 @@ function BudgetPage() {
   const search = useExpenseSearch(searchTerm);
   const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
+  const currentMonth = currentMonthYYYYMM();
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
   const { categories, byId: categoriesById } = useExpenseCategories();
   const { incomes } = useIncomes();
+  const { entries: incomeEntries } = useIncomeEntries(month);
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const { byKey: paymentOverrides } = usePaymentOverrides();
 
@@ -105,14 +110,27 @@ function BudgetPage() {
     () =>
       computeMonthlyCycle({
         month,
+        currentMonth,
         incomes,
+        incomeEntries,
         expenses,
         payments,
         paymentOverrides,
         categories,
       }),
-    [month, incomes, expenses, payments, paymentOverrides, categories],
+    [month, currentMonth, incomes, incomeEntries, expenses, payments, paymentOverrides, categories],
   );
+
+  // Recurring sources not yet confirmed for THIS month — the "potvrdi platu"
+  // reminder. Only surfaced for the current month (don't nag while browsing
+  // history); confirming happens in the Prihodi sheet.
+  const pendingIncomeCount = useMemo(() => {
+    if (month !== currentMonth) return 0;
+    const confirmedSourceIds = new Set(
+      incomeEntries.filter((e) => e.income_id).map((e) => e.income_id),
+    );
+    return incomes.filter((i) => i.active && !confirmedSourceIds.has(i.id)).length;
+  }, [month, currentMonth, incomes, incomeEntries]);
 
   // Per-category totals, sorted most-spent first (an "Bez kategorije" bucket
   // collects null-category rows).
@@ -289,7 +307,7 @@ function BudgetPage() {
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Prihodi</div>
               <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                {formatAmount(cycle.totalIncome)}
+                {formatAmount(cycle.confirmedIncome)}
               </div>
             </div>
             <div>
@@ -312,21 +330,33 @@ function BudgetPage() {
               </div>
             </div>
           </div>
-          {cycle.projectedUnpaid > 0 ? (
-            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700/60">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Projekcija do kraja meseca
-              </span>
-              <span
-                className={cn(
-                  "text-sm font-semibold tabular-nums",
-                  cycle.projectedRemaining < 0
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-gray-900 dark:text-gray-100",
-                )}
-              >
-                {formatAmount(cycle.projectedRemaining)}
-              </span>
+          {cycle.projectedUnpaid > 0 || cycle.expectedIncome > 0 ? (
+            <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700/60">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Projekcija do kraja meseca
+                </span>
+                <span
+                  className={cn(
+                    "text-sm font-semibold tabular-nums",
+                    cycle.projectedRemaining < 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-gray-900 dark:text-gray-100",
+                  )}
+                >
+                  {formatAmount(cycle.projectedRemaining)}
+                </span>
+              </div>
+              {/* Break down what the projection folds in: still-to-come income
+                  (+) and still-to-pay bills (−). */}
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {cycle.expectedIncome > 0 ? (
+                  <span>očekivani prihod +{formatAmount(cycle.expectedIncome)}</span>
+                ) : null}
+                {cycle.projectedUnpaid > 0 ? (
+                  <span>neplaćeno −{formatAmount(cycle.projectedUnpaid)}</span>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
@@ -344,6 +374,32 @@ function BudgetPage() {
             Dodaj prihode za mesečni pregled →
           </button>
         </div>
+      ) : null}
+
+      {/* Reminder to confirm this month's salaries (only for the current month). */}
+      {!searchActive && pendingIncomeCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setIncomesOpen(true)}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left transition-colors hover:bg-amber-100/70 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none dark:border-amber-800/50 dark:bg-amber-900/15 dark:hover:bg-amber-900/25"
+        >
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BanknotesIcon className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                {pendingIncomeCount === 1
+                  ? "1 prihod za potvrdu"
+                  : `${pendingIncomeCount} prihoda za potvrdu`}
+              </div>
+              <div className="truncate text-xs text-amber-700 dark:text-amber-300/80">
+                Potvrdi da je plata legla i tačan iznos.
+              </div>
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-amber-700 dark:text-amber-300">
+            Potvrdi →
+          </span>
+        </button>
       ) : null}
 
       {!searchActive && isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
@@ -463,7 +519,7 @@ function BudgetPage() {
                     <span>{dayLabel(e.spent_on)}</span>
                     {isReceipt && itemCount > 0 ? (
                       <span>
-                        · {itemCount} {itemCount === 1 ? "stavka" : "stavki"}
+                        · {itemCount} {stavkeLabel(itemCount)}
                       </span>
                     ) : category && (e.note?.trim() ?? "") !== "" ? (
                       <span className="truncate">· {category.name}</span>
@@ -542,7 +598,7 @@ function BudgetPage() {
 
       {!searchActive ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
 
-      <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} />
+      <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} month={month} />
 
       <CategoriesSheet open={categoriesOpen} onOpenChange={setCategoriesOpen} />
 

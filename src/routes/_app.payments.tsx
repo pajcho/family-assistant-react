@@ -87,6 +87,7 @@ function computeSummary({
     payment_id: string;
     due_date: string;
     amount: number;
+    status: PaymentHistoryStatus;
   }>;
   selectedMonth: string;
   overridesByKey: Map<string, PaymentOverride>;
@@ -105,16 +106,20 @@ function computeSummary({
   let unpaidTotal = 0;
   let paidTotal = 0;
 
-  // Payments for this month (real rows)
+  // Payments for this month (real rows). Paused and canceled (soft-cancel
+  // override, one-time) occurrences are treated as resolved — they don't enter
+  // either total.
   for (const payment of payments) {
     if (!payment.due_date.startsWith(selectedMonth)) continue;
     if (payment.is_paused) continue;
+    if (isCanceled(payment.id, payment.due_date)) continue;
     if (payment.is_paid) paidTotal += payment.amount;
     else unpaidTotal += payment.amount;
   }
 
   // History entries for this month (skip one-time due in this month —
-  // already in payment count)
+  // already in payment count). Canceled (skipped) occurrences were never paid,
+  // so they don't count toward "Plaćeno".
   const oneTimePaymentIdsInMonth = new Set(
     payments
       .filter((p) => p.recurrence_period === "one-time" && p.due_date.startsWith(selectedMonth))
@@ -122,6 +127,7 @@ function computeSummary({
   );
   for (const entry of history) {
     if (!entry.due_date.startsWith(selectedMonth)) continue;
+    if (entry.status === "canceled") continue;
     if (oneTimePaymentIdsInMonth.has(entry.payment_id)) continue;
     paidTotal += entry.amount;
   }
@@ -193,6 +199,7 @@ function computeCombinedList({
   history: ReadonlyArray<{
     id: string;
     payment_id: string;
+    name: string | null;
     due_date: string;
     paid_date: string | null;
     amount: number;
@@ -257,7 +264,9 @@ function computeCombinedList({
         type: "history",
         id: entry.id,
         payment_id: entry.payment_id,
-        name: paymentNameMap.get(entry.payment_id) ?? "Nepoznato plaćanje",
+        // Snapshot name from the occurrence (frozen at pay/cancel time), falling
+        // back to the live payment name for pre-migration rows.
+        name: entry.name ?? paymentNameMap.get(entry.payment_id) ?? "Nepoznato plaćanje",
         amount: entry.amount,
         due_date: entry.due_date,
         paid_date: entry.paid_date,
@@ -566,9 +575,14 @@ function PaymentsPage() {
     if (searchActive) return searchResults;
     if (!hidePaid) return combinedList;
     return combinedList.filter((item) => {
-      // Keep canceled history visible (so skips stay on screen); hide paid.
-      if (item.type === "history") return item.status === "canceled";
-      return !(item.type === "payment" && item.is_paid);
+      // "Sakrij plaćena" hides everything RESOLVED — paid AND canceled — so the
+      // list shows only what's still outstanding. Paused rows stay (they're on
+      // hold, not done); resolved occurrences remain in the history popup.
+      if (item.type === "history") return false;
+      if (item.type === "payment" && item.is_paid) return false;
+      const override = "override" in item ? item.override : null;
+      if (override?.action === "cancel") return false;
+      return true;
     });
   }, [searchActive, searchResults, combinedList, hidePaid]);
 
@@ -602,7 +616,7 @@ function PaymentsPage() {
       ? selectedPersonIds.size > 0
         ? "Nema plaćanja za izabrane članove."
         : "Nema plaćanja za prikaz."
-      : 'Nema neplaćenih stavki. Sve je plaćeno i sakriveno filtom "Sakrij plaćena".';
+      : 'Nema neplaćenih stavki. Sve je plaćeno ili otkazano i sakriveno filtom "Sakrij plaćena".';
 
   /* --- Action handlers -------------------------------------------------- */
 

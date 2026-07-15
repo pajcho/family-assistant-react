@@ -98,6 +98,13 @@ export function PaymentHistoryPopup({ open, onOpenChange, payment }: PaymentHist
                         ? `Otkazano${entry.note ? ` · ${entry.note}` : ""}`
                         : `Plaćeno ${entry.paid_date ? formatDate(entry.paid_date) : ""}`}
                     </span>
+                    {/* Frozen name from that occurrence — shown only when it
+                        differs from the payment's current name (renamed since). */}
+                    {entry.name && payment && entry.name !== payment.name ? (
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        Naziv tada: {entry.name}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
                     <span
