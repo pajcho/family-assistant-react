@@ -176,6 +176,55 @@ describe("parseJournal — full Latin-script receipt", () => {
   });
 });
 
+// A Maxi/Delhaize receipt: the name column has NO leading product code, so the
+// product name starts the line. Regression guard for the "first word dropped"
+// bug ("Snickers Classic 50g" → "Classic 50g", "Krompir beli mladi" → "beli
+// mladi"). Item names on these receipts are already Latin.
+const MAXI_JOURNAL = `============ ФИСКАЛНИ РАЧУН ============
+101482858
+DELHAIZE SERBIA DOO BEOGRAD
+1002011-116-Maxi
+ЛУКЕ ВОЈВОДИЋА 77А
+Београд-Раковица
+Артикли
+========================================
+Назив   Цена         Кол.         Укупно
+Snickers Classic 50g/KOM (Ђ)
+     93,99          1          93,99
+Krompir beli mladi/KG (E)
+     89,99      2,518        226,59
+Укупан износ:                    320,58
+Платна картица:                  320,58
+ПФР време:          15.07.2026. 18:36:44
+ПФР број рачуна: VX7EBVLA-VX7EBVLA-33649`;
+
+describe("parseJournal — Maxi receipt with no product-code column", () => {
+  const r = parseJournal(MAXI_JOURNAL);
+
+  it("keeps the first word when the line starts with the name, not a code", () => {
+    expect(r.items).toHaveLength(2);
+    expect(r.items[0]).toMatchObject({
+      name: "Snickers Classic 50g",
+      quantity: 1,
+      unitPrice: 93.99,
+      total: 93.99,
+    });
+    expect(r.items[1]).toMatchObject({
+      name: "Krompir beli mladi",
+      quantity: 2.518,
+      unitPrice: 89.99,
+      total: 226.59,
+    });
+    expect(r.warnings).toEqual([]);
+  });
+
+  it("still reads merchant identity + total", () => {
+    expect(r.totalAmount).toBe(320.58);
+    expect(r.storeName).toBe("116-Maxi");
+    expect(r.merchant).toBe("116-Maxi");
+  });
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // Robustness contract
 // ───────────────────────────────────────────────────────────────────────────

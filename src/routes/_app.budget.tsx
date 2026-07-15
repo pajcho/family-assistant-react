@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { AddButton } from "@/components/common/AddButton";
+import { Amount } from "@/components/common/Amount";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { Button } from "@/components/ui/button";
@@ -315,13 +316,13 @@ function BudgetPage() {
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Prihodi</div>
               <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                {formatAmount(cycle.confirmedIncome)}
+                <Amount value={cycle.confirmedIncome} round />
               </div>
             </div>
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Potrošeno</div>
               <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                {formatAmount(cycle.totalSpent)}
+                <Amount value={cycle.totalSpent} round />
               </div>
             </div>
             <div>
@@ -334,7 +335,7 @@ function BudgetPage() {
                     : "text-emerald-600 dark:text-emerald-400",
                 )}
               >
-                {formatAmount(cycle.remaining)}
+                <Amount value={cycle.remaining} round />
               </div>
             </div>
           </div>
@@ -363,17 +364,21 @@ function BudgetPage() {
                       : "text-gray-900 dark:text-gray-100",
                   )}
                 >
-                  {formatAmount(cycle.projectedRemaining)}
+                  <Amount value={cycle.projectedRemaining} round />
                 </span>
               </div>
               {/* Break down what the projection folds in: still-to-come income
                   (+) and still-to-pay bills (−). */}
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                 {cycle.expectedIncome > 0 ? (
-                  <span>očekivani prihod +{formatAmount(cycle.expectedIncome)}</span>
+                  <span>
+                    očekivani prihod +<Amount value={cycle.expectedIncome} round />
+                  </span>
                 ) : null}
                 {cycle.projectedUnpaid > 0 ? (
-                  <span>neplaćeno −{formatAmount(cycle.projectedUnpaid)}</span>
+                  <span>
+                    neplaćeno −<Amount value={cycle.projectedUnpaid} round />
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -383,7 +388,7 @@ function BudgetPage() {
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
-            {formatAmount(cycle.totalSpent)}
+            <Amount value={cycle.totalSpent} round />
           </div>
           <button
             type="button"
@@ -454,7 +459,7 @@ function BudgetPage() {
                       </span>
                     </div>
                     <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
-                      {formatAmount(row.total)}
+                      <Amount value={row.total} />
                       {limitInfo ? (
                         <span
                           className={cn(
@@ -466,8 +471,8 @@ function BudgetPage() {
                                 : "text-gray-400 dark:text-gray-500",
                           )}
                         >
-                          {" "}
-                          / {formatAmount(limitInfo.limit)}
+                          {" / "}
+                          <Amount value={limitInfo.limit} />
                         </span>
                       ) : null}
                     </span>
@@ -649,7 +654,7 @@ function BudgetSearchResults({
                   ) : null}
                 </div>
                 <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                  {formatAmount(e.amount)}
+                  <Amount value={e.amount} />
                 </span>
               </>
             );

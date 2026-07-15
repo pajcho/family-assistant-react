@@ -337,8 +337,15 @@ function cleanItemName(raw: string): string {
   // Strip a trailing unit token: /kom, (Kom), (kg), (kes)… (letters, ≤5, in
   // parens or slash-prefixed; tolerate the space left by a column-split ")" ).
   s = s.replace(/(?:\/\s*[A-Za-zА-Яа-яЂђ.]{1,6}|\(\s*[A-Za-zА-Яа-яЂђ.]{1,6}\s*\))\s*$/, "").trim();
-  // Strip the leading product code token (code always precedes the name).
-  s = s.replace(/^\S+\s+/, "").trim();
+  // Strip the leading product-code token — but ONLY when it looks like a code
+  // (i.e. contains a digit): barcodes/PLUs like "0593646640103", "05RN",
+  // "DA1028-010". Some retailers (e.g. Maxi/Delhaize) print NO code column, so
+  // the line starts with the product name itself ("Snickers Classic 50g"); a
+  // blind first-token strip there ate the first word ("Snickers" → "Classic").
+  const lead = s.match(/^(\S+)\s+/);
+  if (lead && /\d/.test(lead[1])) {
+    s = s.slice(lead[0].length).trim();
+  }
   return s;
 }
 

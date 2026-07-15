@@ -31,6 +31,7 @@ import {
 import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
+import { srLocale } from "@/utils/date";
 
 /**
  * `/birthdays` — list + CRUD for the family's birthdays.
@@ -46,6 +47,12 @@ export const Route = createFileRoute("/_app/birthdays")({
 
 /** Minimum characters before the client-side search kicks in. */
 const MIN_SEARCH_CHARS = 2;
+
+/** Capitalized Serbian month name for a "MM" key (e.g. "07" → "Jul"). */
+function monthLabel(mm: string): string {
+  const label = format(new Date(2020, Number(mm) - 1, 1), "LLLL", { locale: srLocale });
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+}
 
 function BirthdaysPage() {
   const { data: birthdays, isLoading } = useBirthdaysList();
@@ -108,6 +115,25 @@ function BirthdaysPage() {
       (a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date),
     );
   }, [birthdays, searchActive, searchTerm, selectedMonth, hidePassed, currentYear]);
+
+  // Timeline grouping: by month (birthdays recur annually), ordered from the
+  // current month onward so what's coming up leads; within a month, by day.
+  const birthdayGroups = useMemo(() => {
+    const byMonth = new Map<string, Birthday[]>();
+    for (const b of filteredBirthdays) {
+      const mm = b.birth_date.slice(5, 7);
+      const bucket = byMonth.get(mm);
+      if (bucket) bucket.push(b);
+      else byMonth.set(mm, [b]);
+    }
+    const curMonth = new Date().getMonth() + 1;
+    const rank = (mm: string) => (Number(mm) - curMonth + 12) % 12;
+    const groups = [...byMonth.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+    for (const [, list] of groups) {
+      list.sort((a, b) => a.birth_date.slice(8, 10).localeCompare(b.birth_date.slice(8, 10)));
+    }
+    return groups;
+  }, [filteredBirthdays]);
 
   const openAdd = () => {
     setEditingBirthday(null);
@@ -266,31 +292,40 @@ function BirthdaysPage() {
             : "Nema rođendana za izabrane filtere."}
         </div>
       ) : (
-        <ul className="mt-6 space-y-3">
-          {filteredBirthdays.map((b) => (
-            <li
-              key={b.id}
-              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              <BirthdayListItem
-                birthday={b}
-                celebration={celebrationByBirthday?.get(b.id) ?? null}
-                onEdit={openEdit}
-                onDelete={confirmDelete}
-                onOrganize={(birthday) => {
-                  setCelebrationError(null);
-                  setEditingCelebration(null);
-                  setOrganizingFor(birthday);
-                }}
-                onOpenCelebration={(event) => {
-                  setCelebrationError(null);
-                  setOrganizingFor(null);
-                  setEditingCelebration(event);
-                }}
-              />
-            </li>
+        <div className="mt-6 space-y-6">
+          {birthdayGroups.map(([month, list]) => (
+            <section key={month}>
+              <h2 className="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
+                {monthLabel(month)}
+              </h2>
+              <ul className="mt-3 space-y-3">
+                {list.map((b) => (
+                  <li
+                    key={b.id}
+                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <BirthdayListItem
+                      birthday={b}
+                      celebration={celebrationByBirthday?.get(b.id) ?? null}
+                      onEdit={openEdit}
+                      onDelete={confirmDelete}
+                      onOrganize={(birthday) => {
+                        setCelebrationError(null);
+                        setEditingCelebration(null);
+                        setOrganizingFor(birthday);
+                      }}
+                      onOpenCelebration={(event) => {
+                        setCelebrationError(null);
+                        setOrganizingFor(null);
+                        setEditingCelebration(event);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       <BirthdayFormDialog
