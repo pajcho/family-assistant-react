@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
-import { BanknotesIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { MemberBadges } from "@/components/common/MemberBadges";
@@ -128,47 +128,42 @@ function PaymentTimelineRow({
         type="button"
         onClick={() => onSelect(item)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/70",
+          "block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/70",
           dimmed && "opacity-60",
         )}
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
-          <BanknotesIcon className="size-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-baseline gap-2">
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100",
-                struck && "text-gray-500 line-through dark:text-gray-500",
-              )}
-            >
-              {item.name}
-            </span>
-            <span className="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-              {formatAmount(item.amount)}
-            </span>
+        <span className="flex items-baseline gap-2">
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100",
+              struck && "text-gray-500 line-through dark:text-gray-500",
+            )}
+          >
+            {item.name}
           </span>
-          <span className="mt-0.5 flex items-center gap-2">
-            <span className="flex min-w-0 flex-1 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span className="truncate">{metaFor(item, inOverdue)}</span>
-              {personIds.length > 0 ? (
-                <span className="shrink-0">
-                  <MemberBadges personIds={personIds} size="xs" />
-                </span>
-              ) : null}
-            </span>
-            {chip ? (
-              <span
-                className={cn(
-                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
-                  CHIP_TONE[chip.tone],
-                )}
-              >
-                {chip.label}
+          <span className="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            {formatAmount(item.amount)}
+          </span>
+        </span>
+        <span className="mt-0.5 flex items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span className="truncate">{metaFor(item, inOverdue)}</span>
+            {personIds.length > 0 ? (
+              <span className="shrink-0">
+                <MemberBadges personIds={personIds} size="xs" />
               </span>
             ) : null}
           </span>
+          {chip ? (
+            <span
+              className={cn(
+                "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+                CHIP_TONE[chip.tone],
+              )}
+            >
+              {chip.label}
+            </span>
+          ) : null}
         </span>
       </button>
     </li>

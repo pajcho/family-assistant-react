@@ -683,6 +683,42 @@ function PaymentsPage() {
         </div>
       </div>
 
+      {/* Summary — pinned above the list: what's still due vs already paid. */}
+      {!searchActive && combinedList.length > 0 ? (
+        summary.type === "all" ? (
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              Ukupno za platiti
+            </div>
+            <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+              {formatAmount(summary.total)}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Za platiti
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(summary.unpaidTotal)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                Plaćeno
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(summary.paidTotal)}
+              </div>
+            </div>
+          </div>
+        )
+      ) : null}
+
       {searchActive ? (
         <p className="mt-3 text-xs text-muted-foreground">
           Rezultati pretrage obuhvataju sve mesece (filteri meseca i plaćenih se ne primenjuju).
@@ -713,40 +749,6 @@ function PaymentsPage() {
           <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
             Prikaži još ({remainingCount})
           </Button>
-        </div>
-      ) : null}
-
-      {!searchActive && combinedList.length > 0 ? (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-          {summary.type === "all" ? (
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Ukupno za platiti:
-              </span>
-              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {formatAmount(summary.total)}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="flex items-center justify-between sm:gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Za platiti:
-                </span>
-                <span className="font-semibold text-amber-700 dark:text-amber-400">
-                  {formatAmount(summary.unpaidTotal)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between sm:gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Plaćeno:
-                </span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  {formatAmount(summary.paidTotal)}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       ) : null}
 

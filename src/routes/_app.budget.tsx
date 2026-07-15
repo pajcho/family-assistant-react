@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   BanknotesIcon,
   ChevronRightIcon,
@@ -20,7 +20,8 @@ import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
-import { BudgetTimeline, type BudgetFilterKind } from "@/components/budget/BudgetTimeline";
+import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
+import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -38,9 +39,8 @@ import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
-import { useEventsList } from "@/hooks/useEvents";
-import { useBirthdaysList } from "@/hooks/useBirthdays";
-import type { Expense, ExpenseCategory } from "@/types/database";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
 import { computeMonthlyCycle, monthRange } from "@/utils/budget";
@@ -65,21 +65,15 @@ type CategoryBreakdown = {
   count: number;
 };
 
-const BUDGET_FILTERS: { key: BudgetFilterKind; label: string }[] = [
-  { key: "all", label: "Sve" },
-  { key: "expense", label: "Troškovi" },
-  { key: "event", label: "Događaji" },
-  { key: "birthday", label: "Rođendani" },
-];
-
 function BudgetPage() {
   const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
-  const [budgetFilter, setBudgetFilter] = useState<BudgetFilterKind>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
+  // Payment-sourced expense tapped → open that payment's detail popup.
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -93,6 +87,7 @@ function BudgetPage() {
   const search = useExpenseSearch(searchTerm);
   const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
+  const navigate = useNavigate();
   const currentMonth = currentMonthYYYYMM();
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -101,10 +96,7 @@ function BudgetPage() {
   const { entries: incomeEntries } = useIncomeEntries(month);
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const { byKey: paymentOverrides } = usePaymentOverrides();
-  const eventsQuery = useEventsList(range);
-  const birthdaysQuery = useBirthdaysList();
-  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
-  const birthdays = useMemo(() => birthdaysQuery.data ?? [], [birthdaysQuery.data]);
+  const { byPayment } = usePaymentParticipants();
 
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
@@ -126,6 +118,11 @@ function BudgetPage() {
       }),
     [month, currentMonth, incomes, incomeEntries, expenses, payments, paymentOverrides, categories],
   );
+
+  // Share of confirmed income already spent — fills the budget bar and picks its
+  // color (green under 75%, amber 75–100%, red once over budget).
+  const spentPct = cycle.confirmedIncome > 0 ? (cycle.totalSpent / cycle.confirmedIncome) * 100 : 0;
+  const budgetBarColor = spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#10b981";
 
   // Recurring sources not yet confirmed for THIS month — the "potvrdi platu"
   // reminder. Only surfaced for the current month (don't nag while browsing
@@ -205,6 +202,13 @@ function BudgetPage() {
     setEditing(expense);
     setFormError(null);
     setAddOpen(true);
+  };
+
+  // A "source: payment" expense links back to its payment via payment_id — tap
+  // it to open the same payment detail popup used on the /payments page.
+  const openPaymentDetail = (expense: Expense) => {
+    if (!expense.payment_id) return;
+    setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -334,6 +338,17 @@ function BudgetPage() {
               </div>
             </div>
           </div>
+          {cycle.confirmedIncome > 0 ? (
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{
+                  width: `${Math.min(100, Math.max(spentPct, 2))}%`,
+                  backgroundColor: budgetBarColor,
+                }}
+              />
+            </div>
+          ) : null}
           {cycle.projectedUnpaid > 0 || cycle.expectedIncome > 0 ? (
             <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700/60">
               <div className="flex items-center justify-between">
@@ -470,47 +485,19 @@ function BudgetPage() {
         </section>
       ) : null}
 
-      {/* Timeline: troškovi + događaji + rođendani, grupisano po danu */}
+      {/* Troškovi kao timeline po danu */}
       {!searchActive && !isLoading ? (
         <section className="mt-6">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {BUDGET_FILTERS.map((f) => {
-              const active = budgetFilter === f.key;
-              return (
-                <button
-                  key={f.key}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setBudgetFilter(f.key)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-                    active
-                      ? "border-transparent bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
-                  )}
-                >
-                  {f.label}
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Troškovi</h2>
           <BudgetTimeline
             expenses={expenses}
-            events={events}
-            birthdays={birthdays}
-            range={range}
-            filter={budgetFilter}
             categoriesById={categoriesById}
             itemCounts={itemCounts}
             onOpenReceipt={setReceiptDetail}
             onEditManual={openEdit}
             onDeleteExpense={setToDelete}
+            onOpenPayment={openPaymentDetail}
           />
-          {categories.length === 0 ? (
-            <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-              Automatski uneti troškovi iz plaćanja se ne mogu menjati ovde.
-            </p>
-          ) : null}
         </section>
       ) : null}
 
@@ -565,6 +552,19 @@ function BudgetPage() {
         loading={deleteExpense.isPending}
         onConfirm={() => {
           void handleDeleteConfirm();
+        }}
+      />
+
+      <PaymentDetailDialog
+        open={!!selectedPayment}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayment(null);
+        }}
+        payment={selectedPayment}
+        personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
+        onEdit={() => {
+          // Editing a payment lives on the /payments page — send them there.
+          void navigate({ to: "/payments" });
         }}
       />
     </div>
