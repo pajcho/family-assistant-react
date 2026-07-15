@@ -5,46 +5,31 @@ import { EyeSlashIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/2
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { ToggleChip } from "@/components/common/ToggleChip";
-import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
-import { PaymentCancelDialog } from "@/components/payments/PaymentCancelDialog";
+import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
-import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
-import { PaymentRescheduleDialog } from "@/components/payments/PaymentRescheduleDialog";
+import { PaymentOccurrenceDialog } from "@/components/payments/PaymentOccurrenceDialog";
+import { PaymentTimeline } from "@/components/payments/PaymentTimeline";
 import { PaymentUndoDialog } from "@/components/payments/PaymentUndoDialog";
-import {
-  PaymentListItem,
-  type HistoryRowItem,
-  type OccurrenceContext,
-  type PaymentListItemUnion,
-  type PaymentRowItem,
-  type UpcomingRowItem,
-} from "@/components/payments/PaymentListItem";
+import type {
+  HistoryRowItem,
+  PaymentListItemUnion,
+  UpcomingRowItem,
+} from "@/components/payments/paymentRowTypes";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import {
   hasPaymentHistory,
-  useCancelPaymentOccurrence,
   useCreatePayment,
-  useDeletePayment,
-  useMarkPaymentPaid,
   usePaymentHistory,
   usePaymentsList,
-  useTogglePaymentPause,
   useUndoLastPayment,
   useUpdatePayment,
 } from "@/hooks/usePayments";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import {
-  overrideKey,
-  useDeletePaymentOverride,
-  usePaymentOverrides,
-  useUpsertPaymentOverride,
-} from "@/hooks/usePaymentOverrides";
-import { usePaymentLinkTargets, type PaymentLinkTarget } from "@/hooks/usePaymentLinks";
+import { overrideKey, usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import type { Payment, PaymentHistoryStatus, PaymentOverride } from "@/types/database";
 import {
   currentMonthYYYYMM,
@@ -52,12 +37,8 @@ import {
   getLimitedMonths as getLimitedMonthsFromDate,
   getWeeklyOccurrencesInMonth,
   isMonthlyOccurrenceMonth,
-  isOverdue,
-  subtractDay,
 } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { nextPaymentOccurrenceDate } from "@/utils/payment";
-import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/_app/payments")({
   component: PaymentsPage,
@@ -400,45 +381,6 @@ function computeCombinedList({
   return items;
 }
 
-/* --- Row class helper (overdue/paused/paid/history/upcoming) -------------- */
-
-function getItemClass(item: PaymentListItemUnion): string {
-  const override = "override" in item ? item.override : null;
-  if (override?.action === "cancel") {
-    return "border border-gray-200/80 bg-gray-50 opacity-75 dark:border-gray-700 dark:bg-gray-800/80";
-  }
-  if (override?.action === "reschedule") {
-    return "border border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-800/50 dark:bg-indigo-900/10";
-  }
-  if (item.type === "history") {
-    if (item.status === "canceled") {
-      return "border border-red-200/70 bg-red-50/40 opacity-80 dark:border-red-800/50 dark:bg-red-900/10";
-    }
-    return "border border-gray-200/80 bg-gray-50 opacity-75 dark:border-gray-700 dark:bg-gray-800/80";
-  }
-  if (item.type === "upcoming") {
-    return "border border-sky-200/80 bg-sky-50/50 opacity-60 dark:border-sky-800/50 dark:bg-sky-900/10";
-  }
-  if (item.is_paused) {
-    return "border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 opacity-60";
-  }
-  if (item.is_paid) {
-    return "border border-gray-200/80 bg-gray-50 opacity-75 dark:border-gray-700 dark:bg-gray-800/80";
-  }
-  // Overdue unpaid: subtle red border + tint so it stands out
-  if (item.type === "payment" && isOverdue(item.due_date)) {
-    return "border border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-900/20";
-  }
-  return "border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800";
-}
-
-/** The owning payment id for any list-item shape (used to look up assignees). */
-function paymentIdForItem(item: PaymentListItemUnion): string {
-  if (item.type === "payment") return item.id;
-  if (item.type === "upcoming") return item.paymentId;
-  return item.payment_id;
-}
-
 /* --- The page itself ------------------------------------------------------ */
 
 function PaymentsPage() {
@@ -454,27 +396,22 @@ function PaymentsPage() {
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
 
-  // Dialog state
+  // Form dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editingHasHistory, setEditingHasHistory] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Delete confirmation
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  // Detail popups — the live occurrence gets the full manage dialog; paid /
+  // skipped / upcoming rows get the read-only occurrence dialog.
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedOccurrence, setSelectedOccurrence] = useState<
+    HistoryRowItem | UpcomingRowItem | null
+  >(null);
 
-  // Undo confirmation (from a history row)
+  // Undo confirmation (from the occurrence popup's "Poništi")
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
   const [historyToUndo, setHistoryToUndo] = useState<HistoryRowItem | null>(null);
-
-  // History popup
-  const [historyPopupOpen, setHistoryPopupOpen] = useState(false);
-  const [selectedPaymentForHistory, setSelectedPaymentForHistory] = useState<Payment | null>(null);
-
-  // Per-occurrence reschedule / cancel
-  const [rescheduleCtx, setRescheduleCtx] = useState<OccurrenceContext | null>(null);
-  const [cancelCtx, setCancelCtx] = useState<Payment | null>(null);
 
   // Data — always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
   const paymentsQuery = usePaymentsList({ hidePaid: false });
@@ -482,28 +419,14 @@ function PaymentsPage() {
   const { byPayment } = usePaymentParticipants();
   const { byKey: overridesByKey } = usePaymentOverrides();
 
-  // Mutations
+  // Mutations — the detail dialogs own the rest (mark paid, pause, reschedule,
+  // cancel, delete), so the page keeps only create/edit + undo.
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
-  const deletePayment = useDeletePayment();
-  const markPaidMutation = useMarkPaymentPaid();
-  const togglePauseMutation = useTogglePaymentPause();
   const undoMutation = useUndoLastPayment();
-  const upsertOverride = useUpsertPaymentOverride();
-  const deleteOverride = useDeletePaymentOverride();
-  const cancelOccurrence = useCancelPaymentOccurrence();
 
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
   const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
-
-  // "Povezano sa" chips — resolve every linked payment's target once for the
-  // whole list; tapping one opens the linked entity's edit form IN PLACE
-  // (LinkedEntityEditor) instead of navigating away.
-  const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
-  const { targetFor } = usePaymentLinkTargets(payments);
-  const handleOpenLink = (target: PaymentLinkTarget) => {
-    setLinkEditTarget(target);
-  };
 
   const togglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
@@ -627,14 +550,13 @@ function PaymentsPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = async (item: PaymentRowItem) => {
-    setEditingPayment(item);
+  const openEdit = async (payment: Payment) => {
+    setEditingPayment(payment);
     setFormError(null);
     setDialogOpen(true);
     // Async — disable recurrence radios if payment_history exists.
     try {
-      const exists = await hasPaymentHistory(item.id);
-      setEditingHasHistory(exists);
+      setEditingHasHistory(await hasPaymentHistory(payment.id));
     } catch {
       setEditingHasHistory(false);
     }
@@ -668,42 +590,18 @@ function PaymentsPage() {
     }
   };
 
-  const handleMarkPaid = (item: PaymentRowItem) => {
-    void markPaidMutation.mutateAsync(item.id).catch(() => {
-      /* error toasted by hook */
-    });
-  };
-
-  const handleTogglePause = (item: PaymentRowItem) => {
-    void togglePauseMutation.mutateAsync(item.id).catch(() => {
-      /* error toasted by hook */
-    });
-  };
-
-  const confirmDelete = (item: PaymentRowItem) => {
-    setPaymentToDelete(item);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!paymentToDelete) return;
-    try {
-      await deletePayment.mutateAsync(paymentToDelete.id);
-      setDeleteDialogOpen(false);
-      setPaymentToDelete(null);
-    } catch {
-      /* hook toasts; keep dialog open so the user can retry */
+  // Row tap → the right detail popup. The live occurrence carries the full
+  // manage dialog (mark paid / pause / reschedule / cancel / delete / edit);
+  // paid, skipped and upcoming rows open the read-only occurrence dialog. The
+  // live row's `due_date` is the EFFECTIVE (rescheduled) date, but the manage
+  // dialog keys overrides off the ORIGINAL due_date — so hand it the raw
+  // payment from the query, not the transformed row item.
+  const handleSelect = (item: PaymentListItemUnion) => {
+    if (item.type === "payment") {
+      setSelectedPayment(payments.find((p) => p.id === item.id) ?? null);
+    } else {
+      setSelectedOccurrence(item);
     }
-  };
-
-  const openHistory = (item: PaymentRowItem) => {
-    setSelectedPaymentForHistory(item);
-    setHistoryPopupOpen(true);
-  };
-
-  const handleHistoryPopupOpenChange = (open: boolean) => {
-    setHistoryPopupOpen(open);
-    if (!open) setSelectedPaymentForHistory(null);
   };
 
   const confirmUndo = (item: HistoryRowItem) => {
@@ -727,82 +625,16 @@ function PaymentsPage() {
     if (!open) setHistoryToUndo(null);
   };
 
-  /* --- Per-occurrence reschedule / cancel handlers ---------------------- */
-
-  const handleRescheduleOccurrence = (ctx: OccurrenceContext) => setRescheduleCtx(ctx);
-  const handleCancelOccurrence = (ctx: {
-    paymentId: string;
-    occurrenceDate: string;
-    name: string;
-    isRecurring: boolean;
-  }) => setCancelCtx(payments.find((p) => p.id === ctx.paymentId) ?? null);
-  const handleRestoreOccurrence = (ctx: { paymentId: string; occurrenceDate: string }) => {
-    void deleteOverride.mutateAsync(ctx).catch(() => {
-      /* hook toasts */
-    });
-  };
-
-  const handleRescheduleSubmit = async (date: string, reason: string | null) => {
-    if (!rescheduleCtx) return;
-    try {
-      if (rescheduleCtx.isRecurring) {
-        // Recurring: move just this occurrence — the rest of the series stays.
-        await upsertOverride.mutateAsync({
-          paymentId: rescheduleCtx.paymentId,
-          occurrenceDate: rescheduleCtx.occurrenceDate,
-          action: "reschedule",
-          overrideDate: date,
-          reason,
-        });
-      } else {
-        // One-time: just change the due date — nothing to mark "moved".
-        await updatePayment.mutateAsync({
-          id: rescheduleCtx.paymentId,
-          payload: { due_date: date },
-        });
-      }
-      setRescheduleCtx(null);
-    } catch {
-      /* hook toasts; keep dialog open to retry */
-    }
-  };
-
-  const handleCancelSubmit = async (reason: string | null) => {
-    if (!cancelCtx) return;
-    const isRecurring =
-      cancelCtx.recurrence_period !== "one-time" && cancelCtx.recurrence_period != null;
-    try {
-      if (isRecurring) {
-        // Recurring: record the skip in history + advance to the next occurrence
-        // (the next becomes the active/current due).
-        await cancelOccurrence.mutateAsync({ id: cancelCtx.id, reason });
-      } else {
-        // One-time: display-only soft cancel (struck "Otkazano", restorable).
-        await upsertOverride.mutateAsync({
-          paymentId: cancelCtx.id,
-          occurrenceDate: cancelCtx.due_date,
-          action: "cancel",
-          reason,
-        });
-      }
-      setCancelCtx(null);
-    } catch {
-      /* hook toasts; keep dialog open to retry */
-    }
-  };
-
-  const deleteConfirmMessage = `Da li ste sigurni da želite da obrišete "${
-    paymentToDelete?.name ?? ""
-  }"?`;
-
-  // Cap the reschedule picker at the day BEFORE the next occurrence (so the
-  // current one can't land on/after it — no two payments on the same day) and
-  // mark the next occurrence on the calendar.
-  const reschedulePayment = rescheduleCtx
-    ? (payments.find((p) => p.id === rescheduleCtx.paymentId) ?? null)
+  // Underlying series row for the selected occurrence (history / upcoming) —
+  // powers that dialog's Izmeni / Istorija / Poništi.
+  const occurrencePaymentId = selectedOccurrence
+    ? selectedOccurrence.type === "history"
+      ? selectedOccurrence.payment_id
+      : selectedOccurrence.paymentId
     : null;
-  const rescheduleNext = reschedulePayment ? nextPaymentOccurrenceDate(reschedulePayment) : null;
-  const rescheduleMax = rescheduleNext ? subtractDay(rescheduleNext) : null;
+  const occurrencePayment = occurrencePaymentId
+    ? (payments.find((p) => p.id === occurrencePaymentId) ?? null)
+    : null;
 
   return (
     <div className="animate-fade-in">
@@ -851,6 +683,42 @@ function PaymentsPage() {
         </div>
       </div>
 
+      {/* Summary — pinned above the list: what's still due vs already paid. */}
+      {!searchActive && combinedList.length > 0 ? (
+        summary.type === "all" ? (
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+              <span className="size-1.5 rounded-full bg-amber-500" />
+              Ukupno za platiti
+            </div>
+            <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+              {formatAmount(summary.total)}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="size-1.5 rounded-full bg-amber-500" />
+                Za platiti
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(summary.unpaidTotal)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                Plaćeno
+              </div>
+              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                {formatAmount(summary.paidTotal)}
+              </div>
+            </div>
+          </div>
+        )
+      ) : null}
+
       {searchActive ? (
         <p className="mt-3 text-xs text-muted-foreground">
           Rezultati pretrage obuhvataju sve mesece (filteri meseca i plaćenih se ne primenjuju).
@@ -866,29 +734,14 @@ function PaymentsPage() {
       ) : null}
 
       {!isLoading && pagedList.length > 0 ? (
-        <ul className="mt-6 space-y-3">
-          {pagedList.map((item) => (
-            <li key={item.id} className={cn("rounded-lg p-4 shadow-sm", getItemClass(item))}>
-              <PaymentListItem
-                item={item}
-                personIds={byPayment.get(paymentIdForItem(item)) ?? []}
-                linkTarget={item.type === "payment" ? targetFor(item) : null}
-                onOpenLink={handleOpenLink}
-                onMarkPaid={handleMarkPaid}
-                onTogglePause={handleTogglePause}
-                onOpenHistory={openHistory}
-                onEdit={(p) => {
-                  void openEdit(p);
-                }}
-                onDelete={confirmDelete}
-                onUndo={confirmUndo}
-                onRescheduleOccurrence={handleRescheduleOccurrence}
-                onCancelOccurrence={handleCancelOccurrence}
-                onRestoreOccurrence={handleRestoreOccurrence}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="mt-6">
+          <PaymentTimeline
+            items={pagedList}
+            byPayment={byPayment}
+            onSelect={handleSelect}
+            flat={searchActive}
+          />
+        </div>
       ) : null}
 
       {remainingCount > 0 ? (
@@ -896,40 +749,6 @@ function PaymentsPage() {
           <Button variant="outline" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
             Prikaži još ({remainingCount})
           </Button>
-        </div>
-      ) : null}
-
-      {!searchActive && combinedList.length > 0 ? (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-          {summary.type === "all" ? (
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Ukupno za platiti:
-              </span>
-              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {formatAmount(summary.total)}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="flex items-center justify-between sm:gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Za platiti:
-                </span>
-                <span className="font-semibold text-amber-700 dark:text-amber-400">
-                  {formatAmount(summary.unpaidTotal)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between sm:gap-2">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Plaćeno:
-                </span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  {formatAmount(summary.paidTotal)}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       ) : null}
 
@@ -946,24 +765,31 @@ function PaymentsPage() {
         }}
       />
 
-      <PaymentHistoryPopup
-        open={historyPopupOpen}
-        onOpenChange={handleHistoryPopupOpenChange}
-        payment={selectedPaymentForHistory}
+      <PaymentDetailDialog
+        open={!!selectedPayment}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayment(null);
+        }}
+        payment={selectedPayment}
+        personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
+        onEdit={(p) => {
+          void openEdit(p);
+        }}
+        variant="manage"
       />
 
-      <ConfirmDialog
-        open={deleteDialogOpen}
+      <PaymentOccurrenceDialog
+        open={!!selectedOccurrence}
         onOpenChange={(open) => {
-          setDeleteDialogOpen(open);
-          if (!open) setPaymentToDelete(null);
+          if (!open) setSelectedOccurrence(null);
         }}
-        title="Obriši plaćanje"
-        message={deleteConfirmMessage}
-        loading={deletePayment.isPending}
-        onConfirm={() => {
-          void handleDeleteConfirm();
+        item={selectedOccurrence}
+        personIds={occurrencePaymentId ? (byPayment.get(occurrencePaymentId) ?? []) : []}
+        payment={occurrencePayment}
+        onEdit={(p) => {
+          void openEdit(p);
         }}
+        onUndo={confirmUndo}
       />
 
       <PaymentUndoDialog
@@ -975,37 +801,6 @@ function PaymentsPage() {
           void handleUndoConfirm();
         }}
       />
-
-      <PaymentRescheduleDialog
-        open={!!rescheduleCtx}
-        onOpenChange={(open) => {
-          if (!open) setRescheduleCtx(null);
-        }}
-        paymentName={rescheduleCtx?.name ?? ""}
-        currentDate={rescheduleCtx?.currentDate ?? null}
-        showReason={rescheduleCtx?.isRecurring ?? false}
-        maxDate={rescheduleMax}
-        markedDate={rescheduleNext}
-        saving={upsertOverride.isPending || updatePayment.isPending}
-        onSubmit={(date, reason) => {
-          void handleRescheduleSubmit(date, reason);
-        }}
-      />
-
-      <PaymentCancelDialog
-        open={!!cancelCtx}
-        onOpenChange={(open) => {
-          if (!open) setCancelCtx(null);
-        }}
-        payment={cancelCtx}
-        saving={upsertOverride.isPending || cancelOccurrence.isPending}
-        onConfirm={(reason) => {
-          void handleCancelSubmit(reason);
-        }}
-      />
-
-      {/* "Povezano sa" chip → edit the linked entity right here, no redirect. */}
-      <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </div>
   );
 }

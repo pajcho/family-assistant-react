@@ -1,20 +1,17 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   BanknotesIcon,
   ChevronRightIcon,
   LockClosedIcon,
   MagnifyingGlassIcon,
-  PencilSquareIcon,
   QrCodeIcon,
   ReceiptPercentIcon,
-  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { MemberBadges } from "@/components/common/MemberBadges";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +20,8 @@ import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
+import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
+import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -40,10 +39,10 @@ import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
-import type { Expense, ExpenseCategory } from "@/types/database";
+import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
+import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { stavkeLabel } from "@/utils/plural";
 import { computeMonthlyCycle, monthRange } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
@@ -66,11 +65,6 @@ type CategoryBreakdown = {
   count: number;
 };
 
-/** Short "dd.MM." day label for a YYYY-MM-DD date inside a month view. */
-function dayLabel(dateStr: string): string {
-  return `${dateStr.slice(8, 10)}.${dateStr.slice(5, 7)}.`;
-}
-
 function BudgetPage() {
   const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
   const [addOpen, setAddOpen] = useState(false);
@@ -78,6 +72,8 @@ function BudgetPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
+  // Payment-sourced expense tapped → open that payment's detail popup.
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -91,6 +87,7 @@ function BudgetPage() {
   const search = useExpenseSearch(searchTerm);
   const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
+  const navigate = useNavigate();
   const currentMonth = currentMonthYYYYMM();
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -99,6 +96,7 @@ function BudgetPage() {
   const { entries: incomeEntries } = useIncomeEntries(month);
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const { byKey: paymentOverrides } = usePaymentOverrides();
+  const { byPayment } = usePaymentParticipants();
 
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
@@ -120,6 +118,11 @@ function BudgetPage() {
       }),
     [month, currentMonth, incomes, incomeEntries, expenses, payments, paymentOverrides, categories],
   );
+
+  // Share of confirmed income already spent — fills the budget bar and picks its
+  // color (green under 75%, amber 75–100%, red once over budget).
+  const spentPct = cycle.confirmedIncome > 0 ? (cycle.totalSpent / cycle.confirmedIncome) * 100 : 0;
+  const budgetBarColor = spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#10b981";
 
   // Recurring sources not yet confirmed for THIS month — the "potvrdi platu"
   // reminder. Only surfaced for the current month (don't nag while browsing
@@ -201,6 +204,13 @@ function BudgetPage() {
     setAddOpen(true);
   };
 
+  // A "source: payment" expense links back to its payment via payment_id — tap
+  // it to open the same payment detail popup used on the /payments page.
+  const openPaymentDetail = (expense: Expense) => {
+    if (!expense.payment_id) return;
+    setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
+  };
+
   const handleDialogOpenChange = (open: boolean) => {
     setAddOpen(open);
     if (!open) {
@@ -234,8 +244,6 @@ function BudgetPage() {
       /* hook toasts; keep dialog open to retry */
     }
   };
-
-  const showEmpty = !isLoading && expenses.length === 0;
 
   return (
     <div className="animate-fade-in pb-8">
@@ -330,6 +338,17 @@ function BudgetPage() {
               </div>
             </div>
           </div>
+          {cycle.confirmedIncome > 0 ? (
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{
+                  width: `${Math.min(100, Math.max(spentPct, 2))}%`,
+                  backgroundColor: budgetBarColor,
+                }}
+              />
+            </div>
+          ) : null}
           {cycle.projectedUnpaid > 0 || cycle.expectedIncome > 0 ? (
             <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700/60">
               <div className="flex items-center justify-between">
@@ -466,133 +485,19 @@ function BudgetPage() {
         </section>
       ) : null}
 
-      {/* Expenses list */}
-      {!searchActive && showEmpty ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Nema troškova za ovaj mesec. Dodaj prvi trošak.
-        </div>
-      ) : null}
-
-      {!searchActive && !isLoading && expenses.length > 0 ? (
+      {/* Troškovi kao timeline po danu */}
+      {!searchActive && !isLoading ? (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Troškovi</h2>
-          <ul className="space-y-2">
-            {expenses.map((e) => {
-              const category = e.category_id ? categoriesById.get(e.category_id) : null;
-              const Icon = categoryIcon(category?.icon);
-              const color = category?.color ?? "#9ca3af";
-              const isReceipt = e.source === "receipt";
-              const isPayment = e.source === "payment";
-              const itemCount = isReceipt ? (itemCounts?.[e.id] ?? 0) : 0;
-              const primary = isReceipt
-                ? e.merchant || e.note?.trim() || category?.name || "Račun"
-                : e.note?.trim() || category?.name || "Trošak";
-
-              const iconEl = (
-                <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${color}22` }}
-                >
-                  <Icon className="size-5" style={{ color }} />
-                </span>
-              );
-
-              const textEl = (
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {primary}
-                    </span>
-                    {isPayment ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-                        <LockClosedIcon className="size-2.5" />
-                        iz plaćanja
-                      </span>
-                    ) : isReceipt ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                        <ReceiptPercentIcon className="size-2.5" />
-                        račun
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{dayLabel(e.spent_on)}</span>
-                    {isReceipt && itemCount > 0 ? (
-                      <span>
-                        · {itemCount} {stavkeLabel(itemCount)}
-                      </span>
-                    ) : category && (e.note?.trim() ?? "") !== "" ? (
-                      <span className="truncate">· {category.name}</span>
-                    ) : null}
-                    <MemberBadges personIds={e.person_id ? [e.person_id] : []} size="xs" />
-                  </div>
-                </div>
-              );
-
-              const amountEl = (
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                  {formatAmount(e.amount)}
-                </span>
-              );
-
-              // Receipt rows open a read-only-amount detail (recategorize + items).
-              if (isReceipt) {
-                return (
-                  <li
-                    key={e.id}
-                    className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setReceiptDetail(e)}
-                      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
-                    >
-                      {iconEl}
-                      {textEl}
-                      {amountEl}
-                      <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
-                    </button>
-                  </li>
-                );
-              }
-
-              return (
-                <li
-                  key={e.id}
-                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
-                >
-                  {iconEl}
-                  {textEl}
-                  {amountEl}
-                  {!isPayment ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label="Izmeni trošak"
-                        onClick={() => openEdit(e)}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                      >
-                        <PencilSquareIcon className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Obriši trošak"
-                        onClick={() => setToDelete(e)}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      >
-                        <TrashIcon className="size-4" />
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          {categories.length === 0 ? (
-            <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-              Automatski uneti troškovi iz plaćanja se ne mogu menjati ovde.
-            </p>
-          ) : null}
+          <BudgetTimeline
+            expenses={expenses}
+            categoriesById={categoriesById}
+            itemCounts={itemCounts}
+            onOpenReceipt={setReceiptDetail}
+            onEditManual={openEdit}
+            onDeleteExpense={setToDelete}
+            onOpenPayment={openPaymentDetail}
+          />
         </section>
       ) : null}
 
@@ -647,6 +552,19 @@ function BudgetPage() {
         loading={deleteExpense.isPending}
         onConfirm={() => {
           void handleDeleteConfirm();
+        }}
+      />
+
+      <PaymentDetailDialog
+        open={!!selectedPayment}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayment(null);
+        }}
+        payment={selectedPayment}
+        personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
+        onEdit={() => {
+          // Editing a payment lives on the /payments page — send them there.
+          void navigate({ to: "/payments" });
         }}
       />
     </div>
