@@ -81,7 +81,24 @@ export default function ReceiptScanDialog({
     setCaptureError(null);
     setMode("loading");
     importReceipt.mutate(url, {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
+        // Recognize an already-imported receipt right after parsing — before the
+        // preview — so the user sees "Račun je već dodat" immediately instead of
+        // only after tapping Save. Keyed on the SUF receipt_url (unique index).
+        // The save-time unique-violation handler below stays as a backstop
+        // (covers a race, or a null familyId / failed pre-check here).
+        if (familyId) {
+          try {
+            const existing = await fetchExpenseByReceiptUrl(familyId, data.receiptUrl);
+            if (existing) {
+              setDuplicateMonth(existing.spent_on.slice(0, 7));
+              setMode("duplicate");
+              return;
+            }
+          } catch {
+            // Pre-check failed — fall through to the preview; the DB index still guards.
+          }
+        }
         setReceipt(data);
         setMode("preview");
       },
