@@ -9,11 +9,11 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
+import { Amount } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
 import { addDays } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
 import { stavkeLabel } from "@/utils/plural";
 import { useToday } from "@/hooks/useToday";
 
@@ -77,7 +77,7 @@ function ExpenseRow({
             {primary}
           </span>
           <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-            {formatAmount(expense.amount)}
+            <Amount value={expense.amount} />
           </span>
         </span>
         <span className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
