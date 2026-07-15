@@ -55,12 +55,13 @@ function BirthdaysPage() {
 
   // Filters — the shared control set: a month picker CLAMPED to the current
   // year (birthdays repeat annually, so "Avg" means "this year's August"),
-  // defaulting to "Svi rođendani"; a text search; and a "Sakrij prošle"
-  // toggle for birthdays whose date this year has already passed.
+  // defaulting to "Svi rođendani"; a text search; and a "Sakrij prošle
+  // rođendane" toggle — ON by default, so the list opens with only the
+  // upcoming ones.
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [searchTerm, setSearchTerm] = useState("");
-  const [hidePassed, setHidePassed] = useState(false);
+  const [hidePassed, setHidePassed] = useState(true);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -244,7 +245,7 @@ function BirthdaysPage() {
           onToggle={() => setHidePassed((prev) => !prev)}
           icon={EyeSlashIcon}
         >
-          Sakrij prošle ove godine
+          Sakrij prošle rođendane
         </ToggleChip>
       </div>
 

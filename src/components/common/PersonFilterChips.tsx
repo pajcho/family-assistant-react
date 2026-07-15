@@ -22,8 +22,11 @@ export function PersonFilterChips({ selected, onToggle }: PersonFilterChipsProps
 
   if (members.length === 0) return null;
 
+  // `display: contents` — the chips join the PARENT's flex-wrap flow, so a
+  // sibling ToggleChip ("Sakrij plaćena" / "Sakrij završene") wraps inline
+  // with the member chips instead of after the whole block.
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="contents">
       {members.map((member) => (
         <PersonChip
           key={member.id}
