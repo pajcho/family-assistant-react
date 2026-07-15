@@ -4,6 +4,9 @@ import {
   CalendarDaysIcon,
   XCircleIcon,
   ArrowUturnLeftIcon,
+  PauseIcon,
+  PlayIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +26,9 @@ import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   useCancelPaymentOccurrence,
+  useDeletePayment,
   useMarkPaymentPaid,
+  useTogglePaymentPause,
   useUpdatePayment,
 } from "@/hooks/usePayments";
 import {
@@ -59,9 +64,15 @@ export type PaymentDetailDialogProps = {
   /** Family members the payment is for (from the parent's participants query). */
   personIds?: string[];
   onEdit: (payment: Payment) => void;
+  /**
+   * "agenda" (default) — the lean dashboard popup (mark paid / reschedule /
+   * cancel / edit). "manage" — the /payments surface: adds pause-resume and
+   * delete so the list rows can drop their inline buttons entirely.
+   */
+  variant?: "agenda" | "manage";
 };
 
-type Mode = "detail" | "reschedule" | "cancel";
+type Mode = "detail" | "reschedule" | "cancel" | "delete";
 
 function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
@@ -78,6 +89,7 @@ export function PaymentDetailDialog({
   payment,
   personIds = [],
   onEdit,
+  variant = "agenda",
 }: PaymentDetailDialogProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("detail");
@@ -90,6 +102,8 @@ export function PaymentDetailDialog({
   const upsertOverride = useUpsertPaymentOverride();
   const deleteOverride = useDeletePaymentOverride();
   const cancelOccurrence = useCancelPaymentOccurrence();
+  const togglePause = useTogglePaymentPause();
+  const deletePayment = useDeletePayment();
   const { byKey: overridesByKey } = usePaymentOverrides();
   const linkTarget = usePaymentLinkTarget(payment);
 
@@ -101,12 +115,21 @@ export function PaymentDetailDialog({
     : "";
   const isRecurring =
     !!payment && payment.recurrence_period !== "one-time" && payment.recurrence_period != null;
+  const cancelOverrideActive = override?.action === "cancel";
+  // The single mark-paid affordance is hidden once the occurrence is resolved
+  // (paid), on hold (paused), or soft-canceled — you'd resume / restore first.
+  const canMarkPaid = !!payment && !payment.is_paid && !payment.is_paused && !cancelOverrideActive;
+  // Pause/resume + delete only surface on the /payments management variant.
+  const canPause =
+    variant === "manage" && !!payment && !payment.is_paid && isRecurring && !cancelOverrideActive;
   const saving =
     markPaid.isPending ||
     updatePayment.isPending ||
     upsertOverride.isPending ||
     deleteOverride.isPending ||
-    cancelOccurrence.isPending;
+    cancelOccurrence.isPending ||
+    togglePause.isPending ||
+    deletePayment.isPending;
 
   // Reset to the detail view whenever the dialog closes or the payment changes.
   useEffect(() => {
@@ -215,6 +238,28 @@ export function PaymentDetailDialog({
     }
   };
 
+  const openDelete = () => setMode("delete");
+
+  const handleTogglePause = async () => {
+    if (!payment) return;
+    try {
+      await togglePause.mutateAsync(payment.id);
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!payment) return;
+    try {
+      await deletePayment.mutateAsync(payment.id);
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
+  };
+
   const cancelCopy = payment ? paymentCancelCopy(payment) : null;
   const rescheduleNext = payment ? nextPaymentOccurrenceDate(payment) : null;
   const rescheduleMax = rescheduleNext ? subtractDay(rescheduleNext) : null;
@@ -223,7 +268,9 @@ export function PaymentDetailDialog({
       ? "Pomeri ratu"
       : mode === "cancel"
         ? (cancelCopy?.title ?? "Otkaži ratu")
-        : "Detalji plaćanja";
+        : mode === "delete"
+          ? "Obriši plaćanje"
+          : "Detalji plaćanja";
 
   return (
     <>
@@ -294,6 +341,11 @@ export function PaymentDetailDialog({
                     />
                   </div>
                 </div>
+              ) : mode === "delete" ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
+                  opozvati.
+                </p>
               ) : (
                 <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                   <dl className="space-y-2 text-sm">
@@ -374,7 +426,7 @@ export function PaymentDetailDialog({
                       >
                         Istorija
                       </button>
-                      {!payment.is_paid ? (
+                      {canMarkPaid ? (
                         <button
                           type="button"
                           className="text-sm font-medium text-blue-600 underline-offset-4 hover:underline disabled:opacity-50 dark:text-blue-400"
@@ -423,6 +475,103 @@ export function PaymentDetailDialog({
               >
                 {cancelCopy?.title ?? "Otkaži ratu"}
               </Button>
+            </ResponsiveDialogFooter>
+          ) : mode === "delete" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+                Nazad
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleDelete();
+                }}
+                disabled={saving}
+              >
+                Obriši
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : variant === "manage" ? (
+            <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap justify-center gap-1 sm:justify-start">
+                {cancelOverrideActive || override?.action === "reschedule" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void handleRestore();
+                    }}
+                    disabled={saving}
+                  >
+                    <ArrowUturnLeftIcon className="mr-1 h-4 w-4" />
+                    Vrati
+                  </Button>
+                ) : payment?.is_paused ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void handleTogglePause();
+                    }}
+                    disabled={saving}
+                  >
+                    <PlayIcon className="mr-1 h-4 w-4" />
+                    Nastavi
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={openReschedule} disabled={saving}>
+                      <CalendarDaysIcon className="mr-1 h-4 w-4" />
+                      Pomeri
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 dark:text-red-400"
+                      onClick={openCancel}
+                      disabled={saving}
+                    >
+                      <XCircleIcon className="mr-1 h-4 w-4" />
+                      Otkaži
+                    </Button>
+                    {canPause ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          void handleTogglePause();
+                        }}
+                        disabled={saving}
+                      >
+                        <PauseIcon className="mr-1 h-4 w-4" />
+                        Pauziraj
+                      </Button>
+                    ) : null}
+                  </>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 dark:text-red-400"
+                  onClick={openDelete}
+                  disabled={saving}
+                >
+                  <TrashIcon className="mr-1 h-4 w-4" />
+                  Obriši
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Zatvori
+                </Button>
+                <Button className="w-full sm:w-auto" onClick={handleEdit}>
+                  Izmeni
+                </Button>
+              </div>
             </ResponsiveDialogFooter>
           ) : (
             <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

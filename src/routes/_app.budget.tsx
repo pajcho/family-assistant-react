@@ -5,16 +5,13 @@ import {
   ChevronRightIcon,
   LockClosedIcon,
   MagnifyingGlassIcon,
-  PencilSquareIcon,
   QrCodeIcon,
   ReceiptPercentIcon,
-  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { MemberBadges } from "@/components/common/MemberBadges";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +20,7 @@ import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
+import { BudgetTimeline, type BudgetFilterKind } from "@/components/budget/BudgetTimeline";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -40,10 +38,11 @@ import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
+import { useEventsList } from "@/hooks/useEvents";
+import { useBirthdaysList } from "@/hooks/useBirthdays";
 import type { Expense, ExpenseCategory } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { stavkeLabel } from "@/utils/plural";
 import { computeMonthlyCycle, monthRange } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
@@ -66,13 +65,16 @@ type CategoryBreakdown = {
   count: number;
 };
 
-/** Short "dd.MM." day label for a YYYY-MM-DD date inside a month view. */
-function dayLabel(dateStr: string): string {
-  return `${dateStr.slice(8, 10)}.${dateStr.slice(5, 7)}.`;
-}
+const BUDGET_FILTERS: { key: BudgetFilterKind; label: string }[] = [
+  { key: "all", label: "Sve" },
+  { key: "expense", label: "Troškovi" },
+  { key: "event", label: "Događaji" },
+  { key: "birthday", label: "Rođendani" },
+];
 
 function BudgetPage() {
   const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
+  const [budgetFilter, setBudgetFilter] = useState<BudgetFilterKind>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -99,6 +101,10 @@ function BudgetPage() {
   const { entries: incomeEntries } = useIncomeEntries(month);
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const { byKey: paymentOverrides } = usePaymentOverrides();
+  const eventsQuery = useEventsList(range);
+  const birthdaysQuery = useBirthdaysList();
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  const birthdays = useMemo(() => birthdaysQuery.data ?? [], [birthdaysQuery.data]);
 
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
@@ -234,8 +240,6 @@ function BudgetPage() {
       /* hook toasts; keep dialog open to retry */
     }
   };
-
-  const showEmpty = !isLoading && expenses.length === 0;
 
   return (
     <div className="animate-fade-in pb-8">
@@ -466,128 +470,42 @@ function BudgetPage() {
         </section>
       ) : null}
 
-      {/* Expenses list */}
-      {!searchActive && showEmpty ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Nema troškova za ovaj mesec. Dodaj prvi trošak.
-        </div>
-      ) : null}
-
-      {!searchActive && !isLoading && expenses.length > 0 ? (
+      {/* Timeline: troškovi + događaji + rođendani, grupisano po danu */}
+      {!searchActive && !isLoading ? (
         <section className="mt-6">
-          <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Troškovi</h2>
-          <ul className="space-y-2">
-            {expenses.map((e) => {
-              const category = e.category_id ? categoriesById.get(e.category_id) : null;
-              const Icon = categoryIcon(category?.icon);
-              const color = category?.color ?? "#9ca3af";
-              const isReceipt = e.source === "receipt";
-              const isPayment = e.source === "payment";
-              const itemCount = isReceipt ? (itemCounts?.[e.id] ?? 0) : 0;
-              const primary = isReceipt
-                ? e.merchant || e.note?.trim() || category?.name || "Račun"
-                : e.note?.trim() || category?.name || "Trošak";
-
-              const iconEl = (
-                <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${color}22` }}
-                >
-                  <Icon className="size-5" style={{ color }} />
-                </span>
-              );
-
-              const textEl = (
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {primary}
-                    </span>
-                    {isPayment ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-                        <LockClosedIcon className="size-2.5" />
-                        iz plaćanja
-                      </span>
-                    ) : isReceipt ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                        <ReceiptPercentIcon className="size-2.5" />
-                        račun
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{dayLabel(e.spent_on)}</span>
-                    {isReceipt && itemCount > 0 ? (
-                      <span>
-                        · {itemCount} {stavkeLabel(itemCount)}
-                      </span>
-                    ) : category && (e.note?.trim() ?? "") !== "" ? (
-                      <span className="truncate">· {category.name}</span>
-                    ) : null}
-                    <MemberBadges personIds={e.person_id ? [e.person_id] : []} size="xs" />
-                  </div>
-                </div>
-              );
-
-              const amountEl = (
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                  {formatAmount(e.amount)}
-                </span>
-              );
-
-              // Receipt rows open a read-only-amount detail (recategorize + items).
-              if (isReceipt) {
-                return (
-                  <li
-                    key={e.id}
-                    className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setReceiptDetail(e)}
-                      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
-                    >
-                      {iconEl}
-                      {textEl}
-                      {amountEl}
-                      <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
-                    </button>
-                  </li>
-                );
-              }
-
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {BUDGET_FILTERS.map((f) => {
+              const active = budgetFilter === f.key;
               return (
-                <li
-                  key={e.id}
-                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+                <button
+                  key={f.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setBudgetFilter(f.key)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                    active
+                      ? "border-transparent bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
+                  )}
                 >
-                  {iconEl}
-                  {textEl}
-                  {amountEl}
-                  {!isPayment ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label="Izmeni trošak"
-                        onClick={() => openEdit(e)}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                      >
-                        <PencilSquareIcon className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Obriši trošak"
-                        onClick={() => setToDelete(e)}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                      >
-                        <TrashIcon className="size-4" />
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
+                  {f.label}
+                </button>
               );
             })}
-          </ul>
+          </div>
+          <BudgetTimeline
+            expenses={expenses}
+            events={events}
+            birthdays={birthdays}
+            range={range}
+            filter={budgetFilter}
+            categoriesById={categoriesById}
+            itemCounts={itemCounts}
+            onOpenReceipt={setReceiptDetail}
+            onEditManual={openEdit}
+            onDeleteExpense={setToDelete}
+          />
           {categories.length === 0 ? (
             <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
               Automatski uneti troškovi iz plaćanja se ne mogu menjati ovde.
