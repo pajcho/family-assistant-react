@@ -16,7 +16,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +86,7 @@ export type PaymentDetailDialogProps = {
   variant?: "agenda" | "manage";
 };
 
-type Mode = "detail" | "reschedule" | "cancel" | "delete";
+type Mode = "detail" | "actions" | "reschedule" | "cancel" | "delete";
 
 function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
@@ -111,9 +110,10 @@ export function PaymentDetailDialog({
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
-  // Mobile-only action sheet behind the kebab (desktop keeps the anchored
-  // dropdown — a pointer is precise, a thumb is not).
-  const [actionsOpen, setActionsOpen] = useState(false);
+  // On mobile the kebab switches the SHEET ITSELF to an "actions" sub-view
+  // (with "Nazad"), the established sub-form pattern here — stacking a second
+  // vaul drawer breaks the parent's scroll lock when the top one closes.
+  // Desktop keeps the anchored dropdown — a pointer is precise, a thumb is not.
   const isDesktop = useIsDesktop();
 
   const markPaid = useMarkPaymentPaid();
@@ -152,10 +152,7 @@ export function PaymentDetailDialog({
 
   // Reset to the detail view whenever the dialog closes or the payment changes.
   useEffect(() => {
-    if (!open) {
-      setMode("detail");
-      setActionsOpen(false);
-    }
+    if (!open) setMode("detail");
   }, [open]);
   useEffect(() => {
     setMode("detail");
@@ -292,7 +289,9 @@ export function PaymentDetailDialog({
         ? (cancelCopy?.title ?? "Otkaži ratu")
         : mode === "delete"
           ? "Obriši plaćanje"
-          : "Detalji plaćanja";
+          : mode === "actions"
+            ? "Opcije"
+            : "Detalji plaćanja";
 
   // Action hierarchy (Todoist / Google Calendar pattern): ONE contextual
   // primary action pinned in the footer, "Izmeni" beside it, everything else
@@ -443,7 +442,7 @@ export function PaymentDetailDialog({
                       aria-label="Više opcija"
                       className="shrink-0 text-gray-500 dark:text-gray-400"
                       disabled={saving}
-                      onClick={() => setActionsOpen(true)}
+                      onClick={() => setMode("actions")}
                     >
                       <EllipsisVerticalIcon className="size-5" />
                     </Button>
@@ -502,6 +501,35 @@ export function PaymentDetailDialog({
                   Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
                   opozvati.
                 </p>
+              ) : mode === "actions" ? (
+                <div className="-mx-2">
+                  {actionItems.map((item) => (
+                    <Fragment key={item.key}>
+                      {item.separatorBefore ? (
+                        <div className="my-1.5 h-px bg-gray-100 dark:bg-gray-700/60" />
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={item.onSelect}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-lg px-2 py-3 text-[15px] font-medium transition-colors disabled:opacity-50",
+                          item.destructive
+                            ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            : "text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "size-5",
+                            !item.destructive && "text-gray-400 dark:text-gray-500",
+                          )}
+                        />
+                        {item.label}
+                      </button>
+                    </Fragment>
+                  ))}
+                </div>
               ) : (
                 <>
                   {/* The bill's hero: amount first, state as badges. */}
@@ -613,6 +641,17 @@ export function PaymentDetailDialog({
                 Obriši
               </Button>
             </ResponsiveDialogFooter>
+          ) : mode === "actions" ? (
+            <ResponsiveDialogFooter>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => setMode("detail")}
+                disabled={saving}
+              >
+                Nazad
+              </Button>
+            </ResponsiveDialogFooter>
           ) : (
             <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
               <Button
@@ -674,50 +713,6 @@ export function PaymentDetailDialog({
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      {/* Mobile action sheet — stacks over the detail drawer; the detail stays
-          open underneath, so picking "Pomeri"/"Otkaži" lands straight in the
-          inline sub-mode. */}
-      {!isDesktop ? (
-        <Drawer open={actionsOpen} onOpenChange={setActionsOpen}>
-          <DrawerContent>
-            <DrawerHeader className="pb-1">
-              <DrawerTitle className="text-left text-lg leading-none">Opcije</DrawerTitle>
-            </DrawerHeader>
-            <div className="px-4 pt-1 pb-8">
-              {actionItems.map((item) => (
-                <Fragment key={item.key}>
-                  {item.separatorBefore ? (
-                    <div className="my-1.5 h-px bg-gray-100 dark:bg-gray-700/60" />
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => {
-                      setActionsOpen(false);
-                      item.onSelect();
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-2 py-3 text-[15px] font-medium transition-colors disabled:opacity-50",
-                      item.destructive
-                        ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                        : "text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "size-5",
-                        !item.destructive && "text-gray-400 dark:text-gray-500",
-                      )}
-                    />
-                    {item.label}
-                  </button>
-                </Fragment>
-              ))}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : null}
 
       <PaymentHistoryPopup open={historyOpen} onOpenChange={setHistoryOpen} payment={payment} />
 
