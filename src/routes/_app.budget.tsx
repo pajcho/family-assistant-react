@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   BanknotesIcon,
   ChevronRightIcon,
@@ -29,6 +29,8 @@ import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
+import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
+import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import {
@@ -44,7 +46,7 @@ import {
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
-import { usePaymentsList } from "@/hooks/usePayments";
+import { hasPaymentHistory, usePaymentsList, useUpdatePayment } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import type { Expense, ExpenseCategory, Payment } from "@/types/database";
@@ -88,6 +90,11 @@ function BudgetPage() {
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
   // Payment-sourced expense tapped → open that payment's detail popup.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  // Its "Izmeni" opens the payment edit form INLINE (no /payments redirect).
+  const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [paymentHasHistory, setPaymentHasHistory] = useState(false);
+  const [paymentFormError, setPaymentFormError] = useState<string | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   // Category drill-down (tap on a "Po kategorijama" row).
@@ -111,7 +118,6 @@ function BudgetPage() {
   const search = useExpenseSearch(searchTerm);
   const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
-  const navigate = useNavigate();
   const currentMonth = currentMonthYYYYMM();
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
@@ -129,6 +135,7 @@ function BudgetPage() {
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
+  const updatePayment = useUpdatePayment();
 
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
@@ -344,10 +351,50 @@ function BudgetPage() {
   };
 
   // A "source: payment" expense links back to its payment via payment_id — tap
-  // it to open the same payment detail popup used on the /payments page.
+  // it to open the payment detail popup in its read-only "info" variant (the
+  // expense row is a PAST paid occurrence; occurrence actions here would hit
+  // the NEXT one).
   const openPaymentDetail = (expense: Expense) => {
     if (!expense.payment_id) return;
     setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
+  };
+
+  // "Izmeni" in that popup — full payment edit form, right here on /budget.
+  const openEditPayment = async (payment: Payment) => {
+    setEditingPayment(payment);
+    setPaymentHasHistory(false);
+    setPaymentFormError(null);
+    setPaymentFormOpen(true);
+    // Async — disable the recurrence radios once we know history exists.
+    try {
+      setPaymentHasHistory(await hasPaymentHistory(payment.id));
+    } catch {
+      /* keep false — radios stay enabled */
+    }
+  };
+
+  const handlePaymentSubmit = async (payload: PaymentFormPayload) => {
+    if (!editingPayment) return;
+    setPaymentFormError(null);
+    try {
+      await updatePayment.mutateAsync({ id: editingPayment.id, payload });
+      setPaymentFormOpen(false);
+      setEditingPayment(null);
+      setPaymentHasHistory(false);
+    } catch (err) {
+      setPaymentFormError(
+        err instanceof Error && err.message ? err.message : "Greška pri izmeni plaćanja",
+      );
+    }
+  };
+
+  const handlePaymentFormOpenChange = (open: boolean) => {
+    setPaymentFormOpen(open);
+    if (!open) {
+      setEditingPayment(null);
+      setPaymentHasHistory(false);
+      setPaymentFormError(null);
+    }
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -872,9 +919,22 @@ function BudgetPage() {
         }}
         payment={selectedPayment}
         personIds={selectedPayment ? (byPayment.get(selectedPayment.id) ?? []) : []}
-        onEdit={() => {
-          // Editing a payment lives on the /payments page — send them there.
-          void navigate({ to: "/payments" });
+        onEdit={(p) => {
+          void openEditPayment(p);
+        }}
+        variant="info"
+      />
+
+      <PaymentFormDialog
+        open={paymentFormOpen}
+        onOpenChange={handlePaymentFormOpenChange}
+        payment={editingPayment}
+        initialPersonIds={editingPayment ? (byPayment.get(editingPayment.id) ?? []) : []}
+        hasHistory={paymentHasHistory}
+        error={paymentFormError}
+        saving={updatePayment.isPending}
+        onSubmit={(payload) => {
+          void handlePaymentSubmit(payload);
         }}
       />
     </div>

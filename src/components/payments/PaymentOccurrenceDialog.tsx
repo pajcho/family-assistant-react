@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ArrowUturnLeftIcon,
   BanknotesIcon,
@@ -52,14 +52,6 @@ export function PaymentOccurrenceDialog({
 }: PaymentOccurrenceDialogProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Re-open the detail popup when the history sheet closes (mirrors
-  // PaymentDetailDialog), so "Istorija" → back lands where the user was.
-  const prevHistoryOpen = useRef(false);
-  useEffect(() => {
-    if (prevHistoryOpen.current && !historyOpen && item) onOpenChange(true);
-    prevHistoryOpen.current = historyOpen;
-  }, [historyOpen, item, onOpenChange]);
-
   const isUpcoming = item?.type === "upcoming";
   const subtitle = !item
     ? ""
@@ -69,8 +61,10 @@ export function PaymentOccurrenceDialog({
         ? "Preskočena rata"
         : "Plaćena rata";
 
+  // Hide (don't close-through-the-caller) while history is open — the caller
+  // clears its selected item on close, which would null `payment` under the
+  // history popup. Mirrors PaymentDetailDialog.
   const openHistory = () => {
-    onOpenChange(false);
     setHistoryOpen(true);
   };
 
@@ -108,7 +102,7 @@ export function PaymentOccurrenceDialog({
 
   return (
     <>
-      <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialog open={open && !historyOpen} onOpenChange={onOpenChange}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader className="sr-only">
             <ResponsiveDialogTitle>Detalji plaćanja</ResponsiveDialogTitle>

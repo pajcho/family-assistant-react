@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -75,9 +75,11 @@ export type PaymentDetailDialogProps = {
   /**
    * "agenda" (default) — the lean dashboard popup (mark paid / reschedule /
    * cancel / edit). "manage" — the /payments surface: adds pause-resume and
-   * delete so the list rows can drop their inline buttons entirely.
+   * delete so the list rows can drop their inline buttons entirely. "info" —
+   * read-only surfaces (e.g. a payment-sourced expense on /budget): no state
+   * mutations at all, just the facts + history + "Izmeni".
    */
-  variant?: "agenda" | "manage";
+  variant?: "agenda" | "manage" | "info";
 };
 
 type Mode = "detail" | "actions" | "reschedule" | "cancel" | "delete";
@@ -124,9 +126,12 @@ export function PaymentDetailDialog({
   const isRecurring =
     !!payment && payment.recurrence_period !== "one-time" && payment.recurrence_period != null;
   const cancelOverrideActive = override?.action === "cancel";
+  // "info" strips every mutation except "Izmeni" — the popup is a viewer.
+  const readOnly = variant === "info";
   // The single mark-paid affordance is hidden once the occurrence is resolved
   // (paid), on hold (paused), or soft-canceled — you'd resume / restore first.
-  const canMarkPaid = !!payment && !payment.is_paid && !payment.is_paused && !cancelOverrideActive;
+  const canMarkPaid =
+    !readOnly && !!payment && !payment.is_paid && !payment.is_paused && !cancelOverrideActive;
   // Pause/resume + delete only surface on the /payments management variant.
   const canPause =
     variant === "manage" && !!payment && !payment.is_paid && isRecurring && !cancelOverrideActive;
@@ -147,24 +152,17 @@ export function PaymentDetailDialog({
     setMode("detail");
   }, [payment]);
 
-  // Re-open the detail popup when the history sheet closes so the user lands
-  // back where they were. Mirrors the Vue `watch(historyOpen, ...)`.
-  const prevHistoryOpen = useRef(false);
-  useEffect(() => {
-    if (prevHistoryOpen.current && !historyOpen && payment) {
-      onOpenChange(true);
-    }
-    prevHistoryOpen.current = historyOpen;
-  }, [historyOpen, payment, onOpenChange]);
-
   const handleEdit = () => {
     if (!payment) return;
     onOpenChange(false);
     onEdit(payment);
   };
 
+  // While history is open the detail sheet HIDES (open && !historyOpen below)
+  // instead of closing through the caller — callers clear their selected
+  // payment on close, which would null the `payment` prop out from under the
+  // history popup (and kill the "land back on detail" return trip).
   const openHistory = () => {
-    onOpenChange(false);
     setHistoryOpen(true);
   };
 
@@ -288,7 +286,7 @@ export function PaymentDetailDialog({
   // occurrence actions only in the normal state; override/paused states put
   // their single state-fixing action in the primary slot instead.
   const overrideActive = cancelOverrideActive || override?.action === "reschedule";
-  const showOccurrenceActions = !!payment && !overrideActive && !payment.is_paused;
+  const showOccurrenceActions = !readOnly && !!payment && !overrideActive && !payment.is_paused;
 
   // One list feeds both surfaces: the desktop kebab dropdown and the mobile
   // "Opcije" sub-view (see SheetActions).
@@ -365,7 +363,7 @@ export function PaymentDetailDialog({
 
   return (
     <>
-      <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialog open={open && !historyOpen} onOpenChange={onOpenChange}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader className={mode === "detail" ? "sr-only" : undefined}>
             <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
@@ -566,6 +564,21 @@ export function PaymentDetailDialog({
                 disabled={saving}
               >
                 Nazad
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : readOnly ? (
+            // Viewer footer: no state mutations here — the "Plaćeno"/"Dospeva"
+            // badges above carry the status. "Izmeni" is the one action.
+            <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                className="flex-1 sm:flex-none"
+                onClick={() => onOpenChange(false)}
+              >
+                Zatvori
+              </Button>
+              <Button className="flex-1 sm:flex-none" onClick={handleEdit} disabled={saving}>
+                Izmeni
               </Button>
             </ResponsiveDialogFooter>
           ) : (
