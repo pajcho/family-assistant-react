@@ -429,10 +429,13 @@ function BudgetPage() {
           {/* The three amounts stay on ONE baseline — nothing may push them
               apart; extra context (pace, MoM) lives under the bar. */}
           <div className="grid grid-cols-3 gap-2 text-center">
+            {/* flex-col + justify-start: buttons vertically CENTER their
+                content by default, so when the pill makes the middle column
+                taller this cell would sink below the other two. */}
             <button
               type="button"
               onClick={() => setIncomesOpen(true)}
-              className="group rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="group flex flex-col items-center justify-start rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             >
               <span className="flex items-center justify-center gap-0.5 text-xs text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400">
                 Prihodi

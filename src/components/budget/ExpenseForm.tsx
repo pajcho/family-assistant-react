@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { QrCodeIcon } from "@heroicons/react/24/outline";
 
@@ -90,6 +90,28 @@ export function ExpenseForm({
     setForm(initialState(expense));
   }, [expense]);
 
+  // NOT the `autoFocus` attribute: that focuses while the vaul drawer is
+  // still animating in, so iOS "reveals" the field against mid-flight
+  // geometry and leaves the sheet's inner container over-scrolled (amount
+  // field ends up above the fold, and dragging to fix it dismisses the
+  // drawer). Focus only after the enter animation settles, without letting
+  // the browser scroll, then pin the sheet's scroll container to its top.
+  const amountRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const input = amountRef.current;
+      if (!input) return;
+      input.focus({ preventScroll: true });
+      for (let node = input.parentElement; node; node = node.parentElement) {
+        if (node.scrollHeight > node.clientHeight) {
+          node.scrollTop = 0;
+          break;
+        }
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const isEdit = !!expense?.id;
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -130,10 +152,10 @@ export function ExpenseForm({
         <div className="relative">
           <Input
             id="expense-amount"
+            ref={amountRef}
             value={form.amount}
             onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
             inputMode="decimal"
-            autoFocus
             required
             placeholder="0"
             className="h-14 pr-14 text-right text-3xl font-semibold tabular-nums"
