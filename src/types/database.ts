@@ -260,6 +260,9 @@ export interface Expense {
   merchant: string | null;
   /** suf.purs.gov.rs verification URL for a scanned receipt; else null. */
   receipt_url: string | null;
+  /** Last "Osveži stavke" re-fetch claim (server-enforced cooldown); the
+   *  client renders the countdown from it. Null until the first refresh. */
+  receipt_checked_at: string | null;
   created_at: string;
   updated_at: string;
 }

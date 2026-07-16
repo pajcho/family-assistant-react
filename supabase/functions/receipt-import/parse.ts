@@ -76,6 +76,10 @@ export interface ParsedReceipt {
   items: ReceiptItem[];
   /** Non-fatal notes (Serbian, UI-facing). Empty on a fully-parsed receipt. */
   warnings: string[];
+  /** True when the page had no journal yet (offline issuer, not synced to
+   *  PURS) and the data came from the print-block fallback — the client offers
+   *  "Osveži stavke" for these. */
+  journalPending: boolean;
 }
 
 export type ReceiptParseErrorCode = "no_journal" | "no_total" | "no_date" | "no_merchant";
@@ -456,7 +460,17 @@ export function parseJournal(text: string): ParsedReceipt {
   }
   if (items.length === 0) warnings.push(ITEMS_WARNING);
 
-  return { merchant, companyName, storeName, pib, issuedAt, totalAmount, items, warnings };
+  return {
+    merchant,
+    companyName,
+    storeName,
+    pib,
+    issuedAt,
+    totalAmount,
+    items,
+    warnings,
+    journalPending: false,
+  };
 }
 
 /**
@@ -567,6 +581,7 @@ function parsePrintInvoice(decodedHtml: string): ParsedReceipt | null {
     totalAmount,
     items: [],
     warnings: [PENDING_ITEMS_WARNING],
+    journalPending: true,
   };
 }
 

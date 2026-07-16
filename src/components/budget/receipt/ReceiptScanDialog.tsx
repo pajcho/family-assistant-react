@@ -77,9 +77,25 @@ export default function ReceiptScanDialog({
     }
   }, [open]);
 
-  const runImport = (url: string) => {
+  const runImport = async (url: string) => {
     setCaptureError(null);
     setMode("loading");
+    // Duplicate pre-check straight against the DB (RLS read) BEFORE invoking
+    // the Edge Function: a re-scan of an already-imported receipt shows the
+    // "već dodat" dialog instantly and never spends an Edge call. The
+    // post-parse check below stays as the backstop (races, failed pre-check).
+    if (familyId) {
+      try {
+        const existing = await fetchExpenseByReceiptUrl(familyId, url);
+        if (existing) {
+          setDuplicateMonth(existing.spent_on.slice(0, 7));
+          setMode("duplicate");
+          return;
+        }
+      } catch {
+        // Pre-check failed — proceed with the normal import path.
+      }
+    }
     importReceipt.mutate(url, {
       onSuccess: async (data) => {
         // Recognize an already-imported receipt right after parsing — before the
@@ -116,7 +132,7 @@ export default function ReceiptScanDialog({
       return;
     }
     setPasteError(null);
-    runImport(value);
+    void runImport(value);
   };
 
   const handleFile = async (file: File | undefined) => {
@@ -129,7 +145,7 @@ export default function ReceiptScanDialog({
         setUploadError("Nismo našli QR kod fiskalnog računa na slici.");
         return;
       }
-      runImport(decoded);
+      await runImport(decoded);
     } catch {
       setUploadError("Nismo mogli da pročitamo sliku.");
     } finally {
