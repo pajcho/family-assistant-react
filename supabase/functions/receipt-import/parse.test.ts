@@ -104,6 +104,28 @@ describe("parseReceiptHtml — real Planeta Sport capture", () => {
   });
 });
 
+describe("parseReceiptHtml — real NIS capture (offline device, journal pending)", () => {
+  // Gas-station automat receipt: PURS verified it but the issuer hasn't synced
+  // the journal yet, so the page has NO <pre> at all. Required fields come from
+  // the server-rendered #PrintInvoice block instead.
+  const r = parseHtmlToLatin(fixture("nis-pending-journal.html"));
+
+  it("falls back to the print block for the required fields", () => {
+    expect(r.totalAmount).toBe(6817.35);
+    expect(r.pib).toBe("104052135");
+    expect(r.companyName).toBe("NIS A.D. NOVI SAD");
+    expect(r.storeName).toBe("BS Žarkovo 2");
+    expect(r.merchant).toBe("BS Žarkovo 2");
+    expect(r.issuedAt.slice(0, 10)).toBe("2026-07-16");
+  });
+
+  it("imports without items and explains why via a warning", () => {
+    expect(r.items).toEqual([]);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toMatch(/nije poslao sadržaj računa/);
+  });
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // Synthetic journals — label variants the real captures don't cover
 // ───────────────────────────────────────────────────────────────────────────

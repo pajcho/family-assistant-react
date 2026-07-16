@@ -162,11 +162,16 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
         ) : null}
       </div>
 
-      {itemsWarning ? (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-          Stavke nisu prepoznate — sačuvaćemo ukupan iznos.
-        </p>
-      ) : null}
+      {itemsWarning
+        ? receipt.warnings.map((warning) => (
+            <p
+              key={warning}
+              className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+            >
+              {warning}
+            </p>
+          ))
+        : null}
 
       {/* Person — optional single-select chips. */}
       {members.length > 0 ? (

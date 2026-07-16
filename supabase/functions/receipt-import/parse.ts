@@ -20,6 +20,14 @@
 //   • BEST-EFFORT — items. Item parsing is fully guarded: any failure yields an
 //     empty `items` array plus a warning string, and NEVER fails the import.
 //
+// PENDING-JOURNAL fallback: receipts from offline fiscal devices (e.g. NIS
+// gas-station automats) are verified by PURS but their journal arrives only
+// after the issuer syncs — the page has NO <pre> at all ("Журнал … ће бити
+// видљив по успостављању везе издаваоца рачуна са сервером ПУРС"). The
+// server-rendered "Преглед за штампу" block (#PrintInvoice) still carries PIB,
+// company, store, grand total and the security-element timestamp, so we parse
+// that instead and import the receipt without items (+ explanatory warning).
+//
 // Real-retailer facts baked into the grammar (verified against ZARA/ITX and
 // Planeta Sport captures, plus the paper Converse/Triple-Jump receipt):
 //   • Total label varies: "Укупан износ" (ZARA/Planeta) vs "За уплату"
@@ -91,6 +99,8 @@ const FATAL_MESSAGES: Record<ReceiptParseErrorCode, string> = {
 };
 
 const ITEMS_WARNING = "Stavke nisu prepoznate — sačuvaćemo ukupan iznos.";
+const PENDING_ITEMS_WARNING =
+  "Prodavac još nije poslao sadržaj računa poreskoj upravi — sačuvaćemo ukupan iznos bez stavki.";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Number parsing
@@ -193,8 +203,16 @@ function belgradeIso(y: number, mo: number, d: number, hh: number, mm: number, s
  * (colon optional). Format: `DD.MM.YYYY. HH:MM:SS` (trailing year-dot optional,
  * seconds optional). Returns an ISO string or null.
  */
+const DATE_TIME_RE = /(\d{1,2})\.(\d{1,2})\.(\d{4})\.?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/;
+
+/** Converts a `DD.MM.YYYY. HH:MM[:SS]` match to a Belgrade-offset ISO string. */
+function isoFromDateTimeMatch(match: RegExpMatchArray): string {
+  const [, d, mo, y, hh, mm, ss] = match;
+  return belgradeIso(Number(y), Number(mo), Number(d), Number(hh), Number(mm), ss ? Number(ss) : 0);
+}
+
 function findIssuedAt(lines: string[]): string | null {
-  const dateTimeRe = /(\d{1,2})\.(\d{1,2})\.(\d{4})\.?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/;
+  const dateTimeRe = DATE_TIME_RE;
   const labelRe = /(пфр\s*врем|pfr\s*vrem)/i;
   let match: RegExpMatchArray | null = null;
   for (const line of lines) {
@@ -216,8 +234,7 @@ function findIssuedAt(lines: string[]): string | null {
     }
   }
   if (!match) return null;
-  const [, d, mo, y, hh, mm, ss] = match;
-  return belgradeIso(Number(y), Number(mo), Number(d), Number(hh), Number(mm), ss ? Number(ss) : 0);
+  return isoFromDateTimeMatch(match);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -442,13 +459,18 @@ export function parseJournal(text: string): ParsedReceipt {
   return { merchant, companyName, storeName, pib, issuedAt, totalAmount, items, warnings };
 }
 
-/** Decodes the handful of HTML entities that appear in SUF journal markup. */
+/**
+ * Decodes the HTML entities that appear in SUF page markup. Numeric character
+ * references matter: TaxCore encodes ALL Cyrillic text as `&#x41F;`-style
+ * refs, so label matching on the raw HTML finds nothing until decoded.
+ */
 function decodeEntities(s: string): string {
   return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&");
@@ -479,15 +501,87 @@ function extractJournal(html: string): string | null {
   return null;
 }
 
+/** Replaces tags with spaces and collapses whitespace — for small value cells. */
+function stripTags(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Extracts the value that follows a `<strong>Label:</strong>` in TaxCore
+ * markup. Two shapes exist in the print block:
+ *   <p><strong>ПИБ:</strong> <span …>104052135</span></p>
+ *   <td><strong>За уплату:</strong></td><td …>6.817,35</td>
+ * Expects entity-DECODED html. Returns the tag-stripped value or null.
+ */
+function printFieldValue(html: string, labelAlternatives: string): string | null {
+  const re = new RegExp(
+    `<strong>\\s*(?:${labelAlternatives})\\s*:?\\s*</strong>\\s*(?:</td>\\s*<td[^>]*>)?([\\s\\S]*?)(?:</p>|</td>|</tr>|<hr)`,
+    "i",
+  );
+  const m = html.match(re);
+  if (!m) return null;
+  return stripTags(m[1]) || null;
+}
+
+/**
+ * Pending-journal fallback (see the header comment): reads the required fields
+ * from the server-rendered #PrintInvoice block of the verification page.
+ * Returns null when the block is missing or lacks a required field — the
+ * caller then reports the ordinary no_journal error.
+ */
+function parsePrintInvoice(decodedHtml: string): ParsedReceipt | null {
+  const start = decodedHtml.search(/id\s*=\s*"PrintInvoice"/i);
+  if (start < 0) return null;
+  const region = decodedHtml.slice(start);
+
+  const totalRaw = printFieldValue(region, "За уплату|Za uplatu|Укупан износ|Ukupan iznos");
+  const totalAmount = totalRaw != null ? parseSerbianAmount(totalRaw) : null;
+  if (totalAmount == null) return null;
+
+  const dateRaw = printFieldValue(
+    region,
+    "Време на безбедносном елементу|Vreme na bezbednosnom elementu|ПФР време|PFR vreme",
+  );
+  const dateMatch = dateRaw?.match(DATE_TIME_RE) ?? null;
+  if (!dateMatch) return null;
+  const issuedAt = isoFromDateTimeMatch(dateMatch);
+
+  const pib = printFieldValue(region, "ПИБ|PIB")?.match(/\d{8,11}/)?.[0] ?? null;
+  const companyName = printFieldValue(region, "Предузеће|Preduze[ćc]e");
+  // Store label sometimes keeps the `<storeId>-` prefix — strip it like the
+  // journal header parser does.
+  const storeRaw = printFieldValue(region, "Место продаје|Mesto prodaje");
+  const storeName = storeRaw ? storeRaw.replace(/^\d{3,}\s*-\s*/, "").trim() || null : null;
+  const merchant = pickMerchant(storeName, companyName);
+  if (!merchant && !pib) return null;
+
+  return {
+    merchant,
+    companyName,
+    storeName,
+    pib,
+    issuedAt,
+    totalAmount,
+    items: [],
+    warnings: [PENDING_ITEMS_WARNING],
+  };
+}
+
 /**
  * Parses the full suf.purs.gov.rs verification page HTML: extracts the journal
- * and delegates to parseJournal. Throws ReceiptParseError("no_journal") when no
- * journal block can be located.
+ * and delegates to parseJournal. Pages WITHOUT a journal (offline issuer, not
+ * yet synced to PURS) fall back to the server-rendered print block. Throws
+ * ReceiptParseError("no_journal") when neither source is usable.
  */
 export function parseReceiptHtml(html: string): ParsedReceipt {
   const journal = extractJournal(html);
-  if (!journal || !/\S/.test(journal)) {
-    throw new ReceiptParseError("no_journal", FATAL_MESSAGES.no_journal);
-  }
-  return parseJournal(journal);
+  if (journal && /\S/.test(journal)) return parseJournal(journal);
+
+  const fallback = parsePrintInvoice(decodeEntities(html));
+  if (fallback) return fallback;
+
+  throw new ReceiptParseError("no_journal", FATAL_MESSAGES.no_journal);
 }
