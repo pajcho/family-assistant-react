@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
-import type { ComponentType, SVGProps } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BanknotesIcon,
   CalendarDaysIcon,
@@ -8,7 +7,6 @@ import {
   ClockIcon,
   XCircleIcon,
   ArrowUturnLeftIcon,
-  EllipsisVerticalIcon,
   PauseIcon,
   PlayIcon,
   TrashIcon,
@@ -16,13 +14,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -31,9 +22,12 @@ import {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-  useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { cn } from "@/lib/cn";
+import {
+  SheetActionList,
+  SheetActionsKebab,
+  type SheetAction,
+} from "@/components/common/SheetActions";
 import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
 import { PaymentLinkChip } from "@/components/payments/PaymentLinkChip";
 import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
@@ -110,11 +104,6 @@ export function PaymentDetailDialog({
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
-  // On mobile the kebab switches the SHEET ITSELF to an "actions" sub-view
-  // (with "Nazad"), the established sub-form pattern here — stacking a second
-  // vaul drawer breaks the parent's scroll lock when the top one closes.
-  // Desktop keeps the anchored dropdown — a pointer is precise, a thumb is not.
-  const isDesktop = useIsDesktop();
 
   const markPaid = useMarkPaymentPaid();
   const updatePayment = useUpdatePayment();
@@ -301,17 +290,9 @@ export function PaymentDetailDialog({
   const overrideActive = cancelOverrideActive || override?.action === "reschedule";
   const showOccurrenceActions = !!payment && !overrideActive && !payment.is_paused;
 
-  // One list feeds both surfaces: the desktop dropdown and the mobile action
-  // sheet (bigger tap targets than an anchored menu on a phone).
-  type ActionItem = {
-    key: string;
-    label: string;
-    icon: ComponentType<SVGProps<SVGSVGElement>>;
-    destructive?: boolean;
-    separatorBefore?: boolean;
-    onSelect: () => void;
-  };
-  const actionItems: ActionItem[] = [];
+  // One list feeds both surfaces: the desktop kebab dropdown and the mobile
+  // "Opcije" sub-view (see SheetActions).
+  const actionItems: SheetAction[] = [];
   if (showOccurrenceActions) {
     actionItems.push({
       key: "reschedule",
@@ -403,50 +384,12 @@ export function PaymentDetailDialog({
                     {paymentSubtitle(payment)}
                   </p>
                 </div>
-                {mode === "detail" && actionItems.length > 0 ? (
-                  isDesktop ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Više opcija"
-                          className="shrink-0 text-gray-500 dark:text-gray-400"
-                          disabled={saving}
-                        >
-                          <EllipsisVerticalIcon className="size-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-60">
-                        {actionItems.map((item) => (
-                          <Fragment key={item.key}>
-                            {item.separatorBefore ? <DropdownMenuSeparator /> : null}
-                            <DropdownMenuItem
-                              variant={item.destructive ? "destructive" : "default"}
-                              onClick={item.onSelect}
-                              disabled={saving}
-                            >
-                              <item.icon className="size-4" />
-                              {item.label}
-                            </DropdownMenuItem>
-                          </Fragment>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Više opcija"
-                      className="shrink-0 text-gray-500 dark:text-gray-400"
-                      disabled={saving}
-                      onClick={() => setMode("actions")}
-                    >
-                      <EllipsisVerticalIcon className="size-5" />
-                    </Button>
-                  )
+                {mode === "detail" ? (
+                  <SheetActionsKebab
+                    items={actionItems}
+                    disabled={saving}
+                    onOpenActions={() => setMode("actions")}
+                  />
                 ) : null}
               </div>
 
@@ -502,34 +445,7 @@ export function PaymentDetailDialog({
                   opozvati.
                 </p>
               ) : mode === "actions" ? (
-                <div className="-mx-2">
-                  {actionItems.map((item) => (
-                    <Fragment key={item.key}>
-                      {item.separatorBefore ? (
-                        <div className="my-1.5 h-px bg-gray-100 dark:bg-gray-700/60" />
-                      ) : null}
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={item.onSelect}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-lg px-2 py-3 text-[15px] font-medium transition-colors disabled:opacity-50",
-                          item.destructive
-                            ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                            : "text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
-                        )}
-                      >
-                        <item.icon
-                          className={cn(
-                            "size-5",
-                            !item.destructive && "text-gray-400 dark:text-gray-500",
-                          )}
-                        />
-                        {item.label}
-                      </button>
-                    </Fragment>
-                  ))}
-                </div>
+                <SheetActionList items={actionItems} disabled={saving} />
               ) : (
                 <>
                   {/* The bill's hero: amount first, state as badges. */}

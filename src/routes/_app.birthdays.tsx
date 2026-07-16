@@ -9,7 +9,9 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FilterBar } from "@/components/common/FilterBar";
 import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
-import { BirthdayListItem } from "@/components/birthdays/BirthdayListItem";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+import { BirthdayDetailDialog } from "@/components/birthdays/BirthdayDetailDialog";
+import { BirthdayDisplayLine } from "@/components/birthdays/BirthdayDisplayLine";
 import {
   BirthdayFormDialog,
   type BirthdayFormDialogProps,
@@ -26,7 +28,7 @@ import {
 import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
-import { srLocale } from "@/utils/date";
+import { formatDate, srLocale } from "@/utils/date";
 
 /**
  * `/birthdays` — list + CRUD for the family's birthdays.
@@ -66,6 +68,9 @@ function BirthdaysPage() {
   const [hidePassed, setHidePassed] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
+
+  // Detail popup — a row tap opens it; every action lives inside.
+  const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
@@ -307,35 +312,64 @@ function BirthdaysPage() {
               <h2 className="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
                 {monthLabel(month)}
               </h2>
-              <ul className="mt-3 space-y-3">
-                {list.map((b) => (
-                  <li
-                    key={b.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <BirthdayListItem
-                      birthday={b}
-                      celebration={celebrationByBirthday?.get(b.id) ?? null}
-                      onEdit={openEdit}
-                      onDelete={confirmDelete}
-                      onOrganize={(birthday) => {
-                        setCelebrationError(null);
-                        setEditingCelebration(null);
-                        setOrganizingFor(birthday);
-                      }}
-                      onOpenCelebration={(event) => {
-                        setCelebrationError(null);
-                        setOrganizingFor(null);
-                        setEditingCelebration(event);
-                      }}
-                    />
-                  </li>
-                ))}
+              <ul className="mt-2 space-y-1">
+                {list.map((b) => {
+                  const celebration = celebrationByBirthday?.get(b.id) ?? null;
+                  return (
+                    <li key={b.id}>
+                      {/* Compact tappable row — every action lives in the
+                          detail popup the tap opens (payments pattern). */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBirthday(b)}
+                        className="block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/70"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="min-w-0 flex-1">
+                            <BirthdayDisplayLine name={b.name} birthDate={b.birth_date} />
+                          </span>
+                          {celebration ? (
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-pink-700 uppercase dark:bg-pink-900/30 dark:text-pink-300"
+                              title={`${celebration.name} · ${formatDate(celebration.date)}`}
+                            >
+                              <SparklesIcon className="size-3" />
+                              Proslava
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ))}
         </div>
       )}
+
+      <BirthdayDetailDialog
+        open={!!selectedBirthday}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBirthday(null);
+        }}
+        birthday={selectedBirthday}
+        celebration={
+          selectedBirthday ? (celebrationByBirthday?.get(selectedBirthday.id) ?? null) : null
+        }
+        onEdit={openEdit}
+        onDelete={confirmDelete}
+        onOrganize={(birthday) => {
+          setCelebrationError(null);
+          setEditingCelebration(null);
+          setOrganizingFor(birthday);
+        }}
+        onOpenCelebration={(event) => {
+          setCelebrationError(null);
+          setOrganizingFor(null);
+          setEditingCelebration(event);
+        }}
+      />
 
       <BirthdayFormDialog
         open={dialogOpen}
