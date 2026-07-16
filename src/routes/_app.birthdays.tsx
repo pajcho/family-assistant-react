@@ -1,19 +1,14 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  EyeSlashIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import type { Birthday, Event } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { FilterBar } from "@/components/common/FilterBar";
+import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
-import { ToggleChip } from "@/components/common/ToggleChip";
 import { BirthdayListItem } from "@/components/birthdays/BirthdayListItem";
 import {
   BirthdayFormDialog,
@@ -69,6 +64,7 @@ function BirthdaysPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [searchTerm, setSearchTerm] = useState("");
   const [hidePassed, setHidePassed] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -237,43 +233,56 @@ function BirthdaysPage() {
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker
-            value={selectedMonth}
-            onChange={setSelectedMonth}
-            allOptionLabel="Svi rođendani"
-            minMonth={`${currentYear}-01`}
-            maxMonth={`${currentYear}-12`}
-          />
-          <div className="relative min-w-0 flex-1 basis-52">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pretraži rođendane…"
-              aria-label="Pretraži rođendane"
-              className="pl-9"
+        <FilterBar
+          picker={
+            <MonthPicker
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+              allOptionLabel="Svi rođendani"
+              minMonth={`${currentYear}-01`}
+              maxMonth={`${currentYear}-12`}
             />
-            {searchTerm ? (
-              <button
-                type="button"
-                aria-label="Obriši pretragu"
-                onClick={() => setSearchTerm("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
-              >
-                <XMarkIcon className="size-4" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <ToggleChip
-          active={hidePassed}
-          onToggle={() => setHidePassed((prev) => !prev)}
-          icon={EyeSlashIcon}
-        >
-          Sakrij prošle rođendane
-        </ToggleChip>
+          }
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Pretraži rođendane…"
+          filterCount={hidePassed ? 0 : 1}
+          onOpenFilters={() => setFiltersOpen(true)}
+        />
+        <AppliedFilterChips
+          filters={
+            hidePassed
+              ? []
+              : [
+                  {
+                    key: "__show-passed__",
+                    label: "Prošli prikazani",
+                    onRemove: () => setHidePassed(true),
+                  },
+                ]
+          }
+          onClearAll={() => setHidePassed(true)}
+        />
       </div>
+
+      <FilterSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        isActive={!hidePassed}
+        onReset={() => setHidePassed(true)}
+      >
+        <section className="space-y-1">
+          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Prikaz
+          </h4>
+          <FilterSwitchRow
+            label="Prikaži i prošle rođendane"
+            icon={EyeIcon}
+            checked={!hidePassed}
+            onCheckedChange={(checked) => setHidePassed(!checked)}
+          />
+        </section>
+      </FilterSheet>
 
       {isLoading ? (
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>

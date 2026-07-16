@@ -1,22 +1,16 @@
+import { useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
-  FunnelIcon,
   GlobeAltIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
+import { FilterTriggerButton } from "@/components/common/FilterBar";
+import { FilterSection, FilterSheet } from "@/components/common/FilterSheet";
 import { PersonChip } from "@/components/activities/PersonChip";
 import { cn } from "@/lib/cn";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
@@ -126,6 +120,7 @@ export function AgendaFilters({
   count,
 }: AgendaFiltersProps) {
   const { members } = useFamilyMembers();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Empty set ⇒ every chip reads as active (no filter); otherwise only the
   // selected ones do.
@@ -168,50 +163,20 @@ export function AgendaFilters({
         ) : null}
       </div>
 
-      {/* Mobile: a compact trigger that opens a bottom sheet. */}
+      {/* Mobile: the shared compact trigger + filter sheet. */}
       <div className="md:hidden">
-        <Drawer>
-          <DrawerTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FunnelIcon className="size-4" />
-              Filteri
-              {count > 0 ? (
-                <span className="ml-1 inline-flex size-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-semibold text-white tabular-nums">
-                  {count}
-                </span>
-              ) : null}
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent>
-            <DrawerHeader className="flex flex-row items-center justify-between">
-              <DrawerTitle>Filteri</DrawerTitle>
-              {isActive ? (
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={reset}>
-                  Resetuj
-                </Button>
-              ) : null}
-            </DrawerHeader>
-            <div className="space-y-5 px-4 pb-8">
-              <section className="space-y-2">
-                <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Tip
-                </h4>
-                <div className="flex flex-wrap gap-2">{renderTypeChips()}</div>
-              </section>
-              {members.length > 0 ? (
-                <section className="space-y-2">
-                  <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    Članovi
-                  </h4>
-                  <div className="flex flex-wrap gap-2">{renderPersonChips()}</div>
-                </section>
-              ) : null}
-              <DrawerClose asChild>
-                <Button className="w-full">Gotovo</Button>
-              </DrawerClose>
-            </div>
-          </DrawerContent>
-        </Drawer>
+        <FilterTriggerButton size="sm" count={count} onClick={() => setSheetOpen(true)} />
+        <FilterSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          isActive={isActive}
+          onReset={reset}
+        >
+          <FilterSection title="Tip">{renderTypeChips()}</FilterSection>
+          {members.length > 0 ? (
+            <FilterSection title="Članovi">{renderPersonChips()}</FilterSection>
+          ) : null}
+        </FilterSheet>
       </div>
     </>
   );

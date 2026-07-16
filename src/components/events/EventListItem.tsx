@@ -25,6 +25,8 @@ export type EventListItemProps = {
   event: Event;
   /** Assignees of this event (from the participants query). */
   personIds: string[];
+  /** Drop the date from the subtitle — the timeline day header already says it. */
+  hideDate?: boolean;
   onEdit: (event: Event) => void;
   /** Quick date-only move. */
   onReschedule: (event: Event) => void;
@@ -45,6 +47,7 @@ export type EventListItemProps = {
 export function EventListItem({
   event,
   personIds,
+  hideDate = false,
   onEdit,
   onReschedule,
   onToggleCancel,
@@ -76,7 +79,9 @@ export function EventListItem({
           ) : null}
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {formatDate(event.date)} · {formatEventTimeRange(event)}
+          {hideDate
+            ? formatEventTimeRange(event)
+            : `${formatDate(event.date)} · ${formatEventTimeRange(event)}`}
         </p>
         {event.description ? (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{event.description}</p>

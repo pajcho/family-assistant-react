@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { currentMonthYYYYMM } from "@/utils/date";
 import { monthLabel, shiftMonth } from "@/utils/budget";
@@ -15,9 +14,9 @@ import { cn } from "@/lib/cn";
  *
  * `PeriodPickerShell` is just the pill (arrows + a center slot).
  * `MonthPicker` composes it into a full month control: arrows step a month,
- * the center label opens a month/year grid (fast jump years back), an
- * optional "all time" entry, and a built-in "Ovaj mesec" reset that appears
- * whenever the selection isn't the current month.
+ * the center label opens a month/year grid (fast jump years back) with an
+ * optional "all time" entry and an "Ovaj mesec" shortcut (inside the popup,
+ * so the control's width never changes and toolbar rows can't reflow).
  */
 
 export type PeriodPickerShellProps = {
@@ -201,6 +200,17 @@ export function MonthPicker({
                 );
               })}
             </div>
+            {/* Back-to-today shortcut lives IN the popup (not as a sibling
+                button) so the toolbar row never grows when the month changes. */}
+            {value !== current && inRange(current) ? (
+              <button
+                type="button"
+                onClick={() => pick(current)}
+                className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                {resetLabel}
+              </button>
+            ) : null}
             {allOptionLabel ? (
               <button
                 type="button"
@@ -218,11 +228,6 @@ export function MonthPicker({
           </PopoverContent>
         </Popover>
       </PeriodPickerShell>
-      {value !== current ? (
-        <Button variant="outline" size="sm" onClick={() => onChange(current)}>
-          {resetLabel}
-        </Button>
-      ) : null}
     </div>
   );
 }
