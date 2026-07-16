@@ -74,6 +74,7 @@ describe("parseReceiptHtml — real ZARA capture", () => {
       total: 4990,
     });
     expect(r.warnings).toEqual([]);
+    expect(r.journalPending).toBe(false);
   });
 });
 
@@ -123,6 +124,10 @@ describe("parseReceiptHtml — real NIS capture (offline device, journal pending
     expect(r.items).toEqual([]);
     expect(r.warnings).toHaveLength(1);
     expect(r.warnings[0]).toMatch(/nije poslao sadržaj računa/);
+  });
+
+  it("flags the journal as pending so the client can offer a refresh", () => {
+    expect(r.journalPending).toBe(true);
   });
 });
 

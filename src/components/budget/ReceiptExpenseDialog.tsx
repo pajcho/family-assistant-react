@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { toast } from "sonner";
 
 import {
   ResponsiveDialog,
@@ -15,7 +16,9 @@ import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
+import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense } from "@/types/database";
+import { serbianPlural, stavkeLabel } from "@/utils/plural";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import { Amount } from "@/components/common/Amount";
@@ -52,12 +55,19 @@ export function ReceiptExpenseDialog({
   const { categories } = useExpenseCategories();
   const { members } = useFamilyMembers();
   const updateExpense = useUpdateExpense();
+  const refreshItems = useReceiptRefresh();
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
 
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [refreshInfo, setRefreshInfo] = useState<string | null>(null);
+  // Local echo of the server-claimed receipt_checked_at: the expense prop is a
+  // snapshot from the list, so a refresh attempt in THIS dialog won't update it
+  // until the invalidated query lands — the local claim bridges that gap.
+  const [localClaimAt, setLocalClaimAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   // Reset the editable fields whenever a different expense opens.
   useEffect(() => {
@@ -66,8 +76,55 @@ export function ReceiptExpenseDialog({
       setPersonId(expense.person_id);
       setNote(expense.note ?? "");
       setError(null);
+      setRefreshInfo(null);
+      setLocalClaimAt(null);
+      setNow(Date.now());
     }
   }, [expense]);
+
+  // Cooldown countdown for "Osveži stavke" — mirrors the server-enforced claim.
+  const checkedAt = expense?.receipt_checked_at ? Date.parse(expense.receipt_checked_at) : null;
+  const claimAt = Math.max(checkedAt ?? 0, localClaimAt ?? 0) || null;
+  const cooldownRemainingMs =
+    claimAt != null ? Math.max(0, claimAt + RECEIPT_REFRESH_COOLDOWN_SECONDS * 1000 - now) : 0;
+  const cooldownActive = cooldownRemainingMs > 0;
+
+  useEffect(() => {
+    if (!open || !cooldownActive) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [open, cooldownActive]);
+
+  const countdownLabel = (() => {
+    const total = Math.ceil(cooldownRemainingMs / 1000);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  })();
+
+  const handleRefreshItems = () => {
+    if (!expense) return;
+    setRefreshInfo(null);
+    refreshItems.mutate(expense, {
+      onSuccess: (res) => {
+        if (res.status === "added") {
+          const verb = serbianPlural(res.count, {
+            one: "Dodata je",
+            few: "Dodate su",
+            many: "Dodato je",
+          });
+          toast.success(`${verb} ${res.count} ${stavkeLabel(res.count)}`);
+        } else {
+          setRefreshInfo(
+            "Prodavac još nije poslao sadržaj računa poreskoj upravi. Pokušaj kasnije.",
+          );
+          setLocalClaimAt(Date.now());
+        }
+      },
+      onError: (err) => {
+        setRefreshInfo(err.message || "Greška pri osvežavanju stavki.");
+        setLocalClaimAt(Date.now());
+      },
+    });
+  };
 
   const handleSave = async () => {
     if (!expense) return;
@@ -160,7 +217,32 @@ export function ReceiptExpenseDialog({
               {itemsLoading ? (
                 <p className="text-sm text-muted-foreground">Učitavam stavke…</p>
               ) : items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nema prepoznatih stavki.</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Nema prepoznatih stavki.</p>
+                  {expense.receipt_url ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={refreshItems.isPending || cooldownActive}
+                        onClick={handleRefreshItems}
+                      >
+                        <ArrowPathIcon
+                          className={cn("size-4", refreshItems.isPending && "animate-spin")}
+                        />
+                        {refreshItems.isPending
+                          ? "Proveravam račun…"
+                          : cooldownActive
+                            ? `Osveži stavke (${countdownLabel})`
+                            : "Osveži stavke"}
+                      </Button>
+                      {refreshInfo ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{refreshInfo}</p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
               ) : (
                 <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
                   {items.map((it) => (
