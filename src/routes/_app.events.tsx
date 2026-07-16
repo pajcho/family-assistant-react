@@ -18,8 +18,9 @@ import {
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
+import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
-import { EventListItem } from "@/components/events/EventListItem";
+import { EventTimelineRow } from "@/components/events/EventTimelineRow";
 import {
   EventRescheduleDialog,
   type EventReschedulePayload,
@@ -31,7 +32,6 @@ import { useToday } from "@/hooks/useToday";
 import type { Event } from "@/types/database";
 import { addDays } from "@/utils/date";
 import { isEventEnded } from "@/utils/event";
-import { cn } from "@/lib/cn";
 
 export const Route = createFileRoute("/_app/events")({
   component: EventsPage,
@@ -53,6 +53,9 @@ function EventsPage() {
   // Person filter — same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  // Detail popup — a row tap opens it; every action lives inside.
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -326,21 +329,16 @@ function EventsPage() {
       {!isLoading && filteredEvents.length > 0 ? (
         searchActive ? (
           <ul className="mt-6 space-y-1">
-            {filteredEvents.map((eventItem) => {
-              const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
-              return (
-                <li key={eventItem.id} className={cn("rounded-lg px-2 py-2", dim && "opacity-60")}>
-                  <EventListItem
-                    event={eventItem}
-                    personIds={byEvent.get(eventItem.id) ?? []}
-                    onEdit={openEdit}
-                    onReschedule={openReschedule}
-                    onToggleCancel={handleToggleCancel}
-                    onDelete={confirmDelete}
-                  />
-                </li>
-              );
-            })}
+            {filteredEvents.map((eventItem) => (
+              <li key={eventItem.id}>
+                <EventTimelineRow
+                  event={eventItem}
+                  personIds={byEvent.get(eventItem.id) ?? []}
+                  showDate
+                  onSelect={setSelectedEvent}
+                />
+              </li>
+            ))}
           </ul>
         ) : (
           <div className="mt-6 space-y-6">
@@ -348,25 +346,15 @@ function EventsPage() {
               <section key={day}>
                 <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} />
                 <ul className="mt-2 space-y-1">
-                  {dayEvents.map((eventItem) => {
-                    const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
-                    return (
-                      <li
-                        key={eventItem.id}
-                        className={cn("rounded-lg px-2 py-2", dim && "opacity-60")}
-                      >
-                        <EventListItem
-                          event={eventItem}
-                          personIds={byEvent.get(eventItem.id) ?? []}
-                          hideDate
-                          onEdit={openEdit}
-                          onReschedule={openReschedule}
-                          onToggleCancel={handleToggleCancel}
-                          onDelete={confirmDelete}
-                        />
-                      </li>
-                    );
-                  })}
+                  {dayEvents.map((eventItem) => (
+                    <li key={eventItem.id}>
+                      <EventTimelineRow
+                        event={eventItem}
+                        personIds={byEvent.get(eventItem.id) ?? []}
+                        onSelect={setSelectedEvent}
+                      />
+                    </li>
+                  ))}
                 </ul>
               </section>
             ))}
@@ -409,6 +397,19 @@ function EventsPage() {
           />
         </section>
       </FilterSheet>
+
+      <EventDetailDialog
+        open={!!selectedEvent}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEvent(null);
+        }}
+        event={selectedEvent}
+        personIds={selectedEvent ? (byEvent.get(selectedEvent.id) ?? []) : []}
+        onEdit={openEdit}
+        onReschedule={openReschedule}
+        onToggleCancel={handleToggleCancel}
+        onDelete={confirmDelete}
+      />
 
       <EventFormDialog
         open={dialogOpen}
