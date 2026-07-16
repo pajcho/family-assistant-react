@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUturnLeftIcon, BanknotesIcon, ClockIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUturnLeftIcon,
+  BanknotesIcon,
+  ChevronRightIcon,
+  ClockIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -81,99 +86,109 @@ export function PaymentOccurrenceDialog({
     onUndo(item);
   };
 
+  const statusBadge = !item
+    ? null
+    : isUpcoming
+      ? {
+          label: "Nadolazeće",
+          className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        }
+      : item.status === "canceled"
+        ? {
+            label: "Preskočeno",
+            className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+          }
+        : {
+            label: `Plaćeno${item.paid_date ? ` ${formatDate(item.paid_date)}` : ""}`,
+            className:
+              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+          };
+
+  const canUndo = item?.type === "history" && item.isLast;
+
   return (
     <>
       <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
         <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
+          <ResponsiveDialogHeader className="sr-only">
             <ResponsiveDialogTitle>Detalji plaćanja</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           {item ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
                   <BanknotesIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                 </div>
-                <div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {item.name}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
                 </div>
               </div>
 
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Iznos:</dt>
-                    <dd className="font-medium text-gray-900 dark:text-gray-100">
-                      <Amount value={item.amount} />
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Datum dospeća:</dt>
-                    <dd className="flex items-center gap-2 font-medium text-gray-900 dark:text-gray-100">
-                      {formatDate(item.due_date)}
-                      {isUpcoming ? (
-                        <span className="rounded bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-200">
-                          Nadolazeće
-                        </span>
-                      ) : null}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Status:</dt>
-                    <dd
-                      className={
-                        isUpcoming
-                          ? "text-gray-600 dark:text-gray-300"
-                          : item.type === "history" && item.status === "canceled"
-                            ? "text-gray-600 dark:text-gray-300"
-                            : "text-emerald-700 dark:text-emerald-400"
-                      }
+              <div>
+                <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                  <Amount value={item.amount} />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {statusBadge ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge.className}`}
                     >
-                      {isUpcoming
-                        ? "Nadolazeće"
-                        : item.type === "history" && item.status === "canceled"
-                          ? "Preskočeno"
-                          : `Plaćeno${item.type === "history" && item.paid_date ? ` · ${formatDate(item.paid_date)}` : ""}`}
-                    </dd>
+                      {statusBadge.label}
+                    </span>
+                  ) : null}
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                    {isUpcoming ? "Dospeva" : "Dospelo"} {formatDate(item.due_date)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
+                {personIds.length > 0 ? (
+                  <div className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="text-gray-500 dark:text-gray-400">Za</span>
+                    <MemberBadges personIds={personIds} />
                   </div>
-                  {personIds.length > 0 ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Za:</dt>
-                      <dd>
-                        <MemberBadges personIds={personIds} />
-                      </dd>
-                    </div>
-                  ) : null}
-                  {item.type === "history" && item.note ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Napomena:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {item.note}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {isUpcoming && item.description ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Opis:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {item.description}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {isUpcoming &&
-                  item.recurrence_period === "limited" &&
-                  item.remaining_occurrences != null ? (
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500 dark:text-gray-400">Preostalo:</dt>
-                      <dd className="font-medium text-gray-900 dark:text-gray-100">
-                        {item.remaining_occurrences} rata
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
+                ) : null}
+                {item.type === "history" && item.note ? (
+                  <div className="flex items-baseline justify-between gap-3 py-2.5">
+                    <span className="shrink-0 text-gray-500 dark:text-gray-400">Napomena</span>
+                    <span className="text-right font-medium text-gray-900 dark:text-gray-100">
+                      {item.note}
+                    </span>
+                  </div>
+                ) : null}
+                {isUpcoming && item.description ? (
+                  <div className="flex items-baseline justify-between gap-3 py-2.5">
+                    <span className="shrink-0 text-gray-500 dark:text-gray-400">Opis</span>
+                    <span className="text-right font-medium text-gray-900 dark:text-gray-100">
+                      {item.description}
+                    </span>
+                  </div>
+                ) : null}
+                {isUpcoming &&
+                item.recurrence_period === "limited" &&
+                item.remaining_occurrences != null ? (
+                  <div className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="text-gray-500 dark:text-gray-400">Preostalo</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {item.remaining_occurrences} rata
+                    </span>
+                  </div>
+                ) : null}
+                {payment ? (
+                  <button
+                    type="button"
+                    onClick={openHistory}
+                    className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:text-blue-400"
+                  >
+                    <ClockIcon className="size-4 text-gray-400 dark:text-gray-500" />
+                    Istorija plaćanja
+                    <ChevronRightIcon className="ml-auto size-4 text-gray-400 dark:text-gray-500" />
+                  </button>
+                ) : null}
               </div>
 
               {isUpcoming ? (
@@ -185,39 +200,27 @@ export function PaymentOccurrenceDialog({
             </div>
           ) : null}
 
-          <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex justify-center gap-1 sm:justify-start">
-              {item?.type === "history" ? (
-                <>
-                  {payment ? (
-                    <Button variant="ghost" size="sm" onClick={openHistory}>
-                      <ClockIcon className="mr-1 h-4 w-4" />
-                      Istorija
-                    </Button>
-                  ) : null}
-                  {item.isLast ? (
-                    <Button variant="ghost" size="sm" onClick={handleUndo}>
-                      <ArrowUturnLeftIcon className="mr-1 h-4 w-4" />
-                      Poništi
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+          <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+            {payment ? (
+              <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleEdit}>
+                Izmeni
+              </Button>
+            ) : null}
+            {canUndo ? (
+              <Button className="flex-[1.4] sm:flex-none" onClick={handleUndo}>
+                <ArrowUturnLeftIcon className="size-4" />
+                Poništi plaćanje
+              </Button>
+            ) : null}
+            {!payment && !canUndo ? (
               <Button
                 variant="outline"
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-none"
                 onClick={() => onOpenChange(false)}
               >
                 Zatvori
               </Button>
-              {payment ? (
-                <Button className="w-full sm:w-auto" onClick={handleEdit}>
-                  Izmeni
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
           </ResponsiveDialogFooter>
         </ResponsiveDialogContent>
       </ResponsiveDialog>

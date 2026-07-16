@@ -75,6 +75,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   server: {
-    port: 5173,
+    // PORT lets tooling (e.g. the Claude Code preview harness) assign a free
+    // port when 5173 is already taken by another dev-server instance.
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
   },
 }));

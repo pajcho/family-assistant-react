@@ -1,19 +1,22 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  EyeSlashIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
+import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { FilterBar } from "@/components/common/FilterBar";
+import {
+  AppliedFilterChips,
+  FilterSection,
+  FilterSheet,
+  FilterSwitchRow,
+  useMemberAppliedFilters,
+} from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { ToggleChip } from "@/components/common/ToggleChip";
 import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventListItem } from "@/components/events/EventListItem";
@@ -24,7 +27,9 @@ import {
 import type { EventFormPayload } from "@/components/events/EventForm";
 import { useCreateEvent, useDeleteEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
+import { useToday } from "@/hooks/useToday";
 import type { Event } from "@/types/database";
+import { addDays } from "@/utils/date";
 import { isEventEnded } from "@/utils/event";
 import { cn } from "@/lib/cn";
 
@@ -42,6 +47,7 @@ function EventsPage() {
   // is fetched unbounded and filtered client-side.
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [hideCompleted, setHideCompleted] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person filter — same convention as the dashboard's person facet: an empty
@@ -109,6 +115,56 @@ function EventsPage() {
       return next;
     });
   };
+
+  // Timeline grouping — same as /payments: sections per day under the shared
+  // AgendaDateHeader. Search mode stays flat (results span every month).
+  const { str: today, date: todayDate } = useToday();
+  const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
+  const eventGroups = useMemo(() => {
+    const byDay = new Map<string, Event[]>();
+    for (const e of filteredEvents) {
+      const bucket = byDay.get(e.date);
+      if (bucket) bucket.push(e);
+      else byDay.set(e.date, [e]);
+    }
+    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredEvents]);
+
+  // How many completed events the default view hides — the quiet reveal link.
+  const hiddenCompletedCount = useMemo(() => {
+    if (searchActive || !hideCompleted) return 0;
+    return events.filter((e) => {
+      if (selectedPersonIds.size > 0) {
+        const personIds = byEvent.get(e.id) ?? [];
+        if (!personIds.some((id) => selectedPersonIds.has(id))) return false;
+      }
+      if (selectedMonth !== ALL_MONTHS && !e.date.startsWith(selectedMonth)) return false;
+      return isEventEnded(e);
+    }).length;
+  }, [events, searchActive, hideCompleted, selectedMonth, selectedPersonIds, byEvent]);
+
+  // Filter plumbing for the shared sheet + applied-chips row.
+  const showCompleted = !hideCompleted;
+  const filterCount = selectedPersonIds.size + (showCompleted ? 1 : 0);
+  const resetFilters = () => {
+    setSelectedPersonIds(new Set());
+    setHideCompleted(true);
+  };
+  const memberApplied = useMemberAppliedFilters(selectedPersonIds, togglePerson);
+  const appliedFilters = useMemo(
+    () =>
+      showCompleted
+        ? [
+            ...memberApplied,
+            {
+              key: "__show-completed__",
+              label: "Završeni prikazani",
+              onRemove: () => setHideCompleted(true),
+            },
+          ]
+        : memberApplied,
+    [memberApplied, showCompleted],
+  );
 
   const openAdd = () => {
     setEditingEvent(null);
@@ -217,50 +273,28 @@ function EventsPage() {
   const showEmpty = !isLoading && filteredEvents.length === 0;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pb-24 lg:pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Događaji</h1>
         <AddButton label="Dodaj događaj" onClick={openAdd} />
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker
-            value={selectedMonth}
-            onChange={setSelectedMonth}
-            allOptionLabel="Svi događaji"
-          />
-          <div className="relative min-w-0 flex-1 basis-52">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pretraži događaje…"
-              aria-label="Pretraži događaje"
-              className="pl-9"
+        <FilterBar
+          picker={
+            <MonthPicker
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+              allOptionLabel="Svi događaji"
             />
-            {searchTerm ? (
-              <button
-                type="button"
-                aria-label="Obriši pretragu"
-                onClick={() => setSearchTerm("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
-              >
-                <XMarkIcon className="size-4" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-          <ToggleChip
-            active={hideCompleted}
-            onToggle={() => setHideCompleted((prev) => !prev)}
-            icon={EyeSlashIcon}
-          >
-            Sakrij završene
-          </ToggleChip>
-        </div>
+          }
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Pretraži događaje…"
+          filterCount={filterCount}
+          onOpenFilters={() => setFiltersOpen(true)}
+        />
+        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
       </div>
 
       {searchActive ? (
@@ -290,32 +324,91 @@ function EventsPage() {
       ) : null}
 
       {!isLoading && filteredEvents.length > 0 ? (
-        <ul className="mt-6 space-y-3">
-          {filteredEvents.map((eventItem) => {
-            const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
-            return (
-              <li
-                key={eventItem.id}
-                className={cn(
-                  "rounded-lg border p-4 shadow-sm dark:border-gray-700",
-                  dim
-                    ? "border-gray-200/80 bg-gray-50 opacity-75 dark:bg-gray-800/80"
-                    : "border-gray-200 bg-white dark:bg-gray-800",
-                )}
-              >
-                <EventListItem
-                  event={eventItem}
-                  personIds={byEvent.get(eventItem.id) ?? []}
-                  onEdit={openEdit}
-                  onReschedule={openReschedule}
-                  onToggleCancel={handleToggleCancel}
-                  onDelete={confirmDelete}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        searchActive ? (
+          <ul className="mt-6 space-y-1">
+            {filteredEvents.map((eventItem) => {
+              const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
+              return (
+                <li key={eventItem.id} className={cn("rounded-lg px-2 py-2", dim && "opacity-60")}>
+                  <EventListItem
+                    event={eventItem}
+                    personIds={byEvent.get(eventItem.id) ?? []}
+                    onEdit={openEdit}
+                    onReschedule={openReschedule}
+                    onToggleCancel={handleToggleCancel}
+                    onDelete={confirmDelete}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="mt-6 space-y-6">
+            {eventGroups.map(([day, dayEvents]) => (
+              <section key={day}>
+                <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} />
+                <ul className="mt-2 space-y-1">
+                  {dayEvents.map((eventItem) => {
+                    const dim = !!eventItem.canceled_at || isEventEnded(eventItem);
+                    return (
+                      <li
+                        key={eventItem.id}
+                        className={cn("rounded-lg px-2 py-2", dim && "opacity-60")}
+                      >
+                        <EventListItem
+                          event={eventItem}
+                          personIds={byEvent.get(eventItem.id) ?? []}
+                          hideDate
+                          onEdit={openEdit}
+                          onReschedule={openReschedule}
+                          onToggleCancel={handleToggleCancel}
+                          onDelete={confirmDelete}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )
       ) : null}
+
+      {/* Quiet reveal for the default hide-completed view. */}
+      {hiddenCompletedCount > 0 ? (
+        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          Sakriveno {hiddenCompletedCount} {hiddenCompletedCount === 1 ? "završen" : "završenih"} ·{" "}
+          <button
+            type="button"
+            onClick={() => setHideCompleted(false)}
+            className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+          >
+            Prikaži
+          </button>
+        </div>
+      ) : null}
+
+      <FilterSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        isActive={filterCount > 0}
+        onReset={resetFilters}
+      >
+        <FilterSection title="Članovi">
+          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+        </FilterSection>
+        <section className="space-y-1">
+          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Prikaz
+          </h4>
+          <FilterSwitchRow
+            label="Prikaži i završene"
+            icon={EyeIcon}
+            checked={showCompleted}
+            onCheckedChange={(checked) => setHideCompleted(!checked)}
+          />
+        </section>
+      </FilterSheet>
 
       <EventFormDialog
         open={dialogOpen}

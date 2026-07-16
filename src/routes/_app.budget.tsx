@@ -4,18 +4,24 @@ import {
   BanknotesIcon,
   ChevronRightIcon,
   LockClosedIcon,
-  MagnifyingGlassIcon,
-  QrCodeIcon,
   ReceiptPercentIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
-import { AddButton } from "@/components/common/AddButton";
 import { Amount } from "@/components/common/Amount";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { FilterBar } from "@/components/common/FilterBar";
+import {
+  AppliedFilterChips,
+  FilterSection,
+  FilterSheet,
+  useMemberAppliedFilters,
+} from "@/components/common/FilterSheet";
 import { MonthPicker } from "@/components/common/PeriodPicker";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PersonFilterChips } from "@/components/common/PersonFilterChips";
+import { ToggleChip } from "@/components/common/ToggleChip";
+import { useToday } from "@/hooks/useToday";
+import { BudgetAddMenu } from "@/components/budget/BudgetAddMenu";
+import { CategoryDetailSheet } from "@/components/budget/CategoryDetailSheet";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
@@ -44,7 +50,7 @@ import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { formatAmount } from "@/utils/format";
-import { computeMonthlyCycle, monthRange } from "@/utils/budget";
+import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
 // Lazy chunk: the scanner pulls in the camera code + jsQR, so it must stay out
@@ -66,6 +72,13 @@ type CategoryBreakdown = {
   count: number;
 };
 
+/** Expense-source facet for the budget filter sheet. */
+const SOURCE_OPTIONS = [
+  { key: "manual", label: "Ručno" },
+  { key: "receipt", label: "Račun" },
+  { key: "payment", label: "Iz plaćanja" },
+] as const;
+
 function BudgetPage() {
   const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
   const [addOpen, setAddOpen] = useState(false);
@@ -77,6 +90,16 @@ function BudgetPage() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [incomesOpen, setIncomesOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  // Category drill-down (tap on a "Po kategorijama" row).
+  const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
+  // Filter sheet: person + expense source, both with the empty-set = "no
+  // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
+  // modules) — the cycle summary stays family-level.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(() => new Set());
+  // "Projekcija do kraja meseca" row — collapsed by default, tap to expand.
+  const [projOpen, setProjOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   // Stays true after the first open so the lazy chunk loads once and the close
   // animation can play; the dialog releases the camera whenever `open` is false.
@@ -92,6 +115,10 @@ function BudgetPage() {
   const currentMonth = currentMonthYYYYMM();
   const range = useMemo(() => monthRange(month), [month]);
   const { expenses, isLoading } = useExpenses(range);
+  // Previous month, for the "+14% vs jun" comparison up to the same day.
+  const prevMonth = useMemo(() => shiftMonth(month, -1), [month]);
+  const prevRange = useMemo(() => monthRange(prevMonth), [prevMonth]);
+  const { expenses: prevExpenses } = useExpenses(prevRange);
   const { categories, byId: categoriesById } = useExpenseCategories();
   const { incomes } = useIncomes();
   const { entries: incomeEntries } = useIncomeEntries(month);
@@ -104,6 +131,51 @@ function BudgetPage() {
   const deleteExpense = useDeleteExpense();
 
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
+
+  // Person/source filters narrow what the lists show. The cycle summary
+  // (Prihodi/Potrošeno/Preostalo) intentionally stays family-level — income
+  // isn't per-person, so a filtered "Preostalo" would lie.
+  const filteredExpenses = useMemo(() => {
+    if (selectedPersonIds.size === 0 && selectedSources.size === 0) return expenses;
+    return expenses.filter((e) => {
+      if (selectedPersonIds.size > 0 && !(e.person_id && selectedPersonIds.has(e.person_id))) {
+        return false;
+      }
+      if (selectedSources.size > 0 && !selectedSources.has(e.source)) return false;
+      return true;
+    });
+  }, [expenses, selectedPersonIds, selectedSources]);
+
+  const togglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
+      return next;
+    });
+  };
+  const toggleSource = (source: string) => {
+    setSelectedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
+  };
+  const filterCount = selectedPersonIds.size + selectedSources.size;
+  const resetFilters = () => {
+    setSelectedPersonIds(new Set());
+    setSelectedSources(new Set());
+  };
+  const memberApplied = useMemberAppliedFilters(selectedPersonIds, togglePerson);
+  const appliedFilters = [
+    ...memberApplied,
+    ...SOURCE_OPTIONS.filter((o) => selectedSources.has(o.key)).map((o) => ({
+      key: `source-${o.key}`,
+      label: o.label,
+      onRemove: () => toggleSource(o.key),
+    })),
+  ];
 
   const cycle = useMemo(
     () =>
@@ -125,6 +197,30 @@ function BudgetPage() {
   const spentPct = cycle.confirmedIncome > 0 ? (cycle.totalSpent / cycle.confirmedIncome) * 100 : 0;
   const budgetBarColor = spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#10b981";
 
+  // Safe-to-spend pace + month-over-month delta — current month only (pace
+  // means nothing for history, and MoM compares "up to the same day").
+  const { date: todayDate, str: todayStr } = useToday();
+  const isCurrentMonth = month === currentMonth;
+  const dailyPace = useMemo(() => {
+    if (!isCurrentMonth || !cycle.hasIncome || cycle.remaining <= 0) return null;
+    const lastDay = Number(range.to.slice(8, 10));
+    const daysLeft = Math.max(1, lastDay - todayDate.getDate() + 1);
+    return Math.round(cycle.remaining / daysLeft);
+  }, [isCurrentMonth, cycle.hasIncome, cycle.remaining, range.to, todayDate]);
+  const momDelta = useMemo(() => {
+    if (!isCurrentMonth || cycle.totalSpent <= 0) return null;
+    const dayCut = todayStr.slice(8, 10);
+    const prevToDate = prevExpenses.reduce(
+      (sum, e) => (e.spent_on.slice(8, 10) <= dayCut ? sum + e.amount : sum),
+      0,
+    );
+    if (prevToDate <= 0) return null;
+    return {
+      pct: Math.round(((cycle.totalSpent - prevToDate) / prevToDate) * 100),
+      prevLabel: monthLabel(prevMonth).split(" ")[0].toLowerCase(),
+    };
+  }, [isCurrentMonth, cycle.totalSpent, todayStr, prevExpenses, prevMonth]);
+
   // Recurring sources not yet confirmed for THIS month — the "potvrdi platu"
   // reminder. Only surfaced for the current month (don't nag while browsing
   // history); confirming happens in the Prihodi sheet.
@@ -140,7 +236,7 @@ function BudgetPage() {
   // collects null-category rows).
   const breakdown = useMemo<CategoryBreakdown[]>(() => {
     const totals = new Map<string, { total: number; count: number }>();
-    for (const e of expenses) {
+    for (const e of filteredExpenses) {
       const key = e.category_id ?? UNCATEGORIZED;
       const cur = totals.get(key) ?? { total: 0, count: 0 };
       cur.total += e.amount;
@@ -165,16 +261,46 @@ function BudgetPage() {
     }
     rows.sort((a, b) => b.total - a.total);
     return rows;
-  }, [expenses, categoriesById]);
+  }, [filteredExpenses, categoriesById]);
 
   const maxCategoryTotal = breakdown.length > 0 ? breakdown[0].total : 0;
 
   // Line-item counts for the month's receipt rows (the "N stavki" subtitle).
   const receiptExpenseIds = useMemo(
-    () => expenses.filter((e) => e.source === "receipt").map((e) => e.id),
-    [expenses],
+    () => filteredExpenses.filter((e) => e.source === "receipt").map((e) => e.id),
+    [filteredExpenses],
   );
   const { data: itemCounts } = useReceiptItemCounts(receiptExpenseIds);
+
+  // Fixed (auto rows from payments) vs variable (everything else) — the
+  // Monarch "flex budgeting" split in one stacked bar.
+  const fixedVar = useMemo(() => {
+    let fixed = 0;
+    let variable = 0;
+    for (const e of filteredExpenses) {
+      if (e.source === "payment") fixed += e.amount;
+      else variable += e.amount;
+    }
+    return { fixed, variable, total: fixed + variable };
+  }, [filteredExpenses]);
+
+  // Top merchants from scanned receipts — "12.400 od toga u Maxiju" is what
+  // turns awareness into action (N26 Wrap-Up pattern).
+  const topMerchants = useMemo(() => {
+    const byMerchant = new Map<string, { total: number; count: number }>();
+    for (const e of filteredExpenses) {
+      const name = e.merchant?.trim();
+      if (!name) continue;
+      const cur = byMerchant.get(name) ?? { total: 0, count: 0 };
+      cur.total += e.amount;
+      cur.count += 1;
+      byMerchant.set(name, cur);
+    }
+    return [...byMerchant.entries()]
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3);
+  }, [filteredExpenses]);
 
   // Category-limit lookup (spent vs monthly_limit) from the cycle, for the
   // amber (≥80%) / red (≥100%) breakdown coloring.
@@ -185,6 +311,18 @@ function BudgetPage() {
     }
     return m;
   }, [cycle.perCategory]);
+
+  // ONE shared scale for every breakdown bar: length ∝ spend (matches the
+  // most-spent-first sort), the limit is a tick on the same scale. The 1.08
+  // headroom keeps even the largest tick visibly inside the track.
+  const barScaleMax = useMemo(() => {
+    let maxLimit = 0;
+    for (const row of breakdown) {
+      const info = limitByCategory.get(row.key);
+      if (info && info.limit > maxLimit) maxLimit = info.limit;
+    }
+    return 1.08 * Math.max(maxCategoryTotal, maxLimit);
+  }, [breakdown, limitByCategory, maxCategoryTotal]);
 
   const openAdd = () => {
     setEditing(null);
@@ -247,54 +385,30 @@ function BudgetPage() {
   };
 
   return (
-    <div className="animate-fade-in pb-8">
+    <div className="animate-fade-in mx-auto w-full max-w-5xl pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Budžet</h1>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" onClick={() => setIncomesOpen(true)}>
-            Prihodi
-          </Button>
-          <Button type="button" variant="outline" onClick={() => setCategoriesOpen(true)}>
-            Kategorije
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={openScan}
-            aria-label="Skeniraj račun"
-            title="Skeniraj račun"
-          >
-            <QrCodeIcon className="size-5" />
-            <span className="hidden lg:inline">Skeniraj račun</span>
-          </Button>
-          <AddButton label="Dodaj trošak" onClick={openAdd} />
-        </div>
+        {/* One entry point for money data (skeniraj / trošak / prihod);
+            Prihodi and Kategorije management moved next to their data. */}
+        <BudgetAddMenu
+          onScanReceipt={openScan}
+          onAddExpense={openAdd}
+          onAddIncome={() => setIncomesOpen(true)}
+        />
       </div>
 
-      {/* Month switcher + expense search — the same picker pill as the
-          activities week switcher (unified control across pages). */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <MonthPicker value={month} onChange={setMonth} />
-        <div className="relative min-w-0 flex-1 basis-52">
-          <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pretraži troškove i stavke…"
-            aria-label="Pretraži troškove"
-            className="pl-9"
-          />
-          {searchTerm ? (
-            <button
-              type="button"
-              aria-label="Obriši pretragu"
-              onClick={() => setSearchTerm("")}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
-            >
-              <XMarkIcon className="size-4" />
-            </button>
-          ) : null}
-        </div>
+      {/* One-row toolbar — the shared FilterBar pattern. */}
+      <div className="mt-4 space-y-3">
+        <FilterBar
+          picker={<MonthPicker value={month} onChange={setMonth} />}
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Pretraži troškove i stavke…"
+          searchAriaLabel="Pretraži troškove"
+          filterCount={filterCount}
+          onOpenFilters={() => setFiltersOpen(true)}
+        />
+        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
       </div>
 
       {searchActive ? (
@@ -312,18 +426,47 @@ function BudgetPage() {
           month's spend, with a nudge to add incomes. */}
       {!searchActive && cycle.hasIncome ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          {/* The three amounts stay on ONE baseline — nothing may push them
+              apart; extra context (pace, MoM) lives under the bar. */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Prihodi</div>
-              <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            <button
+              type="button"
+              onClick={() => setIncomesOpen(true)}
+              className="group rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            >
+              <span className="flex items-center justify-center gap-0.5 text-xs text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400">
+                Prihodi
+                <ChevronRightIcon className="size-3" />
+              </span>
+              <span className="mt-0.5 block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                 <Amount value={cycle.confirmedIncome} round />
-              </div>
-            </div>
+              </span>
+            </button>
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Potrošeno</div>
               <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                 <Amount value={cycle.totalSpent} round />
               </div>
+              {/* MoM sits centered UNDER the amount — the three values above
+                  stay on one baseline. */}
+              {momDelta ? (
+                <div className="mt-1 flex justify-center">
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                      momDelta.pct > 0
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : momDelta.pct < 0
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                    )}
+                    title="Potrošnja do današnjeg dana u odnosu na isti dan prošlog meseca"
+                  >
+                    {momDelta.pct > 0 ? "+" : ""}
+                    {momDelta.pct}% vs {momDelta.prevLabel}
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Preostalo</div>
@@ -350,37 +493,61 @@ function BudgetPage() {
               />
             </div>
           ) : null}
+          {/* Under the bar: daily pace (safe-to-spend). */}
+          {dailyPace != null ? (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              ≈{" "}
+              <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                <Amount value={dailyPace} round />
+              </span>
+              /dan do kraja meseca
+            </div>
+          ) : null}
           {cycle.projectedUnpaid > 0 || cycle.expectedIncome > 0 ? (
             <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700/60">
-              <div className="flex items-center justify-between">
+              {/* Projection is ONE row; tap reveals what it folds in. */}
+              <button
+                type="button"
+                onClick={() => setProjOpen((p) => !p)}
+                aria-expanded={projOpen}
+                className="flex w-full items-center justify-between gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              >
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Projekcija do kraja meseca
                 </span>
-                <span
-                  className={cn(
-                    "text-sm font-semibold tabular-nums",
-                    cycle.projectedRemaining < 0
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-gray-900 dark:text-gray-100",
-                  )}
-                >
-                  <Amount value={cycle.projectedRemaining} round />
+                <span className="flex items-center gap-1">
+                  <span
+                    className={cn(
+                      "text-sm font-semibold tabular-nums",
+                      cycle.projectedRemaining < 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-gray-900 dark:text-gray-100",
+                    )}
+                  >
+                    <Amount value={cycle.projectedRemaining} round />
+                  </span>
+                  <ChevronRightIcon
+                    className={cn(
+                      "size-4 text-gray-400 transition-transform dark:text-gray-500",
+                      projOpen && "rotate-90",
+                    )}
+                  />
                 </span>
-              </div>
-              {/* Break down what the projection folds in: still-to-come income
-                  (+) and still-to-pay bills (−). */}
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {cycle.expectedIncome > 0 ? (
-                  <span>
-                    očekivani prihod +<Amount value={cycle.expectedIncome} round />
-                  </span>
-                ) : null}
-                {cycle.projectedUnpaid > 0 ? (
-                  <span>
-                    neplaćeno −<Amount value={cycle.projectedUnpaid} round />
-                  </span>
-                ) : null}
-              </div>
+              </button>
+              {projOpen ? (
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {cycle.expectedIncome > 0 ? (
+                    <span>
+                      očekivani prihod +<Amount value={cycle.expectedIncome} round />
+                    </span>
+                  ) : null}
+                  {cycle.projectedUnpaid > 0 ? (
+                    <span>
+                      neplaćeno −<Amount value={cycle.projectedUnpaid} round />
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -428,82 +595,171 @@ function BudgetPage() {
 
       {!searchActive && isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
-      {/* Per-category breakdown */}
-      {!searchActive && breakdown.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-            Po kategorijama
-          </h2>
-          <ul className="space-y-3">
-            {breakdown.map((row) => {
-              const Icon = categoryIcon(row.icon);
-              const pct = maxCategoryTotal > 0 ? (row.total / maxCategoryTotal) * 100 : 0;
-              const limitInfo = limitByCategory.get(row.key);
-              // Bar fills toward the LIMIT when one exists (so "how close am I to
-              // the cap" is the signal); otherwise it's relative to the biggest
-              // category. Amber ≥80%, red ≥100%.
-              const overLimit = limitInfo ? limitInfo.pct >= 100 : false;
-              const nearLimit = limitInfo ? limitInfo.pct >= 80 : false;
-              const barColor = overLimit ? "#ef4444" : nearLimit ? "#f59e0b" : row.color;
-              const barPct = limitInfo ? Math.min(limitInfo.pct, 100) : pct;
-              return (
-                <li key={row.key}>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Icon className="size-4 shrink-0" style={{ color: row.color }} />
-                      <span className="truncate text-sm text-gray-800 dark:text-gray-200">
-                        {row.name}
+      {/* Breakdown + insights left, day-by-day timeline right (xl); a single
+          column below that, in the same order. */}
+      {!searchActive ? (
+        <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
+          <div>
+            {breakdown.length > 0 ? (
+              <section className="mt-6">
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Po kategorijama
+                  </h2>
+                  {/* Category management lives next to the categories. */}
+                  <button
+                    type="button"
+                    onClick={() => setCategoriesOpen(true)}
+                    className="text-sm font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+                  >
+                    Uredi ›
+                  </button>
+                </div>
+                <ul className="space-y-1.5">
+                  {breakdown.map((row) => {
+                    const Icon = categoryIcon(row.icon);
+                    const limitInfo = limitByCategory.get(row.key);
+                    const limit = limitInfo?.limit ?? null;
+                    // One scale for every bar: length ∝ spend, tick = limit.
+                    const fillPct = barScaleMax > 0 ? (row.total / barScaleMax) * 100 : 0;
+                    const tickPct =
+                      limit != null && barScaleMax > 0 ? (limit / barScaleMax) * 100 : null;
+                    const overLimit = limit != null && row.total >= limit;
+                    const nearLimit = limit != null && !overLimit && row.total >= 0.8 * limit;
+                    const barColor = overLimit ? "#ef4444" : nearLimit ? "#f59e0b" : row.color;
+                    return (
+                      <li key={row.key}>
+                        <button
+                          type="button"
+                          onClick={() => setCategoryDetail(row)}
+                          className="-mx-1.5 block w-full rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/60"
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Icon className="size-4 shrink-0" style={{ color: row.color }} />
+                              <span className="truncate text-sm text-gray-800 dark:text-gray-200">
+                                {row.name}
+                              </span>
+                              <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                                · {row.count}
+                              </span>
+                            </div>
+                            <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
+                              <Amount value={row.total} />
+                              {limit != null ? (
+                                <span className="font-normal text-gray-400 dark:text-gray-500">
+                                  {" / "}
+                                  <Amount value={limit} />
+                                </span>
+                              ) : null}
+                              {overLimit && limit != null ? (
+                                <span className="ml-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                                  +<Amount value={row.total - limit} round />
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                          <div className="relative h-2 rounded-full bg-gray-100 dark:bg-gray-700/60">
+                            <div
+                              className="absolute inset-y-0 left-0 rounded-full transition-[width]"
+                              style={{
+                                width: `${Math.max(fillPct, 2)}%`,
+                                backgroundColor: barColor,
+                              }}
+                            />
+                            {tickPct != null ? (
+                              <div
+                                className="absolute -inset-y-0.5 w-0.5 rounded-full bg-gray-700 dark:bg-gray-300"
+                                style={{ left: `${tickPct}%` }}
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+
+            {/* Fixed vs variable — auto rows from payments vs everything else. */}
+            {fixedVar.fixed > 0 && fixedVar.variable > 0 ? (
+              <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Fiksno vs varijabilno
+                </h2>
+                <div className="mt-3 flex h-2.5 overflow-hidden rounded-full">
+                  <div
+                    className="bg-blue-700 dark:bg-blue-500"
+                    style={{ width: `${(fixedVar.fixed / fixedVar.total) * 100}%` }}
+                  />
+                  <div className="flex-1 bg-blue-200 dark:bg-blue-900/70" />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-blue-700 dark:bg-blue-500" />
+                    Iz plaćanja{" "}
+                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                      <Amount value={fixedVar.fixed} round />
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-blue-200 dark:bg-blue-900/70" />
+                    Ostalo{" "}
+                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                      <Amount value={fixedVar.variable} round />
+                    </span>
+                  </span>
+                </div>
+              </section>
+            ) : null}
+
+            {/* Top merchants from scanned receipts. */}
+            {topMerchants.length > 0 ? (
+              <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Top prodavnice
+                </h2>
+                <ul className="mt-2 divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {topMerchants.map((m) => (
+                    <li key={m.name} className="flex items-baseline gap-2 py-2 text-sm">
+                      <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
+                        {m.name}
                       </span>
                       <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                        · {row.count}
+                        · {m.count} {m.count === 1 ? "račun" : "računa"}
                       </span>
-                    </div>
-                    <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
-                      <Amount value={row.total} />
-                      {limitInfo ? (
-                        <span
-                          className={cn(
-                            "font-normal",
-                            overLimit
-                              ? "text-red-600 dark:text-red-400"
-                              : nearLimit
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-gray-400 dark:text-gray-500",
-                          )}
-                        >
-                          {" / "}
-                          <Amount value={limitInfo.limit} />
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
-                    <div
-                      className="h-full rounded-full transition-[width]"
-                      style={{ width: `${Math.max(barPct, 2)}%`, backgroundColor: barColor }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
+                      <span className="ml-auto shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                        <Amount value={m.total} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
 
-      {/* Troškovi kao timeline po danu */}
-      {!searchActive && !isLoading ? (
-        <section className="mt-6">
-          <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Troškovi</h2>
-          <BudgetTimeline
-            expenses={expenses}
-            categoriesById={categoriesById}
-            itemCounts={itemCounts}
-            onOpenReceipt={setReceiptDetail}
-            onEditManual={openEdit}
-            onDeleteExpense={setToDelete}
-            onOpenPayment={openPaymentDetail}
-          />
-        </section>
+          <div>
+            {/* Troškovi kao timeline po danu */}
+            {!isLoading ? (
+              <section className="mt-6">
+                <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Troškovi
+                </h2>
+                <BudgetTimeline
+                  expenses={filteredExpenses}
+                  categoriesById={categoriesById}
+                  itemCounts={itemCounts}
+                  onOpenReceipt={setReceiptDetail}
+                  onEditManual={openEdit}
+                  onDeleteExpense={setToDelete}
+                  onOpenPayment={openPaymentDetail}
+                />
+              </section>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {!searchActive ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
@@ -511,6 +767,52 @@ function BudgetPage() {
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} month={month} />
 
       <CategoriesSheet open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+
+      <FilterSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        isActive={filterCount > 0}
+        onReset={resetFilters}
+      >
+        <FilterSection title="Članovi">
+          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+        </FilterSection>
+        <FilterSection title="Izvor troška">
+          {SOURCE_OPTIONS.map((option) => (
+            <ToggleChip
+              key={option.key}
+              active={selectedSources.size === 0 || selectedSources.has(option.key)}
+              onToggle={() => toggleSource(option.key)}
+            >
+              {option.label}
+            </ToggleChip>
+          ))}
+        </FilterSection>
+      </FilterSheet>
+
+      <CategoryDetailSheet
+        open={!!categoryDetail}
+        onOpenChange={(open) => {
+          if (!open) setCategoryDetail(null);
+        }}
+        row={
+          categoryDetail
+            ? {
+                categoryId: categoryDetail.key === UNCATEGORIZED ? null : categoryDetail.key,
+                name: categoryDetail.name,
+                color: categoryDetail.color,
+                icon: categoryDetail.icon,
+              }
+            : null
+        }
+        category={
+          categoryDetail && categoryDetail.key !== UNCATEGORIZED
+            ? (categoriesById.get(categoryDetail.key) ?? null)
+            : null
+        }
+        month={month}
+        expenses={filteredExpenses}
+      />
 
       <ExpenseFormDialog
         open={addOpen}

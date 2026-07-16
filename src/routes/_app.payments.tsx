@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeSlashIcon, MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { EyeIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AddButton } from "@/components/common/AddButton";
+import { FilterBar } from "@/components/common/FilterBar";
+import {
+  AppliedFilterChips,
+  FilterSection,
+  FilterSheet,
+  FilterSwitchRow,
+  useMemberAppliedFilters,
+} from "@/components/common/FilterSheet";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { ToggleChip } from "@/components/common/ToggleChip";
 import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
@@ -33,11 +39,13 @@ import { overrideKey, usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import type { Payment, PaymentHistoryStatus, PaymentOverride } from "@/types/database";
 import {
   currentMonthYYYYMM,
+  formatDate,
   getDueDateInMonth,
   getLimitedMonths as getLimitedMonthsFromDate,
   getWeeklyOccurrencesInMonth,
   isMonthlyOccurrenceMonth,
 } from "@/utils/date";
+import { useToday } from "@/hooks/useToday";
 import { Amount } from "@/components/common/Amount";
 
 export const Route = createFileRoute("/_app/payments")({
@@ -387,7 +395,11 @@ function PaymentsPage() {
   // Filters — default to the CURRENT month (the "Sva plaćanja" all-time view
   // lives inside the month picker's popup).
   const [selectedMonth, setSelectedMonth] = useState(() => currentMonthYYYYMM());
-  const [hidePaid, setHidePaid] = useState(true);
+  // Resolved (paid/canceled) rows are hidden by default — the list opens with
+  // what's still outstanding. Revealing them is a filter-sheet switch AND the
+  // "Sakriveno N · Prikaži" link under the list.
+  const [showPaid, setShowPaid] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Free-text search over name + description. While active it spans ALL
   // months (the month filter would hide the thing you're looking for).
   const [searchTerm, setSearchTerm] = useState("");
@@ -496,9 +508,9 @@ function PaymentsPage() {
 
   const displayedList = useMemo<PaymentListItemUnion[]>(() => {
     if (searchActive) return searchResults;
-    if (!hidePaid) return combinedList;
+    if (showPaid) return combinedList;
     return combinedList.filter((item) => {
-      // "Sakrij plaćena" hides everything RESOLVED — paid AND canceled — so the
+      // The default view hides everything RESOLVED — paid AND canceled — so the
       // list shows only what's still outstanding. Paused rows stay (they're on
       // hold, not done); resolved occurrences remain in the history popup.
       if (item.type === "history") return false;
@@ -507,13 +519,18 @@ function PaymentsPage() {
       if (override?.action === "cancel") return false;
       return true;
     });
-  }, [searchActive, searchResults, combinedList, hidePaid]);
+  }, [searchActive, searchResults, combinedList, showPaid]);
+
+  // How many resolved rows the default view is hiding — feeds the quiet
+  // "Sakriveno N · Prikaži" link under the list.
+  const hiddenResolvedCount =
+    searchActive || showPaid ? 0 : combinedList.length - displayedList.length;
 
   // Long lists (all-time view, search) reveal in pages of PAGE_SIZE.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [selectedMonth, hidePaid, searchTerm, selectedPersonIds]);
+  }, [selectedMonth, showPaid, searchTerm, selectedPersonIds]);
   const pagedList = useMemo(
     () => displayedList.slice(0, visibleCount),
     [displayedList, visibleCount],
@@ -531,6 +548,58 @@ function PaymentsPage() {
     [visiblePayments, visibleHistory, selectedMonth, overridesByKey],
   );
 
+  // Counts + next due date for the month summary card ("1 od 12", "Sledeće:
+  // 15.07."). Canceled and paused occurrences are neither paid nor due.
+  const { str: todayStr } = useToday();
+  const monthStats = useMemo(() => {
+    if (selectedMonth === "all") return null;
+    let paidCount = 0;
+    let dueCount = 0;
+    let nextDue: string | null = null;
+    for (const item of combinedList) {
+      const override = "override" in item ? item.override : null;
+      if (override?.action === "cancel") continue;
+      if (item.type === "history") {
+        if (item.status === "paid") paidCount += 1;
+        continue;
+      }
+      if (item.type === "payment") {
+        if (item.is_paused) continue;
+        if (item.is_paid) {
+          paidCount += 1;
+          continue;
+        }
+      }
+      dueCount += 1;
+      if (item.due_date >= todayStr && (nextDue === null || item.due_date < nextDue)) {
+        nextDue = item.due_date;
+      }
+    }
+    return { paidCount, totalCount: paidCount + dueCount, nextDue };
+  }, [combinedList, selectedMonth, todayStr]);
+
+  // Filter plumbing for the shared sheet + applied-chips row.
+  const filterCount = selectedPersonIds.size + (showPaid ? 1 : 0);
+  const resetFilters = () => {
+    setSelectedPersonIds(new Set());
+    setShowPaid(false);
+  };
+  const memberApplied = useMemberAppliedFilters(selectedPersonIds, togglePerson);
+  const appliedFilters = useMemo(
+    () =>
+      showPaid
+        ? [
+            ...memberApplied,
+            {
+              key: "__show-paid__",
+              label: "Plaćena prikazana",
+              onRemove: () => setShowPaid(false),
+            },
+          ]
+        : memberApplied,
+    [memberApplied, showPaid],
+  );
+
   const isLoading = paymentsQuery.isLoading || historyQuery.isLoading;
   const showEmpty = !isLoading && displayedList.length === 0;
   const emptyListMessage = searchActive
@@ -539,7 +608,7 @@ function PaymentsPage() {
       ? selectedPersonIds.size > 0
         ? "Nema plaćanja za izabrane članove."
         : "Nema plaćanja za prikaz."
-      : 'Nema neplaćenih stavki. Sve je plaćeno ili otkazano i sakriveno filtom "Sakrij plaćena".';
+      : "Nema neplaćenih stavki — sve za ovaj mesec je rešeno. 🎉";
 
   /* --- Action handlers -------------------------------------------------- */
 
@@ -637,53 +706,31 @@ function PaymentsPage() {
     : null;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in mx-auto w-full max-w-3xl pb-24 lg:pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Plaćanja</h1>
         <AddButton label="Dodaj plaćanje" onClick={openAdd} />
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker
-            value={selectedMonth}
-            onChange={setSelectedMonth}
-            allOptionLabel="Sva plaćanja"
-          />
-          <div className="relative min-w-0 flex-1 basis-52">
-            <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pretraži plaćanja…"
-              aria-label="Pretraži plaćanja"
-              className="pl-9"
+        <FilterBar
+          picker={
+            <MonthPicker
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+              allOptionLabel="Sva plaćanja"
             />
-            {searchTerm ? (
-              <button
-                type="button"
-                aria-label="Obriši pretragu"
-                onClick={() => setSearchTerm("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
-              >
-                <XMarkIcon className="size-4" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-          <ToggleChip
-            active={hidePaid}
-            onToggle={() => setHidePaid((prev) => !prev)}
-            icon={EyeSlashIcon}
-          >
-            Sakrij plaćena
-          </ToggleChip>
-        </div>
+          }
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Pretraži plaćanja…"
+          filterCount={filterCount}
+          onOpenFilters={() => setFiltersOpen(true)}
+        />
+        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
       </div>
 
-      {/* Summary — pinned above the list: what's still due vs already paid. */}
+      {/* Summary — one card: how far through the month's bills we are. */}
       {!searchActive && combinedList.length > 0 ? (
         summary.type === "all" ? (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -696,24 +743,56 @@ function PaymentsPage() {
             </div>
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span className="size-1.5 rounded-full bg-amber-500" />
-                Za platiti
-              </div>
-              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                <Amount value={summary.unpaidTotal} />
-              </div>
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Plaćeno ovog meseca
+              </span>
+              {monthStats && monthStats.totalCount > 0 ? (
+                <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                  {monthStats.paidCount} od {monthStats.totalCount}
+                </span>
+              ) : null}
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                Plaćeno
-              </div>
-              <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+              <span className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
                 <Amount value={summary.paidTotal} />
-              </div>
+              </span>
+              <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+                od <Amount value={summary.paidTotal + summary.unpaidTotal} />
+              </span>
+            </div>
+            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-[width]"
+                style={{
+                  width: `${
+                    summary.paidTotal + summary.unpaidTotal > 0
+                      ? Math.max(
+                          (summary.paidTotal / (summary.paidTotal + summary.unpaidTotal)) * 100,
+                          summary.paidTotal > 0 ? 2 : 0,
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+              {summary.unpaidTotal > 0 ? (
+                <span>
+                  Preostalo{" "}
+                  <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <Amount value={summary.unpaidTotal} />
+                  </span>
+                </span>
+              ) : (
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  Sve je plaćeno 🎉
+                </span>
+              )}
+              {monthStats?.nextDue && summary.unpaidTotal > 0 ? (
+                <span>Sledeće: {formatDate(monthStats.nextDue)}</span>
+              ) : null}
             </div>
           </div>
         )
@@ -751,6 +830,43 @@ function PaymentsPage() {
           </Button>
         </div>
       ) : null}
+
+      {/* Quiet reveal for the default hide-resolved view (Gmail-style). */}
+      {hiddenResolvedCount > 0 ? (
+        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          Sakriveno {hiddenResolvedCount}{" "}
+          {hiddenResolvedCount === 1 ? "plaćeno/otkazano" : "plaćenih/otkazanih"} ·{" "}
+          <button
+            type="button"
+            onClick={() => setShowPaid(true)}
+            className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+          >
+            Prikaži
+          </button>
+        </div>
+      ) : null}
+
+      <FilterSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        isActive={filterCount > 0}
+        onReset={resetFilters}
+      >
+        <FilterSection title="Članovi">
+          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
+        </FilterSection>
+        <section className="space-y-1">
+          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Prikaz
+          </h4>
+          <FilterSwitchRow
+            label="Prikaži i plaćena"
+            icon={EyeIcon}
+            checked={showPaid}
+            onCheckedChange={setShowPaid}
+          />
+        </section>
+      </FilterSheet>
 
       <PaymentFormDialog
         open={dialogOpen}

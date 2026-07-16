@@ -128,7 +128,10 @@ function PaymentTimelineRow({
         type="button"
         onClick={() => onSelect(item)}
         className={cn(
-          "block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/70",
+          "block w-full rounded-lg px-2 py-2 text-left transition-colors",
+          inOverdue
+            ? "hover:bg-red-100/60 dark:hover:bg-red-900/20"
+            : "hover:bg-gray-100 dark:hover:bg-gray-800/70",
           dimmed && "opacity-60",
         )}
       >
@@ -222,15 +225,20 @@ export function PaymentTimeline({
   return (
     <div className="space-y-6">
       {overdueItems.length > 0 ? (
-        <section>
-          <h2 className="flex items-center gap-2 border-b border-red-200/70 pb-2 text-sm font-semibold text-red-700 dark:border-red-800/50 dark:text-red-400">
+        <section className="rounded-xl border border-red-200 bg-red-50/70 p-3 dark:border-red-900/50 dark:bg-red-950/20">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400">
             <ExclamationTriangleIcon className="size-4" />
             Prekoračeno
-            <span className="ml-auto rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
-              {overdueItems.length}
+            <span className="ml-auto flex items-center gap-2">
+              <span className="text-xs font-bold tabular-nums">
+                <Amount value={overdueItems.reduce((sum, i) => sum + i.amount, 0)} />
+              </span>
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                {overdueItems.length}
+              </span>
             </span>
           </h2>
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-1.5 space-y-0.5">
             {overdueItems.map((item) => (
               <PaymentTimelineRow
                 key={item.id}
