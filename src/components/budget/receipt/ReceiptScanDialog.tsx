@@ -25,8 +25,8 @@ import { decodeQrFromFile } from "./receiptQr";
 
 /**
  * Lazy-loaded scanner + import + preview flow for a fiscal receipt. Kept as a
- * dynamic-import chunk (see the budget page) so the camera + jsQR never enter
- * the main bundle. State machine:
+ * dynamic-import chunk (see the budget page) so the camera + zxing-wasm never
+ * enter the main bundle. State machine:
  *
  *   capture ──decode──▶ loading ──ok──▶ preview ──save──▶ (close)
  *      ▲                   │                 │
