@@ -56,7 +56,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       injectManifest: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        // `wasm` covers the zxing-wasm QR decoder (~1MB) so the scanner works
+        // instantly and offline once the SW has precached it.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,wasm}"],
         // Splash screens are huge (~30MB total) and only used at native
         // launch time from the home-screen icon — caching them via SW would
         // bloat the precache without speeding anything up.

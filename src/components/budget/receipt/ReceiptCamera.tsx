@@ -8,8 +8,9 @@ import { decodeQrFromImageData, getBarcodeDetector } from "./receiptQr";
 /**
  * Live QR scanner for a fiscal receipt. Opens the environment camera, draws a
  * scan-frame overlay, offers a torch toggle when the track supports it, and
- * polls frames (~10fps) through BarcodeDetector when available, else jsQR. On
- * the first valid suf.purs.gov.rs QR it stops the camera and calls `onDecode`.
+ * polls frames (~10fps) through BarcodeDetector when available, else
+ * zxing-wasm. On the first valid suf.purs.gov.rs QR it stops the camera and
+ * calls `onDecode`.
  *
  * Camera-permission / availability problems are non-fatal here: the component
  * renders an explanatory state, and the parent always shows the paste-link and
@@ -25,9 +26,11 @@ export type ReceiptCameraProps = {
   paused?: boolean;
 };
 
-// Torch lives on MediaTrackConstraints in some browsers but not in lib.dom.
-interface TorchCapabilities {
+// Torch and focusMode live on MediaTrackConstraints in some browsers but not
+// in lib.dom.
+interface ExtendedCapabilities {
   torch?: boolean;
+  focusMode?: string[];
 }
 
 export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) {
@@ -89,18 +92,23 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
         return false;
       }
 
-      // jsQR fallback: sample the frame through a canvas.
+      // zxing-wasm fallback: sample only the centre square of the frame — the
+      // square viewport renders the video with object-cover, so that region is
+      // exactly what the user sees (and 2-4× fewer pixels to decode).
       const w = video.videoWidth;
       const h = video.videoHeight;
       if (!w || !h) return false;
+      const side = Math.min(w, h);
+      const sx = (w - side) / 2;
+      const sy = (h - side) / 2;
       const canvas = canvasRef.current ?? document.createElement("canvas");
       canvasRef.current = canvas;
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = side;
+      canvas.height = side;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return false;
-      ctx.drawImage(video, 0, 0, w, h);
-      const raw = await decodeQrFromImageData(ctx.getImageData(0, 0, w, h));
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
+      const raw = await decodeQrFromImageData(ctx.getImageData(0, 0, side, side));
       if (raw) {
         handleRaw(raw);
         return decodedRef.current;
@@ -115,7 +123,13 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: "environment",
+            // Without explicit size hints iOS Safari defaults to 640×480 —
+            // far too coarse for dense fiscal QR codes (~2-3px per module).
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
           audio: false,
         });
         if (cancelled) {
@@ -125,8 +139,16 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0] ?? null;
         trackRef.current = track;
-        const caps = (track?.getCapabilities?.() ?? {}) as TorchCapabilities;
+        const caps = (track?.getCapabilities?.() ?? {}) as ExtendedCapabilities;
         setTorchAvailable(Boolean(caps.torch));
+        if (track && caps.focusMode?.includes("continuous")) {
+          // Keep hunting focus at receipt distance where the browser supports it.
+          track
+            .applyConstraints({
+              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+            })
+            .catch(() => {});
+        }
 
         const video = videoRef.current;
         if (video) {
