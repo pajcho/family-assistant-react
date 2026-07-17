@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 import {
   BanknotesIcon,
   ChevronDownIcon,
-  ChevronLeftIcon,
   ChevronUpIcon,
   PencilSquareIcon,
   PlusIcon,
@@ -13,11 +12,9 @@ import {
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -58,10 +55,10 @@ function clampDayInMonth(month: string, day: number): string {
 
 /**
  * The sheet's current screen. Like the activities "Opcije" sheet, the forms
- * don't open a nested overlay — they SWAP the sheet's body in place with a
- * "← Nazad" header. On mobile this gives each form the full drawer height
- * (easy to scroll, no accidental dismiss), instead of an inline form cramped at
- * the bottom of the list.
+ * don't open a nested overlay — they're sub-views on the sheet stack, swapping
+ * the body in place with a "← Nazad" header (dismissing a form also returns to
+ * the list). On mobile this gives each form the full drawer height (easy to
+ * scroll), instead of an inline form cramped at the bottom of the list.
  */
 type View =
   | { kind: "list" }
@@ -101,18 +98,19 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   const deleteIncome = useDeleteIncome();
   const deleteEntry = useDeleteIncomeEntry();
 
-  const [view, setView] = useState<View>({ kind: "list" });
+  const { view, atRoot, push, pop, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<View>(
+    open,
+    onOpenChange,
+    { kind: "list" },
+  );
   const [showSources, setShowSources] = useState(false);
 
-  // Always reopen on the list screen.
+  // Collapse the sources section again for the next open.
   useEffect(() => {
-    if (!open) {
-      setView({ kind: "list" });
-      setShowSources(false);
-    }
+    if (!open) setShowSources(false);
   }, [open]);
 
-  const back = () => setView({ kind: "list" });
+  const back = pop;
 
   // Active sources with no confirmation for this month → "za potvrdu".
   const pendingSources = useMemo(() => {
@@ -158,28 +156,20 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
               : "Novi izvor";
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <div className="flex items-center gap-1.5">
-            {view.kind !== "list" ? (
-              <button
-                type="button"
-                onClick={back}
-                aria-label="Nazad na prihode"
-                className="-ml-1.5 rounded-md p-1 text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              >
-                <ChevronLeftIcon className="size-5" />
-              </button>
-            ) : null}
-            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          </div>
-          {view.kind === "list" ? (
-            <ResponsiveDialogDescription>
-              Potvrđeno ovog meseca: <Amount value={confirmedTotal} />.
-            </ResponsiveDialogDescription>
-          ) : null}
-        </ResponsiveDialogHeader>
+        <SheetStackHeader
+          title={title}
+          onBack={atRoot ? undefined : back}
+          backAriaLabel="Nazad na prihode"
+          description={
+            view.kind === "list" ? (
+              <>
+                Potvrđeno ovog meseca: <Amount value={confirmedTotal} />.
+              </>
+            ) : undefined
+          }
+        />
 
         {/* ---------------------------------------------------------------- */}
         {/* LIST screen                                                       */}
@@ -208,7 +198,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                           </span>
                         </div>
                       </div>
-                      <Button size="sm" onClick={() => setView({ kind: "confirm", source })}>
+                      <Button size="sm" onClick={() => push({ kind: "confirm", source })}>
                         Potvrdi
                       </Button>
                     </div>
@@ -260,7 +250,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                           <button
                             type="button"
                             aria-label="Izmeni prihod"
-                            onClick={() => setView({ kind: "entry", entry })}
+                            onClick={() => push({ kind: "entry", entry })}
                             className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                           >
                             <PencilSquareIcon className="size-4" />
@@ -286,7 +276,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => setView({ kind: "one-time" })}
+                onClick={() => push({ kind: "one-time" })}
               >
                 <PlusIcon className="mr-2 size-4" />
                 Dodaj jednokratni prihod
@@ -348,7 +338,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                             <button
                               type="button"
                               aria-label="Izmeni izvor"
-                              onClick={() => setView({ kind: "source", income })}
+                              onClick={() => push({ kind: "source", income })}
                               className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                             >
                               <PencilSquareIcon className="size-4" />
@@ -373,7 +363,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                     type="button"
                     variant="outline"
                     className="w-full"
-                    onClick={() => setView({ kind: "source", income: null })}
+                    onClick={() => push({ kind: "source", income: null })}
                   >
                     <PlusIcon className="mr-2 size-4" />
                     Dodaj izvor

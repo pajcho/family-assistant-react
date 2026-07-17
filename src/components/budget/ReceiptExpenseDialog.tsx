@@ -5,17 +5,16 @@ import { toast } from "sonner";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
-import { useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
+import { useDeleteExpense, useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense } from "@/types/database";
 import { serbianPlural, stavkeLabel } from "@/utils/plural";
@@ -29,16 +28,20 @@ import { cn } from "@/lib/cn";
  * are read-only (they come from the fiscal receipt, like auto-payment rows),
  * but category / person / note are editable — the same "recategorize an
  * automatic row" affordance payments get. Shows the parsed line items (loaded
- * lazily) and a link to open the original receipt on suf.purs.gov.rs.
+ * lazily) and a link to open the original receipt on suf.purs.gov.rs. The
+ * delete confirm is a sub-view on the sheet stack ("←" back header, dismissal
+ * returns to the detail view) — not a separate dialog.
  */
 
 export type ReceiptExpenseDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   expense: Expense | null;
-  /** Hands the delete off to the page's shared confirm dialog. */
-  onRequestDelete?: (expense: Expense) => void;
+  /** Hide the delete affordance (read-only contexts). Defaults to true. */
+  allowDelete?: boolean;
 };
+
+type View = "detail" | "delete";
 
 function formatDate(spentOn: string): string {
   const [y, m, d] = spentOn.split("-");
@@ -50,11 +53,14 @@ export function ReceiptExpenseDialog({
   open,
   onOpenChange,
   expense,
-  onRequestDelete,
+  allowDelete = true,
 }: ReceiptExpenseDialogProps) {
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, "detail");
   const { categories } = useExpenseCategories();
   const { members } = useFamilyMembers();
   const updateExpense = useUpdateExpense();
+  const deleteExpense = useDeleteExpense();
   const refreshItems = useReceiptRefresh();
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
 
@@ -72,6 +78,7 @@ export function ReceiptExpenseDialog({
   // Reset the editable fields whenever a different expense opens.
   useEffect(() => {
     if (expense) {
+      reset();
       setCategoryId(expense.category_id);
       setPersonId(expense.person_id);
       setNote(expense.note ?? "");
@@ -80,7 +87,7 @@ export function ReceiptExpenseDialog({
       setLocalClaimAt(null);
       setNow(Date.now());
     }
-  }, [expense]);
+  }, [expense, reset]);
 
   // Cooldown countdown for "Osveži stavke" — mirrors the server-enforced claim.
   const checkedAt = expense?.receipt_checked_at ? Date.parse(expense.receipt_checked_at) : null;
@@ -140,17 +147,46 @@ export function ReceiptExpenseDialog({
     }
   };
 
-  return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{expense?.merchant || "Račun"}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="sr-only">
-            Detalji skeniranog računa — iznos je fiksan, kategoriju i belešku možeš izmeniti.
-          </ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
+  const handleDelete = async () => {
+    if (!expense) return;
+    try {
+      await deleteExpense.mutateAsync(expense.id);
+      onOpenChange(false);
+    } catch {
+      // Toast surfaced by the hook; stay here so the user can retry.
+    }
+  };
 
-        {expense ? (
+  return (
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-md">
+        <SheetStackHeader
+          title={view === "delete" ? "Obriši trošak" : expense?.merchant || "Račun"}
+          onBack={atRoot ? undefined : pop}
+        />
+
+        {expense && view === "delete" ? (
+          <>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />?
+              Ova radnja se ne može opozvati.
+            </p>
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={deleteExpense.isPending}>
+                Nazad
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleDelete();
+                }}
+                disabled={deleteExpense.isPending}
+              >
+                Obriši
+              </Button>
+            </ResponsiveDialogFooter>
+          </>
+        ) : expense ? (
           <div className="space-y-5">
             {/* Amount (read-only) + date. */}
             <div className="text-center">
@@ -328,13 +364,13 @@ export function ReceiptExpenseDialog({
             ) : null}
 
             <div className="flex items-center justify-between gap-2 pt-1">
-              {onRequestDelete ? (
+              {allowDelete ? (
                 <Button
                   type="button"
                   variant="ghost"
                   className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
                   disabled={updateExpense.isPending}
-                  onClick={() => onRequestDelete(expense)}
+                  onClick={() => push("delete")}
                 >
                   <TrashIcon className="size-4" />
                   Obriši

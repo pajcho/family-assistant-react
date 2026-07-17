@@ -20,15 +20,14 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
   SheetActionsKebab,
   type SheetAction,
 } from "@/components/common/SheetActions";
-import { PaymentHistoryPopup } from "@/components/payments/PaymentHistoryPopup";
+import { PaymentHistoryList, PaymentUndoConfirm } from "@/components/payments/PaymentHistoryPanel";
 import { PaymentLinkChip } from "@/components/payments/PaymentLinkChip";
 import { LinkedEntityEditor } from "@/components/payments/LinkedEntityEditor";
 import { MemberBadges } from "@/components/common/MemberBadges";
@@ -54,10 +53,12 @@ import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@
 
 /**
  * Shared payment detail popup opened from the agenda tabs (via
- * `useAgendaDetails`). Self-contained: owns the history popup state and the
- * mutations. Like the event detail dialog, "Pomeri" (reschedule) and "Otkaži"
- * (cancel) the CURRENT occurrence inline (no nested dialogs), branching on
- * recurring vs one-time exactly like the /payments kebab:
+ * `useAgendaDetails`). Self-contained: owns the mutations and a sheet-stack of
+ * sub-views (see `useSheetStack`) — options, reschedule, cancel, delete,
+ * history and the history's undo confirm all swap the SAME sheet's content
+ * with a "←" back header; dismissing a sub-view returns one level up instead
+ * of closing the flow. Reschedule/cancel branch on recurring vs one-time
+ * exactly like the /payments kebab:
  *   - reschedule: recurring → per-occurrence override ("Pomereno"); one-time →
  *     edits `due_date`.
  *   - cancel: recurring → records a canceled history entry + advances to the
@@ -82,7 +83,7 @@ export type PaymentDetailDialogProps = {
   variant?: "agenda" | "manage" | "info";
 };
 
-type Mode = "detail" | "actions" | "reschedule" | "cancel" | "delete";
+type View = "detail" | "actions" | "reschedule" | "cancel" | "delete" | "history" | "undo";
 
 function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
@@ -101,8 +102,8 @@ export function PaymentDetailDialog({
   onEdit,
   variant = "agenda",
 }: PaymentDetailDialogProps) {
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("detail");
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, "detail");
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
@@ -144,13 +145,10 @@ export function PaymentDetailDialog({
     togglePause.isPending ||
     deletePayment.isPending;
 
-  // Reset to the detail view whenever the dialog closes or the payment changes.
+  // Back to the root view whenever the subject payment changes underneath.
   useEffect(() => {
-    if (!open) setMode("detail");
-  }, [open]);
-  useEffect(() => {
-    setMode("detail");
-  }, [payment]);
+    reset();
+  }, [payment, reset]);
 
   const handleEdit = () => {
     if (!payment) return;
@@ -158,19 +156,11 @@ export function PaymentDetailDialog({
     onEdit(payment);
   };
 
-  // While history is open the detail sheet HIDES (open && !historyOpen below)
-  // instead of closing through the caller — callers clear their selected
-  // payment on close, which would null the `payment` prop out from under the
-  // history popup (and kill the "land back on detail" return trip).
-  const openHistory = () => {
-    setHistoryOpen(true);
-  };
-
-  // "Povezano sa" tap — close this popup and open the linked entity's edit
-  // form right here (LinkedEntityEditor), no navigation.
+  // "Povezano sa" tap — HIDE this sheet (not close-through-the-caller, which
+  // would null the `payment` prop) and open the linked entity's edit form
+  // (LinkedEntityEditor). Closing that form lands back on this detail sheet.
   const handleOpenLink = () => {
     if (!linkTarget) return;
-    onOpenChange(false);
     setLinkEditTarget(linkTarget);
   };
 
@@ -187,12 +177,12 @@ export function PaymentDetailDialog({
   const openReschedule = () => {
     setNewDate(effectiveDue || (payment?.due_date ?? null));
     setReason("");
-    setMode("reschedule");
+    push("reschedule");
   };
 
   const openCancel = () => {
     setReason("");
-    setMode("cancel");
+    push("cancel");
   };
 
   const handleRescheduleSave = async () => {
@@ -244,8 +234,6 @@ export function PaymentDetailDialog({
     }
   };
 
-  const openDelete = () => setMode("delete");
-
   const handleTogglePause = async () => {
     if (!payment) return;
     try {
@@ -270,15 +258,19 @@ export function PaymentDetailDialog({
   const rescheduleNext = payment ? nextPaymentOccurrenceDate(payment) : null;
   const rescheduleMax = rescheduleNext ? subtractDay(rescheduleNext) : null;
   const title =
-    mode === "reschedule"
+    view === "reschedule"
       ? "Pomeri ratu"
-      : mode === "cancel"
+      : view === "cancel"
         ? (cancelCopy?.title ?? "Otkaži ratu")
-        : mode === "delete"
+        : view === "delete"
           ? "Obriši plaćanje"
-          : mode === "actions"
+          : view === "actions"
             ? "Opcije"
-            : "Detalji plaćanja";
+            : view === "history"
+              ? "Istorija plaćanja"
+              : view === "undo"
+                ? "Poništi plaćanje"
+                : "Detalji plaćanja";
 
   // Action hierarchy (Todoist / Google Calendar pattern): ONE contextual
   // primary action pinned in the footer, "Izmeni" beside it, everything else
@@ -322,7 +314,7 @@ export function PaymentDetailDialog({
       icon: TrashIcon,
       destructive: true,
       separatorBefore: actionItems.length > 0,
-      onSelect: openDelete,
+      onSelect: () => push("delete"),
     });
   }
 
@@ -363,11 +355,13 @@ export function PaymentDetailDialog({
 
   return (
     <>
-      <ResponsiveDialog open={open && !historyOpen} onOpenChange={onOpenChange}>
+      <ResponsiveDialog
+        key={dialogKey}
+        open={dialogOpen && !linkEditTarget}
+        onOpenChange={handleOpenChange}
+      >
         <ResponsiveDialogContent>
-          <ResponsiveDialogHeader className={mode === "detail" ? "sr-only" : undefined}>
-            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
+          <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
           {payment ? (
             <div className="space-y-4">
               <div className="flex items-start gap-3">
@@ -382,16 +376,16 @@ export function PaymentDetailDialog({
                     {paymentSubtitle(payment)}
                   </p>
                 </div>
-                {mode === "detail" ? (
+                {view === "detail" ? (
                   <SheetActionsKebab
                     items={actionItems}
                     disabled={saving}
-                    onOpenActions={() => setMode("actions")}
+                    onOpenActions={() => push("actions")}
                   />
                 ) : null}
               </div>
 
-              {mode === "reschedule" ? (
+              {view === "reschedule" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="payment-detail-reschedule-date">Novi datum</Label>
@@ -423,7 +417,7 @@ export function PaymentDetailDialog({
                     </div>
                   ) : null}
                 </div>
-              ) : mode === "cancel" ? (
+              ) : view === "cancel" ? (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{cancelCopy?.message}</p>
                   <div className="space-y-2">
@@ -437,13 +431,26 @@ export function PaymentDetailDialog({
                     />
                   </div>
                 </div>
-              ) : mode === "delete" ? (
+              ) : view === "delete" ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
                   opozvati.
                 </p>
-              ) : mode === "actions" ? (
+              ) : view === "actions" ? (
                 <SheetActionList items={actionItems} disabled={saving} />
+              ) : view === "history" ? (
+                <PaymentHistoryList
+                  payment={payment}
+                  active={view === "history"}
+                  onRequestUndo={() => push("undo")}
+                />
+              ) : view === "undo" ? (
+                <PaymentUndoConfirm
+                  paymentId={payment.id}
+                  paymentName={payment.name}
+                  onBack={pop}
+                  onDone={pop}
+                />
               ) : (
                 <>
                   {/* The bill's hero: amount first, state as badges. */}
@@ -498,7 +505,7 @@ export function PaymentDetailDialog({
                     ) : null}
                     <button
                       type="button"
-                      onClick={openHistory}
+                      onClick={() => push("history")}
                       className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:text-blue-400"
                     >
                       <ClockIcon className="size-4 text-gray-400 dark:text-gray-500" />
@@ -511,9 +518,9 @@ export function PaymentDetailDialog({
             </div>
           ) : null}
 
-          {mode === "reschedule" ? (
+          {view === "reschedule" ? (
             <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+              <Button variant="outline" onClick={pop} disabled={saving}>
                 Nazad
               </Button>
               <Button
@@ -525,9 +532,9 @@ export function PaymentDetailDialog({
                 Sačuvaj
               </Button>
             </ResponsiveDialogFooter>
-          ) : mode === "cancel" ? (
+          ) : view === "cancel" ? (
             <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+              <Button variant="outline" onClick={pop} disabled={saving}>
                 Nazad
               </Button>
               <Button
@@ -540,9 +547,9 @@ export function PaymentDetailDialog({
                 {cancelCopy?.title ?? "Otkaži ratu"}
               </Button>
             </ResponsiveDialogFooter>
-          ) : mode === "delete" ? (
+          ) : view === "delete" ? (
             <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+              <Button variant="outline" onClick={pop} disabled={saving}>
                 Nazad
               </Button>
               <Button
@@ -555,18 +562,18 @@ export function PaymentDetailDialog({
                 Obriši
               </Button>
             </ResponsiveDialogFooter>
-          ) : mode === "actions" ? (
+          ) : view === "actions" || view === "history" ? (
             <ResponsiveDialogFooter>
               <Button
                 variant="outline"
                 className="w-full sm:w-auto"
-                onClick={() => setMode("detail")}
+                onClick={pop}
                 disabled={saving}
               >
                 Nazad
               </Button>
             </ResponsiveDialogFooter>
-          ) : readOnly ? (
+          ) : view === "undo" ? null : readOnly ? (
             // Viewer footer: no state mutations here — the "Plaćeno"/"Dospeva"
             // badges above carry the status. "Izmeni" is the one action.
             <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
@@ -642,8 +649,6 @@ export function PaymentDetailDialog({
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      <PaymentHistoryPopup open={historyOpen} onOpenChange={setHistoryOpen} payment={payment} />
 
       <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </>

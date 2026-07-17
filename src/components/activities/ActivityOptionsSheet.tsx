@@ -1,19 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AcademicCapIcon,
   BookOpenIcon,
-  ChevronLeftIcon,
   Cog6ToothIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { ShiftSetupForm } from "@/components/activities/ShiftSetupForm";
 import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
@@ -56,8 +51,10 @@ function memberName(member: Profile | undefined): string {
 /**
  * The "Opcije" hub — a bottom sheet (drawer on mobile) that collects the
  * page's secondary controls. Instead of closing on every action, it navigates
- * in place: clicking an option swaps the sheet's content to that editor with a
- * "← Nazad" header that returns to the hub. One overlay, no stacking.
+ * in place (sheet stack): clicking an option swaps the sheet's content to that
+ * editor with a "← Nazad" header that returns to the hub, and dismissing the
+ * editor (swipe / tap outside) also lands back on the hub. One overlay, no
+ * stacking.
  *
  * Member management (add / remove / colors / logins) lives on the Porodica
  * settings tab — the "Porodica i članovi" button just redirects there.
@@ -72,15 +69,14 @@ export function ActivityOptionsSheet({
   bell,
 }: ActivityOptionsSheetProps) {
   const navigate = useNavigate();
-  const [view, setView] = useState<View>({ kind: "hub" });
-
-  // Always start at the hub the next time it opens.
-  useEffect(() => {
-    if (!open) setView({ kind: "hub" });
-  }, [open]);
+  const { view, atRoot, push, pop, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<View>(
+    open,
+    onOpenChange,
+    { kind: "hub" },
+  );
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
-  const back = () => setView({ kind: "hub" });
+  const back = pop;
 
   // A sub-view that needs a member but can't find one (e.g. deleted) falls
   // back to the hub defensively.
@@ -99,30 +95,20 @@ export function ActivityOptionsSheet({
           : "Satnica zvona";
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
-        <ResponsiveDialogHeader>
-          <div className="flex items-center gap-1.5">
-            {effectiveView.kind !== "hub" ? (
-              <button
-                type="button"
-                onClick={back}
-                aria-label="Nazad na opcije"
-                className="-ml-1.5 rounded-md p-1 text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              >
-                <ChevronLeftIcon className="h-5 w-5" />
-              </button>
-            ) : null}
-            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          </div>
-        </ResponsiveDialogHeader>
+        <SheetStackHeader
+          title={title}
+          onBack={effectiveView.kind !== "hub" && !atRoot ? back : undefined}
+          backAriaLabel="Nazad na opcije"
+        />
 
         {effectiveView.kind === "hub" ? (
           <Hub
             members={members}
             anchorsByPersonId={anchorsByPersonId}
             timeBandByPerson={timeBandByPerson}
-            onPick={setView}
+            onPick={push}
             onManageFamily={() => {
               onOpenChange(false);
               void navigate({ to: "/settings", search: { tab: "family" } });

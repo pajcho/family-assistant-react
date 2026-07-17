@@ -19,7 +19,6 @@ import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
 import { PaymentOccurrenceDialog } from "@/components/payments/PaymentOccurrenceDialog";
 import { PaymentTimeline } from "@/components/payments/PaymentTimeline";
-import { PaymentUndoDialog } from "@/components/payments/PaymentUndoDialog";
 import type {
   HistoryRowItem,
   PaymentListItemUnion,
@@ -31,7 +30,6 @@ import {
   useCreatePayment,
   usePaymentHistory,
   usePaymentsList,
-  useUndoLastPayment,
   useUpdatePayment,
 } from "@/hooks/usePayments";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
@@ -421,10 +419,6 @@ function PaymentsPage() {
     HistoryRowItem | UpcomingRowItem | null
   >(null);
 
-  // Undo confirmation (from the occurrence popup's "Poništi")
-  const [undoDialogOpen, setUndoDialogOpen] = useState(false);
-  const [historyToUndo, setHistoryToUndo] = useState<HistoryRowItem | null>(null);
-
   // Data — always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const historyQuery = usePaymentHistory();
@@ -432,10 +426,9 @@ function PaymentsPage() {
   const { byKey: overridesByKey } = usePaymentOverrides();
 
   // Mutations — the detail dialogs own the rest (mark paid, pause, reschedule,
-  // cancel, delete), so the page keeps only create/edit + undo.
+  // cancel, delete, undo), so the page keeps only create/edit.
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
-  const undoMutation = useUndoLastPayment();
 
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
   const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
@@ -673,27 +666,6 @@ function PaymentsPage() {
     }
   };
 
-  const confirmUndo = (item: HistoryRowItem) => {
-    setHistoryToUndo(item);
-    setUndoDialogOpen(true);
-  };
-
-  const handleUndoConfirm = async () => {
-    if (!historyToUndo) return;
-    try {
-      await undoMutation.mutateAsync(historyToUndo.payment_id);
-      setUndoDialogOpen(false);
-      setHistoryToUndo(null);
-    } catch {
-      /* hook toasts */
-    }
-  };
-
-  const handleUndoDialogOpenChange = (open: boolean) => {
-    setUndoDialogOpen(open);
-    if (!open) setHistoryToUndo(null);
-  };
-
   // Underlying series row for the selected occurrence (history / upcoming) —
   // powers that dialog's Izmeni / Istorija / Poništi.
   const occurrencePaymentId = selectedOccurrence
@@ -904,17 +876,6 @@ function PaymentsPage() {
         payment={occurrencePayment}
         onEdit={(p) => {
           void openEdit(p);
-        }}
-        onUndo={confirmUndo}
-      />
-
-      <PaymentUndoDialog
-        open={undoDialogOpen}
-        onOpenChange={handleUndoDialogOpenChange}
-        paymentName={historyToUndo?.name ?? ""}
-        loading={undoMutation.isPending}
-        onConfirm={() => {
-          void handleUndoConfirm();
         }}
       />
     </div>

@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
   AppliedFilterChips,
@@ -17,16 +16,11 @@ import {
 } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { EventCancelDialog } from "@/components/events/EventCancelDialog";
 import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventTimelineRow } from "@/components/events/EventTimelineRow";
-import {
-  EventRescheduleDialog,
-  type EventReschedulePayload,
-} from "@/components/events/EventRescheduleDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
-import { useCreateEvent, useDeleteEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
+import { useCreateEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useToday } from "@/hooks/useToday";
 import type { Event } from "@/types/database";
@@ -57,28 +51,16 @@ function EventsPage() {
   // Detail popup — a row tap opens it; every action lives inside.
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Dialog state
+  // Dialog state — reschedule / cancel / delete žive kao sub-view-ovi UNUTAR
+  // detail popupa (sheet stack); stranica drži samo formu za dodavanje/izmenu.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Delete confirmation state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
-
-  // Quick-reschedule state
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [eventToReschedule, setEventToReschedule] = useState<Event | null>(null);
-
-  // Cancel-with-reason state
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [eventToCancel, setEventToCancel] = useState<Event | null>(null);
 
   const eventsQuery = useEventsList();
   const { byEvent } = useEventParticipants();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
-  const deleteEvent = useDeleteEvent();
 
   const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
   // Month + "Sakrij završene" + the person facet. Person semantics mirror the
@@ -199,23 +181,6 @@ function EventsPage() {
     }
   };
 
-  const confirmDelete = (eventItem: Event) => {
-    setEventToDelete(eventItem);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!eventToDelete) return;
-    try {
-      await deleteEvent.mutateAsync(eventToDelete.id);
-      setDeleteDialogOpen(false);
-      setEventToDelete(null);
-    } catch {
-      // Toast surfaced by the hook's onError handler; keep the dialog open
-      // so the user can retry or cancel.
-    }
-  };
-
   const handleDialogOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
@@ -223,54 +188,6 @@ function EventsPage() {
       setErrorMessage(null);
     }
   };
-
-  const openReschedule = (eventItem: Event) => {
-    setEventToReschedule(eventItem);
-    setRescheduleOpen(true);
-  };
-
-  const handleRescheduleSubmit = async (payload: EventReschedulePayload) => {
-    if (!eventToReschedule) return;
-    try {
-      await updateEvent.mutateAsync({ id: eventToReschedule.id, payload });
-      setRescheduleOpen(false);
-      setEventToReschedule(null);
-    } catch {
-      // Error toast surfaced by the hook; keep the dialog open to retry.
-    }
-  };
-
-  // Canceling opens a confirm dialog (with an optional reason); restoring a
-  // canceled event clears both the timestamp and the reason straight away.
-  const handleToggleCancel = (eventItem: Event) => {
-    if (eventItem.canceled_at) {
-      void updateEvent.mutateAsync({
-        id: eventItem.id,
-        payload: { canceled_at: null, cancel_reason: null },
-      });
-    } else {
-      setEventToCancel(eventItem);
-      setCancelDialogOpen(true);
-    }
-  };
-
-  const handleCancelConfirm = async (reason: string | null) => {
-    if (!eventToCancel) return;
-    try {
-      await updateEvent.mutateAsync({
-        id: eventToCancel.id,
-        payload: { canceled_at: new Date().toISOString(), cancel_reason: reason },
-      });
-      setCancelDialogOpen(false);
-      setEventToCancel(null);
-    } catch {
-      // Error toast surfaced by the hook; keep the dialog open to retry.
-    }
-  };
-
-  const deleteConfirmMessage = `Da li ste sigurni da želite da obrišete "${
-    eventToDelete?.name ?? ""
-  }"?`;
 
   const isLoading = eventsQuery.isLoading;
   const showEmpty = !isLoading && filteredEvents.length === 0;
@@ -406,9 +323,6 @@ function EventsPage() {
         event={selectedEvent}
         personIds={selectedEvent ? (byEvent.get(selectedEvent.id) ?? []) : []}
         onEdit={openEdit}
-        onReschedule={openReschedule}
-        onToggleCancel={handleToggleCancel}
-        onDelete={confirmDelete}
       />
 
       <EventFormDialog
@@ -420,46 +334,6 @@ function EventsPage() {
         saving={createEvent.isPending || updateEvent.isPending}
         onSubmit={(payload) => {
           void handleSubmit(payload);
-        }}
-      />
-
-      <EventRescheduleDialog
-        open={rescheduleOpen}
-        onOpenChange={(open) => {
-          setRescheduleOpen(open);
-          if (!open) setEventToReschedule(null);
-        }}
-        event={eventToReschedule}
-        saving={updateEvent.isPending}
-        onSubmit={(payload) => {
-          void handleRescheduleSubmit(payload);
-        }}
-      />
-
-      <EventCancelDialog
-        open={cancelDialogOpen}
-        onOpenChange={(open) => {
-          setCancelDialogOpen(open);
-          if (!open) setEventToCancel(null);
-        }}
-        event={eventToCancel}
-        saving={updateEvent.isPending}
-        onConfirm={(reason) => {
-          void handleCancelConfirm(reason);
-        }}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open);
-          if (!open) setEventToDelete(null);
-        }}
-        title="Obriši događaj"
-        message={deleteConfirmMessage}
-        loading={deleteEvent.isPending}
-        onConfirm={() => {
-          void handleDeleteConfirm();
         }}
       />
     </div>

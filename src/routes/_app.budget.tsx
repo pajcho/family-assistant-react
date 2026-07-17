@@ -891,10 +891,6 @@ function BudgetPage() {
           if (!open) setReceiptDetail(null);
         }}
         expense={receiptDetail}
-        onRequestDelete={(expense) => {
-          setReceiptDetail(null);
-          setToDelete(expense);
-        }}
       />
 
       <ConfirmDialog

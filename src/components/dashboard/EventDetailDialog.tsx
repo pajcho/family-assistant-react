@@ -8,9 +8,8 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   EventDateTimeFields,
@@ -31,9 +30,10 @@ import { formatEventTimeRange } from "@/utils/event";
  * through `onEdit`.
  *
  * "Pomeri" (date + time) and "Otkaži" (soft cancel with optional reason) are
- * self-contained here via `useUpdateEvent` — they swap the dialog body inline
- * (no nested dialogs) and close on success since a canceled/moved event
- * leaves the dashboard.
+ * self-contained here via `useUpdateEvent` — sub-views on the sheet stack
+ * (see `useSheetStack`): "←" back header, dismissal returns to the detail
+ * view, and they close on success since a canceled/moved event leaves the
+ * dashboard.
  */
 export type EventDetailDialogProps = {
   open: boolean;
@@ -44,7 +44,7 @@ export type EventDetailDialogProps = {
   onEdit: (event: Event) => void;
 };
 
-type Mode = "detail" | "reschedule" | "cancel";
+type View = "detail" | "reschedule" | "cancel";
 
 export function EventDetailDialog({
   open,
@@ -54,22 +54,19 @@ export function EventDetailDialog({
   onEdit,
 }: EventDetailDialogProps) {
   const updateEvent = useUpdateEvent();
-  const [mode, setMode] = useState<Mode>("detail");
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, "detail");
   const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
   const [reason, setReason] = useState("");
   const [rescheduleReason, setRescheduleReason] = useState("");
 
-  // Reset to the detail view whenever the dialog closes.
-  useEffect(() => {
-    if (!open) setMode("detail");
-  }, [open]);
   // Reseed the inline editors when the selected event changes underneath.
   useEffect(() => {
-    setMode("detail");
+    reset();
     setDtValue(eventToDateTimeValue(event));
     setReason("");
     setRescheduleReason("");
-  }, [event]);
+  }, [event, reset]);
 
   const saving = updateEvent.isPending;
 
@@ -85,12 +82,12 @@ export function EventDetailDialog({
   const openReschedule = () => {
     setDtValue(eventToDateTimeValue(event));
     setRescheduleReason("");
-    setMode("reschedule");
+    push("reschedule");
   };
 
   const openCancel = () => {
     setReason("");
-    setMode("cancel");
+    push("cancel");
   };
 
   const handleCancelConfirm = async () => {
@@ -123,21 +120,19 @@ export function EventDetailDialog({
   };
 
   const title =
-    mode === "reschedule"
+    view === "reschedule"
       ? "Pomeri događaj"
-      : mode === "cancel"
+      : view === "cancel"
         ? "Otkaži događaj"
         : "Detalji događaja";
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
+        <SheetStackHeader title={title} onBack={atRoot ? undefined : pop} />
 
         {event ? (
-          mode === "reschedule" ? (
+          view === "reschedule" ? (
             <div className="space-y-4">
               <EventDateTimeFields
                 value={dtValue}
@@ -155,7 +150,7 @@ export function EventDetailDialog({
                 />
               </div>
             </div>
-          ) : mode === "cancel" ? (
+          ) : view === "cancel" ? (
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
@@ -247,9 +242,9 @@ export function EventDetailDialog({
           )
         ) : null}
 
-        {mode === "reschedule" ? (
+        {view === "reschedule" ? (
           <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+            <Button variant="outline" onClick={pop} disabled={saving}>
               Nazad
             </Button>
             <Button
@@ -261,9 +256,9 @@ export function EventDetailDialog({
               Sačuvaj
             </Button>
           </ResponsiveDialogFooter>
-        ) : mode === "cancel" ? (
+        ) : view === "cancel" ? (
           <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={() => setMode("detail")} disabled={saving}>
+            <Button variant="outline" onClick={pop} disabled={saving}>
               Nazad
             </Button>
             <Button
