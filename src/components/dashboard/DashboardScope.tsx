@@ -7,6 +7,7 @@ import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
 import { ViewToggle } from "@/components/dashboard/ViewToggle";
 import { ActivityAddDialog } from "@/components/activities/ActivityAddDialog";
+import { ExpenseQuickAddFlow } from "@/components/budget/ExpenseQuickAddFlow";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -72,6 +73,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
   // only flips it open. There's no edit path here — "Izmeni aktivnost" still
   // deep-links to /activities.
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
 
   /* --- Add openers ------------------------------------------------------- */
 
@@ -223,6 +225,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             onAddEvent={openAddEvent}
             onAddPayment={openAddPayment}
             onAddBirthday={openAddBirthday}
+            onAddExpense={() => setExpenseDialogOpen(true)}
             // Lists live on /lists — deep-link there with the create dialog
             // already open (`?new=1`, consumed by ListMaster).
             onAddList={() => void navigate({ to: "/lists", search: { new: true } })}
@@ -311,6 +314,8 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
       />
 
       <ActivityAddDialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen} />
+
+      <ExpenseQuickAddFlow open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen} />
     </div>
   );
 }
