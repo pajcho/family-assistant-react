@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import type { Birthday, Event } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FilterBar } from "@/components/common/FilterBar";
 import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
@@ -19,12 +18,7 @@ import {
 import { type BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
-import {
-  useBirthdaysList,
-  useCreateBirthday,
-  useUpdateBirthday,
-  useDeleteBirthday,
-} from "@/hooks/useBirthdays";
+import { useBirthdaysList, useCreateBirthday, useUpdateBirthday } from "@/hooks/useBirthdays";
 import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
@@ -55,7 +49,6 @@ function BirthdaysPage() {
   const { data: birthdays, isLoading } = useBirthdaysList();
   const createMutation = useCreateBirthday();
   const updateMutation = useUpdateBirthday();
-  const deleteMutation = useDeleteBirthday();
 
   // Filters — the shared control set: a month picker CLAMPED to the current
   // year (birthdays repeat annually, so "Avg" means "this year's August"),
@@ -75,9 +68,6 @@ function BirthdaysPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [birthdayToDelete, setBirthdayToDelete] = useState<Birthday | null>(null);
 
   // "Organizuj proslavu" — the event form opens prefilled with the person's
   // next birthday; the created event carries `birthday_id` so the row can show
@@ -179,27 +169,6 @@ function BirthdaysPage() {
       setFormError(null);
       setEditingBirthday(null);
     }
-  };
-
-  const confirmDelete = (birthday: Birthday) => {
-    setBirthdayToDelete(birthday);
-    setDeleteDialogOpen(true);
-  };
-
-  const doDelete = async () => {
-    if (!birthdayToDelete) return;
-    try {
-      await deleteMutation.mutateAsync(birthdayToDelete.id);
-      setDeleteDialogOpen(false);
-      setBirthdayToDelete(null);
-    } catch {
-      // Mutation hook already toasts; keep the dialog open so the user can retry.
-    }
-  };
-
-  const handleDeleteOpenChange = (next: boolean) => {
-    setDeleteDialogOpen(next);
-    if (!next) setBirthdayToDelete(null);
   };
 
   const handleCelebrationSubmit = async (payload: EventFormPayload) => {
@@ -358,7 +327,6 @@ function BirthdaysPage() {
           selectedBirthday ? (celebrationByBirthday?.get(selectedBirthday.id) ?? null) : null
         }
         onEdit={openEdit}
-        onDelete={confirmDelete}
         onOrganize={(birthday) => {
           setCelebrationError(null);
           setEditingCelebration(null);
@@ -378,15 +346,6 @@ function BirthdaysPage() {
         error={formError}
         saving={saving}
         onSubmit={handleSubmit}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={handleDeleteOpenChange}
-        title="Obriši rođendan"
-        message={`Da li ste sigurni da želite da obrišete "${birthdayToDelete?.name ?? ""}"?`}
-        loading={deleteMutation.isPending}
-        onConfirm={doDelete}
       />
 
       <EventFormDialog

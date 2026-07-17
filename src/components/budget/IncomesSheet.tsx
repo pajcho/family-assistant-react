@@ -3,9 +3,8 @@ import type { FormEvent } from "react";
 import {
   BanknotesIcon,
   ChevronDownIcon,
-  ChevronLeftIcon,
+  ChevronRightIcon,
   ChevronUpIcon,
-  PencilSquareIcon,
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -13,11 +12,10 @@ import {
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -58,17 +56,20 @@ function clampDayInMonth(month: string, day: number): string {
 
 /**
  * The sheet's current screen. Like the activities "Opcije" sheet, the forms
- * don't open a nested overlay — they SWAP the sheet's body in place with a
- * "← Nazad" header. On mobile this gives each form the full drawer height
- * (easy to scroll, no accidental dismiss), instead of an inline form cramped at
- * the bottom of the list.
+ * don't open a nested overlay — they're sub-views on the sheet stack, swapping
+ * the body in place with a "← Nazad" header (dismissing a form also returns to
+ * the list). On mobile this gives each form the full drawer height (easy to
+ * scroll), instead of an inline form cramped at the bottom of the list.
  */
 type View =
   | { kind: "list" }
+  | { kind: "sources" }
   | { kind: "confirm"; source: Income } // confirm a pending recurring source
   | { kind: "entry"; entry: IncomeEntry } // edit an existing receipt
   | { kind: "one-time" } // add a one-off (bonus etc.)
-  | { kind: "source"; income: Income | null }; // add / edit a recurring source
+  | { kind: "source"; income: Income | null } // add / edit a recurring source
+  | { kind: "delete-entry"; entry: IncomeEntry }
+  | { kind: "delete-source"; income: Income };
 
 function memberOptions(members: ReadonlyArray<Profile>) {
   return members.map((m) => (
@@ -86,8 +87,9 @@ function memberOptions(members: ReadonlyArray<Profile>) {
  * List screen: this month's actual income. Active recurring sources not yet
  * confirmed show a "Potvrdi" row; confirmed receipts and one-offs list below
  * with edit/delete. This is the frozen history the budget cycle sums — editing
- * a source never rewrites it. A collapsible section manages the recurring
- * source templates (which only drive next month's "za potvrdu" reminders).
+ * a source never rewrites it. Recurring source templates live in their own
+ * stack view so monthly confirmation and long-term setup never compete in the
+ * same scroll.
  *
  * Every add/edit/confirm opens as a full-screen sub-view with a back arrow (see
  * {@link View}) rather than an inline form.
@@ -101,24 +103,28 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   const deleteIncome = useDeleteIncome();
   const deleteEntry = useDeleteIncomeEntry();
 
-  const [view, setView] = useState<View>({ kind: "list" });
-  const [showSources, setShowSources] = useState(false);
+  const { view, atRoot, push, pop, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<View>(
+    open,
+    onOpenChange,
+    { kind: "list" },
+  );
+  const [showConfirmed, setShowConfirmed] = useState(false);
 
-  // Always reopen on the list screen.
+  // Keep the high-frequency pending work in focus on every new open.
   useEffect(() => {
-    if (!open) {
-      setView({ kind: "list" });
-      setShowSources(false);
-    }
+    if (!open) setShowConfirmed(false);
   }, [open]);
 
-  const back = () => setView({ kind: "list" });
+  const back = pop;
 
   // Active sources with no confirmation for this month → "za potvrdu".
   const pendingSources = useMemo(() => {
     const confirmedIds = new Set(entries.filter((e) => e.income_id).map((e) => e.income_id));
     return incomes.filter((i) => i.active && !confirmedIds.has(i.id));
   }, [incomes, entries]);
+  const activeSources = incomes.filter((income) => income.active);
+  const expectedTotal = activeSources.reduce((sum, income) => sum + income.amount, 0);
+  const confirmedRowsVisible = showConfirmed;
 
   const defaultReceivedOn = (day: number): string =>
     month === today.str.slice(0, 7) ? today.str : clampDayInMonth(month, day);
@@ -147,241 +153,348 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   const title =
     view.kind === "list"
       ? `Prihodi — ${monthLabel(month)}`
-      : view.kind === "confirm"
-        ? "Potvrdi prihod"
-        : view.kind === "entry"
-          ? "Izmeni prihod"
-          : view.kind === "one-time"
-            ? "Jednokratni prihod"
-            : view.income
-              ? "Izmeni izvor"
-              : "Novi izvor";
+      : view.kind === "sources"
+        ? "Redovni prihodi"
+        : view.kind === "confirm"
+          ? "Potvrdi prihod"
+          : view.kind === "entry"
+            ? "Izmeni prihod"
+            : view.kind === "one-time"
+              ? "Jednokratni prihod"
+              : view.kind === "delete-entry"
+                ? "Obriši prihod"
+                : view.kind === "delete-source"
+                  ? "Obriši redovni prihod"
+                  : view.income
+                    ? "Izmeni redovni prihod"
+                    : "Novi redovni prihod";
+
+  const handleDeleteEntry = async (entry: IncomeEntry) => {
+    try {
+      await deleteEntry.mutateAsync(entry.id);
+      pop();
+    } catch {
+      /* hook toasts */
+    }
+  };
+
+  const handleDeleteSource = async (income: Income) => {
+    try {
+      await deleteIncome.mutateAsync(income.id);
+      pop();
+    } catch {
+      /* hook toasts */
+    }
+  };
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <div className="flex items-center gap-1.5">
-            {view.kind !== "list" ? (
-              <button
-                type="button"
-                onClick={back}
-                aria-label="Nazad na prihode"
-                className="-ml-1.5 rounded-md p-1 text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              >
-                <ChevronLeftIcon className="size-5" />
-              </button>
-            ) : null}
-            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          </div>
-          {view.kind === "list" ? (
-            <ResponsiveDialogDescription>
-              Potvrđeno ovog meseca: <Amount value={confirmedTotal} />.
-            </ResponsiveDialogDescription>
-          ) : null}
-        </ResponsiveDialogHeader>
+        <SheetStackHeader
+          title={title}
+          onBack={atRoot ? undefined : back}
+          backAriaLabel={
+            view.kind === "source" || view.kind === "delete-source"
+              ? "Nazad na redovne prihode"
+              : "Nazad na prihode"
+          }
+          description={
+            view.kind === "list" ? (
+              <span className="flex flex-wrap items-center gap-x-1.5">
+                <span>
+                  <Amount value={confirmedTotal} /> potvrđeno
+                </span>
+                {pendingSources.length > 0 ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{pendingSources.length} za potvrdu</span>
+                  </>
+                ) : null}
+              </span>
+            ) : view.kind === "sources" ? (
+              <span className="flex flex-wrap items-center gap-x-1.5">
+                <span>Aktivno: {activeSources.length}</span>
+                {activeSources.length > 0 ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      <Amount value={expectedTotal} /> očekivano mesečno
+                    </span>
+                  </>
+                ) : null}
+              </span>
+            ) : undefined
+          }
+        />
 
         {/* ---------------------------------------------------------------- */}
         {/* LIST screen                                                       */}
         {/* ---------------------------------------------------------------- */}
         {view.kind === "list" ? (
-          <div className="space-y-5">
-            <section className="space-y-3">
-              {pendingSources.length > 0 ? (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-400">
+          <div className="flex flex-col gap-5">
+            {pendingSources.length > 0 ? (
+              <section className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-semibold tracking-wide text-foreground uppercase">
                     Za potvrdu
                   </h3>
+                  <Badge variant="secondary">{pendingSources.length}</Badge>
+                </div>
+                <ul className="flex flex-col gap-2">
                   {pendingSources.map((source) => (
-                    <div
+                    <li
                       key={source.id}
-                      className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-800/50 dark:bg-amber-900/15"
+                      className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-xs"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <div className="truncate text-sm font-semibold text-card-foreground">
                           {source.name}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                           {personChip(source.person_id)}
                           <span className="whitespace-nowrap">
                             očekivano <Amount value={source.amount} />
                           </span>
                         </div>
                       </div>
-                      <Button size="sm" onClick={() => setView({ kind: "confirm", source })}>
+                      <Button size="sm" onClick={() => push({ kind: "confirm", source })}>
                         Potvrdi
                       </Button>
-                    </div>
+                    </li>
                   ))}
-                </div>
-              ) : null}
+                </ul>
+              </section>
+            ) : null}
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
-                  Potvrđeno
-                </h3>
-                {entries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Još nema potvrđenih priliva.</p>
-                ) : (
-                  <ul className="space-y-2">
+            {entries.length > 0 ? (
+              <section className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  aria-expanded={confirmedRowsVisible}
+                  onClick={() => setShowConfirmed((visible) => !visible)}
+                >
+                  <span className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                    Potvrđeno
+                  </span>
+                  <Badge variant="outline">{entries.length}</Badge>
+                  <span className="ml-auto text-sm font-semibold text-foreground">
+                    <Amount value={confirmedTotal} />
+                  </span>
+                  {confirmedRowsVisible ? (
+                    <ChevronUpIcon className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDownIcon className="size-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {confirmedRowsVisible ? (
+                  <ul className="flex flex-col gap-2">
                     {entries.map((entry) => (
                       <li
                         key={entry.id}
-                        className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                        className="flex items-center rounded-xl border bg-card shadow-xs"
                       >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {entry.name}
-                            </span>
-                            <span
-                              className={
-                                entry.is_one_time
-                                  ? "shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                                  : "shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                              }
-                            >
-                              {entry.is_one_time ? "jednokratno" : "plata"}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
-                            {personChip(entry.person_id)}
-                            {entry.received_on ? (
-                              <span className="whitespace-nowrap">
-                                {entry.received_on.slice(8, 10)}.{entry.received_on.slice(5, 7)}.
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                          <Amount value={entry.amount} />
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label="Izmeni prihod"
-                            onClick={() => setView({ kind: "entry", entry })}
-                            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                          >
-                            <PencilSquareIcon className="size-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Obriši prihod"
-                            onClick={() => {
-                              void deleteEntry.mutateAsync(entry.id).catch(() => {});
-                            }}
-                            className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                          >
-                            <TrashIcon className="size-4" />
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => setView({ kind: "one-time" })}
-              >
-                <PlusIcon className="mr-2 size-4" />
-                Dodaj jednokratni prihod
-              </Button>
-            </section>
-
-            {/* Recurring source templates (collapsible) */}
-            <section className="border-t border-gray-200 pt-3 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => setShowSources((v) => !v)}
-                className="flex w-full items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-200"
-              >
-                <span>Izvori prihoda (recurring)</span>
-                {showSources ? (
-                  <ChevronUpIcon className="size-4 text-gray-400" />
-                ) : (
-                  <ChevronDownIcon className="size-4 text-gray-400" />
-                )}
-              </button>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Šabloni koji te svaki mesec podsete da potvrdiš prihod. Izmena ne dira prošle
-                mesece.
-              </p>
-
-              {showSources ? (
-                <div className="mt-3 space-y-2">
-                  {incomes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Još nema izvora.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {incomes.map((income) => (
-                        <li
-                          key={income.id}
-                          className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                        <button
+                          type="button"
+                          aria-label={`Izmeni prihod ${entry.name}`}
+                          onClick={() => push({ kind: "entry", entry })}
+                          className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {income.name}
+                              <span className="truncate text-sm font-medium text-card-foreground">
+                                {entry.name}
                               </span>
-                              {!income.active ? (
-                                <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-700 dark:text-gray-400">
-                                  pauzirano
+                              <Badge variant={entry.is_one_time ? "secondary" : "outline"}>
+                                {entry.is_one_time ? "jednokratno" : "redovno"}
+                              </Badge>
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                              {personChip(entry.person_id)}
+                              {entry.received_on ? (
+                                <span className="whitespace-nowrap">
+                                  {entry.received_on.slice(8, 10)}.{entry.received_on.slice(5, 7)}.
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-0.5 flex flex-col gap-0.5 text-xs text-gray-500 sm:flex-row sm:items-center sm:gap-2 dark:text-gray-400">
-                              {personChip(income.person_id)}
-                              <span className="whitespace-nowrap">
-                                {income.day_of_month}. u mesecu
-                              </span>
-                            </div>
                           </div>
-                          <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                            <Amount value={income.amount} />
+                          <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
+                            <Amount value={entry.amount} />
                           </span>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              aria-label="Izmeni izvor"
-                              onClick={() => setView({ kind: "source", income })}
-                              className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                            >
-                              <PencilSquareIcon className="size-4" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="Obriši izvor"
-                              onClick={() => {
-                                void deleteIncome.mutateAsync(income.id).catch(() => {});
-                              }}
-                              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                            >
-                              <TrashIcon className="size-4" />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                        </button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="mr-2 text-muted-foreground hover:text-destructive"
+                          aria-label={`Obriši prihod ${entry.name}`}
+                          onClick={() => push({ kind: "delete-entry", entry })}
+                        >
+                          <TrashIcon />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : pendingSources.length === 0 ? (
+              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-5 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Još nema prihoda za ovaj mesec
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Dodaj jednokratni prihod ili podesi redovni prihod.
+                </p>
+              </div>
+            ) : null}
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setView({ kind: "source", income: null })}
-                  >
-                    <PlusIcon className="mr-2 size-4" />
-                    Dodaj izvor
-                  </Button>
-                </div>
-              ) : null}
-            </section>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => push({ kind: "one-time" })}
+            >
+              <PlusIcon data-icon="inline-start" />
+              Dodaj jednokratni prihod
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => push({ kind: "sources" })}
+              className="group flex w-full items-center gap-3 rounded-xl border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <BanknotesIcon className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-foreground">Redovni prihodi</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {activeSources.length > 0 ? (
+                    <>
+                      Aktivno: {activeSources.length} · očekivano <Amount value={expectedTotal} />{" "}
+                      mesečno
+                    </>
+                  ) : (
+                    "Dodaj prihod koji se ponavlja svakog meseca"
+                  )}
+                </span>
+              </span>
+              <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </button>
           </div>
+        ) : null}
+
+        {view.kind === "sources" ? (
+          <div className="flex flex-col gap-4">
+            {incomes.length === 0 ? (
+              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-6 text-center">
+                <p className="text-sm font-medium text-foreground">Još nema redovnih prihoda</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Dodaj platu ili drugi prihod koji očekuješ svakog meseca.
+                </p>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {incomes.map((income) => (
+                  <li
+                    key={income.id}
+                    className="flex items-center rounded-xl border bg-card shadow-xs"
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Izmeni redovni prihod ${income.name}`}
+                      onClick={() => push({ kind: "source", income })}
+                      className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-card-foreground">
+                            {income.name}
+                          </span>
+                          {!income.active ? <Badge variant="secondary">pauzirano</Badge> : null}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                          {personChip(income.person_id)}
+                          <span className="whitespace-nowrap">{income.day_of_month}. u mesecu</span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
+                        <Amount value={income.amount} />
+                      </span>
+                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="mr-2 text-muted-foreground hover:text-destructive"
+                      aria-label={`Obriši redovni prihod ${income.name}`}
+                      onClick={() => push({ kind: "delete-source", income })}
+                    >
+                      <TrashIcon />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => push({ kind: "source", income: null })}
+            >
+              <PlusIcon data-icon="inline-start" />
+              Novi redovni prihod
+            </Button>
+          </div>
+        ) : null}
+
+        {view.kind === "delete-entry" ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Obrisati prihod „{view.entry.name}" od <Amount value={view.entry.amount} />? Ova
+              radnja se ne može opozvati.
+            </p>
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={deleteEntry.isPending}>
+                Nazad
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteEntry.isPending}
+                onClick={() => {
+                  void handleDeleteEntry(view.entry);
+                }}
+              >
+                Obriši
+              </Button>
+            </ResponsiveDialogFooter>
+          </>
+        ) : null}
+
+        {view.kind === "delete-source" ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Obrisati redovni prihod „{view.income.name}"? Već potvrđeni prihodi iz prethodnih
+              meseci ostaju sačuvani.
+            </p>
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={deleteIncome.isPending}>
+                Nazad
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteIncome.isPending}
+                onClick={() => {
+                  void handleDeleteSource(view.income);
+                }}
+              >
+                Obriši
+              </Button>
+            </ResponsiveDialogFooter>
+          </>
         ) : null}
 
         {/* ---------------------------------------------------------------- */}

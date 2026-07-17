@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CakeIcon, ChevronRightIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,14 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
   SheetActionsKebab,
   type SheetAction,
 } from "@/components/common/SheetActions";
+import { useDeleteBirthday } from "@/hooks/useBirthdays";
 import type { Birthday, Event } from "@/types/database";
 import { currentAge, daysUntilBirthday } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
@@ -22,9 +22,10 @@ import { formatDate } from "@/utils/date";
  * Detail popup for one birthday — the payments-sheet pattern: hero, state as
  * badges ("za N dana", next age), info rows, footer with "Izmeni" and
  * "Organizuj proslavu" as the contextual primary (until a celebration
- * exists), delete behind the kebab (mobile: "Opcije" sub-view). Heavier flows
- * (edit form, delete confirm, celebration form) live in the page's dialogs —
- * this sheet closes and delegates.
+ * exists). The kebab's delete lives as a confirm sub-view on the sheet stack
+ * (see `useSheetStack`) — "←" back header, dismissal returns one level up.
+ * Only the heavier forms (edit, celebration) still close the sheet and
+ * delegate to the page's dialogs.
  */
 export type BirthdayDetailDialogProps = {
   open: boolean;
@@ -33,12 +34,11 @@ export type BirthdayDetailDialogProps = {
   /** Soonest upcoming celebration event linked to this birthday, if any. */
   celebration?: Event | null;
   onEdit: (birthday: Birthday) => void;
-  onDelete: (birthday: Birthday) => void;
   onOrganize: (birthday: Birthday) => void;
   onOpenCelebration: (event: Event) => void;
 };
 
-type Mode = "detail" | "actions";
+type View = "detail" | "actions" | "delete";
 
 /** "Puni 9 godina / 21 godinu / 3 godine" — Serbian count agreement. */
 function ageLabel(age: number): string {
@@ -61,23 +61,33 @@ export function BirthdayDetailDialog({
   birthday,
   celebration = null,
   onEdit,
-  onDelete,
   onOrganize,
   onOpenCelebration,
 }: BirthdayDetailDialogProps) {
-  const [mode, setMode] = useState<Mode>("detail");
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, "detail");
+  const deleteMutation = useDeleteBirthday();
+  const saving = deleteMutation.isPending;
 
+  // Back to the root view whenever the subject birthday changes underneath.
   useEffect(() => {
-    if (!open) setMode("detail");
-  }, [open]);
-  useEffect(() => {
-    setMode("detail");
-  }, [birthday]);
+    reset();
+  }, [birthday, reset]);
 
   // Close first, then hand off to the page's own dialog for the flow.
   const delegate = (action: () => void) => {
     onOpenChange(false);
     action();
+  };
+
+  const handleDelete = async () => {
+    if (!birthday) return;
+    try {
+      await deleteMutation.mutateAsync(birthday.id);
+      onOpenChange(false);
+    } catch {
+      // Mutation hook already toasts; stay here so the user can retry.
+    }
   };
 
   const actionItems: SheetAction[] = birthday
@@ -87,7 +97,7 @@ export function BirthdayDetailDialog({
           label: "Obriši rođendan",
           icon: TrashIcon,
           destructive: true,
-          onSelect: () => delegate(() => onDelete(birthday)),
+          onSelect: () => push("delete"),
         },
       ]
     : [];
@@ -95,14 +105,13 @@ export function BirthdayDetailDialog({
   const days = birthday ? daysUntilBirthday(birthday.birth_date) : 0;
   const nextAge = birthday ? currentAge(birthday.birth_date) + 1 : 0;
 
+  const title =
+    view === "actions" ? "Opcije" : view === "delete" ? "Obriši rođendan" : "Detalji rođendana";
+
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader className={mode === "detail" ? "sr-only" : undefined}>
-          <ResponsiveDialogTitle>
-            {mode === "actions" ? "Opcije" : "Detalji rođendana"}
-          </ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
+        <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
         {birthday ? (
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -117,13 +126,22 @@ export function BirthdayDetailDialog({
                   Rođendan · {formatDate(birthday.birth_date)}
                 </p>
               </div>
-              {mode === "detail" ? (
-                <SheetActionsKebab items={actionItems} onOpenActions={() => setMode("actions")} />
+              {view === "detail" ? (
+                <SheetActionsKebab
+                  items={actionItems}
+                  disabled={saving}
+                  onOpenActions={() => push("actions")}
+                />
               ) : null}
             </div>
 
-            {mode === "actions" ? (
-              <SheetActionList items={actionItems} />
+            {view === "actions" ? (
+              <SheetActionList items={actionItems} disabled={saving} />
+            ) : view === "delete" ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
+                opozvati.
+              </p>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -169,14 +187,25 @@ export function BirthdayDetailDialog({
           </div>
         ) : null}
 
-        {mode === "actions" ? (
+        {view === "actions" ? (
           <ResponsiveDialogFooter>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setMode("detail")}
-            >
+            <Button variant="outline" className="w-full sm:w-auto" onClick={pop} disabled={saving}>
               Nazad
+            </Button>
+          </ResponsiveDialogFooter>
+        ) : view === "delete" ? (
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={pop} disabled={saving}>
+              Nazad
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleDelete();
+              }}
+              disabled={saving}
+            >
+              Obriši
             </Button>
           </ResponsiveDialogFooter>
         ) : (

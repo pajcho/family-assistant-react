@@ -8,19 +8,27 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
   SheetActionsKebab,
   type SheetAction,
 } from "@/components/common/SheetActions";
+import {
+  EventDateTimeFields,
+  type EventDateTimeValue,
+  dateTimeValueToColumns,
+  eventToDateTimeValue,
+} from "@/components/events/EventDateTimeFields";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { useDeleteEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
 import { formatDate } from "@/utils/date";
@@ -32,10 +40,10 @@ import { formatEventTimeRange, isEventEnded } from "@/utils/event";
  * "Izmeni" (+ "Vrati" as the contextual primary when canceled), everything
  * else behind the kebab (mobile: "Opcije" sub-view, desktop: dropdown).
  *
- * The heavier flows (edit form, reschedule, cancel-with-reason, delete
- * confirm) already live in the page's own dialogs — this sheet closes itself
- * and delegates (the PaymentHistoryPopup close-then-open pattern; never stack
- * two drawers).
+ * Reschedule, cancel-with-reason and the delete confirm are sub-views on the
+ * sheet stack (see `useSheetStack`) — same sheet, "←" back header, dismissal
+ * returns one level up. Only the full edit form still closes the sheet and
+ * delegates to the page's form dialog via `onEdit`.
  */
 export type EventDetailDialogProps = {
   open: boolean;
@@ -43,12 +51,9 @@ export type EventDetailDialogProps = {
   event: Event | null;
   personIds?: string[];
   onEdit: (event: Event) => void;
-  onReschedule: (event: Event) => void;
-  onToggleCancel: (event: Event) => void;
-  onDelete: (event: Event) => void;
 };
 
-type Mode = "detail" | "actions";
+type View = "detail" | "actions" | "reschedule" | "cancel" | "delete";
 
 export function EventDetailDialog({
   open,
@@ -56,27 +61,99 @@ export function EventDetailDialog({
   event,
   personIds = [],
   onEdit,
-  onReschedule,
-  onToggleCancel,
-  onDelete,
 }: EventDetailDialogProps) {
-  const [mode, setMode] = useState<Mode>("detail");
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, "detail");
+  const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
 
-  useEffect(() => {
-    if (!open) setMode("detail");
-  }, [open]);
-  useEffect(() => {
-    setMode("detail");
-  }, [event]);
+  const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
 
+  // Back to the root view whenever the subject event changes underneath.
+  useEffect(() => {
+    reset();
+  }, [event, reset]);
+
+  const saving = updateEvent.isPending || deleteEvent.isPending;
   const isCanceled = !!event?.canceled_at;
   const isEnded = !!event && !isCanceled && isEventEnded(event);
 
-  // Close first, then hand off to the page's own dialog for the flow.
-  const delegate = (action: (event: Event) => void) => {
+  // The full edit form lives in the page's own dialog — close and hand off.
+  const handleEdit = () => {
     if (!event) return;
     onOpenChange(false);
-    action(event);
+    onEdit(event);
+  };
+
+  // Seed a clean slate each time a sub-view is entered (not just per-event),
+  // so a back-and-forth within one open doesn't carry stale unsaved input.
+  const openReschedule = () => {
+    setDtValue(eventToDateTimeValue(event));
+    setRescheduleReason("");
+    push("reschedule");
+  };
+
+  const openCancel = () => {
+    setCancelReason("");
+    push("cancel");
+  };
+
+  const handleRescheduleSave = async () => {
+    if (!event || !dtValue.date) return;
+    try {
+      await updateEvent.mutateAsync({
+        id: event.id,
+        payload: {
+          ...dateTimeValueToColumns(dtValue),
+          reschedule_reason: rescheduleReason.trim() || null,
+        },
+      });
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!event) return;
+    try {
+      await updateEvent.mutateAsync({
+        id: event.id,
+        payload: {
+          canceled_at: new Date().toISOString(),
+          cancel_reason: cancelReason.trim() || null,
+        },
+      });
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
+  };
+
+  // Restoring a canceled event clears both the timestamp and the reason.
+  const handleRestore = async () => {
+    if (!event) return;
+    try {
+      await updateEvent.mutateAsync({
+        id: event.id,
+        payload: { canceled_at: null, cancel_reason: null },
+      });
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!event) return;
+    try {
+      await deleteEvent.mutateAsync(event.id);
+      onOpenChange(false);
+    } catch {
+      // Error toast surfaced by the hook.
+    }
   };
 
   const actionItems: SheetAction[] = [];
@@ -85,13 +162,13 @@ export function EventDetailDialog({
       key: "reschedule",
       label: "Pomeri datum",
       icon: CalendarDaysIcon,
-      onSelect: () => delegate(onReschedule),
+      onSelect: openReschedule,
     });
     actionItems.push({
       key: "cancel",
       label: "Otkaži događaj",
       icon: XCircleIcon,
-      onSelect: () => delegate(onToggleCancel),
+      onSelect: openCancel,
     });
   }
   actionItems.push({
@@ -100,7 +177,7 @@ export function EventDetailDialog({
     icon: TrashIcon,
     destructive: true,
     separatorBefore: actionItems.length > 0,
-    onSelect: () => delegate(onDelete),
+    onSelect: () => push("delete"),
   });
 
   const statusBadges: { label: string; className: string }[] = [];
@@ -122,14 +199,21 @@ export function EventDetailDialog({
     });
   }
 
+  const title =
+    view === "actions"
+      ? "Opcije"
+      : view === "reschedule"
+        ? "Pomeri događaj"
+        : view === "cancel"
+          ? "Otkaži događaj"
+          : view === "delete"
+            ? "Obriši događaj"
+            : "Detalji događaja";
+
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader className={mode === "detail" ? "sr-only" : undefined}>
-          <ResponsiveDialogTitle>
-            {mode === "actions" ? "Opcije" : "Detalji događaja"}
-          </ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
+        <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
         {event ? (
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -149,13 +233,57 @@ export function EventDetailDialog({
                   {formatEventTimeRange(event)}
                 </p>
               </div>
-              {mode === "detail" ? (
-                <SheetActionsKebab items={actionItems} onOpenActions={() => setMode("actions")} />
+              {view === "detail" ? (
+                <SheetActionsKebab
+                  items={actionItems}
+                  disabled={saving}
+                  onOpenActions={() => push("actions")}
+                />
               ) : null}
             </div>
 
-            {mode === "actions" ? (
-              <SheetActionList items={actionItems} />
+            {view === "actions" ? (
+              <SheetActionList items={actionItems} disabled={saving} />
+            ) : view === "reschedule" ? (
+              <div className="space-y-4">
+                <EventDateTimeFields
+                  value={dtValue}
+                  onChange={setDtValue}
+                  idPrefix="event-detail-reschedule"
+                />
+                <div className="space-y-2">
+                  <Label htmlFor="event-detail-reschedule-reason">Razlog (opciono)</Label>
+                  <Textarea
+                    id="event-detail-reschedule-reason"
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="npr. termin pomeren zbog vremena"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            ) : view === "cancel" ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
+                  kalendaru. Možeš ga kasnije vratiti.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="event-detail-cancel-reason">Razlog (opciono)</Label>
+                  <Textarea
+                    id="event-detail-cancel-reason"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="npr. otkazano zbog kiše"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            ) : view === "delete" ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
+                opozvati.
+              </p>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -218,14 +346,54 @@ export function EventDetailDialog({
           </div>
         ) : null}
 
-        {mode === "actions" ? (
+        {view === "actions" ? (
           <ResponsiveDialogFooter>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setMode("detail")}
-            >
+            <Button variant="outline" className="w-full sm:w-auto" onClick={pop} disabled={saving}>
               Nazad
+            </Button>
+          </ResponsiveDialogFooter>
+        ) : view === "reschedule" ? (
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={pop} disabled={saving}>
+              Nazad
+            </Button>
+            <Button
+              onClick={() => {
+                void handleRescheduleSave();
+              }}
+              disabled={saving || !dtValue.date}
+            >
+              Sačuvaj
+            </Button>
+          </ResponsiveDialogFooter>
+        ) : view === "cancel" ? (
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={pop} disabled={saving}>
+              Nazad
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleCancelConfirm();
+              }}
+              disabled={saving}
+            >
+              Otkaži događaj
+            </Button>
+          </ResponsiveDialogFooter>
+        ) : view === "delete" ? (
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={pop} disabled={saving}>
+              Nazad
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleDelete();
+              }}
+              disabled={saving}
+            >
+              Obriši
             </Button>
           </ResponsiveDialogFooter>
         ) : (
@@ -235,21 +403,25 @@ export function EventDetailDialog({
                 <Button
                   variant="outline"
                   className="flex-1 sm:flex-none"
-                  onClick={() => delegate(onEdit)}
+                  onClick={handleEdit}
+                  disabled={saving}
                 >
                   Izmeni
                 </Button>
                 {/* Contextual primary: un-cancel is the state-fixing action. */}
                 <Button
                   className="flex-[1.4] sm:flex-none"
-                  onClick={() => delegate(onToggleCancel)}
+                  onClick={() => {
+                    void handleRestore();
+                  }}
+                  disabled={saving}
                 >
                   <ArrowUturnLeftIcon className="size-4" />
                   Vrati događaj
                 </Button>
               </>
             ) : (
-              <Button className="flex-1 sm:flex-none" onClick={() => delegate(onEdit)}>
+              <Button className="flex-1 sm:flex-none" onClick={handleEdit} disabled={saving}>
                 Izmeni
               </Button>
             )}

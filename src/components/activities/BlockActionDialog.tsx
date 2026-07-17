@@ -14,12 +14,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TimePicker } from "@/components/ui/time-picker";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { cn } from "@/lib/cn";
 import type { Activity, Profile } from "@/types/database";
 import { fallbackColorForProfile, type ResolvedActivityBlock } from "@/utils/activity";
@@ -60,13 +56,16 @@ export function BlockActionDialog({
   const upsertOverride = useUpsertActivityOverride();
   const deleteOverride = useDeleteActivityOverride();
 
-  // Local mode flips between the action list and the inline cancel /
-  // reschedule forms. Reset every time the dialog opens for a new block so
-  // stale state from the previous occurrence doesn't carry over.
-  const [mode, setMode] = useState<"actions" | "cancel" | "reschedule">("actions");
+  // The action list is the root view; the inline cancel / reschedule forms
+  // are sub-views on the sheet stack ("←" back header, dismissal returns to
+  // the list). Reset when the dialog opens for a new block so stale state
+  // from the previous occurrence doesn't carry over.
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<
+    "actions" | "cancel" | "reschedule"
+  >(open, onOpenChange, "actions");
   useEffect(() => {
-    if (open) setMode("actions");
-  }, [open, block?.scheduleId, block?.date]);
+    reset();
+  }, [block?.scheduleId, block?.date, reset]);
 
   if (!block) return null;
 
@@ -122,11 +121,18 @@ export function BlockActionDialog({
   };
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{activity?.name ?? "Aktivnost"}</ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
+        <SheetStackHeader
+          title={
+            view === "cancel"
+              ? "Otkaži termin"
+              : view === "reschedule"
+                ? "Pomeri termin"
+                : (activity?.name ?? "Aktivnost")
+          }
+          onBack={atRoot ? undefined : pop}
+        />
 
         {/* Subtitle: person + occurrence date + current state (if overridden) */}
         <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
@@ -164,20 +170,20 @@ export function BlockActionDialog({
           </div>
         )}
 
-        {mode === "actions" ? (
+        {view === "actions" ? (
           <ActionList
             isCanceled={isCanceled}
             isRescheduled={isRescheduled}
             saving={upsertOverride.isPending || deleteOverride.isPending}
             onEdit={handleEdit}
-            onCancel={() => setMode("cancel")}
-            onReschedule={() => setMode("reschedule")}
+            onCancel={() => push("cancel")}
+            onReschedule={() => push("reschedule")}
             onRestore={() => void handleRestore()}
           />
-        ) : mode === "cancel" ? (
+        ) : view === "cancel" ? (
           <CancelForm
             saving={upsertOverride.isPending}
-            onBack={() => setMode("actions")}
+            onBack={pop}
             onConfirm={(note) => void handleCancel(note)}
           />
         ) : (
@@ -185,7 +191,7 @@ export function BlockActionDialog({
             block={block}
             originalDate={originalDate}
             saving={upsertOverride.isPending}
-            onCancel={() => setMode("actions")}
+            onCancel={pop}
             onSubmit={async (newDate, startTime, endTime, note) => {
               try {
                 await upsertOverride.mutateAsync({
