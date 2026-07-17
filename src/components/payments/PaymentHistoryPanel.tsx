@@ -19,8 +19,6 @@ import { cn } from "@/lib/cn";
 export type PaymentHistoryListProps = {
   /** The payment whose history we're inspecting; null while closed. */
   payment: Payment | null;
-  /** Gates the query so history fetches only while the view is on screen. */
-  active: boolean;
   /** "Poništi" on the latest entry — the parent pushes its undo view. */
   onRequestUndo: () => void;
 };
@@ -29,8 +27,10 @@ export type PaymentHistoryListProps = {
  * Every paid instance of a recurring payment (latest first), with an inline
  * "Poništi" link on the most recent entry.
  */
-export function PaymentHistoryList({ payment, active, onRequestUndo }: PaymentHistoryListProps) {
-  const historyQuery = usePaymentHistoryByPaymentId(active ? payment?.id : null);
+export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryListProps) {
+  // This component only exists while the history sub-view is mounted, so the
+  // payment id itself is the query gate.
+  const historyQuery = usePaymentHistoryByPaymentId(payment?.id);
   const history = historyQuery.data ?? [];
   const loading = historyQuery.isLoading || historyQuery.isFetching;
 

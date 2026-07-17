@@ -125,7 +125,6 @@ export function PaymentOccurrenceDialog({
             {view.kind === "history" ? (
               <PaymentHistoryList
                 payment={payment}
-                active={view.kind === "history"}
                 onRequestUndo={() => push({ kind: "undo", from: "history" })}
               />
             ) : view.kind === "undo" ? (

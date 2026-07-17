@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { PencilSquareIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
@@ -83,6 +83,17 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [toDelete, setToDelete] = useState<ExpenseCategory | null>(null);
   const saving = createCategory.isPending || updateCategory.isPending;
+
+  // Gesture/outside dismissals pop the sheet stack without going through the
+  // form buttons. Drop the corresponding payload once the list is visible so
+  // canceled edits and deleted-category references never leak into a later
+  // open.
+  useEffect(() => {
+    if (view === "list") {
+      setEditor(null);
+      setToDelete(null);
+    }
+  }, [view]);
 
   const openEditor = (initial: EditorState) => {
     setEditor(initial);

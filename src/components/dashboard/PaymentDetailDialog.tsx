@@ -439,11 +439,7 @@ export function PaymentDetailDialog({
               ) : view === "actions" ? (
                 <SheetActionList items={actionItems} disabled={saving} />
               ) : view === "history" ? (
-                <PaymentHistoryList
-                  payment={payment}
-                  active={view === "history"}
-                  onRequestUndo={() => push("undo")}
-                />
+                <PaymentHistoryList payment={payment} onRequestUndo={() => push("undo")} />
               ) : view === "undo" ? (
                 <PaymentUndoConfirm
                   paymentId={payment.id}

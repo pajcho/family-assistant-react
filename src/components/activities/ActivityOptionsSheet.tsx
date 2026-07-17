@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AcademicCapIcon,
@@ -69,11 +69,8 @@ export function ActivityOptionsSheet({
   bell,
 }: ActivityOptionsSheetProps) {
   const navigate = useNavigate();
-  const { view, atRoot, push, pop, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<View>(
-    open,
-    onOpenChange,
-    { kind: "hub" },
-  );
+  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<View>(open, onOpenChange, { kind: "hub" });
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const back = pop;
@@ -82,8 +79,16 @@ export function ActivityOptionsSheet({
   // back to the hub defensively.
   const focusedMember =
     view.kind === "shift" || view.kind === "timetable" ? memberById.get(view.personId) : undefined;
-  const effectiveView: View =
-    (view.kind === "shift" || view.kind === "timetable") && !focusedMember ? { kind: "hub" } : view;
+  const focusedMemberMissing =
+    (view.kind === "shift" || view.kind === "timetable") && !focusedMember;
+  const effectiveView: View = focusedMemberMissing ? { kind: "hub" } : view;
+
+  // A member can disappear through another session while their editor is
+  // open. Render the hub immediately, then discard the invalid stack entry so
+  // the next navigation does not push on top of a view that can never render.
+  useEffect(() => {
+    if (focusedMemberMissing) reset();
+  }, [focusedMemberMissing, reset]);
 
   const title =
     effectiveView.kind === "hub"
