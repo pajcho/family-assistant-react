@@ -1,12 +1,70 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { ComponentProps } from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@/lib/cn";
 
-function Drawer({ ...props }: ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
+/** Vaul's close transition duration. Keep the page locked until it finishes. */
+const DRAWER_EXIT_DURATION_MS = 500;
+
+/**
+ * Radix locks scroll from inside the overlay component. That lock can be
+ * released out of order when one drawer closes while another opens, or when
+ * SheetStack remounts a dismissed sub-view during Vaul's exit transition.
+ *
+ * Keep a second, app-owned lock tied to the Drawer root's open state. The
+ * reference count handles overlapping drawers; delayed release bridges both
+ * Vaul's exit animation and SheetStack's close -> remount -> reopen hop.
+ */
+let activeDrawerScrollLocks = 0;
+
+function acquireDrawerScrollLock(): () => void {
+  activeDrawerScrollLocks += 1;
+  document.documentElement.classList.add("dialog-open");
+
+  return () => {
+    window.setTimeout(() => {
+      activeDrawerScrollLocks = Math.max(0, activeDrawerScrollLocks - 1);
+      if (activeDrawerScrollLocks === 0) {
+        document.documentElement.classList.remove("dialog-open");
+      }
+    }, DRAWER_EXIT_DURATION_MS);
+  };
+}
+
+function useDrawerScrollLock(open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    return acquireDrawerScrollLock();
+  }, [open]);
+}
+
+function Drawer({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: ComponentProps<typeof DrawerPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(() => defaultOpen ?? false);
+  const resolvedOpen = open ?? uncontrolledOpen;
+  useDrawerScrollLock(resolvedOpen);
+
+  const handleOpenChange = (next: boolean) => {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+
+  return (
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={handleOpenChange}
+      {...props}
+    />
+  );
 }
 
 function DrawerTrigger({ ...props }: ComponentProps<typeof DrawerPrimitive.Trigger>) {

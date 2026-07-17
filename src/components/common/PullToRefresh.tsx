@@ -61,7 +61,11 @@ export function PullToRefresh() {
       if (refreshingRef.current || e.touches.length !== 1) return;
       if (window.scrollY > 0) return;
       // A dialog/drawer locks body scroll — a pull inside it must not refresh.
-      if (document.body.hasAttribute("data-scroll-locked")) return;
+      if (
+        document.body.hasAttribute("data-scroll-locked") ||
+        document.documentElement.classList.contains("dialog-open")
+      )
+        return;
       const t = e.touches[0];
       gesture.current = { x: t.clientX, y: t.clientY, axis: null };
     };
