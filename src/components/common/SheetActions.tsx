@@ -1,11 +1,12 @@
 import { Fragment } from "react";
 import type { ComponentType, SVGProps } from "react";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -15,7 +16,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Shared "more actions" plumbing for detail sheets (payments, events,
- * birthdays): ONE item list feeds both surfaces — the desktop kebab dropdown
+ * birthdays): ONE item list feeds both surfaces — the desktop footer menu
  * and the mobile "Opcije" sub-view rendered INSIDE the same sheet.
  *
  * The sub-view (not a second drawer!) is deliberate: two independent vaul
@@ -33,10 +34,11 @@ export type SheetAction = {
 };
 
 /**
- * The kebab trigger: anchored dropdown on desktop (pointer is precise), a
- * plain button that flips the sheet into its "actions" sub-view on mobile.
+ * Mobile-only kebab. It stays in the detail hero because that placement works
+ * well in the compact drawer, and flips the sheet into its "actions" sub-view.
+ * Desktop actions deliberately live in the footer, away from the dialog's X.
  */
-export function SheetActionsKebab({
+export function SheetActionsMobileTrigger({
   items,
   disabled = false,
   onOpenActions,
@@ -47,9 +49,9 @@ export function SheetActionsKebab({
   onOpenActions: () => void;
 }) {
   const isDesktop = useIsDesktop();
-  if (items.length === 0) return null;
+  if (items.length === 0 || isDesktop) return null;
 
-  const trigger = (
+  return (
     <Button
       type="button"
       variant="ghost"
@@ -57,31 +59,54 @@ export function SheetActionsKebab({
       aria-label="Više opcija"
       className="shrink-0 text-gray-500 dark:text-gray-400"
       disabled={disabled}
-      onClick={isDesktop ? undefined : onOpenActions}
+      onClick={onOpenActions}
     >
       <EllipsisVerticalIcon className="size-5" />
     </Button>
   );
+}
 
-  if (!isDesktop) return trigger;
+/**
+ * Desktop-only menu button. A quiet text trigger in the footer makes the
+ * action group discoverable without competing with the contextual primary
+ * action, and keeps it spatially distinct from the dialog close control.
+ */
+export function SheetActionsMenu({
+  items,
+  disabled = false,
+  className,
+}: {
+  items: SheetAction[];
+  disabled?: boolean;
+  className?: string;
+}) {
+  const isDesktop = useIsDesktop();
+  if (items.length === 0 || !isDesktop) return null;
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        {items.map((item) => (
-          <Fragment key={item.key}>
-            {item.separatorBefore ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem
-              variant={item.destructive ? "destructive" : "default"}
-              onClick={item.onSelect}
-              disabled={disabled}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" className={className} disabled={disabled}>
+          Opcije
+          <ChevronDownIcon data-icon="inline-end" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-60">
+        <DropdownMenuGroup>
+          {items.map((item) => (
+            <Fragment key={item.key}>
+              {item.separatorBefore ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                variant={item.destructive ? "destructive" : "default"}
+                onSelect={item.onSelect}
+                disabled={disabled}
+              >
+                <item.icon />
+                {item.label}
+              </DropdownMenuItem>
+            </Fragment>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -3,6 +3,7 @@ import {
   CakeIcon,
   CalendarIcon,
   ClipboardDocumentListIcon,
+  ShoppingCartIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
@@ -10,9 +11,9 @@ import { AddSheetMenu } from "@/components/common/AddSheetMenu";
 
 /**
  * The dashboard's "Dodaj" — the shared AddSheetMenu over the four agenda
- * types plus a "Lista" shortcut (lists live on /lists, so that entry
- * navigates there with the create dialog open instead of opening a dialog in
- * place). Tile sheet on mobile, labelled header dropdown on desktop.
+ * types, a "Lista" shortcut and quick expense entry. Lists live on /lists, so
+ * only that entry navigates away; every other flow opens in place. Tile sheet
+ * on mobile, labelled header dropdown on desktop.
  */
 export type AddMenuProps = {
   onAddActivity: () => void;
@@ -20,6 +21,7 @@ export type AddMenuProps = {
   onAddPayment: () => void;
   onAddBirthday: () => void;
   onAddList: () => void;
+  onAddExpense: () => void;
 };
 
 export function AddMenu({
@@ -28,6 +30,7 @@ export function AddMenu({
   onAddPayment,
   onAddBirthday,
   onAddList,
+  onAddExpense,
 }: AddMenuProps) {
   return (
     <AddSheetMenu
@@ -71,6 +74,14 @@ export function AddMenu({
           iconClass: "text-purple-600 dark:text-purple-400",
           iconBgClass: "bg-purple-100 dark:bg-purple-900/40",
           onSelect: onAddList,
+        },
+        {
+          key: "expense",
+          label: "Trošak",
+          icon: ShoppingCartIcon,
+          iconClass: "text-rose-600 dark:text-rose-400",
+          iconBgClass: "bg-rose-100 dark:bg-rose-900/40",
+          onSelect: onAddExpense,
         },
       ]}
     />

@@ -10,7 +10,8 @@ import {
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
-  SheetActionsKebab,
+  SheetActionsMenu,
+  SheetActionsMobileTrigger,
   type SheetAction,
 } from "@/components/common/SheetActions";
 import { useDeleteBirthday } from "@/hooks/useBirthdays";
@@ -22,7 +23,7 @@ import { formatDate } from "@/utils/date";
  * Detail popup for one birthday — the payments-sheet pattern: hero, state as
  * badges ("za N dana", next age), info rows, footer with "Izmeni" and
  * "Organizuj proslavu" as the contextual primary (until a celebration
- * exists). The kebab's delete lives as a confirm sub-view on the sheet stack
+ * exists). The delete action lives as a confirm sub-view on the sheet stack
  * (see `useSheetStack`) — "←" back header, dismissal returns one level up.
  * Only the heavier forms (edit, celebration) still close the sheet and
  * delegate to the page's dialogs.
@@ -127,7 +128,7 @@ export function BirthdayDetailDialog({
                 </p>
               </div>
               {view === "detail" ? (
-                <SheetActionsKebab
+                <SheetActionsMobileTrigger
                   items={actionItems}
                   disabled={saving}
                   onOpenActions={() => push("actions")}
@@ -210,6 +211,7 @@ export function BirthdayDetailDialog({
           </ResponsiveDialogFooter>
         ) : (
           <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+            <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
             {birthday && !celebration ? (
               <>
                 <Button

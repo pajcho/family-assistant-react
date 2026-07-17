@@ -18,7 +18,8 @@ import {
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
-  SheetActionsKebab,
+  SheetActionsMenu,
+  SheetActionsMobileTrigger,
   type SheetAction,
 } from "@/components/common/SheetActions";
 import {
@@ -38,7 +39,8 @@ import { formatEventTimeRange, isEventEnded } from "@/utils/event";
  * Detail popup for one event on the /events page — the payments-sheet
  * pattern: hero (icon + name + time), state as badges, info rows, footer with
  * "Izmeni" (+ "Vrati" as the contextual primary when canceled), everything
- * else behind the kebab (mobile: "Opcije" sub-view, desktop: dropdown).
+ * else behind the secondary actions menu (mobile: "Opcije" sub-view,
+ * desktop: labeled footer dropdown).
  *
  * Reschedule, cancel-with-reason and the delete confirm are sub-views on the
  * sheet stack (see `useSheetStack`) — same sheet, "←" back header, dismissal
@@ -234,7 +236,7 @@ export function EventDetailDialog({
                 </p>
               </div>
               {view === "detail" ? (
-                <SheetActionsKebab
+                <SheetActionsMobileTrigger
                   items={actionItems}
                   disabled={saving}
                   onOpenActions={() => push("actions")}
@@ -398,6 +400,7 @@ export function EventDetailDialog({
           </ResponsiveDialogFooter>
         ) : (
           <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+            <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
             {isCanceled ? (
               <>
                 <Button

@@ -7,6 +7,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -47,12 +48,14 @@ export function AddSheetMenu({ items, title = "Dodaj" }: AddSheetMenuProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {items.map((item) => (
-            <DropdownMenuItem key={item.key} onClick={item.onSelect}>
-              <item.icon className={cn("size-4", item.iconClass)} />
-              {item.label}
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuGroup>
+            {items.map((item) => (
+              <DropdownMenuItem key={item.key} onSelect={item.onSelect}>
+                <item.icon className={item.iconClass} />
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

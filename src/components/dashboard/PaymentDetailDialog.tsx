@@ -24,7 +24,8 @@ import {
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
-  SheetActionsKebab,
+  SheetActionsMenu,
+  SheetActionsMobileTrigger,
   type SheetAction,
 } from "@/components/common/SheetActions";
 import { PaymentHistoryList, PaymentUndoConfirm } from "@/components/payments/PaymentHistoryPanel";
@@ -274,13 +275,13 @@ export function PaymentDetailDialog({
 
   // Action hierarchy (Todoist / Google Calendar pattern): ONE contextual
   // primary action pinned in the footer, "Izmeni" beside it, everything else
-  // behind the kebab — destructive last, separated. The kebab carries the
-  // occurrence actions only in the normal state; override/paused states put
-  // their single state-fixing action in the primary slot instead.
+  // in the secondary actions menu — destructive last, separated. The menu
+  // carries occurrence actions only in the normal state; override/paused
+  // states put their single state-fixing action in the primary slot instead.
   const overrideActive = cancelOverrideActive || override?.action === "reschedule";
   const showOccurrenceActions = !readOnly && !!payment && !overrideActive && !payment.is_paused;
 
-  // One list feeds both surfaces: the desktop kebab dropdown and the mobile
+  // One list feeds both surfaces: the desktop footer menu and the mobile
   // "Opcije" sub-view (see SheetActions).
   const actionItems: SheetAction[] = [];
   if (showOccurrenceActions) {
@@ -377,7 +378,7 @@ export function PaymentDetailDialog({
                   </p>
                 </div>
                 {view === "detail" ? (
-                  <SheetActionsKebab
+                  <SheetActionsMobileTrigger
                     items={actionItems}
                     disabled={saving}
                     onOpenActions={() => push("actions")}
@@ -573,6 +574,7 @@ export function PaymentDetailDialog({
             // Viewer footer: no state mutations here — the "Plaćeno"/"Dospeva"
             // badges above carry the status. "Izmeni" is the one action.
             <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+              <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
               <Button
                 variant="outline"
                 className="flex-1 sm:flex-none"
@@ -586,6 +588,7 @@ export function PaymentDetailDialog({
             </ResponsiveDialogFooter>
           ) : (
             <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+              <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
               <Button
                 variant="outline"
                 className="flex-1 sm:flex-none"
