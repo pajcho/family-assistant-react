@@ -23,6 +23,8 @@ export type PaymentFormPayload = {
   /** "Every N periods" — always present, defaults to 1 for one-time/limited. */
   recurrence_interval: number;
   remaining_occurrences?: number | null;
+  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  is_variable_amount: boolean;
   is_paused?: boolean;
   remind_days_before: number | null;
   /** Linked activity — XOR with the other two; all null when unlinked. */
@@ -58,6 +60,8 @@ type FormState = {
   recurrence_interval: number;
   /** kept as string for consistent controlled-input behavior */
   remaining_occurrences: string;
+  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  is_variable_amount: boolean;
   is_paused: boolean;
   remind_days_before: number | null;
   /** Single Jira-style link to an activity or event — see PaymentLinkField. */
@@ -155,6 +159,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
     recurrence_interval: payment?.recurrence_interval ?? 1,
     remaining_occurrences:
       payment?.remaining_occurrences != null ? String(payment.remaining_occurrences) : "4",
+    is_variable_amount: payment?.is_variable_amount ?? false,
     is_paused: payment?.is_paused ?? false,
     remind_days_before: payment?.remind_days_before ?? null,
     link: initialLink(payment),
@@ -168,12 +173,16 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
  *   • Naziv / Opis — full width
  *   • Za koga — assignee pills (optional)
  *   • Poveži sa — link combobox to one activity/event (optional)
- *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`
  *   • Tip — native select (Jednokratno / Nedeljno / Mesečno / Ograničeno).
- *     Disabled when `hasHistory` is true.
+ *     Disabled when `hasHistory` is true. Sits above Iznos because it gates the
+ *     conditional fields that follow.
  *   • Ponavljanje — native select shown only for `weekly` / `monthly`. Lets
  *     the user pick "every N weeks" / "every N months".
  *   • Preostalo uplata — only when `recurrence_period === 'limited'`
+ *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`. Label becomes "Okvirni
+ *     iznos" when the variable-amount toggle is on.
+ *   • Promenljiv iznos — checkbox shown only for recurring payments; marks the
+ *     amount as a per-period default confirmed at mark-paid time.
  *   • Pauziraj plaćanje — only when editing a recurring (non one-time) payment
  *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
  */
@@ -229,6 +238,9 @@ export function PaymentForm({
       recurrence_period: form.recurrence_period,
       recurrence_interval: showIntervalSelect ? form.recurrence_interval : 1,
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
+      // Variable amount is a recurring-only concept — never persist a stray flag
+      // if the user toggled it on and then switched Tip back to one-time.
+      is_variable_amount: isRecurring ? form.is_variable_amount : false,
       is_paused: isRecurring ? form.is_paused : false,
       remind_days_before: form.remind_days_before,
       activity_id: form.link?.kind === "activity" ? form.link.id : null,
@@ -277,29 +289,9 @@ export function PaymentForm({
         value={form.category_id}
         onChange={(category_id) => setForm((s) => ({ ...s, category_id }))}
       />
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="amount">Iznos (RSD) *</Label>
-          <Input
-            id="amount"
-            value={form.amount}
-            onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
-            type="number"
-            min="0"
-            step="1"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="due_date">Datum dospeća *</Label>
-          <DatePicker
-            id="due_date"
-            value={form.due_date}
-            onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
-            placeholder="Datum dospeća"
-          />
-        </div>
-      </div>
+      {/* Tip drives the conditional fields below it (Ponavljanje, Preostalo
+          uplata, Promenljiv iznos), so it sits ABOVE Iznos/Datum — the birač
+          comes first, then everything that depends on it. */}
       <div className={cn("grid gap-4", showIntervalSelect ? "grid-cols-2" : "grid-cols-1")}>
         <div className="space-y-2">
           <Label htmlFor="recurrence_period">Tip</Label>
@@ -341,6 +333,53 @@ export function PaymentForm({
             min="1"
             placeholder="npr. 4"
           />
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="amount">
+            {form.is_variable_amount ? "Okvirni iznos (RSD) *" : "Iznos (RSD) *"}
+          </Label>
+          <Input
+            id="amount"
+            value={form.amount}
+            onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
+            type="number"
+            min="0"
+            step="1"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="due_date">Datum dospeća *</Label>
+          <DatePicker
+            id="due_date"
+            value={form.due_date}
+            onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
+            placeholder="Datum dospeća"
+          />
+        </div>
+      </div>
+      {/* Variable amount is a recurring-only concept (režije koje variraju);
+          the toggle depends on the Tip value, not on whether the Tip select is
+          enabled — so it still shows for a payment with history you want to
+          convert to variable. */}
+      {isRecurring ? (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.is_variable_amount}
+              onChange={(e) => setForm((s) => ({ ...s, is_variable_amount: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-200">Promenljiv iznos</span>
+          </label>
+          {form.is_variable_amount ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Uneseni iznos je okvirni — pri svakom označavanju kao plaćeno potvrđuješ tačan iznos.
+            </p>
+          ) : null}
         </div>
       ) : null}
       {showPauseToggle ? (
