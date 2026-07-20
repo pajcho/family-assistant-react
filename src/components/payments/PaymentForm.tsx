@@ -198,10 +198,13 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
  *   • Ponavljanje — native select shown only for `weekly` / `monthly`. Lets
  *     the user pick "every N weeks" / "every N months".
  *   • Preostalo uplata — only when `recurrence_period === 'limited'`
- *   • Iznos (RSD) + Datum dospeća — `grid-cols-2`. Label becomes "Okvirni
- *     iznos" when the variable-amount toggle is on.
- *   • Promenljiv iznos — checkbox shown only for recurring payments; marks the
- *     amount as a per-period default confirmed at mark-paid time.
+ *   • Iznos — full width (label + currency toggle in one row, currency symbol
+ *     as the input suffix, NBS-rate row underneath for foreign entries).
+ *     Label becomes "Okvirni iznos" when the variable-amount toggle is on.
+ *   • Promenljiv iznos — checkbox directly UNDER Iznos (it describes the
+ *     amount); recurring payments only; marks the amount as a per-period
+ *     default confirmed at mark-paid time.
+ *   • Datum dospeća — full width.
  *   • Pauziraj plaćanje — only when editing a recurring (non one-time) payment
  *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
  */
@@ -393,17 +396,9 @@ export function PaymentForm({
           inputId="payment-rate"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="due_date">Datum dospeća *</Label>
-        <DatePicker
-          id="due_date"
-          value={form.due_date}
-          onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
-          placeholder="Datum dospeća"
-        />
-      </div>
-      {/* Variable amount is a recurring-only concept (režije koje variraju);
-          the toggle depends on the Tip value, not on whether the Tip select is
+      {/* Variable amount sits directly under Iznos — it describes the amount,
+          not the date. Recurring-only concept (režije koje variraju); the
+          toggle depends on the Tip value, not on whether the Tip select is
           enabled — so it still shows for a payment with history you want to
           convert to variable. */}
       {isRecurring ? (
@@ -424,6 +419,15 @@ export function PaymentForm({
           ) : null}
         </div>
       ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="due_date">Datum dospeća *</Label>
+        <DatePicker
+          id="due_date"
+          value={form.due_date}
+          onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
+          placeholder="Datum dospeća"
+        />
+      </div>
       {showPauseToggle ? (
         <div className="space-y-2">
           <label className="flex items-center gap-2">
