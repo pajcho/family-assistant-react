@@ -22,6 +22,7 @@ import {
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
+import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   SheetActionList,
@@ -51,7 +52,7 @@ import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePayment
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
-import { formatOriginalAmount, formatRateInput } from "@/utils/currency";
+import { formatOriginalAmount, formatRateInput, parseDecimal } from "@/utils/currency";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -138,6 +139,17 @@ export function PaymentDetailDialog({
     : "";
   const isRecurring =
     !!payment && payment.recurrence_period !== "one-time" && payment.recurrence_period != null;
+  // Foreign-currency payment: marking paid confirms the EUR amount + the rate
+  // for THIS occurrence (default: today's NBS list — `date: null` resolves to
+  // today in useExchangeRate), instead of silently reusing the definition-time
+  // conversion.
+  const isForeignPayment =
+    !!payment && payment.currency !== "RSD" && payment.original_amount != null;
+  const rateControl = useCurrencyAmount(
+    payment ? { currency: payment.currency, exchange_rate: null } : null,
+    null,
+  );
+  const { reset: resetRate } = rateControl;
   const cancelOverrideActive = override?.action === "cancel";
   // "info" strips every mutation except "Izmeni" — the popup is a viewer.
   const readOnly = variant === "info";
@@ -157,10 +169,12 @@ export function PaymentDetailDialog({
     togglePause.isPending ||
     deletePayment.isPending;
 
-  // Back to the root view whenever the subject payment changes underneath.
+  // Back to the root view whenever the subject payment changes underneath
+  // (and re-arm the pay-time rate for the new payment's currency).
   useEffect(() => {
     reset();
-  }, [payment, reset]);
+    resetRate(payment?.currency, null);
+  }, [payment, reset, resetRate]);
 
   const handleEdit = () => {
     if (!payment) return;
@@ -178,10 +192,19 @@ export function PaymentDetailDialog({
 
   const handleMarkAsPaid = async () => {
     if (!payment) return;
-    // Variable bills confirm the actual amount in a sub-view before paying;
-    // fixed ones pay in one tap.
-    if (payment.is_variable_amount) {
-      setPaidAmount(payment.amount != null ? String(payment.amount) : "");
+    // Variable bills confirm the actual amount, foreign ones the pay-time
+    // rate (both through the same sub-view); fixed RSD pays in one tap.
+    // Foreign amounts are edited in their ORIGINAL currency.
+    if (payment.is_variable_amount || isForeignPayment) {
+      setPaidAmount(
+        isForeignPayment
+          ? payment.original_amount != null
+            ? String(payment.original_amount)
+            : ""
+          : payment.amount != null
+            ? String(payment.amount)
+            : "",
+      );
       push("confirm-amount");
       return;
     }
@@ -193,13 +216,23 @@ export function PaymentDetailDialog({
     }
   };
 
-  const paidAmountNum = Number(paidAmount);
+  const paidAmountNum = parseDecimal(paidAmount);
   const paidAmountValid = paidAmount.trim() !== "" && paidAmountNum > 0;
+  const confirmAmountDisabled = isForeignPayment
+    ? !(paidAmountValid && rateControl.rateNum > 0)
+    : !paidAmountValid;
 
   const handleConfirmAmount = async () => {
-    if (!payment || !paidAmountValid) return;
+    if (!payment || confirmAmountDisabled) return;
     try {
-      await markPaid.mutateAsync({ id: payment.id, amount: paidAmountNum });
+      if (isForeignPayment) {
+        // Freeze THIS occurrence's conversion: EUR amount × confirmed rate.
+        const frozen = rateControl.freeze(paidAmountNum);
+        if (!frozen) return;
+        await markPaid.mutateAsync({ id: payment.id, ...frozen });
+      } else {
+        await markPaid.mutateAsync({ id: payment.id, amount: paidAmountNum });
+      }
       onOpenChange(false);
     } catch {
       // Toast surfaced by hook's onError; keep popup open so user can retry.
@@ -295,7 +328,9 @@ export function PaymentDetailDialog({
       : view === "cancel"
         ? (cancelCopy?.title ?? "Otkaži ratu")
         : view === "confirm-amount"
-          ? "Potvrdi iznos"
+          ? isForeignPayment && !payment?.is_variable_amount
+            ? "Potvrdi kurs"
+            : "Potvrdi iznos"
           : view === "delete"
             ? "Obriši plaćanje"
             : view === "actions"
@@ -468,23 +503,47 @@ export function PaymentDetailDialog({
               ) : view === "confirm-amount" ? (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Koliko si uplatio/la za „{payment.name}" ovog meseca?
+                    {payment.is_variable_amount
+                      ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
+                      : `Potvrdi kurs za „${payment.name}" — podrazumevan je srednji kurs NBS na današnji dan.`}
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="payment-detail-paid-amount">Iznos (RSD)</Label>
-                    <Input
-                      id="payment-detail-paid-amount"
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
-                      type="number"
-                      min="0"
-                      step="1"
-                      inputMode="decimal"
-                      autoFocus
+                    {payment.is_variable_amount ? (
+                      <>
+                        <Label htmlFor="payment-detail-paid-amount">
+                          Iznos ({isForeignPayment ? payment.currency : "RSD"})
+                        </Label>
+                        <Input
+                          id="payment-detail-paid-amount"
+                          value={paidAmount}
+                          onChange={(e) => setPaidAmount(e.target.value)}
+                          inputMode="decimal"
+                          autoFocus
+                        />
+                      </>
+                    ) : (
+                      // Fixed foreign bill: the amount is contractual — only
+                      // the rate gets confirmed. (Fixed RSD never lands here.)
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
+                      </p>
+                    )}
+                    {/* Pay-time NBS rate + live RSD preview (foreign only). */}
+                    <ExchangeRateRow
+                      control={rateControl}
+                      amountNum={paidAmountNum}
+                      inputId="payment-detail-rate"
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      Okvirno: <Amount value={payment.amount} />
-                    </p>
+                    {payment.is_variable_amount ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Okvirno:{" "}
+                        {isForeignPayment && payment.original_amount != null ? (
+                          formatOriginalAmount(payment.original_amount, payment.currency)
+                        ) : (
+                          <Amount value={payment.amount} />
+                        )}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               ) : view === "delete" ? (
@@ -622,7 +681,7 @@ export function PaymentDetailDialog({
                 onClick={() => {
                   void handleConfirmAmount();
                 }}
-                disabled={saving || !paidAmountValid}
+                disabled={saving || confirmAmountDisabled}
               >
                 <CheckIcon className="size-4" />
                 Označi kao plaćeno

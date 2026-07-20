@@ -190,6 +190,8 @@ function computeCombinedList({
     due_date: string;
     paid_date: string | null;
     amount: number;
+    currency: string;
+    original_amount: number | null;
     status: PaymentHistoryStatus;
     note: string | null;
     created_at: string;
@@ -255,6 +257,8 @@ function computeCombinedList({
         // back to the live payment name for pre-migration rows.
         name: entry.name ?? paymentNameMap.get(entry.payment_id) ?? "Nepoznato plaćanje",
         amount: entry.amount,
+        currency: entry.currency,
+        original_amount: entry.original_amount,
         due_date: entry.due_date,
         paid_date: entry.paid_date,
         status: entry.status,

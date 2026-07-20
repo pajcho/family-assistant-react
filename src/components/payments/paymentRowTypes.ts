@@ -27,7 +27,11 @@ export type HistoryRowItem = {
   id: string;
   payment_id: string;
   name: string;
+  /** RSD paid for this occurrence. */
   amount: number;
+  /** THIS occurrence's frozen conversion (pay-time rate) — for the € badge. */
+  currency: string;
+  original_amount: number | null;
   due_date: string;
   paid_date: string | null;
   status: PaymentHistoryStatus;

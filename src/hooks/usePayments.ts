@@ -389,8 +389,14 @@ export function useDeletePayment() {
  */
 export type MarkPaymentPaidInput = {
   id: string;
-  /** Actual paid amount for a variable bill. Omit to snapshot the live amount. */
+  /** Actual paid amount (RSD) for a variable bill or a foreign-currency
+   *  occurrence. Omit to snapshot the live amount. */
   amount?: number;
+  /** Frozen conversion for THIS occurrence (foreign payments confirm the
+   *  amount + rate at pay time). Omit for RSD. */
+  currency?: string;
+  original_amount?: number | null;
+  exchange_rate?: number | null;
 };
 
 export function useMarkPaymentPaid() {
@@ -398,7 +404,13 @@ export function useMarkPaymentPaid() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, amount }: MarkPaymentPaidInput): Promise<void> => {
+    mutationFn: async ({
+      id,
+      amount,
+      currency,
+      original_amount,
+      exchange_rate,
+    }: MarkPaymentPaidInput): Promise<void> => {
       const { data: row, error: fetchErr } = await supabase
         .from("payments")
         .select("*")
@@ -439,6 +451,11 @@ export function useMarkPaymentPaid() {
         family_id: row.family_id,
         name: row.name,
         amount: historyAmount,
+        // Foreign occurrences freeze THEIR OWN conversion (amount + rate
+        // confirmed at pay time); the auto-expense trigger copies these.
+        currency: currency ?? "RSD",
+        original_amount: original_amount ?? null,
+        exchange_rate: exchange_rate ?? null,
         due_date: historyDueDate,
         paid_date: now,
       });

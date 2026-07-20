@@ -165,7 +165,15 @@ export interface PaymentHistory {
   id: string;
   payment_id: string;
   family_id: string;
+  /** ALWAYS the RSD value paid for this occurrence. */
   amount: number;
+  /** Currency this occurrence was CONFIRMED in ("RSD" | "EUR" | …). */
+  currency: string;
+  /** Typed foreign amount + the rate used for THIS occurrence (default: NBS
+   *  middle rate on the pay date, editable in the confirm step); null for RSD.
+   *  Each occurrence freezes its own conversion — not the definition-time one. */
+  original_amount: number | null;
+  exchange_rate: number | null;
   due_date: string;
   /** When it was actually paid. NULL for canceled occurrences. */
   paid_date: string | null;
