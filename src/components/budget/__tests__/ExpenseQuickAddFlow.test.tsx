@@ -24,6 +24,9 @@ vi.mock("@/hooks/useExpenses", () => ({
 
 const payload: ExpenseFormPayload = {
   amount: 1250,
+  currency: "RSD",
+  original_amount: null,
+  exchange_rate: null,
   category_id: null,
   spent_on: "2026-07-17",
   person_id: null,

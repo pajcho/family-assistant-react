@@ -7,7 +7,7 @@ import {
   ReceiptPercentIcon,
 } from "@heroicons/react/24/outline";
 
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
@@ -1014,8 +1014,13 @@ function BudgetSearchResults({
                     </div>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                <span className="shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                   <Amount value={e.amount} />
+                  <AmountOriginal
+                    amount={e.original_amount}
+                    currency={e.currency}
+                    className="block text-[10px] font-normal"
+                  />
                 </span>
               </>
             );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { QrCodeIcon } from "@heroicons/react/24/outline";
 
+import { Amount } from "@/components/common/Amount";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -9,15 +10,30 @@ import { Label } from "@/components/ui/label";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense } from "@/types/database";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { fallbackColorForProfile } from "@/utils/activity";
+import {
+  EXPENSE_CURRENCIES,
+  convertToRsd,
+  currencySymbol,
+  formatRateInput,
+  parseDecimal,
+} from "@/utils/currency";
+import { formatDate } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
 
 /** Submit shape for the quick-add / edit expense form. */
 export type ExpenseFormPayload = {
+  /** Always RSD — foreign entries are converted here, at submit time. */
   amount: number;
+  /** What the member entered in ("RSD" | "EUR"). */
+  currency: string;
+  /** Typed amount + frozen NBS rate for foreign entries; null for RSD. */
+  original_amount: number | null;
+  exchange_rate: number | null;
   category_id: string | null;
   spent_on: string;
   person_id: string | null;
@@ -51,6 +67,11 @@ function initialLink(expense: Expense | null | undefined): PaymentLinkValue | nu
 
 type FormState = {
   amount: string;
+  currency: string;
+  /** Editable conversion rate (comma decimals accepted); prefilled from NBS. */
+  rate: string;
+  /** Member typed a rate themselves → stop auto-filling from the NBS query. */
+  rateTouched: boolean;
   category_id: string | null;
   spent_on: string | null;
   person_id: string | null;
@@ -59,8 +80,19 @@ type FormState = {
 };
 
 function initialState(expense: Expense | null | undefined): FormState {
+  const foreign = !!expense && expense.currency !== "RSD" && expense.original_amount != null;
   return {
-    amount: expense?.amount != null ? String(expense.amount) : "",
+    // Foreign rows edit in their original currency; `amount` (RSD) is derived.
+    amount: foreign
+      ? String(expense.original_amount)
+      : expense?.amount != null
+        ? String(expense.amount)
+        : "",
+    currency: expense?.currency ?? "RSD",
+    rate: expense?.exchange_rate != null ? formatRateInput(expense.exchange_rate) : "",
+    // Editing keeps the stored (frozen) rate: a fresh NBS fetch must not
+    // silently rewrite a conversion the member already saved.
+    rateTouched: foreign,
     category_id: expense?.category_id ?? null,
     spent_on: expense?.spent_on ?? todayISO(),
     person_id: expense?.person_id ?? null,
@@ -114,13 +146,50 @@ export function ExpenseForm({
 
   const isEdit = !!expense?.id;
 
+  const isForeign = form.currency !== "RSD";
+  const rateQuery = useExchangeRate(form.currency, form.spent_on);
+  const suggestedRate = rateQuery.data?.rate;
+
+  // Prefill / follow the NBS rate while the member hasn't overridden it (a date
+  // change refetches and re-fills through this same path).
+  useEffect(() => {
+    if (!isForeign || suggestedRate == null) return;
+    setForm((s) =>
+      s.rateTouched || s.rate === formatRateInput(suggestedRate)
+        ? s
+        : { ...s, rate: formatRateInput(suggestedRate) },
+    );
+  }, [isForeign, suggestedRate]);
+
+  const setCurrency = (code: string) =>
+    setForm((s) =>
+      s.currency === code ? s : { ...s, currency: code, rate: "", rateTouched: false },
+    );
+
+  const amountNum = parseDecimal(form.amount);
+  const rateNum = parseDecimal(form.rate);
+  const rsdPreview =
+    isForeign && amountNum > 0 && rateNum > 0 ? convertToRsd(amountNum, rateNum) : null;
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Accept a comma as the decimal separator (sr-Latn keyboards).
-    const amountNum = Number(form.amount.replace(",", "."));
     if (!(amountNum > 0) || !form.spent_on) return;
+    // Foreign entries freeze the conversion HERE: the typed amount + rate are
+    // kept verbatim, `amount` becomes the RSD value every aggregation sums.
+    let amount = amountNum;
+    let original_amount: number | null = null;
+    let exchange_rate: number | null = null;
+    if (isForeign) {
+      if (!(rateNum > 0)) return;
+      amount = convertToRsd(amountNum, rateNum);
+      original_amount = amountNum;
+      exchange_rate = rateNum;
+    }
     onSubmit({
-      amount: amountNum,
+      amount,
+      currency: form.currency,
+      original_amount,
+      exchange_rate,
       category_id: form.category_id,
       spent_on: form.spent_on,
       person_id: form.person_id,
@@ -146,9 +215,35 @@ export function ExpenseForm({
         </Button>
       ) : null}
 
-      {/* Amount — the star of the quick-add. Big, autofocused, numeric keypad. */}
+      {/* Amount — the star of the quick-add. Big, autofocused, numeric keypad.
+          RSD stays the default; picking EUR reveals the NBS-rate row (what gets
+          STORED as `amount` is always the converted RSD). */}
       <div className="space-y-2">
-        <Label htmlFor="expense-amount">Iznos (RSD) *</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="expense-amount">Iznos *</Label>
+          <div
+            role="group"
+            aria-label="Valuta"
+            className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700"
+          >
+            {EXPENSE_CURRENCIES.map((code) => (
+              <button
+                key={code}
+                type="button"
+                aria-pressed={form.currency === code}
+                onClick={() => setCurrency(code)}
+                className={cn(
+                  "rounded-md px-2.5 py-0.5 text-xs font-medium transition-colors",
+                  form.currency === code
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+                )}
+              >
+                {code}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="relative">
           <Input
             id="expense-amount"
@@ -161,9 +256,62 @@ export function ExpenseForm({
             className="h-14 pr-14 text-right text-3xl font-semibold tabular-nums"
           />
           <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-muted-foreground">
-            RSD
+            {currencySymbol(form.currency)}
           </span>
         </div>
+
+        {/* NBS-rate row (foreign only): editable rate + live RSD preview, with
+            a graceful manual fallback when the rate service is unreachable. */}
+        {isForeign ? (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="expense-rate" className="shrink-0 text-xs text-muted-foreground">
+                Kurs
+              </Label>
+              <Input
+                id="expense-rate"
+                value={form.rate}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, rate: e.target.value, rateTouched: true }))
+                }
+                inputMode="decimal"
+                required
+                placeholder={rateQuery.isLoading ? "…" : "0,00"}
+                className="h-9 w-28 text-right text-sm tabular-nums"
+              />
+              <span className="min-w-0 flex-1 truncate text-right text-sm font-medium text-gray-900 dark:text-gray-100">
+                {rsdPreview != null ? (
+                  <>
+                    = <Amount value={rsdPreview} />
+                  </>
+                ) : null}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {rateQuery.isLoading ? (
+                "Učitavam srednji kurs NBS…"
+              ) : rateQuery.isError ? (
+                "Kurs NBS trenutno nije dostupan — unesi kurs ručno."
+              ) : form.rateTouched && suggestedRate != null && rateNum !== suggestedRate ? (
+                <button
+                  type="button"
+                  className="underline underline-offset-4"
+                  onClick={() =>
+                    setForm((s) => ({
+                      ...s,
+                      rate: formatRateInput(suggestedRate),
+                      rateTouched: false,
+                    }))
+                  }
+                >
+                  Vrati NBS kurs ({formatRateInput(suggestedRate)})
+                </button>
+              ) : rateQuery.data ? (
+                `Srednji kurs NBS (${formatDate(rateQuery.data.source_date)})`
+              ) : null}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {/* Category — tappable grid of colored chips. */}

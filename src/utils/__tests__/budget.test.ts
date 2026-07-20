@@ -54,6 +54,8 @@ function expense(over: Partial<Expense> = {}): Expense {
     family_id: "fam",
     amount: 1000,
     currency: "RSD",
+    original_amount: null,
+    exchange_rate: null,
     spent_on: "2026-07-05",
     category_id: null,
     person_id: null,

@@ -34,12 +34,16 @@ export interface ExpenseRange {
 }
 
 export type CreateExpenseInput = {
+  /** Always RSD (already converted for foreign-currency entries). */
   amount: number;
   spent_on: string;
   category_id?: string | null;
   person_id?: string | null;
   note?: string | null;
   currency?: string;
+  /** Typed amount + frozen NBS rate for foreign entries; omit/null for RSD. */
+  original_amount?: number | null;
+  exchange_rate?: number | null;
   activity_id?: string | null;
   event_id?: string | null;
 };
@@ -53,6 +57,8 @@ export type UpdateExpenseInput = Partial<
     | "person_id"
     | "note"
     | "currency"
+    | "original_amount"
+    | "exchange_rate"
     | "activity_id"
     | "event_id"
   >
@@ -126,6 +132,8 @@ export function useCreateExpense() {
           person_id: payload.person_id ?? null,
           note: payload.note ?? null,
           currency: payload.currency ?? "RSD",
+          original_amount: payload.original_amount ?? null,
+          exchange_rate: payload.exchange_rate ?? null,
           source: "manual",
           activity_id: payload.activity_id ?? null,
           event_id: payload.event_id ?? null,

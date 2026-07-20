@@ -10,7 +10,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useUpdateExpenseCategory } from "@/hooks/useExpenseCategories";
@@ -263,8 +263,13 @@ export function CategoryDetailSheet({
                         {formatDate(e.spent_on)}
                       </span>
                     </div>
-                    <span className="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <span className="shrink-0 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                       <Amount value={e.amount} />
+                      <AmountOriginal
+                        amount={e.original_amount}
+                        currency={e.currency}
+                        className="block text-[10px] font-normal"
+                      />
                     </span>
                   </div>
                 ))}

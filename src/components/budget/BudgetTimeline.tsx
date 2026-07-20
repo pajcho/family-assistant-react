@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
@@ -76,8 +76,13 @@ function ExpenseRow({
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {primary}
           </span>
-          <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+          <span className="shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
             <Amount value={expense.amount} />
+            <AmountOriginal
+              amount={expense.original_amount}
+              currency={expense.currency}
+              className="block text-[10px] font-normal"
+            />
           </span>
         </span>
         <span className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">

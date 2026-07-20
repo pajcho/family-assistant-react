@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { formatOriginalAmount } from "@/utils/currency";
 
 /**
  * An RSD money value with the "RSD" suffix rendered smaller and dimmer, so the
@@ -23,6 +24,30 @@ export function Amount({
     <span className={cn("whitespace-nowrap", className)}>
       {n.toLocaleString("sr-Latn-RS")}
       <span className="ml-1 text-[0.72em] font-medium text-gray-400 dark:text-gray-500">RSD</span>
+    </span>
+  );
+}
+
+/**
+ * The original foreign-currency entry ("50 €") as a small dim annotation next
+ * to an RSD <Amount>. Renders nothing for RSD rows (or legacy rows without an
+ * original), so call sites can pass any expense unconditionally.
+ */
+export function AmountOriginal({
+  amount,
+  currency,
+  className,
+}: {
+  amount: number | null;
+  currency: string;
+  className?: string;
+}) {
+  if (currency === "RSD" || amount == null) return null;
+  return (
+    <span
+      className={cn("whitespace-nowrap text-gray-400 tabular-nums dark:text-gray-500", className)}
+    >
+      {formatOriginalAmount(amount, currency)}
     </span>
   );
 }

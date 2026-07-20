@@ -252,8 +252,16 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
 export interface Expense {
   id: string;
   family_id: string;
+  /** ALWAYS the RSD value (converted at entry for foreign-currency rows) —
+   *  every aggregation sums it currency-blind. */
   amount: number;
   currency: string;
+  /** What was actually typed for a foreign-currency entry (e.g. 50 = 50 EUR);
+   *  null for RSD rows. */
+  original_amount: number | null;
+  /** NBS middle rate frozen at entry (1 unit of `currency` = N RSD); null for
+   *  RSD rows. History is never re-converted, so rate drift can't change it. */
+  exchange_rate: number | null;
   /** YYYY-MM-DD — the day the money is counted against (occurrence date for auto rows). */
   spent_on: string;
   category_id: string | null;

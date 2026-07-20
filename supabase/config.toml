@@ -46,3 +46,11 @@ verify_jwt = false
 # RLS-protected expenses insert path).
 [functions.receipt-import]
 verify_jwt = true
+
+# exchange-rate is called from the client while a member types a foreign-currency
+# expense; it resolves the official NBS middle rate for a (currency, date) pair,
+# caching results in `exchange_rates` via the service role (members are
+# SELECT-only there). verify_jwt = true so only signed-in members can trigger
+# upstream fetches.
+[functions.exchange-rate]
+verify_jwt = true
