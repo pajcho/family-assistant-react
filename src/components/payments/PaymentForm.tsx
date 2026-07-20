@@ -6,17 +6,30 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
+import {
+  CurrencyToggle,
+  ExchangeRateRow,
+  useCurrencyAmount,
+} from "@/components/common/CurrencyAmountField";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
+import { useCurrencyOptions } from "@/hooks/useCurrencySettings";
+import { parseDecimal } from "@/utils/currency";
 import { cn } from "@/lib/cn";
 
 /** Form payload — mirrors the Vue PaymentForm.vue submit shape. */
 export type PaymentFormPayload = {
   name: string;
   description: string | null;
+  /** Always RSD — foreign entries are converted here, at submit time. */
   amount: number;
+  /** Currency the payment was entered in ("RSD" | "EUR" | …). */
+  currency: string;
+  /** Typed amount + frozen NBS rate for foreign entries; null for RSD. */
+  original_amount: number | null;
+  exchange_rate: number | null;
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod;
@@ -150,10 +163,16 @@ function initialLink(payment: Payment | null | undefined): PaymentLinkValue | nu
 }
 
 function initialState(payment: Payment | null | undefined, personIds: string[]): FormState {
+  const foreign = !!payment && payment.currency !== "RSD" && payment.original_amount != null;
   return {
     name: payment?.name ?? "",
     description: payment?.description ?? "",
-    amount: payment?.amount != null ? String(payment.amount) : "",
+    // Foreign payments edit in their original currency; `amount` (RSD) is derived.
+    amount: foreign
+      ? String(payment.original_amount)
+      : payment?.amount != null
+        ? String(payment.amount)
+        : "",
     due_date: payment?.due_date ?? null,
     recurrence_period: (payment?.recurrence_period ?? "one-time") as RecurrencePeriod,
     recurrence_interval: payment?.recurrence_interval ?? 1,
@@ -195,6 +214,11 @@ export function PaymentForm({
   onCancel,
 }: PaymentFormProps) {
   const [form, setForm] = useState<FormState>(() => initialState(payment, initialPersonIds ?? []));
+  const ca = useCurrencyAmount(payment, form.due_date);
+  // Offers the family's enabled currencies + this payment's own (so payments in
+  // a since-disabled currency still edit cleanly).
+  const currencies = useCurrencyOptions(payment?.currency);
+  const { reset: resetCurrency } = ca;
 
   // Serialized so the effect reseeds when the assignees finish loading
   // without firing on every render from a fresh array reference.
@@ -202,7 +226,8 @@ export function PaymentForm({
 
   useEffect(() => {
     setForm(initialState(payment, personSeed ? personSeed.split(",") : []));
-  }, [payment, personSeed]);
+    resetCurrency(payment?.currency, payment?.exchange_rate);
+  }, [payment, personSeed, resetCurrency]);
 
   const isEdit = !!payment?.id;
   const isRecurring = form.recurrence_period !== "one-time";
@@ -225,14 +250,18 @@ export function PaymentForm({
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const amountNum = Number(form.amount);
+    const amountNum = parseDecimal(form.amount);
     if (!form.name.trim() || !form.due_date || !(amountNum > 0)) return;
+    // Foreign entries freeze the conversion HERE (typed amount + NBS rate kept
+    // verbatim, `amount` becomes RSD) — same contract as ExpenseForm.
+    const frozen = ca.freeze(amountNum);
+    if (!frozen) return;
     const remainingNum =
       form.remaining_occurrences === "" ? null : Number(form.remaining_occurrences);
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim() || null,
-      amount: amountNum,
+      ...frozen,
       due_date: form.due_date,
       is_recurring: isRecurring,
       recurrence_period: form.recurrence_period,
@@ -337,16 +366,21 @@ export function PaymentForm({
       ) : null}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="amount">
-            {form.is_variable_amount ? "Okvirni iznos (RSD) *" : "Iznos (RSD) *"}
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="amount" className="min-w-0">
+              {form.is_variable_amount
+                ? `Okvirni iznos (${ca.currency}) *`
+                : `Iznos (${ca.currency}) *`}
+            </Label>
+            <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
+          </div>
           <Input
             id="amount"
             value={form.amount}
             onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
             type="number"
             min="0"
-            step="1"
+            step="any"
             required
           />
         </div>
@@ -360,6 +394,8 @@ export function PaymentForm({
           />
         </div>
       </div>
+      {/* NBS-rate row (foreign only) — full-width under the Iznos/Datum grid. */}
+      <ExchangeRateRow control={ca} amountNum={parseDecimal(form.amount)} inputId="payment-rate" />
       {/* Variable amount is a recurring-only concept (režije koje variraju);
           the toggle depends on the Tip value, not on whether the Tip select is
           enabled — so it still shows for a payment with history you want to

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
@@ -215,6 +215,11 @@ function PaymentRow({
         <span className="text-muted-foreground"> · </span>
         <span className="text-gray-700 dark:text-gray-300">
           <Amount value={payment.amount} round />
+          <AmountOriginal
+            amount={payment.original_amount}
+            currency={payment.currency}
+            className="ml-1 text-[10px]"
+          />
         </span>
       </span>
       {upcoming ? (

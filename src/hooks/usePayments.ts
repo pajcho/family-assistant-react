@@ -52,7 +52,12 @@ export interface PaymentHistoryFilters {
 export type CreatePaymentInput = {
   name: string;
   description?: string | null;
+  /** Always RSD (already converted for foreign-currency entries). */
   amount: number;
+  /** Typed amount + frozen NBS rate for foreign entries; omit/null for RSD. */
+  currency?: string;
+  original_amount?: number | null;
+  exchange_rate?: number | null;
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
@@ -79,6 +84,9 @@ export type UpdatePaymentInput = Partial<
     | "name"
     | "description"
     | "amount"
+    | "currency"
+    | "original_amount"
+    | "exchange_rate"
     | "due_date"
     | "is_recurring"
     | "recurrence_period"

@@ -6,13 +6,42 @@
  * Conversion happens exactly once, at entry time — never when reading history.
  */
 
-/** Currencies the expense form offers. RSD first = the default. Extend together
- *  with SUPPORTED_CURRENCIES in supabase/functions/exchange-rate. */
-export const EXPENSE_CURRENCIES = ["RSD", "EUR"] as const;
+/** Every currency the app knows about, in display order (RSD = base, always
+ *  first). Extend together with SUPPORTED_CURRENCIES in
+ *  supabase/functions/exchange-rate. */
+export const ALL_CURRENCIES = ["RSD", "EUR", "USD"] as const;
+
+/** What a family starts with until they touch the Valute settings. */
+export const DEFAULT_ENABLED_CURRENCIES = ["RSD", "EUR"];
 
 /** Display symbol for a currency code ("EUR" → "€"; unknown codes pass through). */
 export function currencySymbol(code: string): string {
-  return code === "EUR" ? "€" : code;
+  if (code === "EUR") return "€";
+  if (code === "USD") return "$";
+  return code;
+}
+
+/**
+ * Sanitizes a stored enabled-currencies list: unknown codes dropped, order
+ * normalized to ALL_CURRENCIES, RSD forced in (it's the base currency — the
+ * DB CHECK guarantees it too, this is belt-and-suspenders for stale caches).
+ */
+export function normalizeEnabledCurrencies(raw: string[] | null | undefined): string[] {
+  const set = new Set(raw ?? DEFAULT_ENABLED_CURRENCIES);
+  set.add("RSD");
+  return ALL_CURRENCIES.filter((c) => set.has(c));
+}
+
+/**
+ * Options a currency toggle offers: the family's enabled list PLUS the edited
+ * entity's current currency — so an expense/payment saved in a since-disabled
+ * currency still edits cleanly (but once switched to RSD and saved, the
+ * disabled currency is no longer offered).
+ */
+export function currencyOptions(enabled: string[], current?: string | null): string[] {
+  const set = new Set(enabled);
+  if (current) set.add(current);
+  return ALL_CURRENCIES.filter((c) => set.has(c));
 }
 
 /**

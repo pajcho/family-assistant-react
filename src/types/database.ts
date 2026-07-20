@@ -1,6 +1,10 @@
 export interface Family {
   id: string;
   name: string;
+  /** Currencies the entry forms offer ('RSD' is the base and always present —
+   *  DB CHECK `families_rsd_always_enabled`). Disabling one never touches
+   *  existing rows, it only narrows the choice for NEW entries. */
+  enabled_currencies: string[];
   created_at: string;
   updated_at: string;
 }
@@ -94,7 +98,16 @@ export interface Payment {
   family_id: string;
   name: string;
   description: string | null;
+  /** ALWAYS the RSD value (converted at entry for foreign-currency payments) —
+   *  projections and month summaries sum it currency-blind. */
   amount: number;
+  /** Currency the payment was DEFINED in ("RSD" | "EUR" | …). */
+  currency: string;
+  /** What was actually typed for a foreign-currency payment; null for RSD. */
+  original_amount: number | null;
+  /** NBS middle rate frozen at entry (1 unit of `currency` = N RSD); null for
+   *  RSD. Occurrences and history stay RSD — only the definition carries this. */
+  exchange_rate: number | null;
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   convertToRsd,
+  currencyOptions,
   currencySymbol,
   formatOriginalAmount,
   formatRateInput,
+  normalizeEnabledCurrencies,
   parseDecimal,
 } from "@/utils/currency";
 
@@ -38,8 +40,9 @@ describe("convertToRsd", () => {
 });
 
 describe("currencySymbol / formatOriginalAmount", () => {
-  it("maps EUR to € and passes unknown codes through", () => {
+  it("maps EUR to €, USD to $, passes unknown codes through", () => {
     expect(currencySymbol("EUR")).toBe("€");
+    expect(currencySymbol("USD")).toBe("$");
     expect(currencySymbol("CHF")).toBe("CHF");
   });
 
@@ -47,6 +50,35 @@ describe("currencySymbol / formatOriginalAmount", () => {
     expect(formatOriginalAmount(50, "EUR")).toBe("50 €");
     expect(formatOriginalAmount(50.5, "EUR")).toBe("50,5 €");
     expect(formatOriginalAmount(1234.56, "EUR")).toBe("1.234,56 €");
+  });
+});
+
+describe("normalizeEnabledCurrencies", () => {
+  it("forces RSD in and normalizes order to ALL_CURRENCIES", () => {
+    expect(normalizeEnabledCurrencies(["USD", "EUR"])).toEqual(["RSD", "EUR", "USD"]);
+    expect(normalizeEnabledCurrencies(["EUR"])).toEqual(["RSD", "EUR"]);
+    expect(normalizeEnabledCurrencies([])).toEqual(["RSD"]);
+  });
+
+  it("drops unknown codes and falls back to the default for missing data", () => {
+    expect(normalizeEnabledCurrencies(["RSD", "XYZ"])).toEqual(["RSD"]);
+    expect(normalizeEnabledCurrencies(null)).toEqual(["RSD", "EUR"]);
+    expect(normalizeEnabledCurrencies(undefined)).toEqual(["RSD", "EUR"]);
+  });
+});
+
+describe("currencyOptions", () => {
+  it("returns the enabled list when there's no edited entity", () => {
+    expect(currencyOptions(["RSD", "EUR"], null)).toEqual(["RSD", "EUR"]);
+    expect(currencyOptions(["RSD"], undefined)).toEqual(["RSD"]);
+  });
+
+  it("keeps a since-disabled currency visible while editing a row saved in it", () => {
+    // EUR was disabled, but this expense is still in EUR → it must stay
+    // selectable so the edit doesn't corrupt; once saved as RSD it disappears.
+    expect(currencyOptions(["RSD"], "EUR")).toEqual(["RSD", "EUR"]);
+    expect(currencyOptions(["RSD", "EUR"], "USD")).toEqual(["RSD", "EUR", "USD"]);
+    expect(currencyOptions(["RSD", "EUR"], "RSD")).toEqual(["RSD", "EUR"]);
   });
 });
 

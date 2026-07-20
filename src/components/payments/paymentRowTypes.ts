@@ -41,7 +41,11 @@ export type UpcomingRowItem = {
   id: string;
   paymentId: string;
   name: string;
+  /** Projected RSD amount (same frozen conversion as the parent payment). */
   amount: number;
+  /** Mirrored from the parent payment so the row can show the € annotation. */
+  currency: string;
+  original_amount: number | null;
   /** Effective (displayed) date — override_date when rescheduled, else the occurrence. */
   due_date: string;
   /** Original projected due date — the override key. */
