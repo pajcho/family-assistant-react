@@ -135,9 +135,11 @@ function PaymentTimelineRow({
           dimmed && "opacity-60",
         )}
       >
-        {/* Left column (name + meta) and right column (amount + original) are
-            siblings, so the € annotation can never push the meta row down. */}
-        <span className="flex gap-2">
+        {/* Left column (name + meta) and right column (amount, € original,
+            status chip — all pinned to the row's right edge) are siblings, so
+            the annotation can never push the meta row down and the chip stays
+            exactly where it always was: bottom right. */}
+        <span className="flex items-start gap-2">
           <span className="min-w-0 flex-1">
             <span
               className={cn(
@@ -147,35 +149,35 @@ function PaymentTimelineRow({
             >
               {item.name}
             </span>
-            <span className="mt-0.5 flex items-center gap-2">
-              <span className="flex min-w-0 flex-1 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className="truncate">{metaFor(item, inOverdue)}</span>
-                {personIds.length > 0 ? (
-                  <span className="shrink-0">
-                    <MemberBadges personIds={personIds} size="xs" />
-                  </span>
-                ) : null}
-              </span>
-              {chip ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
-                    CHIP_TONE[chip.tone],
-                  )}
-                >
-                  {chip.label}
+            <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span className="truncate">{metaFor(item, inOverdue)}</span>
+              {personIds.length > 0 ? (
+                <span className="shrink-0">
+                  <MemberBadges personIds={personIds} size="xs" />
                 </span>
               ) : null}
             </span>
           </span>
-          <span className="shrink-0 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-            <Amount value={item.amount} />
+          <span className="flex shrink-0 flex-col items-end gap-1">
+            <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+              <Amount value={item.amount} />
+            </span>
             {item.type !== "history" ? (
               <AmountOriginal
                 amount={item.original_amount}
                 currency={item.currency}
-                className="block text-[10px] font-normal"
+                className="text-[10px]"
               />
+            ) : null}
+            {chip ? (
+              <span
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+                  CHIP_TONE[chip.tone],
+                )}
+              >
+                {chip.label}
+              </span>
             ) : null}
           </span>
         </span>

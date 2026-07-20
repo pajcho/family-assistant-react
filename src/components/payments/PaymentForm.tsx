@@ -16,7 +16,7 @@ import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { useCurrencyOptions } from "@/hooks/useCurrencySettings";
-import { parseDecimal } from "@/utils/currency";
+import { currencySymbol, parseDecimal } from "@/utils/currency";
 import { cn } from "@/lib/cn";
 
 /** Form payload — mirrors the Vue PaymentForm.vue submit shape. */
@@ -364,38 +364,44 @@ export function PaymentForm({
           />
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="amount" className="min-w-0">
-              {form.is_variable_amount
-                ? `Okvirni iznos (${ca.currency}) *`
-                : `Iznos (${ca.currency}) *`}
-            </Label>
-            <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
-          </div>
+      {/* Iznos — full-width, mirroring ExpenseForm: label and currency toggle
+          share the row (the old [Iznos | Datum] grid squeezed the label into
+          wrapping on mobile), the input carries the currency symbol as a
+          suffix, and the NBS-rate row slots directly underneath. */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="amount">{form.is_variable_amount ? "Okvirni iznos *" : "Iznos *"}</Label>
+          <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
+        </div>
+        <div className="relative">
           <Input
             id="amount"
             value={form.amount}
             onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
-            type="number"
-            min="0"
-            step="any"
+            inputMode="decimal"
             required
+            placeholder="0"
+            className="pr-12 text-right tabular-nums"
           />
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
+            {currencySymbol(ca.currency)}
+          </span>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="due_date">Datum dospeća *</Label>
-          <DatePicker
-            id="due_date"
-            value={form.due_date}
-            onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
-            placeholder="Datum dospeća"
-          />
-        </div>
+        <ExchangeRateRow
+          control={ca}
+          amountNum={parseDecimal(form.amount)}
+          inputId="payment-rate"
+        />
       </div>
-      {/* NBS-rate row (foreign only) — full-width under the Iznos/Datum grid. */}
-      <ExchangeRateRow control={ca} amountNum={parseDecimal(form.amount)} inputId="payment-rate" />
+      <div className="space-y-2">
+        <Label htmlFor="due_date">Datum dospeća *</Label>
+        <DatePicker
+          id="due_date"
+          value={form.due_date}
+          onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
+          placeholder="Datum dospeća"
+        />
+      </div>
       {/* Variable amount is a recurring-only concept (režije koje variraju);
           the toggle depends on the Tip value, not on whether the Tip select is
           enabled — so it still shows for a payment with history you want to

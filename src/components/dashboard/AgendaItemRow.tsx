@@ -215,10 +215,14 @@ function PaymentRow({
         <span className="text-muted-foreground"> · </span>
         <span className="text-gray-700 dark:text-gray-300">
           <Amount value={payment.amount} round />
+          {/* Hidden on phones: the dense single-line agenda row truncates, and
+              a clipped "(5…" is worse than no annotation — the payment detail
+              carries the original. */}
           <AmountOriginal
             amount={payment.original_amount}
             currency={payment.currency}
-            className="ml-1 text-[10px]"
+            parens
+            className="ml-1 hidden text-[10px] sm:inline"
           />
         </span>
       </span>

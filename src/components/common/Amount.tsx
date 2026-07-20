@@ -37,17 +37,21 @@ export function AmountOriginal({
   amount,
   currency,
   className,
+  parens = false,
 }: {
   amount: number | null;
   currency: string;
   className?: string;
+  /** Wrap in parentheses — for inline placement right after an <Amount>. */
+  parens?: boolean;
 }) {
   if (currency === "RSD" || amount == null) return null;
+  const text = formatOriginalAmount(amount, currency);
   return (
     <span
       className={cn("whitespace-nowrap text-gray-400 tabular-nums dark:text-gray-500", className)}
     >
-      {formatOriginalAmount(amount, currency)}
+      {parens ? `(${text})` : text}
     </span>
   );
 }
