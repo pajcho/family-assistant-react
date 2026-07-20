@@ -5,7 +5,7 @@ import { ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { usePaymentHistoryByPaymentId, useUndoLastPayment } from "@/hooks/usePayments";
 import type { Payment } from "@/types/database";
 import { formatDate } from "@/utils/date";
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
 
 /**
@@ -88,6 +88,11 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
             >
               <Amount value={entry.amount} />
             </span>
+            <AmountOriginal
+              amount={entry.original_amount}
+              currency={entry.currency}
+              className="text-[10px]"
+            />
             {index === 0 ? (
               <button
                 type="button"

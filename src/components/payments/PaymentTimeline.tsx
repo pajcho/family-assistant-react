@@ -162,13 +162,11 @@ function PaymentTimelineRow({
             <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
               <Amount value={item.amount} />
             </span>
-            {item.type !== "history" ? (
-              <AmountOriginal
-                amount={item.original_amount}
-                currency={item.currency}
-                className="text-[10px]"
-              />
-            ) : null}
+            <AmountOriginal
+              amount={item.original_amount}
+              currency={item.currency}
+              className="text-[10px]"
+            />
             {chip ? (
               <span
                 className={cn(
