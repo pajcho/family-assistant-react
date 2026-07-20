@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrenciesCard } from "@/components/family/CurrenciesCard";
 import { MemberList } from "@/components/family/MemberList";
 import { MemberDetail } from "@/components/family/MemberDetail";
 import { AddMemberDialog } from "@/components/family/AddMemberDialog";
@@ -84,6 +85,7 @@ export function FamilyTab() {
           canManage={false}
           onAdd={() => {}}
         />
+        <CurrenciesCard />
       </div>
     );
   }
@@ -134,6 +136,8 @@ export function FamilyTab() {
       ) : (
         list
       )}
+
+      <CurrenciesCard />
 
       <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} onCreated={setSelectedId} />
     </div>

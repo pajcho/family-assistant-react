@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue } from "@/utils/date";
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
 /** Compact status pill — same colorway as the payments list row states. */
@@ -65,8 +65,13 @@ export function LinkedPaymentsList({
                 {recurrenceLabel(payment.recurrence_period, payment.recurrence_interval)}
               </p>
             </div>
-            <span className="shrink-0 text-sm font-semibold text-gray-900 dark:text-gray-100">
+            <span className="shrink-0 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
               <Amount value={payment.amount} />
+              <AmountOriginal
+                amount={payment.original_amount}
+                currency={payment.currency}
+                className="block text-[10px] font-normal"
+              />
             </span>
           </li>
         ))}

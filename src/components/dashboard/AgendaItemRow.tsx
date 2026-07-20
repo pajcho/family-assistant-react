@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
-import { Amount } from "@/components/common/Amount";
+import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
@@ -215,6 +215,15 @@ function PaymentRow({
         <span className="text-muted-foreground"> · </span>
         <span className="text-gray-700 dark:text-gray-300">
           <Amount value={payment.amount} round />
+          {/* Hidden on phones: the dense single-line agenda row truncates, and
+              a clipped "(5…" is worse than no annotation — the payment detail
+              carries the original. */}
+          <AmountOriginal
+            amount={payment.original_amount}
+            currency={payment.currency}
+            parens
+            className="ml-1 hidden text-[10px] sm:inline"
+          />
         </span>
       </span>
       {upcoming ? (

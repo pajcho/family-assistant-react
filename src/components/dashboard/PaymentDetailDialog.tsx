@@ -51,6 +51,7 @@ import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePayment
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
+import { formatOriginalAmount, formatRateInput } from "@/utils/currency";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -509,6 +510,14 @@ export function PaymentDetailDialog({
                     <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
                       <Amount value={payment.amount} />
                     </div>
+                    {payment.currency !== "RSD" && payment.original_amount != null ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                        {formatOriginalAmount(payment.original_amount, payment.currency)}
+                        {payment.exchange_rate != null
+                          ? ` · kurs ${formatRateInput(payment.exchange_rate)}`
+                          : ""}
+                      </p>
+                    ) : null}
                     {payment.is_variable_amount ? (
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         Okvirni iznos — potvrđuje se pri svakom plaćanju
