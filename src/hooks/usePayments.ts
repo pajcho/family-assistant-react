@@ -58,6 +58,8 @@ export type CreatePaymentInput = {
   recurrence_period: RecurrencePeriod | null;
   recurrence_interval?: number;
   remaining_occurrences?: number | null;
+  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  is_variable_amount?: boolean;
   remind_days_before?: number | null;
   /** Linked activity — at most one link may be set (DB CHECK `payments_single_link`). */
   activity_id?: string | null;
@@ -83,6 +85,7 @@ export type UpdatePaymentInput = Partial<
     | "recurrence_interval"
     | "remaining_occurrences"
     | "is_paused"
+    | "is_variable_amount"
     | "remind_days_before"
     | "activity_id"
     | "event_id"
@@ -357,7 +360,10 @@ export function useDeletePayment() {
 /**
  * Multi-step "mark as paid":
  *   1. Read the live `payments` row.
- *   2. Insert a `payment_history` row capturing the snapshot.
+ *   2. Insert a `payment_history` row capturing the snapshot. For a variable-
+ *      amount bill the caller passes the actual paid `amount`; otherwise the
+ *      live `amount` is snapshotted. Either way the auto-expense trigger picks
+ *      up whatever lands in `payment_history.amount`.
  *   3. Update the live row based on `recurrence_period` + `recurrence_interval`:
  *      - one-time / non-recurring → `is_paid: true, paid_date: today`.
  *      - monthly → roll `due_date` forward `interval` months.
@@ -367,15 +373,24 @@ export function useDeletePayment() {
  *        (do NOT advance `due_date`); otherwise advance `due_date` by one
  *        month and keep `is_paid: false`. Limited ignores `recurrence_interval`.
  *
+ * The live `amount` is never overwritten — for a variable bill it stays as the
+ * rough default ("okvirni iznos") that drives next-month projections.
+ *
  * Not transactional — supabase-js doesn't expose Postgres transactions.
  * If any step fails the toast surfaces it and realtime re-syncs state.
  */
+export type MarkPaymentPaidInput = {
+  id: string;
+  /** Actual paid amount for a variable bill. Omit to snapshot the live amount. */
+  amount?: number;
+};
+
 export function useMarkPaymentPaid() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
+    mutationFn: async ({ id, amount }: MarkPaymentPaidInput): Promise<void> => {
       const { data: row, error: fetchErr } = await supabase
         .from("payments")
         .select("*")
@@ -405,11 +420,17 @@ export function useMarkPaymentPaid() {
       // Insert into payment_history before updating. `name` + `amount` are
       // snapshotted here so a later rename / re-price on the live payment never
       // rewrites this occurrence's history.
+      // Variable bills pass the actual paid amount; fixed ones snapshot the
+      // live amount. A non-positive override would trip the expenses CHECK
+      // (amount > 0) in the auto-expense trigger, so the UI validates first —
+      // guard here too as a backstop.
+      const historyAmount = amount != null && amount > 0 ? amount : row.amount;
+
       const { error: historyErr } = await supabase.from("payment_history").insert({
         payment_id: id,
         family_id: row.family_id,
         name: row.name,
-        amount: row.amount,
+        amount: historyAmount,
         due_date: historyDueDate,
         paid_date: now,
       });

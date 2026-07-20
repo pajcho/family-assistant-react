@@ -14,6 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -84,7 +85,15 @@ export type PaymentDetailDialogProps = {
   variant?: "agenda" | "manage" | "info";
 };
 
-type View = "detail" | "actions" | "reschedule" | "cancel" | "delete" | "history" | "undo";
+type View =
+  | "detail"
+  | "actions"
+  | "reschedule"
+  | "cancel"
+  | "confirm-amount"
+  | "delete"
+  | "history"
+  | "undo";
 
 function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
@@ -107,6 +116,7 @@ export function PaymentDetailDialog({
     useSheetStack<View>(open, onOpenChange, "detail");
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
   const [linkEditTarget, setLinkEditTarget] = useState<PaymentLinkTarget | null>(null);
 
   const markPaid = useMarkPaymentPaid();
@@ -167,8 +177,28 @@ export function PaymentDetailDialog({
 
   const handleMarkAsPaid = async () => {
     if (!payment) return;
+    // Variable bills confirm the actual amount in a sub-view before paying;
+    // fixed ones pay in one tap.
+    if (payment.is_variable_amount) {
+      setPaidAmount(payment.amount != null ? String(payment.amount) : "");
+      push("confirm-amount");
+      return;
+    }
     try {
-      await markPaid.mutateAsync(payment.id);
+      await markPaid.mutateAsync({ id: payment.id });
+      onOpenChange(false);
+    } catch {
+      // Toast surfaced by hook's onError; keep popup open so user can retry.
+    }
+  };
+
+  const paidAmountNum = Number(paidAmount);
+  const paidAmountValid = paidAmount.trim() !== "" && paidAmountNum > 0;
+
+  const handleConfirmAmount = async () => {
+    if (!payment || !paidAmountValid) return;
+    try {
+      await markPaid.mutateAsync({ id: payment.id, amount: paidAmountNum });
       onOpenChange(false);
     } catch {
       // Toast surfaced by hook's onError; keep popup open so user can retry.
@@ -263,15 +293,17 @@ export function PaymentDetailDialog({
       ? "Pomeri ratu"
       : view === "cancel"
         ? (cancelCopy?.title ?? "Otkaži ratu")
-        : view === "delete"
-          ? "Obriši plaćanje"
-          : view === "actions"
-            ? "Opcije"
-            : view === "history"
-              ? "Istorija plaćanja"
-              : view === "undo"
-                ? "Poništi plaćanje"
-                : "Detalji plaćanja";
+        : view === "confirm-amount"
+          ? "Potvrdi iznos"
+          : view === "delete"
+            ? "Obriši plaćanje"
+            : view === "actions"
+              ? "Opcije"
+              : view === "history"
+                ? "Istorija plaćanja"
+                : view === "undo"
+                  ? "Poništi plaćanje"
+                  : "Detalji plaćanja";
 
   // Action hierarchy (Todoist / Google Calendar pattern): ONE contextual
   // primary action pinned in the footer, "Izmeni" beside it, everything else
@@ -432,6 +464,28 @@ export function PaymentDetailDialog({
                     />
                   </div>
                 </div>
+              ) : view === "confirm-amount" ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Koliko si uplatio/la za „{payment.name}" ovog meseca?
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-detail-paid-amount">Iznos (RSD)</Label>
+                    <Input
+                      id="payment-detail-paid-amount"
+                      value={paidAmount}
+                      onChange={(e) => setPaidAmount(e.target.value)}
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="decimal"
+                      autoFocus
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Okvirno: <Amount value={payment.amount} />
+                    </p>
+                  </div>
+                </div>
               ) : view === "delete" ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
@@ -455,6 +509,11 @@ export function PaymentDetailDialog({
                     <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
                       <Amount value={payment.amount} />
                     </div>
+                    {payment.is_variable_amount ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Okvirni iznos — potvrđuje se pri svakom plaćanju
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {statusBadges.map((badge) => (
                         <span
@@ -542,6 +601,22 @@ export function PaymentDetailDialog({
                 disabled={saving}
               >
                 {cancelCopy?.title ?? "Otkaži ratu"}
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : view === "confirm-amount" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={saving}>
+                Nazad
+              </Button>
+              <Button
+                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                onClick={() => {
+                  void handleConfirmAmount();
+                }}
+                disabled={saving || !paidAmountValid}
+              >
+                <CheckIcon className="size-4" />
+                Označi kao plaćeno
               </Button>
             </ResponsiveDialogFooter>
           ) : view === "delete" ? (

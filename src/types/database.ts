@@ -108,6 +108,14 @@ export interface Payment {
   remaining_occurrences: number | null;
   is_paid: boolean;
   is_paused: boolean;
+  /**
+   * Marks a recurring bill whose amount varies each period (struja, infostan…).
+   * When true, `amount` is only a rough default ("okvirni iznos") used for
+   * projections, and each "mark as paid" prompts for the actual amount — which
+   * is snapshotted into `payment_history.amount` (and the auto-expense). Only
+   * ever true for recurring payments; the form gates the toggle. Defaults false.
+   */
+  is_variable_amount: boolean;
   paid_date: string | null;
   remind_days_before: number | null;
   /**

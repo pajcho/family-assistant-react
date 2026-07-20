@@ -86,6 +86,7 @@ function payment(over: Partial<Payment> = {}): Payment {
     remaining_occurrences: null,
     is_paid: false,
     is_paused: false,
+    is_variable_amount: false,
     paid_date: null,
     remind_days_before: null,
     activity_id: null,
