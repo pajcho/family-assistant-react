@@ -1,22 +1,35 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { Dispatch, FormEvent, SetStateAction } from "react";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
+  BanknotesIcon,
+  TagIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
+import { useIsDesktop } from "@/components/ui/responsive-dialog";
 import {
   CurrencyToggle,
   ExchangeRateRow,
-  useCurrencyAmount,
+  type CurrencyAmountControl,
 } from "@/components/common/CurrencyAmountField";
+import { DateQuickPick } from "@/components/common/DateQuickPick";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { PickerRow } from "@/components/common/PickerRow";
+import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
 import { useCurrencyOptions } from "@/hooks/useCurrencySettings";
+import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { currencySymbol, parseDecimal } from "@/utils/currency";
+import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
 
 /** Form payload — mirrors the Vue PaymentForm.vue submit shape. */
@@ -52,18 +65,7 @@ export type PaymentFormPayload = {
   personIds: string[];
 };
 
-export type PaymentFormProps = {
-  payment?: Payment | null;
-  /** Assignees of the payment being edited; empty/omitted when adding. */
-  initialPersonIds?: string[];
-  /** When true, the recurrence type select becomes disabled (history exists). */
-  hasHistory?: boolean;
-  saving?: boolean;
-  onSubmit: (payload: PaymentFormPayload) => void;
-  onCancel: () => void;
-};
-
-type FormState = {
+export type PaymentFormState = {
   name: string;
   description: string;
   /** kept as string so the controlled <input type="number"> can be empty */
@@ -84,76 +86,29 @@ type FormState = {
   personIds: string[];
 };
 
-const RECURRENCE_OPTIONS: ReadonlyArray<{ value: RecurrencePeriod; label: string }> = [
+/** Mobile sub-views the form's picker rows can open — see PaymentFormDialog. */
+export type PaymentFormViewKind = "tip" | "category" | "details";
+
+export const RECURRENCE_OPTIONS: ReadonlyArray<{ value: RecurrencePeriod; label: string }> = [
   { value: "one-time", label: "Jednokratno" },
   { value: "weekly", label: "Nedeljno" },
   { value: "monthly", label: "Mesečno" },
   { value: "limited", label: "Ograničeno" },
 ];
 
-const WEEKLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+export const WEEKLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 1, label: "Svake nedelje" },
   { value: 2, label: "Svake 2 nedelje" },
   { value: 3, label: "Svake 3 nedelje" },
   { value: 4, label: "Svake 4 nedelje" },
 ];
 
-const MONTHLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+export const MONTHLY_INTERVAL_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 1, label: "Svakog meseca" },
   { value: 2, label: "Svaka 2 meseca" },
   { value: 3, label: "Svaka 3 meseca" },
   { value: 6, label: "Svakih 6 meseci" },
 ];
-
-/** Tailwind chrome that matches `<Input>` — reused for both native selects below. */
-const SELECT_CHROME =
-  "h-9 w-full min-w-0 cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50";
-
-function NativeSelect<T extends string | number>({
-  id,
-  value,
-  onChange,
-  options,
-  disabled,
-  parse,
-}: {
-  id?: string;
-  value: T;
-  onChange: (next: T) => void;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  disabled?: boolean;
-  parse: (raw: string) => T;
-}) {
-  return (
-    <div className="relative">
-      <select
-        id={id}
-        value={String(value)}
-        onChange={(e) => onChange(parse(e.target.value))}
-        disabled={disabled}
-        className={SELECT_CHROME}
-      >
-        {options.map((opt) => (
-          <option key={String(opt.value)} value={String(opt.value)}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground opacity-60"
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </div>
-  );
-}
 
 function initialLink(payment: Payment | null | undefined): PaymentLinkValue | null {
   if (payment?.activity_id) return { kind: "activity", id: payment.activity_id };
@@ -162,7 +117,16 @@ function initialLink(payment: Payment | null | undefined): PaymentLinkValue | nu
   return null;
 }
 
-function initialState(payment: Payment | null | undefined, personIds: string[]): FormState {
+/**
+ * Seed for the dialog-owned form state. `today` (yyyy-MM-dd) pre-fills the
+ * due date when ADDING — the most common due date is "danas", and the quick
+ * chips / picker make any other date one tap away.
+ */
+export function initialPaymentFormState(
+  payment: Payment | null | undefined,
+  personIds: string[],
+  today: string,
+): PaymentFormState {
   const foreign = !!payment && payment.currency !== "RSD" && payment.original_amount != null;
   return {
     name: payment?.name ?? "",
@@ -173,7 +137,7 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
       : payment?.amount != null
         ? String(payment.amount)
         : "",
-    due_date: payment?.due_date ?? null,
+    due_date: payment?.due_date ?? today,
     recurrence_period: (payment?.recurrence_period ?? "one-time") as RecurrencePeriod,
     recurrence_interval: payment?.recurrence_interval ?? 1,
     remaining_occurrences:
@@ -187,50 +151,78 @@ function initialState(payment: Payment | null | undefined, personIds: string[]):
   };
 }
 
+/** "Mesečno · svaka 2 meseca · promenljiv iznos · pauzirano" — the Tip row summary. */
+export function recurrenceSummary(form: PaymentFormState): string {
+  const parts: string[] = [
+    RECURRENCE_OPTIONS.find((o) => o.value === form.recurrence_period)?.label ?? "",
+  ];
+  if (form.recurrence_period === "weekly" || form.recurrence_period === "monthly") {
+    const options =
+      form.recurrence_period === "weekly" ? WEEKLY_INTERVAL_OPTIONS : MONTHLY_INTERVAL_OPTIONS;
+    const interval = options.find((o) => o.value === form.recurrence_interval);
+    if (interval && form.recurrence_interval !== 1) parts.push(interval.label.toLowerCase());
+  }
+  if (form.recurrence_period === "limited") {
+    parts.push(`još ${form.remaining_occurrences || "?"} uplata`);
+  }
+  if (form.recurrence_period !== "one-time") {
+    if (form.is_variable_amount) parts.push("promenljiv iznos");
+    if (form.is_paused) parts.push("pauzirano");
+  }
+  return parts.filter(Boolean).join(" · ");
+}
+
+export type PaymentFormProps = {
+  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  form: PaymentFormState;
+  setForm: Dispatch<SetStateAction<PaymentFormState>>;
+  /** Dialog-owned currency control (same reason). */
+  ca: CurrencyAmountControl;
+  payment?: Payment | null;
+  /** When true, the recurrence type select becomes disabled (history exists). */
+  hasHistory?: boolean;
+  saving?: boolean;
+  onSubmit: (payload: PaymentFormPayload) => void;
+  onCancel: () => void;
+  /** Mobile "Brzi unos" rows push these sub-views (owned by the dialog's SheetStack). */
+  onOpenView: (view: PaymentFormViewKind) => void;
+};
+
 /**
- * Layout:
+ * Mobile (<sm) — the "Brzi unos" layout: the three always-typed fields
+ * (Naziv, big Iznos, Datum with quick chips), then three picker rows (Tip
+ * plaćanja / Kategorija / Više detalja) opening sub-views in the same sheet,
+ * with a sticky Odustani/Dodaj footer.
+ *
+ * Desktop (sm+) — the classic fully-expanded layout, unchanged:
  *   • Naziv / Opis — full width
  *   • Za koga — assignee pills (optional)
  *   • Poveži sa — link combobox to one activity/event (optional)
- *   • Tip — native select (Jednokratno / Nedeljno / Mesečno / Ograničeno).
- *     Disabled when `hasHistory` is true. Sits above Iznos because it gates the
- *     conditional fields that follow.
- *   • Ponavljanje — native select shown only for `weekly` / `monthly`. Lets
- *     the user pick "every N weeks" / "every N months".
- *   • Preostalo uplata — only when `recurrence_period === 'limited'`
- *   • Iznos — full width (label + currency toggle in one row, currency symbol
- *     as the input suffix, NBS-rate row underneath for foreign entries).
- *     Label becomes "Okvirni iznos" when the variable-amount toggle is on.
- *   • Promenljiv iznos — checkbox directly UNDER Iznos (it describes the
- *     amount); recurring payments only; marks the amount as a per-period
- *     default confirmed at mark-paid time.
- *   • Datum dospeća — full width.
- *   • Pauziraj plaćanje — only when editing a recurring (non one-time) payment
+ *   • Kategorija — native select
+ *   • Tip — native select, disabled when `hasHistory`; gates Ponavljanje /
+ *     Preostalo uplata / Promenljiv iznos below it
+ *   • Iznos — label + currency toggle row, NBS-rate row for foreign entries
+ *   • Datum dospeća, Pauziraj (edit+recurring), Podsetnik
  *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
  */
 export function PaymentForm({
+  form,
+  setForm,
+  ca,
   payment,
-  initialPersonIds,
   hasHistory = false,
   saving = false,
   onSubmit,
   onCancel,
+  onOpenView,
 }: PaymentFormProps) {
-  const [form, setForm] = useState<FormState>(() => initialState(payment, initialPersonIds ?? []));
-  const ca = useCurrencyAmount(payment, form.due_date);
+  const isDesktop = useIsDesktop();
   // Offers the family's enabled currencies + this payment's own (so payments in
   // a since-disabled currency still edit cleanly).
   const currencies = useCurrencyOptions(payment?.currency);
-  const { reset: resetCurrency } = ca;
-
-  // Serialized so the effect reseeds when the assignees finish loading
-  // without firing on every render from a fresh array reference.
-  const personSeed = (initialPersonIds ?? []).join(",");
-
-  useEffect(() => {
-    setForm(initialState(payment, personSeed ? personSeed.split(",") : []));
-    resetCurrency(payment?.currency, payment?.exchange_rate);
-  }, [payment, personSeed, resetCurrency]);
+  // Row summaries (mobile). Both hooks read already-cached family queries.
+  const { categories } = useExpenseCategories();
+  const { members } = useFamilyMembers();
 
   const isEdit = !!payment?.id;
   const isRecurring = form.recurrence_period !== "one-time";
@@ -283,6 +275,138 @@ export function PaymentForm({
     });
   };
 
+  const amountLabel = form.is_variable_amount ? "Okvirni iznos *" : "Iznos *";
+
+  if (!isDesktop) {
+    // ——— Mobile: "Brzi unos" ———
+    const selectedCategory = form.category_id
+      ? categories.find((c) => c.id === form.category_id)
+      : null;
+
+    const detailParts: string[] = [];
+    if (form.description.trim()) detailParts.push("Opis ✓");
+    if (form.personIds.length > 0) {
+      const names = form.personIds
+        .map((id) => {
+          const person = members.find((m) => m.id === id);
+          return person
+            ? getDisplayName({
+                firstName: person.first_name,
+                lastName: person.last_name,
+                email: null,
+              })
+            : null;
+        })
+        .filter(Boolean);
+      detailParts.push(names.length > 0 ? names.join(", ") : `Za koga: ${form.personIds.length}`);
+    }
+    if (form.link) detailParts.push("Povezano ✓");
+    if (form.remind_days_before != null) {
+      const reminder = PAYMENT_REMINDER_OPTIONS.find((o) => o.value === form.remind_days_before);
+      if (reminder) detailParts.push(reminder.label);
+    }
+    const detailCount =
+      (form.description.trim() ? 1 : 0) +
+      (form.personIds.length > 0 ? 1 : 0) +
+      (form.link ? 1 : 0) +
+      (form.remind_days_before != null ? 1 : 0);
+
+    return (
+      <form id="payment-form" className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="name">Naziv *</Label>
+          <Input
+            id="name"
+            value={form.name}
+            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+            required
+            placeholder="npr. Internet račun"
+          />
+        </div>
+        {/* Amount — the star, mirroring ExpenseForm's quick-add field. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="amount">{amountLabel}</Label>
+            <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
+          </div>
+          <div className="relative">
+            <Input
+              id="amount"
+              value={form.amount}
+              onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
+              inputMode="decimal"
+              required
+              placeholder="0"
+              className="h-14 pr-14 text-right text-3xl font-semibold tabular-nums"
+            />
+            <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-muted-foreground">
+              {currencySymbol(ca.currency)}
+            </span>
+          </div>
+          <ExchangeRateRow
+            control={ca}
+            amountNum={parseDecimal(form.amount)}
+            inputId="payment-rate"
+          />
+        </div>
+        <DateQuickPick
+          id="due_date"
+          label="Datum dospeća *"
+          value={form.due_date}
+          onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
+          placeholder="Datum dospeća"
+        />
+        <div className="space-y-2">
+          <PickerRow
+            title="Tip plaćanja"
+            summary={recurrenceSummary(form)}
+            icon={
+              form.recurrence_period === "one-time" ? (
+                <BanknotesIcon className="size-4" />
+              ) : (
+                <ArrowPathIcon className="size-4" />
+              )
+            }
+            onClick={() => onOpenView("tip")}
+          />
+          <PickerRow
+            title="Kategorija"
+            summary={
+              selectedCategory ? (
+                <span className="truncate">{selectedCategory.name}</span>
+              ) : (
+                "Bez kategorije"
+              )
+            }
+            icon={
+              selectedCategory ? (
+                (() => {
+                  const Icon = categoryIcon(selectedCategory.icon);
+                  return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
+                })()
+              ) : (
+                <TagIcon className="size-4" />
+              )
+            }
+            onClick={() => onOpenView("category")}
+          />
+          <PickerRow
+            title="Više detalja"
+            summary={
+              detailParts.length > 0
+                ? detailParts.join(" · ")
+                : "Opis · za koga · poveži sa · podsetnik"
+            }
+            icon={<AdjustmentsHorizontalIcon className="size-4" />}
+            count={detailCount}
+            onClick={() => onOpenView("details")}
+          />
+        </div>
+      </form>
+    );
+  }
+
+  // ——— Desktop: classic fully-expanded layout (unchanged) ———
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
@@ -368,12 +492,11 @@ export function PaymentForm({
         </div>
       ) : null}
       {/* Iznos — full-width, mirroring ExpenseForm: label and currency toggle
-          share the row (the old [Iznos | Datum] grid squeezed the label into
-          wrapping on mobile), the input carries the currency symbol as a
-          suffix, and the NBS-rate row slots directly underneath. */}
+          share the row, the input carries the currency symbol as a suffix,
+          and the NBS-rate row slots directly underneath. */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="amount">{form.is_variable_amount ? "Okvirni iznos *" : "Iznos *"}</Label>
+          <Label htmlFor="amount">{amountLabel}</Label>
           <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
         </div>
         <div className="relative">

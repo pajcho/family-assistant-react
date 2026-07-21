@@ -40,16 +40,16 @@ describe("convertToRsd", () => {
 });
 
 describe("currencySymbol / formatOriginalAmount", () => {
-  it("maps EUR to €, USD to $, passes unknown codes through", () => {
-    expect(currencySymbol("EUR")).toBe("€");
-    expect(currencySymbol("USD")).toBe("$");
+  it("shows the currency code itself, matching how RSD is displayed", () => {
+    expect(currencySymbol("EUR")).toBe("EUR");
+    expect(currencySymbol("USD")).toBe("USD");
     expect(currencySymbol("CHF")).toBe("CHF");
   });
 
   it("formats with sr-Latn locale and at most 2 decimals", () => {
-    expect(formatOriginalAmount(50, "EUR")).toBe("50 €");
-    expect(formatOriginalAmount(50.5, "EUR")).toBe("50,5 €");
-    expect(formatOriginalAmount(1234.56, "EUR")).toBe("1.234,56 €");
+    expect(formatOriginalAmount(50, "EUR")).toBe("50 EUR");
+    expect(formatOriginalAmount(50.5, "EUR")).toBe("50,5 EUR");
+    expect(formatOriginalAmount(1234.56, "EUR")).toBe("1.234,56 EUR");
   });
 });
 
