@@ -1,17 +1,22 @@
-import { useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useState } from "react";
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
+import { AdjustmentsHorizontalIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
+import { useIsDesktop } from "@/components/ui/responsive-dialog";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { PickerRow } from "@/components/common/PickerRow";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import { cn } from "@/lib/cn";
-import type { Activity, ActivitySchedule, Profile, WeekPattern } from "@/types/database";
+import type { Activity, ActivitySchedule, WeekPattern } from "@/types/database";
 import { DAY_LABELS_FULL } from "@/utils/activity";
+import { formatDate } from "@/utils/date";
 
 /**
  * Form payload — the parent page splits this into:
@@ -42,28 +47,20 @@ export type ScheduleRuleDraft = {
   recurrence_interval_weeks: number;
 };
 
-export type ActivityFormProps = {
-  activity?: Activity | null;
-  /** Existing schedule rules for `activity` — empty list when adding new. */
-  existingRules?: ReadonlyArray<ActivitySchedule>;
-  /** Current participants — empty when adding a new activity. */
-  existingPersonIds?: ReadonlyArray<string>;
-  /** Family members — used to preselect a default participant when adding. */
-  people: ReadonlyArray<Profile>;
-  /** Person ids that have an alternating school-shift anchor. A/B opens up when at least one selected participant qualifies. */
-  peopleWithShift: ReadonlySet<string>;
-  /** Default person to preselect when creating (e.g. current user's id). */
-  defaultPersonId?: string | null;
-  saving?: boolean;
-  /**
-   * Read-only "Plaćanja" block (linked payments + monthly breakdown), slotted
-   * in above the footer buttons when editing. The dialog owns the data — the
-   * form stays a dumb layout shell for it.
-   */
-  paymentsSection?: ReactNode;
-  onSubmit: (payload: ActivityFormPayload) => void;
-  onCancel: () => void;
+export type ActivityFormState = {
+  person_ids: string[];
+  name: string;
+  description: string;
+  active_from: string | null;
+  active_to: string | null;
+  is_paused: boolean;
+  remind_minutes_before: number | null;
+  notes: string;
+  rules: ScheduleRuleDraft[];
 };
+
+/** Mobile sub-views the form's picker row can open — see ActivityFormDialog. */
+export type ActivityFormViewKind = "details";
 
 const DAY_OPTIONS: ReadonlyArray<{ value: number; label: string }> = DAY_LABELS_FULL.map(
   (label, index) => ({ value: index, label }),
@@ -117,55 +114,6 @@ function ruleUpdateFromPattern(
   return { week_pattern: option.pattern, recurrence_interval_weeks: option.interval };
 }
 
-const SELECT_CHROME =
-  "h-9 w-full min-w-0 cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50";
-
-function NativeSelect<T extends string | number>({
-  id,
-  value,
-  onChange,
-  options,
-  disabled,
-  parse,
-}: {
-  id?: string;
-  value: T;
-  onChange: (next: T) => void;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  disabled?: boolean;
-  parse: (raw: string) => T;
-}) {
-  return (
-    <div className="relative">
-      <select
-        id={id}
-        value={String(value)}
-        onChange={(e) => onChange(parse(e.target.value))}
-        disabled={disabled}
-        className={SELECT_CHROME}
-      >
-        {options.map((opt) => (
-          <option key={String(opt.value)} value={String(opt.value)}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground opacity-60"
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    </div>
-  );
-}
-
 function emptyRule(): ScheduleRuleDraft {
   return {
     day_of_week: 0,
@@ -176,24 +124,13 @@ function emptyRule(): ScheduleRuleDraft {
   };
 }
 
-type FormState = {
-  person_ids: string[];
-  name: string;
-  description: string;
-  active_from: string | null;
-  active_to: string | null;
-  is_paused: boolean;
-  remind_minutes_before: number | null;
-  notes: string;
-  rules: ScheduleRuleDraft[];
-};
-
-function initialState(
+/** Seed for the dialog-owned form state. */
+export function initialActivityFormState(
   activity: Activity | null | undefined,
   existingRules: ReadonlyArray<ActivitySchedule> | undefined,
   existingPersonIds: ReadonlyArray<string> | undefined,
   fallbackPersonId: string,
-): FormState {
+): ActivityFormState {
   const rules =
     existingRules && existingRules.length > 0
       ? existingRules.map((r) => ({
@@ -226,30 +163,47 @@ function initialState(
   };
 }
 
+export type ActivityFormProps = {
+  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  form: ActivityFormState;
+  setForm: Dispatch<SetStateAction<ActivityFormState>>;
+  activity?: Activity | null;
+  /** Person ids that have an alternating school-shift anchor. A/B opens up when at least one selected participant qualifies. */
+  peopleWithShift: ReadonlySet<string>;
+  saving?: boolean;
+  /**
+   * Read-only "Plaćanja" block (linked payments + monthly breakdown), slotted
+   * in above the footer buttons when editing. The dialog owns the data — the
+   * form stays a dumb layout shell for it.
+   */
+  paymentsSection?: ReactNode;
+  onSubmit: (payload: ActivityFormPayload) => void;
+  onCancel: () => void;
+  /** Mobile "Brzi unos" row pushes the Detalji sub-view (dialog's SheetStack). */
+  onOpenView: (view: ActivityFormViewKind) => void;
+};
+
+/**
+ * Mobile (<sm) — the "Brzi unos" layout: Naziv, Učesnici and the Termini
+ * rule cards stay inline (the schedule IS the activity), Pauziraj becomes a
+ * switch card on edit; Opis, Sezona, Podsetnik and Beleške move behind a
+ * "Više detalja" row into a sub-view. The Odustani/Dodaj bar is pinned by
+ * the dialog below the scroll area.
+ *
+ * Desktop (sm+) — the classic fully-expanded layout, unchanged.
+ */
 export function ActivityForm({
+  form,
+  setForm,
   activity,
-  existingRules,
-  existingPersonIds,
-  people,
   peopleWithShift,
-  defaultPersonId,
   saving = false,
   paymentsSection,
   onSubmit,
   onCancel,
+  onOpenView,
 }: ActivityFormProps) {
-  const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
-  const [form, setForm] = useState<FormState>(() =>
-    initialState(activity, existingRules, existingPersonIds, fallbackPersonId),
-  );
-
-  // Reset whenever the dialog opens with a different activity. The
-  // `existingRules` / `existingPersonIds` identities also flip for the
-  // same id once they load.
-  useEffect(() => {
-    setForm(initialState(activity, existingRules, existingPersonIds, fallbackPersonId));
-  }, [activity, existingRules, existingPersonIds, fallbackPersonId]);
-
+  const isDesktop = useIsDesktop();
   const isEdit = !!activity?.id;
   // A/B opens up when at least one selected participant has an alternating
   // shift. For everyone else the resolver silently skips the A/B rule for
@@ -305,30 +259,174 @@ export function ActivityForm({
     });
   };
 
+  const nameField = (
+    <div className="space-y-2">
+      <Label htmlFor="name">Naziv aktivnosti *</Label>
+      <Input
+        id="name"
+        value={form.name}
+        onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+        required
+        placeholder="npr. Trening fudbala"
+      />
+    </div>
+  );
+
+  const participantsField = (
+    <div className="space-y-1">
+      <MemberMultiSelect
+        label="Učesnici *"
+        value={form.person_ids}
+        onChange={(person_ids) => setForm((s) => ({ ...s, person_ids }))}
+      />
+      {form.person_ids.length === 0 ? (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          Izaberi bar jednog učesnika.
+        </p>
+      ) : null}
+    </div>
+  );
+
+  const rulesSection = (
+    <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+      <div className="flex items-center justify-between">
+        <Label className="mb-0">Termini *</Label>
+        <Button type="button" variant="outline" size="sm" onClick={handleAddRule}>
+          <PlusIcon className="mr-1 h-4 w-4" />
+          Dodaj termin
+        </Button>
+      </div>
+      {!personHasShift ? (
+        <p className="text-xs text-muted-foreground">
+          Postavi školsku smenu za ovu osobu da bi mogao da koristiš A/B nedelje.
+        </p>
+      ) : null}
+      <div className="space-y-2">
+        {form.rules.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Dodaj bar jedan termin.</p>
+        ) : null}
+        {form.rules.map((rule, index) => {
+          const invalid = !!rule.start_time && !!rule.end_time && rule.end_time <= rule.start_time;
+          return (
+            <div
+              key={index}
+              className={cn(
+                // Card-style stacked layout — works in the narrow drawer on
+                // mobile and stays readable on desktop. Day select on top
+                // gets the full row width so the longest names (Ponedeljak,
+                // Četvrtak) never truncate.
+                "space-y-2 rounded-md border p-2",
+                invalid
+                  ? "border-red-300 bg-red-50/40 dark:border-red-700 dark:bg-red-900/10"
+                  : "border-gray-200 dark:border-gray-700",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <NativeSelect
+                    value={rule.day_of_week}
+                    onChange={(next) => handleRuleChange(index, { day_of_week: next })}
+                    options={DAY_OPTIONS}
+                    parse={(raw) => Number(raw)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label="Ukloni termin"
+                  onClick={() => handleRemoveRule(index)}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <TimePicker
+                    value={rule.start_time}
+                    onChange={(value) => handleRuleChange(index, { start_time: value ?? "" })}
+                    clearable={false}
+                  />
+                </div>
+                <span className="shrink-0 text-sm text-muted-foreground">–</span>
+                <div className="min-w-0 flex-1">
+                  <TimePicker
+                    value={rule.end_time}
+                    onChange={(value) => handleRuleChange(index, { end_time: value ?? "" })}
+                    clearable={false}
+                  />
+                </div>
+              </div>
+              {/* Pattern dropdown — composite values like `every:2` carry
+                  both the week_pattern and the recurrence interval so the
+                  rule card stays a single row of fields. A/B options are
+                  filtered out for people without an alternating shift. */}
+              <NativeSelect
+                value={patternValueFromRule(rule)}
+                onChange={(next) => handleRuleChange(index, ruleUpdateFromPattern(next))}
+                options={PATTERN_OPTIONS.filter(
+                  (o) => !o.requiresAlternatingShift || personHasShift,
+                ).map((o) => ({ value: o.value, label: o.label }))}
+                parse={(raw) => raw}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (!isDesktop) {
+    // ——— Mobile: "Brzi unos" ———
+    const detailParts: string[] = [];
+    if (form.description.trim()) detailParts.push("Opis ✓");
+    if (form.active_from || form.active_to) {
+      const from = form.active_from ? formatDate(form.active_from) : "…";
+      const to = form.active_to ? formatDate(form.active_to) : "…";
+      detailParts.push(`Sezona ${from} – ${to}`);
+    }
+    if (form.remind_minutes_before != null) {
+      const reminder = EVENT_REMINDER_OPTIONS.find((o) => o.value === form.remind_minutes_before);
+      if (reminder) detailParts.push(reminder.label);
+    }
+    if (form.notes.trim()) detailParts.push("Beleške ✓");
+    const detailCount =
+      (form.description.trim() ? 1 : 0) +
+      (form.active_from || form.active_to ? 1 : 0) +
+      (form.remind_minutes_before != null ? 1 : 0) +
+      (form.notes.trim() ? 1 : 0);
+
+    return (
+      <form id="activity-form" className="space-y-4" onSubmit={handleSubmit}>
+        {nameField}
+        {participantsField}
+        {rulesSection}
+        {isEdit ? (
+          <SwitchRow
+            title="Pauziraj aktivnost"
+            description="Dok je pauzirana, termini se ne prikazuju u agendi."
+            checked={form.is_paused}
+            onChange={(is_paused) => setForm((s) => ({ ...s, is_paused }))}
+          />
+        ) : null}
+        <PickerRow
+          title="Više detalja"
+          summary={
+            detailParts.length > 0 ? detailParts.join(" · ") : "Opis · sezona · podsetnik · beleške"
+          }
+          icon={<AdjustmentsHorizontalIcon className="size-4" />}
+          count={detailCount}
+          onClick={() => onOpenView("details")}
+        />
+        {paymentsSection}
+      </form>
+    );
+  }
+
+  // ——— Desktop: classic fully-expanded layout (unchanged) ———
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="name">Naziv aktivnosti *</Label>
-        <Input
-          id="name"
-          value={form.name}
-          onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-          required
-          placeholder="npr. Trening fudbala"
-        />
-      </div>
-      <div className="space-y-1">
-        <MemberMultiSelect
-          label="Učesnici *"
-          value={form.person_ids}
-          onChange={(person_ids) => setForm((s) => ({ ...s, person_ids }))}
-        />
-        {form.person_ids.length === 0 ? (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">
-            Izaberi bar jednog učesnika.
-          </p>
-        ) : null}
-      </div>
+      {nameField}
+      {participantsField}
       <div className="space-y-2">
         <Label htmlFor="description">Opis</Label>
         <Input
@@ -339,92 +437,7 @@ export function ActivityForm({
         />
       </div>
 
-      <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <Label className="mb-0">Termini *</Label>
-          <Button type="button" variant="outline" size="sm" onClick={handleAddRule}>
-            <PlusIcon className="mr-1 h-4 w-4" />
-            Dodaj termin
-          </Button>
-        </div>
-        {!personHasShift ? (
-          <p className="text-xs text-muted-foreground">
-            Postavi školsku smenu za ovu osobu da bi mogao da koristiš A/B nedelje.
-          </p>
-        ) : null}
-        <div className="space-y-2">
-          {form.rules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Dodaj bar jedan termin.</p>
-          ) : null}
-          {form.rules.map((rule, index) => {
-            const invalid =
-              !!rule.start_time && !!rule.end_time && rule.end_time <= rule.start_time;
-            return (
-              <div
-                key={index}
-                className={cn(
-                  // Card-style stacked layout — works in the narrow drawer on
-                  // mobile and stays readable on desktop. Day select on top
-                  // gets the full row width so the longest names (Ponedeljak,
-                  // Četvrtak) never truncate.
-                  "space-y-2 rounded-md border p-2",
-                  invalid
-                    ? "border-red-300 bg-red-50/40 dark:border-red-700 dark:bg-red-900/10"
-                    : "border-gray-200 dark:border-gray-700",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <NativeSelect
-                      value={rule.day_of_week}
-                      onChange={(next) => handleRuleChange(index, { day_of_week: next })}
-                      options={DAY_OPTIONS}
-                      parse={(raw) => Number(raw)}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Ukloni termin"
-                    onClick={() => handleRemoveRule(index)}
-                    className="rounded-md p-2 text-muted-foreground hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <TimePicker
-                      value={rule.start_time}
-                      onChange={(value) => handleRuleChange(index, { start_time: value ?? "" })}
-                      clearable={false}
-                    />
-                  </div>
-                  <span className="shrink-0 text-sm text-muted-foreground">–</span>
-                  <div className="min-w-0 flex-1">
-                    <TimePicker
-                      value={rule.end_time}
-                      onChange={(value) => handleRuleChange(index, { end_time: value ?? "" })}
-                      clearable={false}
-                    />
-                  </div>
-                </div>
-                {/* Pattern dropdown — composite values like `every:2` carry
-                    both the week_pattern and the recurrence interval so the
-                    rule card stays a single row of fields. A/B options are
-                    filtered out for people without an alternating shift. */}
-                <NativeSelect
-                  value={patternValueFromRule(rule)}
-                  onChange={(next) => handleRuleChange(index, ruleUpdateFromPattern(next))}
-                  options={PATTERN_OPTIONS.filter(
-                    (o) => !o.requiresAlternatingShift || personHasShift,
-                  ).map((o) => ({ value: o.value, label: o.label }))}
-                  parse={(raw) => raw}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {rulesSection}
 
       <div>
         <button

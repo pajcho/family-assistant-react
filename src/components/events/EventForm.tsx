@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { Dispatch, FormEvent, SetStateAction } from "react";
+import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -7,8 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
+import { useIsDesktop } from "@/components/ui/responsive-dialog";
+import { DateQuickPick } from "@/components/common/DateQuickPick";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { PickerRow } from "@/components/common/PickerRow";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import type { Event } from "@/types/database";
+import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { getDisplayName } from "@/utils/identity";
 
 export type EventFormPayload = {
   name: string;
@@ -28,22 +34,10 @@ export type EventFormPayload = {
   reschedule_reason?: string | null;
 };
 
-export type EventFormProps = {
-  event?: Event | null;
-  /** Assignees for the event being edited; empty/omitted for a new event. */
-  initialPersonIds?: string[];
-  /**
-   * Prefill for ADD mode only (ignored while editing) — e.g. "Organizuj
-   * proslavu" seeds the name and the next birthday date. The form still
-   * submits as a create.
-   */
-  defaults?: Partial<Pick<Event, "name" | "description" | "date" | "notes">>;
-  saving?: boolean;
-  onSubmit: (payload: EventFormPayload) => void;
-  onCancel: () => void;
-};
+/** ADD-mode prefill (e.g. "Organizuj proslavu" seeds name + date). */
+export type EventFormDefaults = Partial<Pick<Event, "name" | "description" | "date" | "notes">>;
 
-type FormState = {
+export type EventFormState = {
   name: string;
   description: string;
   date: string | null;
@@ -55,15 +49,23 @@ type FormState = {
   personIds: string[];
 };
 
-function initialState(
+/** Mobile sub-views the form's picker row can open — see EventFormDialog. */
+export type EventFormViewKind = "details";
+
+/**
+ * Seed for the dialog-owned form state. `today` pre-fills the date when
+ * ADDING without an explicit default — same convention as payments.
+ */
+export function initialEventFormState(
   event: Event | null | undefined,
   personIds: string[],
-  defaults?: EventFormProps["defaults"],
-): FormState {
+  defaults: EventFormDefaults | undefined,
+  today: string,
+): EventFormState {
   return {
     name: event?.name ?? defaults?.name ?? "",
     description: event?.description ?? defaults?.description ?? "",
-    date: event?.date ?? defaults?.date ?? null,
+    date: event?.date ?? defaults?.date ?? today,
     // New events default to "not all day" (matching the Vue form);
     // existing events derive allDay from whether both times are null.
     allDay: event ? event.start_time == null && event.end_time == null : false,
@@ -75,43 +77,40 @@ function initialState(
   };
 }
 
+export type EventFormProps = {
+  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  form: EventFormState;
+  setForm: Dispatch<SetStateAction<EventFormState>>;
+  event?: Event | null;
+  /** Kept for the dialog's prop type; seeding happens in the dialog. */
+  defaults?: EventFormDefaults;
+  saving?: boolean;
+  onSubmit: (payload: EventFormPayload) => void;
+  onCancel: () => void;
+  /** Mobile "Brzi unos" row pushes the Detalji sub-view (dialog's SheetStack). */
+  onOpenView: (view: EventFormViewKind) => void;
+};
+
 /**
- * Direct port of `components/events/EventForm.vue` from the sibling Nuxt app.
+ * Mobile (<sm) — the "Brzi unos" layout: Naziv, Datum (danas + quick chips)
+ * and the Ceo dan switch stay inline, with Početak/Završetak and Podsetnik
+ * appearing contextually below the switch; Opis, Za koga and Napomene move
+ * behind a "Više detalja" row into a sub-view. The Odustani/Dodaj bar is
+ * pinned by the dialog below the scroll area.
  *
- * Controlled inputs (per the migration plan's "no react-hook-form" stack
- * decision). Submitting fires `onSubmit` with a serialized payload — the
- * dialog wrapper owns the mutation call so this component stays pure.
+ * Desktop (sm+) — the classic fully-expanded layout, unchanged.
  */
 export function EventForm({
+  form,
+  setForm,
   event,
-  initialPersonIds,
-  defaults,
   saving = false,
   onSubmit,
   onCancel,
+  onOpenView,
 }: EventFormProps) {
-  const [form, setForm] = useState<FormState>(() =>
-    initialState(event, initialPersonIds ?? [], defaults),
-  );
-
-  // Serialized so the effect reseeds when the assignees finish loading
-  // (the parent looks them up from a query that resolves after open) without
-  // firing on every render from a fresh array reference.
-  const personSeed = (initialPersonIds ?? []).join(",");
-  const defaultsSeed = defaults ? JSON.stringify(defaults) : "";
-
-  // When the parent swaps `event` (e.g. opening edit vs. switching between
-  // events without unmounting the form), reseed local state. Mirrors Vue's
-  // `watch(() => props.event, ..., { immediate: true })`.
-  useEffect(() => {
-    setForm(
-      initialState(
-        event,
-        personSeed ? personSeed.split(",") : [],
-        defaultsSeed ? (JSON.parse(defaultsSeed) as EventFormProps["defaults"]) : undefined,
-      ),
-    );
-  }, [event, personSeed, defaultsSeed]);
+  const isDesktop = useIsDesktop();
+  const { members } = useFamilyMembers();
 
   const isEdit = !!event?.id;
 
@@ -147,6 +146,104 @@ export function EventForm({
     });
   };
 
+  const timeFields = !form.allDay ? (
+    <>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="start_time">Početak (opciono)</Label>
+          <TimePicker
+            id="start_time"
+            value={form.start_time}
+            onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
+            placeholder="00:00"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="end_time">Završetak (opciono)</Label>
+          <TimePicker
+            id="end_time"
+            value={form.end_time}
+            onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
+            placeholder="00:00"
+          />
+        </div>
+      </div>
+      {form.start_time ? (
+        <div className="space-y-2">
+          <Label htmlFor="reminder">Podsetnik</Label>
+          <ReminderSelect
+            id="reminder"
+            value={form.remind_minutes_before}
+            onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+          />
+        </div>
+      ) : null}
+    </>
+  ) : null;
+
+  if (!isDesktop) {
+    // ——— Mobile: "Brzi unos" ———
+    const detailParts: string[] = [];
+    if (form.description.trim()) detailParts.push("Opis ✓");
+    if (form.personIds.length > 0) {
+      const names = form.personIds
+        .map((id) => {
+          const person = members.find((m) => m.id === id);
+          return person
+            ? getDisplayName({
+                firstName: person.first_name,
+                lastName: person.last_name,
+                email: null,
+              })
+            : null;
+        })
+        .filter(Boolean);
+      detailParts.push(names.length > 0 ? names.join(", ") : `Za koga: ${form.personIds.length}`);
+    }
+    if (form.notes.trim()) detailParts.push("Napomene ✓");
+    const detailCount =
+      (form.description.trim() ? 1 : 0) +
+      (form.personIds.length > 0 ? 1 : 0) +
+      (form.notes.trim() ? 1 : 0);
+
+    return (
+      <form id="event-form" className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="name">Naziv *</Label>
+          <Input
+            id="name"
+            value={form.name}
+            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+            required
+            placeholder="npr. Marko rođendan"
+          />
+        </div>
+        <DateQuickPick
+          id="date"
+          label="Datum *"
+          value={form.date}
+          onChange={(value) => setForm((s) => ({ ...s, date: value }))}
+          placeholder="Izaberi datum"
+        />
+        <SwitchRow
+          title="Ceo dan"
+          description="Bez početka i završetka — događaj važi ceo dan."
+          checked={form.allDay}
+          onChange={(allDay) => setForm((s) => ({ ...s, allDay }))}
+        />
+        {timeFields}
+        <PickerRow
+          title="Više detalja"
+          summary={detailParts.length > 0 ? detailParts.join(" · ") : "Opis · za koga · napomene"}
+          icon={<AdjustmentsHorizontalIcon className="size-4" />}
+          count={detailCount}
+          onClick={() => onOpenView("details")}
+        />
+      </form>
+    );
+  }
+
+  // ——— Desktop: classic fully-expanded layout (unchanged) ———
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
@@ -194,40 +291,7 @@ export function EventForm({
           Ceo dan
         </Label>
       </div>
-      {!form.allDay && (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start_time">Početak (opciono)</Label>
-              <TimePicker
-                id="start_time"
-                value={form.start_time}
-                onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
-                placeholder="00:00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_time">Završetak (opciono)</Label>
-              <TimePicker
-                id="end_time"
-                value={form.end_time}
-                onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
-                placeholder="00:00"
-              />
-            </div>
-          </div>
-          {form.start_time ? (
-            <div className="space-y-2">
-              <Label htmlFor="reminder">Podsetnik</Label>
-              <ReminderSelect
-                id="reminder"
-                value={form.remind_minutes_before}
-                onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
-              />
-            </div>
-          ) : null}
-        </>
-      )}
+      {timeFields}
       <div className="space-y-2">
         <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
         <Input
