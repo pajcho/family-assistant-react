@@ -159,8 +159,12 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
     >
       {/* 24px side padding mirrors Nuxt's px-6 dialog content. pt-2 lifts
           the header off the drag handle, pb-6 gives the footer room above
-          the safe-area. */}
-      <div className="flex max-h-[inherit] flex-col overflow-y-auto px-6 pt-2 pb-6">{children}</div>
+          the safe-area. `grow` fills the drawer's min-h so a form's
+          `mt-auto` sticky footer pins to the sheet bottom even when the
+          content is shorter than 60vh. */}
+      <div className="flex max-h-[inherit] grow flex-col overflow-y-auto px-6 pt-2 pb-6">
+        {children}
+      </div>
     </DrawerContent>
   );
 }
