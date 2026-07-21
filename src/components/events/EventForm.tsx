@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ReminderSelect } from "@/components/ui/reminder-select";
+import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useIsDesktop } from "@/components/ui/responsive-dialog";
 import { DateQuickPick } from "@/components/common/DateQuickPick";
@@ -92,11 +92,11 @@ export type EventFormProps = {
 };
 
 /**
- * Mobile (<sm) — the "Brzi unos" layout: Naziv, Datum (danas + quick chips)
- * and the Ceo dan switch stay inline, with Početak/Završetak and Podsetnik
- * appearing contextually below the switch; Opis, Za koga and Napomene move
- * behind a "Više detalja" row into a sub-view. The Odustani/Dodaj bar is
- * pinned by the dialog below the scroll area.
+ * Mobile (<sm) — the "Brzi unos" layout: Naziv, Datum (danas + quick chips),
+ * the Ceo dan switch and (when timed) Početak/Završetak stay inline; Opis,
+ * Za koga, Podsetnik and Napomene move behind a "Više detalja" row into a
+ * sub-view. The Odustani/Dodaj bar is pinned by the dialog below the scroll
+ * area.
  *
  * Desktop (sm+) — the classic fully-expanded layout, unchanged.
  */
@@ -146,40 +146,43 @@ export function EventForm({
     });
   };
 
-  const timeFields = !form.allDay ? (
-    <>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="start_time">Početak (opciono)</Label>
-          <TimePicker
-            id="start_time"
-            value={form.start_time}
-            onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
-            placeholder="00:00"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="end_time">Završetak (opciono)</Label>
-          <TimePicker
-            id="end_time"
-            value={form.end_time}
-            onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
-            placeholder="00:00"
-          />
-        </div>
+  const timeGrid = !form.allDay ? (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="start_time">Početak (opciono)</Label>
+        <TimePicker
+          id="start_time"
+          value={form.start_time}
+          onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
+          placeholder="00:00"
+        />
       </div>
-      {form.start_time ? (
-        <div className="space-y-2">
-          <Label htmlFor="reminder">Podsetnik</Label>
-          <ReminderSelect
-            id="reminder"
-            value={form.remind_minutes_before}
-            onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
-          />
-        </div>
-      ) : null}
-    </>
+      <div className="space-y-2">
+        <Label htmlFor="end_time">Završetak (opciono)</Label>
+        <TimePicker
+          id="end_time"
+          value={form.end_time}
+          onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
+          placeholder="00:00"
+        />
+      </div>
+    </div>
   ) : null;
+
+  // Reminders anchor to a wall-clock start_time, so the field only makes
+  // sense once one is set. Desktop renders it inline under the time grid;
+  // mobile surfaces it in the "Više detalja" sub-view (see EventFormDialog).
+  const reminderField =
+    !form.allDay && form.start_time ? (
+      <div className="space-y-2">
+        <Label htmlFor="reminder">Podsetnik</Label>
+        <ReminderSelect
+          id="reminder"
+          value={form.remind_minutes_before}
+          onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+        />
+      </div>
+    ) : null;
 
   if (!isDesktop) {
     // ——— Mobile: "Brzi unos" ———
@@ -200,10 +203,17 @@ export function EventForm({
         .filter(Boolean);
       detailParts.push(names.length > 0 ? names.join(", ") : `Za koga: ${form.personIds.length}`);
     }
+    // Reminder only counts when it can actually fire (a start_time is set).
+    const hasReminder = !form.allDay && !!form.start_time && form.remind_minutes_before != null;
+    if (hasReminder) {
+      const reminder = EVENT_REMINDER_OPTIONS.find((o) => o.value === form.remind_minutes_before);
+      if (reminder) detailParts.push(reminder.label);
+    }
     if (form.notes.trim()) detailParts.push("Napomene ✓");
     const detailCount =
       (form.description.trim() ? 1 : 0) +
       (form.personIds.length > 0 ? 1 : 0) +
+      (hasReminder ? 1 : 0) +
       (form.notes.trim() ? 1 : 0);
 
     return (
@@ -231,7 +241,7 @@ export function EventForm({
           checked={form.allDay}
           onChange={(allDay) => setForm((s) => ({ ...s, allDay }))}
         />
-        {timeFields}
+        {timeGrid}
         <PickerRow
           title="Više detalja"
           summary={detailParts.length > 0 ? detailParts.join(" · ") : "Opis · za koga · napomene"}
@@ -291,7 +301,8 @@ export function EventForm({
           Ceo dan
         </Label>
       </div>
-      {timeFields}
+      {timeGrid}
+      {reminderField}
       <div className="space-y-2">
         <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
         <Input

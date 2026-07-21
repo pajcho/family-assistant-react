@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ReminderSelect } from "@/components/ui/reminder-select";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -153,6 +154,18 @@ export function EventFormDialog({
                 value={form.personIds}
                 onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
               />
+              {/* Reminders anchor to a start_time, so this only shows once one
+                  is set on the main form (matches the desktop gating). */}
+              {!form.allDay && form.start_time ? (
+                <div className="space-y-2">
+                  <Label htmlFor="reminder">Podsetnik</Label>
+                  <ReminderSelect
+                    id="reminder"
+                    value={form.remind_minutes_before}
+                    onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+                  />
+                </div>
+              ) : null}
               <div className="space-y-2">
                 <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
                 <Input
