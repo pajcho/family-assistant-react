@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
+import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
 import { PaymentLinkField } from "@/components/payments/PaymentLinkField";
 import {
   ExpenseForm,
@@ -137,6 +138,18 @@ export function ExpenseFormDialog({
               autoFocusAmount={!focusedOnceRef.current}
               onAutoFocusedAmount={() => {
                 focusedOnceRef.current = true;
+              }}
+            />
+          </>
+        ) : view.kind === "category" ? (
+          <>
+            <SheetStackHeader title="Kategorija" onBack={stack.pop} />
+            <CategoryGridPicker
+              value={form.category_id}
+              onChange={(category_id) => {
+                setForm((s) => ({ ...s, category_id }));
+                // Nothing else to configure here — selection pops right back.
+                stack.pop();
               }}
             />
           </>

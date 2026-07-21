@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { AdjustmentsHorizontalIcon, QrCodeIcon } from "@heroicons/react/24/outline";
+import { AdjustmentsHorizontalIcon, QrCodeIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -51,8 +51,8 @@ export type ExpenseFormState = {
   link: PaymentLinkValue | null;
 };
 
-/** Mobile sub-views the form's picker row can open — see ExpenseFormDialog. */
-export type ExpenseFormViewKind = "details";
+/** Mobile sub-views the form's picker rows can open — see ExpenseFormDialog. */
+export type ExpenseFormViewKind = "category" | "details";
 
 function initialLink(expense: Expense | null | undefined): PaymentLinkValue | null {
   if (expense?.activity_id) return { kind: "activity", id: expense.activity_id };
@@ -325,6 +325,9 @@ export function ExpenseForm({
 
   if (!isDesktop) {
     // ——— Mobile: "Brzi unos" ———
+    const selectedCategory = form.category_id
+      ? categories.find((c) => c.id === form.category_id)
+      : null;
     const detailParts: string[] = [];
     if (form.person_id) {
       const person = members.find((m) => m.id === form.person_id);
@@ -345,7 +348,6 @@ export function ExpenseForm({
       <form id="expense-form" className="space-y-4" onSubmit={handleSubmit}>
         {scanButton}
         {amountField}
-        {categoryField}
         <DateQuickPick
           id="expense-date"
           label="Datum"
@@ -354,15 +356,38 @@ export function ExpenseForm({
           onChange={(value) => setForm((s) => ({ ...s, spent_on: value }))}
           placeholder="Datum troška"
         />
-        <PickerRow
-          title="Više detalja"
-          summary={
-            detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška · poveži sa"
-          }
-          icon={<AdjustmentsHorizontalIcon className="size-4" />}
-          count={detailCount}
-          onClick={() => onOpenView("details")}
-        />
+        <div className="space-y-2">
+          <PickerRow
+            title="Kategorija"
+            summary={
+              selectedCategory ? (
+                <span className="truncate">{selectedCategory.name}</span>
+              ) : (
+                "Bez kategorije"
+              )
+            }
+            icon={
+              selectedCategory ? (
+                (() => {
+                  const Icon = categoryIcon(selectedCategory.icon);
+                  return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
+                })()
+              ) : (
+                <TagIcon className="size-4" />
+              )
+            }
+            onClick={() => onOpenView("category")}
+          />
+          <PickerRow
+            title="Više detalja"
+            summary={
+              detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška · poveži sa"
+            }
+            icon={<AdjustmentsHorizontalIcon className="size-4" />}
+            count={detailCount}
+            onClick={() => onOpenView("details")}
+          />
+        </div>
       </form>
     );
   }
