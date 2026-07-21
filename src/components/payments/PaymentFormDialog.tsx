@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
+  useIsDesktop,
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
@@ -91,6 +93,27 @@ export function PaymentFormDialog({
 
   const title = payment ? "Izmeni plaćanje" : "Dodaj plaćanje";
   const view = stack.view;
+  const isDesktop = useIsDesktop();
+
+  // Mobile root view pins the actions below the scroll area (thumb reach,
+  // nothing hides behind them); the submit reaches the form via `form=`.
+  // Desktop and sub-views keep no pinned bar.
+  const mobileFooter =
+    !isDesktop && view.kind === "form" ? (
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          disabled={saving}
+        >
+          Odustani
+        </Button>
+        <Button type="submit" form="payment-form" disabled={saving} className="flex-1">
+          {payment ? "Sačuvaj izmene" : "Dodaj"}
+        </Button>
+      </div>
+    ) : undefined;
 
   return (
     <ResponsiveDialog
@@ -98,7 +121,7 @@ export function PaymentFormDialog({
       open={stack.dialogOpen}
       onOpenChange={stack.handleOpenChange}
     >
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent stickyFooter={mobileFooter}>
         {view.kind === "form" ? (
           <>
             <ResponsiveDialogHeader>

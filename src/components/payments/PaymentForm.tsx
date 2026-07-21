@@ -1,5 +1,10 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { AdjustmentsHorizontalIcon, ArrowPathIcon, TagIcon } from "@heroicons/react/24/outline";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
+  BanknotesIcon,
+  TagIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -16,6 +21,7 @@ import {
 import { DateQuickPick } from "@/components/common/DateQuickPick";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import { PickerRow } from "@/components/common/PickerRow";
+import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Payment, RecurrencePeriod } from "@/types/database";
@@ -306,7 +312,7 @@ export function PaymentForm({
       (form.remind_days_before != null ? 1 : 0);
 
     return (
-      <form className="flex grow flex-col gap-4" onSubmit={handleSubmit}>
+      <form id="payment-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
           <Label htmlFor="name">Naziv *</Label>
           <Input
@@ -354,26 +360,34 @@ export function PaymentForm({
           <PickerRow
             title="Tip plaćanja"
             summary={recurrenceSummary(form)}
-            icon={<ArrowPathIcon className="size-4" />}
+            icon={
+              form.recurrence_period === "one-time" ? (
+                <BanknotesIcon className="size-4" />
+              ) : (
+                <ArrowPathIcon className="size-4" />
+              )
+            }
             onClick={() => onOpenView("tip")}
           />
           <PickerRow
             title="Kategorija"
             summary={
               selectedCategory ? (
-                <>
-                  <span
-                    className="inline-block size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: selectedCategory.color }}
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">{selectedCategory.name}</span>
-                </>
+                <span className="truncate">{selectedCategory.name}</span>
               ) : (
                 "Bez kategorije"
               )
             }
-            icon={<TagIcon className="size-4" />}
+            icon={
+              selectedCategory ? (
+                (() => {
+                  const Icon = categoryIcon(selectedCategory.icon);
+                  return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
+                })()
+              ) : (
+                <TagIcon className="size-4" />
+              )
+            }
             onClick={() => onOpenView("category")}
           />
           <PickerRow
@@ -387,17 +401,6 @@ export function PaymentForm({
             count={detailCount}
             onClick={() => onOpenView("details")}
           />
-        </div>
-        {/* Sticky: content scrolls underneath, Dodaj stays in thumb reach. The
-            negative margins re-claim the sheet container's px-6/pb-6 so the
-            bar spans edge to edge. */}
-        <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-auto flex gap-2 border-t border-border bg-background px-6 pt-3 pb-6">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-            Odustani
-          </Button>
-          <Button type="submit" disabled={saving} className="flex-1">
-            {isEdit ? "Sačuvaj izmene" : "Dodaj"}
-          </Button>
         </div>
       </form>
     );

@@ -119,9 +119,23 @@ type ContentProps = ComponentProps<typeof DialogContent> &
      * swipe-down / overlay-click / Escape, so this prop is desktop-only.
      */
     showCloseButton?: boolean;
+    /**
+     * Action bar pinned OUTSIDE the scroll area on mobile — content scrolls
+     * behind it, the bar stays at the sheet bottom in thumb reach (the
+     * "Brzi unos" footer). On desktop it simply renders after the content.
+     * Buttons inside submit via the `form` attribute when they belong to a
+     * form living in the scrollable part.
+     */
+    stickyFooter?: React.ReactNode;
   };
 
-function ResponsiveDialogContent({ className, children, showCloseButton, ...props }: ContentProps) {
+function ResponsiveDialogContent({
+  className,
+  children,
+  showCloseButton,
+  stickyFooter,
+  ...props
+}: ContentProps) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogContent");
 
   if (isDesktop) {
@@ -137,6 +151,7 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
         {...props}
       >
         {children}
+        {stickyFooter}
       </DialogContent>
     );
   }
@@ -159,12 +174,22 @@ function ResponsiveDialogContent({ className, children, showCloseButton, ...prop
     >
       {/* 24px side padding mirrors Nuxt's px-6 dialog content. pt-2 lifts
           the header off the drag handle, pb-6 gives the footer room above
-          the safe-area. `grow` fills the drawer's min-h so a form's
-          `mt-auto` sticky footer pins to the sheet bottom even when the
-          content is shorter than 60vh. */}
-      <div className="flex max-h-[inherit] grow flex-col overflow-y-auto px-6 pt-2 pb-6">
+          the safe-area. `grow` + `min-h-0` make this the scroll area that
+          fills the drawer, so a stickyFooter below it pins to the sheet
+          bottom whatever the content height. */}
+      <div
+        className={cn(
+          "flex max-h-[inherit] min-h-0 grow flex-col overflow-y-auto px-6 pt-2",
+          stickyFooter ? "pb-4" : "pb-6",
+        )}
+      >
         {children}
       </div>
+      {stickyFooter ? (
+        <div className="shrink-0 border-t border-border bg-background px-6 pt-3 pb-6">
+          {stickyFooter}
+        </div>
+      ) : null}
     </DrawerContent>
   );
 }

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import { PaymentLinkField } from "@/components/payments/PaymentLinkField";
 import {
   MONTHLY_INTERVAL_OPTIONS,
@@ -112,40 +113,20 @@ export function PaymentTipSheet({
         </div>
       ) : null}
       {isRecurring ? (
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.is_variable_amount}
-              onChange={(e) => setForm((s) => ({ ...s, is_variable_amount: e.target.checked }))}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">Promenljiv iznos</span>
-          </label>
-          {form.is_variable_amount ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Uneseni iznos je okvirni — pri svakom označavanju kao plaćeno potvrđuješ tačan iznos.
-            </p>
-          ) : null}
-        </div>
+        <SwitchRow
+          title="Promenljiv iznos"
+          description="Iznos je okvirni — tačan potvrđuješ pri svakom plaćanju (režije)."
+          checked={form.is_variable_amount}
+          onChange={(is_variable_amount) => setForm((s) => ({ ...s, is_variable_amount }))}
+        />
       ) : null}
       {isEdit && isRecurring ? (
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.is_paused}
-              onChange={(e) => setForm((s) => ({ ...s, is_paused: e.target.checked }))}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">Pauziraj plaćanje</span>
-          </label>
-          {form.is_paused ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Dok je pauzirano, plaćanje se neće prikazivati kao dospelo.
-            </p>
-          ) : null}
-        </div>
+        <SwitchRow
+          title="Pauziraj plaćanje"
+          description="Dok je pauzirano, plaćanje se ne prikazuje kao dospelo."
+          checked={form.is_paused}
+          onChange={(is_paused) => setForm((s) => ({ ...s, is_paused }))}
+        />
       ) : null}
     </div>
   );
