@@ -14,10 +14,9 @@ export const ALL_CURRENCIES = ["RSD", "EUR", "USD"] as const;
 /** What a family starts with until they touch the Valute settings. */
 export const DEFAULT_ENABLED_CURRENCIES = ["RSD", "EUR"];
 
-/** Display symbol for a currency code ("EUR" → "€"; unknown codes pass through). */
+/** Display label for a currency code — the code itself ("EUR", "USD", "RSD"):
+ *  amounts read as "50 EUR" everywhere, matching how RSD is shown. */
 export function currencySymbol(code: string): string {
-  if (code === "EUR") return "€";
-  if (code === "USD") return "$";
   return code;
 }
 
@@ -60,7 +59,7 @@ export function convertToRsd(amount: number, rate: number): number {
   return Math.round((amount * rate + Number.EPSILON) * 100) / 100;
 }
 
-/** "50 €" / "50,5 €" — original-currency annotation shown next to an RSD amount. */
+/** "50 EUR" / "50,5 EUR" — original-currency annotation shown next to an RSD amount. */
 export function formatOriginalAmount(amount: number, currency: string): string {
   const formatted = amount.toLocaleString("sr-Latn-RS", { maximumFractionDigits: 2 });
   return `${formatted} ${currencySymbol(currency)}`;

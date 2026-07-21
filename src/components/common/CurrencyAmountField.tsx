@@ -250,5 +250,5 @@ export function ExchangeRateRow({
   );
 }
 
-/** Re-export for form suffixes ("€" / "$" / "RSD"). */
+/** Re-export for form suffixes ("EUR" / "USD" / "RSD"). */
 export { currencySymbol };
