@@ -202,12 +202,16 @@ export default function ReceiptScanDialog({
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="sr-only">
-            Skeniraj QR kod fiskalnog računa da uvezeš trošak.
-          </ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
+        {/* Preview renders its own header (it drives its own sub-view stack);
+            every other mode gets the plain dialog header here. */}
+        {mode !== "preview" ? (
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="sr-only">
+              Skeniraj QR kod fiskalnog računa da uvezeš trošak.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+        ) : null}
 
         {mode === "capture" ? (
           <div className="space-y-4">
