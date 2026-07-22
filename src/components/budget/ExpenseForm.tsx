@@ -1,6 +1,11 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { AdjustmentsHorizontalIcon, QrCodeIcon, TagIcon } from "@heroicons/react/24/outline";
+import {
+  AdjustmentsHorizontalIcon,
+  QrCodeIcon,
+  TagIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -153,6 +158,12 @@ export type ExpenseFormProps = {
   /** Mobile "Brzi unos" row pushes the Detalji sub-view (dialog's SheetStack). */
   onOpenView: (view: ExpenseFormViewKind) => void;
   /**
+   * When editing, opens the delete confirm (the dialog pushes a "delete"
+   * sub-view). Renders the bottom-left "Obriši" in the desktop footer; absent
+   * while adding.
+   */
+  onRequestDelete?: () => void;
+  /**
    * Autofocus the amount once per dialog open — the dialog gates it so a
    * return from a sub-view (which remounts the form) doesn't re-pop the
    * keyboard mid-entry.
@@ -183,6 +194,7 @@ export function ExpenseForm({
   onCancel,
   onScanReceipt,
   onOpenView,
+  onRequestDelete,
   autoFocusAmount = true,
   onAutoFocusedAmount,
 }: ExpenseFormProps) {
@@ -437,13 +449,29 @@ export function ExpenseForm({
       {/* Optional link to an activity / event (reuses the payments combobox). */}
       <PaymentLinkField value={form.link} onChange={(link) => setForm((s) => ({ ...s, link }))} />
 
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-          Odustani
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {isEdit ? "Sačuvaj izmene" : "Dodaj"}
-        </Button>
+      <div className="flex items-center justify-between gap-2 pt-2">
+        {onRequestDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            onClick={onRequestDelete}
+            disabled={saving}
+          >
+            <TrashIcon className="size-4" />
+            Obriši
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+            Odustani
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {isEdit ? "Sačuvaj izmene" : "Dodaj"}
+          </Button>
+        </div>
       </div>
     </form>
   );

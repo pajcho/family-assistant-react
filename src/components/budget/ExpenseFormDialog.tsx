@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,13 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { Amount } from "@/components/common/Amount";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
 import { PaymentLinkField } from "@/components/payments/PaymentLinkField";
@@ -36,9 +39,12 @@ export type ExpenseFormDialogProps = {
   onSubmit: (payload: ExpenseFormPayload) => void;
   /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
   onScanReceipt?: () => void;
+  /** Confirmed delete of the edited expense (only wired while editing). */
+  onDelete?: () => void;
+  deleting?: boolean;
 };
 
-type View = { kind: "form" | ExpenseFormViewKind };
+type View = { kind: "form" | ExpenseFormViewKind | "delete" };
 
 /**
  * The "Brzi unos" shell around <ExpenseForm> — same architecture as
@@ -56,6 +62,8 @@ export function ExpenseFormDialog({
   saving,
   onSubmit,
   onScanReceipt,
+  onDelete,
+  deleting,
 }: ExpenseFormDialogProps) {
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
@@ -88,19 +96,47 @@ export function ExpenseFormDialog({
 
   const mobileFooter =
     !isDesktop && view.kind === "form" ? (
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onOpenChange(false)}
-          disabled={saving}
-        >
-          Odustani
-        </Button>
-        <Button type="submit" form="expense-form" disabled={saving} className="flex-1">
-          {isEdit ? "Sačuvaj izmene" : "Dodaj"}
-        </Button>
-      </div>
+      isEdit ? (
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            onClick={() => stack.push({ kind: "delete" })}
+            disabled={saving || deleting}
+          >
+            <TrashIcon className="size-4" />
+            Obriši
+          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Odustani
+            </Button>
+            <Button type="submit" form="expense-form" disabled={saving}>
+              Sačuvaj izmene
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Odustani
+          </Button>
+          <Button type="submit" form="expense-form" disabled={saving} className="flex-1">
+            Dodaj
+          </Button>
+        </div>
+      )
     ) : undefined;
 
   return (
@@ -135,7 +171,10 @@ export function ExpenseFormDialog({
               onCancel={() => onOpenChange(false)}
               onScanReceipt={onScanReceipt}
               onOpenView={(kind) => stack.push({ kind })}
-              autoFocusAmount={!focusedOnceRef.current}
+              onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
+              // Editing opens on the existing values — don't yank focus (and the
+              // keyboard) onto the amount; that's a quick-ADD affordance only.
+              autoFocusAmount={!isEdit && !focusedOnceRef.current}
               onAutoFocusedAmount={() => {
                 focusedOnceRef.current = true;
               }}
@@ -152,6 +191,22 @@ export function ExpenseFormDialog({
                 stack.pop();
               }}
             />
+          </>
+        ) : view.kind === "delete" ? (
+          <>
+            <SheetStackHeader title="Obriši trošak" onBack={stack.pop} />
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Obrisati ovaj trošak (<Amount value={expense?.amount ?? 0} />
+              )? Ova radnja se ne može opozvati.
+            </p>
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={stack.pop} disabled={deleting}>
+                Nazad
+              </Button>
+              <Button variant="destructive" onClick={onDelete} disabled={deleting}>
+                {deleting ? "Brišem…" : "Obriši"}
+              </Button>
+            </ResponsiveDialogFooter>
           </>
         ) : (
           <>

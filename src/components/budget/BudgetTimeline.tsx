@@ -1,12 +1,6 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
-import {
-  ChevronRightIcon,
-  LockClosedIcon,
-  PencilSquareIcon,
-  ReceiptPercentIcon,
-  TrashIcon,
-} from "@heroicons/react/24/outline";
+import { ChevronRightIcon, LockClosedIcon, ReceiptPercentIcon } from "@heroicons/react/24/outline";
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
@@ -20,10 +14,11 @@ import { useToday } from "@/hooks/useToday";
 /**
  * The month's expenses ("troškovi") as a day-grouped timeline — the same
  * "Uskoro"/payments day grouping applied to the ledger (reuses
- * `AgendaDateHeader`). Manual rows edit/delete inline; receipt rows open the
- * receipt detail; payment-sourced rows ("iz plaćanja") open the underlying
- * payment's detail popup. Events and birthdays are intentionally NOT here —
- * they don't cost anything, and any spend tied to them already shows as a row.
+ * `AgendaDateHeader`). Every row opens a modal on tap: manual → the edit form
+ * (with delete inside it), receipt → the receipt detail, payment-sourced
+ * ("iz plaćanja") → the underlying payment's detail popup. Events and
+ * birthdays are intentionally NOT here — they don't cost anything, and any
+ * spend tied to them already shows as a row.
  */
 export type BudgetTimelineProps = {
   expenses: Expense[];
@@ -31,7 +26,6 @@ export type BudgetTimelineProps = {
   itemCounts: Record<string, number> | undefined;
   onOpenReceipt: (expense: Expense) => void;
   onEditManual: (expense: Expense) => void;
-  onDeleteExpense: (expense: Expense) => void;
   /** Open the payment detail for a "source: payment" row (via its payment_id). */
   onOpenPayment: (expense: Expense) => void;
 };
@@ -42,7 +36,6 @@ function ExpenseRow({
   itemCounts,
   onOpenReceipt,
   onEditManual,
-  onDeleteExpense,
   onOpenPayment,
 }: {
   expense: Expense;
@@ -50,7 +43,6 @@ function ExpenseRow({
   itemCounts: Record<string, number> | undefined;
   onOpenReceipt: (expense: Expense) => void;
   onEditManual: (expense: Expense) => void;
-  onDeleteExpense: (expense: Expense) => void;
   onOpenPayment: (expense: Expense) => void;
 }) {
   const category = expense.category_id ? categoriesById.get(expense.category_id) : null;
@@ -112,45 +104,25 @@ function ExpenseRow({
     </>
   );
 
-  // Receipt → receipt detail; payment → the payment's detail popup. Both tap the
-  // whole row.
-  if (isReceipt || isPayment) {
-    return (
-      <li>
-        <button
-          type="button"
-          onClick={() => (isReceipt ? onOpenReceipt(expense) : onOpenPayment(expense))}
-          className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/70"
-        >
-          {inner}
-          <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
-        </button>
-      </li>
-    );
-  }
+  // Every row taps the whole surface into a modal: receipt → receipt detail,
+  // payment → the payment's detail popup, manual → the edit form (delete lives
+  // inside it now, no inline actions).
+  const handleClick = () => {
+    if (isReceipt) onOpenReceipt(expense);
+    else if (isPayment) onOpenPayment(expense);
+    else onEditManual(expense);
+  };
 
-  // Manual: inline edit + delete.
   return (
-    <li className="flex items-center gap-3 rounded-lg px-2 py-2">
-      {inner}
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          aria-label="Izmeni trošak"
-          onClick={() => onEditManual(expense)}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-        >
-          <PencilSquareIcon className="size-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Obriši trošak"
-          onClick={() => onDeleteExpense(expense)}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-        >
-          <TrashIcon className="size-4" />
-        </button>
-      </div>
+    <li>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/70"
+      >
+        {inner}
+        <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+      </button>
     </li>
   );
 }
@@ -161,7 +133,6 @@ export function BudgetTimeline({
   itemCounts,
   onOpenReceipt,
   onEditManual,
-  onDeleteExpense,
   onOpenPayment,
 }: BudgetTimelineProps) {
   const { str: today, date: todayDate } = useToday();
@@ -199,7 +170,6 @@ export function BudgetTimeline({
                 itemCounts={itemCounts}
                 onOpenReceipt={onOpenReceipt}
                 onEditManual={onEditManual}
-                onDeleteExpense={onDeleteExpense}
                 onOpenPayment={onOpenPayment}
               />
             ))}
