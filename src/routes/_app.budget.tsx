@@ -8,7 +8,6 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Amount, AmountOriginal } from "@/components/common/Amount";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
   AppliedFilterChips,
@@ -51,7 +50,6 @@ import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
-import { formatAmount } from "@/utils/format";
 import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
@@ -86,7 +84,6 @@ function BudgetPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
   // Payment-sourced expense tapped → open that payment's detail popup.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -421,11 +418,14 @@ function BudgetPage() {
     }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!toDelete) return;
+  // Delete lives inside the edit modal now (bottom-left "Obriši" → confirm
+  // sub-view) — no separate row action.
+  const handleDeleteEditing = async () => {
+    if (!editing) return;
     try {
-      await deleteExpense.mutateAsync(toDelete.id);
-      setToDelete(null);
+      await deleteExpense.mutateAsync(editing.id);
+      setAddOpen(false);
+      setEditing(null);
     } catch {
       /* hook toasts; keep dialog open to retry */
     }
@@ -803,7 +803,6 @@ function BudgetPage() {
                   itemCounts={itemCounts}
                   onOpenReceipt={setReceiptDetail}
                   onEditManual={openEdit}
-                  onDeleteExpense={setToDelete}
                   onOpenPayment={openPaymentDetail}
                 />
               </section>
@@ -877,6 +876,10 @@ function BudgetPage() {
           setAddOpen(false);
           openScan();
         }}
+        onDelete={() => {
+          void handleDeleteEditing();
+        }}
+        deleting={deleteExpense.isPending}
       />
 
       {scanMounted ? (
@@ -891,21 +894,6 @@ function BudgetPage() {
           if (!open) setReceiptDetail(null);
         }}
         expense={receiptDetail}
-      />
-
-      <ConfirmDialog
-        open={!!toDelete}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null);
-        }}
-        title="Obriši trošak"
-        message={`Da li sigurno želiš da obrišeš ovaj trošak (${
-          toDelete ? formatAmount(toDelete.amount) : ""
-        })?`}
-        loading={deleteExpense.isPending}
-        onConfirm={() => {
-          void handleDeleteConfirm();
-        }}
       />
 
       <PaymentDetailDialog
