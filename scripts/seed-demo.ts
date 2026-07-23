@@ -2,8 +2,14 @@
  * Seeds a self-contained DEMO family into local Supabase, alongside the real one.
  * Fictional people, realistic data - safe to screenshot for a public README.
  *
- * Run: pnpm exec tsx --env-file=.env.local <path>/seed-demo.ts
- * Idempotent: drops and recreates the "Petrović (demo)" family on every run.
+ * Run:  pnpm exec tsx --env-file=.env.local scripts/seed-demo.ts
+ * Login: demo@porodica.test / demo1234 (local Supabase only)
+ *
+ * Idempotent: drops and recreates the "Petrović (demo)" family on every run,
+ * leaving every other family in the database untouched. Refuses to run against
+ * anything but a local Supabase. Dates are relative to today, so the screens
+ * are never empty no matter when it runs - this is what the README
+ * screenshots were captured against.
  */
 
 import { createClient } from "@supabase/supabase-js";
