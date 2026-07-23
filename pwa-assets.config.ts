@@ -9,7 +9,7 @@ import {
  * The default `minimal2023Preset` adds 30% white padding around the apple
  * touch icon (so on a dark home screen wallpaper you'd see a white square
  * around our blue tile). Override to fill the full 180×180 with our brand
- * blue — iOS applies its own rounded-corner mask on top, so the result
+ * blue - iOS applies its own rounded-corner mask on top, so the result
  * matches the rounding of native app icons.
  */
 const preset = {
@@ -24,7 +24,7 @@ const preset = {
 /**
  * PWA asset pipeline.
  *
- * Source: `public/pwa-icon.svg` — a *square* version of the brand icon
+ * Source: `public/pwa-icon.svg` - a *square* version of the brand icon
  * (no rounded corners on the background) because iOS applies its own mask
  * to `apple-touch-icon`, and Android's adaptive icons mask the maskable
  * variant. The existing `public/favicon.svg` keeps its rounded corners and
@@ -39,7 +39,7 @@ export default defineConfig({
     createAppleSplashScreens(
       {
         padding: 0.3,
-        // Same brand blue for both schemes — the icon source already has
+        // Same brand blue for both schemes - the icon source already has
         // a #2563EB tile, so matching the surround makes the splash read
         // as one solid colour instead of "blue square on a dark canvas"
         // when the user's phone is in dark mode.

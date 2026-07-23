@@ -1,7 +1,7 @@
 // supabase/functions/receipt-import/transliterate.ts
 //
 // Serbian Cyrillic → Serbian Latin (Gajica) transliteration. Pure module, no
-// Deno APIs — vitest imports it directly.
+// Deno APIs - vitest imports it directly.
 //
 // The SUF journal arrives in Cyrillic (brand names may already be Latin). The
 // owner wants every stored receipt field in Latin, so the Edge Function runs
@@ -9,7 +9,7 @@
 // returning it (client preview + saved rows are Latin end-to-end).
 //
 // Digraph casing rule (the only subtle part): Љ/Њ/Џ become "Lj"/"Nj"/"Dž"
-// normally, but "LJ"/"NJ"/"DŽ" when the surrounding WORD is all-caps —
+// normally, but "LJ"/"NJ"/"DŽ" when the surrounding WORD is all-caps -
 // "ЉУБИЦА" → "LJUBICA" but "Љубица" → "Ljubica". We decide per word: a word is
 // all-caps when it equals its uppercase form and differs from its lowercase.
 // Non-Cyrillic characters (Latin brands like ZARA/NIKE, digits, punctuation)

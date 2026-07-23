@@ -5,14 +5,14 @@ import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/cn";
 
 /**
- * Pull-to-refresh for the INSTALLED PWA (standalone display mode only — in a
+ * Pull-to-refresh for the INSTALLED PWA (standalone display mode only - in a
  * regular browser tab the native gesture already exists and ours would
  * double-trigger). A top-overscroll pull past the threshold invalidates the
  * query cache and refetches the active queries.
  *
  * Deliberately conservative around this app's iOS constraints (native window
  * scroll + sticky header/week-strip):
- *   - listeners are PASSIVE and never call preventDefault — scrolling is
+ *   - listeners are PASSIVE and never call preventDefault - scrolling is
  *     never hijacked, no rAF scroll loops;
  *   - nothing in the page layout moves: the indicator is a fixed overlay, so
  *     the sticky elements are never transformed or covered by new layout;
@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
 
 /** Raw finger travel (px) that triggers a refresh on release. */
 const TRIGGER_PX = 110;
-/** The indicator moves slower than the finger — damped by this factor. */
+/** The indicator moves slower than the finger - damped by this factor. */
 const DAMPING = 2.5;
 /** Cap for the damped indicator travel. */
 const MAX_PULL_PX = 72;
@@ -42,7 +42,7 @@ function isStandalone(): boolean {
 
 export function PullToRefresh() {
   const queryClient = useQueryClient();
-  // Evaluated once — installing/uninstalling mid-session isn't a live concern.
+  // Evaluated once - installing/uninstalling mid-session isn't a live concern.
   const [enabled] = useState(isStandalone);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,7 +60,7 @@ export function PullToRefresh() {
     const onTouchStart = (e: TouchEvent) => {
       if (refreshingRef.current || e.touches.length !== 1) return;
       if (window.scrollY > 0) return;
-      // A dialog/drawer locks body scroll — a pull inside it must not refresh.
+      // A dialog/drawer locks body scroll - a pull inside it must not refresh.
       if (
         document.body.hasAttribute("data-scroll-locked") ||
         document.documentElement.classList.contains("dialog-open")
@@ -82,7 +82,7 @@ export function PullToRefresh() {
       }
       if (g.axis !== "pull") return;
       if (window.scrollY > 0) {
-        // The page took the gesture as a real scroll — stand down.
+        // The page took the gesture as a real scroll - stand down.
         reset();
         return;
       }
@@ -132,7 +132,7 @@ export function PullToRefresh() {
   const visible = refreshing || pull > 8;
 
   return (
-    // Fixed overlay below the sticky app header (h-14) — never shifts layout.
+    // Fixed overlay below the sticky app header (h-14) - never shifts layout.
     <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex justify-center">
       <div
         role="status"

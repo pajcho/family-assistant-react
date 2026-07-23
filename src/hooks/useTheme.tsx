@@ -101,7 +101,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     window.localStorage.setItem(STORAGE_KEY, next);
     const nextIsDark = resolveIsDark(next);
     // Flip the DOM class synchronously so the browser sees the new theme
-    // on the very next paint — no waiting for React's render cycle to
+    // on the very next paint - no waiting for React's render cycle to
     // propagate state through useEffect.
     applyDarkClassNoTransition(nextIsDark);
     setIsDark(nextIsDark);

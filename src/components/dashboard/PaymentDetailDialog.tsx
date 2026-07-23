@@ -58,7 +58,7 @@ import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@
 /**
  * Shared payment detail popup opened from the agenda tabs (via
  * `useAgendaDetails`). Self-contained: owns the mutations and a sheet-stack of
- * sub-views (see `useSheetStack`) — options, reschedule, cancel, delete,
+ * sub-views (see `useSheetStack`) - options, reschedule, cancel, delete,
  * history and the history's undo confirm all swap the SAME sheet's content
  * with a "←" back header; dismissing a sub-view returns one level up instead
  * of closing the flow. Reschedule/cancel branch on recurring vs one-time
@@ -78,9 +78,9 @@ export type PaymentDetailDialogProps = {
   personIds?: string[];
   onEdit: (payment: Payment) => void;
   /**
-   * "agenda" (default) — the lean dashboard popup (mark paid / reschedule /
-   * cancel / edit). "manage" — the /payments surface: adds pause-resume and
-   * delete so the list rows can drop their inline buttons entirely. "info" —
+   * "agenda" (default) - the lean dashboard popup (mark paid / reschedule /
+   * cancel / edit). "manage" - the /payments surface: adds pause-resume and
+   * delete so the list rows can drop their inline buttons entirely. "info" -
    * read-only surfaces (e.g. a payment-sourced expense on /budget): no state
    * mutations at all, just the facts + history + "Izmeni".
    */
@@ -140,7 +140,7 @@ export function PaymentDetailDialog({
   const isRecurring =
     !!payment && payment.recurrence_period !== "one-time" && payment.recurrence_period != null;
   // Foreign-currency payment: marking paid confirms the EUR amount + the rate
-  // for THIS occurrence (default: today's NBS list — `date: null` resolves to
+  // for THIS occurrence (default: today's NBS list - `date: null` resolves to
   // today in useExchangeRate), instead of silently reusing the definition-time
   // conversion.
   const isForeignPayment =
@@ -151,10 +151,10 @@ export function PaymentDetailDialog({
   );
   const { reset: resetRate } = rateControl;
   const cancelOverrideActive = override?.action === "cancel";
-  // "info" strips every mutation except "Izmeni" — the popup is a viewer.
+  // "info" strips every mutation except "Izmeni" - the popup is a viewer.
   const readOnly = variant === "info";
   // The single mark-paid affordance is hidden once the occurrence is resolved
-  // (paid), on hold (paused), or soft-canceled — you'd resume / restore first.
+  // (paid), on hold (paused), or soft-canceled - you'd resume / restore first.
   const canMarkPaid =
     !readOnly && !!payment && !payment.is_paid && !payment.is_paused && !cancelOverrideActive;
   // Pause/resume + delete only surface on the /payments management variant.
@@ -182,7 +182,7 @@ export function PaymentDetailDialog({
     onEdit(payment);
   };
 
-  // "Povezano sa" tap — HIDE this sheet (not close-through-the-caller, which
+  // "Povezano sa" tap - HIDE this sheet (not close-through-the-caller, which
   // would null the `payment` prop) and open the linked entity's edit form
   // (LinkedEntityEditor). Closing that form lands back on this detail sheet.
   const handleOpenLink = () => {
@@ -343,7 +343,7 @@ export function PaymentDetailDialog({
 
   // Action hierarchy (Todoist / Google Calendar pattern): ONE contextual
   // primary action pinned in the footer, "Izmeni" beside it, everything else
-  // in the secondary actions menu — destructive last, separated. The menu
+  // in the secondary actions menu - destructive last, separated. The menu
   // carries occurrence actions only in the normal state; override/paused
   // states put their single state-fixing action in the primary slot instead.
   const overrideActive = cancelOverrideActive || override?.action === "reschedule";
@@ -468,7 +468,7 @@ export function PaymentDetailDialog({
                     />
                     {rescheduleNext && rescheduleMax ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Najkasnije {formatDate(rescheduleMax)} — dan pre sledeće uplate (
+                        Najkasnije {formatDate(rescheduleMax)} - dan pre sledeće uplate (
                         {formatDate(rescheduleNext)}).
                       </p>
                     ) : null}
@@ -505,7 +505,7 @@ export function PaymentDetailDialog({
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {payment.is_variable_amount
                       ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
-                      : `Potvrdi kurs za „${payment.name}" — podrazumevan je srednji kurs NBS na današnji dan.`}
+                      : `Potvrdi kurs za „${payment.name}" - podrazumevan je srednji kurs NBS na današnji dan.`}
                   </p>
                   <div className="space-y-2">
                     {payment.is_variable_amount ? (
@@ -522,7 +522,7 @@ export function PaymentDetailDialog({
                         />
                       </>
                     ) : (
-                      // Fixed foreign bill: the amount is contractual — only
+                      // Fixed foreign bill: the amount is contractual - only
                       // the rate gets confirmed. (Fixed RSD never lands here.)
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
@@ -579,7 +579,7 @@ export function PaymentDetailDialog({
                     ) : null}
                     {payment.is_variable_amount ? (
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Okvirni iznos — potvrđuje se pri svakom plaćanju
+                        Okvirni iznos - potvrđuje se pri svakom plaćanju
                       </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -714,7 +714,7 @@ export function PaymentDetailDialog({
               </Button>
             </ResponsiveDialogFooter>
           ) : view === "undo" ? null : readOnly ? (
-            // Viewer footer: no state mutations here — the "Plaćeno"/"Dospeva"
+            // Viewer footer: no state mutations here - the "Plaćeno"/"Dospeva"
             // badges above carry the status. "Izmeni" is the one action.
             <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
               <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />

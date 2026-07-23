@@ -35,7 +35,7 @@ function fromBell(bell: BellSchedule): FormState {
 }
 
 /**
- * Bell-schedule editor body — numbers + three band start times + a live grid
+ * Bell-schedule editor body - numbers + three band start times + a live grid
  * preview. Headerless so it renders inside a dialog or the options sheet.
  */
 export function BellSchedulePanel({ bell, onClose }: BellSchedulePanelProps) {
@@ -53,7 +53,7 @@ export function BellSchedulePanel({ bell, onClose }: BellSchedulePanelProps) {
     setForm((f) => ({ ...f, [key]: Number.isFinite(n) ? n : 0 }));
   };
   const setTime = (key: keyof FormState) => (v: string | null) => {
-    if (!v) return; // start times are required — ignore a clear.
+    if (!v) return; // start times are required - ignore a clear.
     setForm((f) => ({ ...f, [key]: v }));
   };
 
@@ -186,7 +186,7 @@ function BandRow({
   return (
     <div className="grid grid-cols-[1fr_auto] items-end gap-3">
       <div className="space-y-1">
-        <Label className="text-xs">{title} — početak</Label>
+        <Label className="text-xs">{title} - početak</Label>
         <TimePicker value={start} onChange={onStart} clearable={false} />
       </div>
       <div className="w-28 space-y-1">
@@ -225,7 +225,7 @@ function BandPreview({
             <li className="flex justify-between tabular-nums text-muted-foreground">
               <span>{slot.periodIndex}.</span>
               <span>
-                {slot.startTime}–{slot.endTime}
+                {slot.startTime}-{slot.endTime}
               </span>
             </li>
             {slot.bigBreakAfter ? (

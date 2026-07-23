@@ -94,7 +94,7 @@ function computeSummary({
   let paidTotal = 0;
 
   // Payments for this month (real rows). Paused and canceled (soft-cancel
-  // override, one-time) occurrences are treated as resolved — they don't enter
+  // override, one-time) occurrences are treated as resolved - they don't enter
   // either total.
   for (const payment of payments) {
     if (!payment.due_date.startsWith(selectedMonth)) continue;
@@ -104,7 +104,7 @@ function computeSummary({
     else unpaidTotal += payment.amount;
   }
 
-  // History entries for this month (skip one-time due in this month —
+  // History entries for this month (skip one-time due in this month -
   // already in payment count). Canceled (skipped) occurrences were never paid,
   // so they don't count toward "Plaćeno".
   const oneTimePaymentIdsInMonth = new Set(
@@ -206,7 +206,7 @@ function computeCombinedList({
 
   // 1. Payments (real rows: due in this month, or all when "Sva").
   //    A per-occurrence override moves (reschedule) or marks (cancel) the
-  //    live occurrence at `payment.due_date` — display only; the DB row and
+  //    live occurrence at `payment.due_date` - display only; the DB row and
   //    mark-paid accounting are untouched.
   for (const payment of payments) {
     if (selectedMonth !== "all" && !payment.due_date.startsWith(selectedMonth)) continue;
@@ -226,7 +226,7 @@ function computeCombinedList({
 
   // 2. History + upcoming only when filtering by month
   if (selectedMonth !== "all") {
-    // One-time payments due in this month — already shown above as payment rows.
+    // One-time payments due in this month - already shown above as payment rows.
     // Their history entries should NOT also appear (dedupe).
     const oneTimePaymentIdsInMonth = new Set(
       payments
@@ -291,7 +291,7 @@ function computeCombinedList({
         const interval = Math.max(1, payment.recurrence_interval ?? 1);
 
         if (period === "weekly") {
-          // Weekly can fire multiple times in the same month — emit one
+          // Weekly can fire multiple times in the same month - emit one
           // upcoming row per occurrence that ISN'T the live row and ISN'T
           // already a history row.
           const occurrences = getWeeklyOccurrencesInMonth(
@@ -400,10 +400,10 @@ function computeCombinedList({
 /* --- The page itself ------------------------------------------------------ */
 
 function PaymentsPage() {
-  // Filters — default to the CURRENT month (the "Sva plaćanja" all-time view
+  // Filters - default to the CURRENT month (the "Sva plaćanja" all-time view
   // lives inside the month picker's popup).
   const [selectedMonth, setSelectedMonth] = useState(() => currentMonthYYYYMM());
-  // Resolved (paid/canceled) rows are hidden by default — the list opens with
+  // Resolved (paid/canceled) rows are hidden by default - the list opens with
   // what's still outstanding. Revealing them is a filter-sheet switch AND the
   // "Sakriveno N · Prikaži" link under the list.
   const [showPaid, setShowPaid] = useState(false);
@@ -412,7 +412,7 @@ function PaymentsPage() {
   // months (the month filter would hide the thing you're looking for).
   const [searchTerm, setSearchTerm] = useState("");
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
-  // Person filter — same convention as the dashboard's person facet: an empty
+  // Person filter - same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -422,20 +422,20 @@ function PaymentsPage() {
   const [editingHasHistory, setEditingHasHistory] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Detail popups — the live occurrence gets the full manage dialog; paid /
+  // Detail popups - the live occurrence gets the full manage dialog; paid /
   // skipped / upcoming rows get the read-only occurrence dialog.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedOccurrence, setSelectedOccurrence] = useState<
     HistoryRowItem | UpcomingRowItem | null
   >(null);
 
-  // Data — always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
+  // Data - always fetch everything (hidePaid is a client-side display toggle here, matching Vue)
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const historyQuery = usePaymentHistory();
   const { byPayment } = usePaymentParticipants();
   const { byKey: overridesByKey } = usePaymentOverrides();
 
-  // Mutations — the detail dialogs own the rest (mark paid, pause, reschedule,
+  // Mutations - the detail dialogs own the rest (mark paid, pause, reschedule,
   // cancel, delete, undo), so the page keeps only create/edit.
   const createPayment = useCreatePayment();
   const updatePayment = useUpdatePayment();
@@ -513,7 +513,7 @@ function PaymentsPage() {
     if (searchActive) return searchResults;
     if (showPaid) return combinedList;
     return combinedList.filter((item) => {
-      // The default view hides everything RESOLVED — paid AND canceled — so the
+      // The default view hides everything RESOLVED - paid AND canceled - so the
       // list shows only what's still outstanding. Paused rows stay (they're on
       // hold, not done); resolved occurrences remain in the history popup.
       if (item.type === "history") return false;
@@ -524,7 +524,7 @@ function PaymentsPage() {
     });
   }, [searchActive, searchResults, combinedList, showPaid]);
 
-  // How many resolved rows the default view is hiding — feeds the quiet
+  // How many resolved rows the default view is hiding - feeds the quiet
   // "Sakriveno N · Prikaži" link under the list.
   const hiddenResolvedCount =
     searchActive || showPaid ? 0 : combinedList.length - displayedList.length;
@@ -611,7 +611,7 @@ function PaymentsPage() {
       ? selectedPersonIds.size > 0
         ? "Nema plaćanja za izabrane članove."
         : "Nema plaćanja za prikaz."
-      : "Nema neplaćenih stavki — sve za ovaj mesec je rešeno. 🎉";
+      : "Nema neplaćenih stavki - sve za ovaj mesec je rešeno. 🎉";
 
   /* --- Action handlers -------------------------------------------------- */
 
@@ -626,7 +626,7 @@ function PaymentsPage() {
     setEditingPayment(payment);
     setFormError(null);
     setDialogOpen(true);
-    // Async — disable recurrence radios if payment_history exists.
+    // Async - disable recurrence radios if payment_history exists.
     try {
       setEditingHasHistory(await hasPaymentHistory(payment.id));
     } catch {
@@ -666,7 +666,7 @@ function PaymentsPage() {
   // manage dialog (mark paid / pause / reschedule / cancel / delete / edit);
   // paid, skipped and upcoming rows open the read-only occurrence dialog. The
   // live row's `due_date` is the EFFECTIVE (rescheduled) date, but the manage
-  // dialog keys overrides off the ORIGINAL due_date — so hand it the raw
+  // dialog keys overrides off the ORIGINAL due_date - so hand it the raw
   // payment from the query, not the transformed row item.
   const handleSelect = (item: PaymentListItemUnion) => {
     if (item.type === "payment") {
@@ -676,7 +676,7 @@ function PaymentsPage() {
     }
   };
 
-  // Underlying series row for the selected occurrence (history / upcoming) —
+  // Underlying series row for the selected occurrence (history / upcoming) -
   // powers that dialog's Izmeni / Istorija / Poništi.
   const occurrencePaymentId = selectedOccurrence
     ? selectedOccurrence.type === "history"
@@ -712,7 +712,7 @@ function PaymentsPage() {
         <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
       </div>
 
-      {/* Summary — one card: how far through the month's bills we are. */}
+      {/* Summary - one card: how far through the month's bills we are. */}
       {!searchActive && combinedList.length > 0 ? (
         summary.type === "all" ? (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">

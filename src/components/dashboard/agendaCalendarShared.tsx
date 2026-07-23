@@ -11,7 +11,7 @@ import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
- * Shared kit for the agenda calendars — the single-day (Danas) column and the
+ * Shared kit for the agenda calendars - the single-day (Danas) column and the
  * weekly (Uskoro) timetable both lay AgendaItems onto a time axis the same way:
  * split off all-day items, lane the timed ones, position by start/end. Keeping
  * the math + the block/chip renderers here means both views stay visually in
@@ -26,9 +26,9 @@ export const GRID_BOTTOM_PADDING_PX = 12;
 const MIN_BLOCK_HEIGHT_PX = 24;
 /** Synthetic duration for a timed event with no end time. */
 const DEFAULT_EVENT_MINUTES = 60;
-/** blue-500 — matches the event row icon / list accent. */
+/** blue-500 - matches the event row icon / list accent. */
 const EVENT_COLOR = "#3b82f6";
-/** sky-500 — the mirrored-Google-event accent (distinct from native blue). */
+/** sky-500 - the mirrored-Google-event accent (distinct from native blue). */
 const EXTERNAL_COLOR = "#0ea5e9";
 
 export type TimedEntry = { startTime: string; endTime: string; item: AgendaItem };
@@ -90,7 +90,7 @@ export function splitAgendaItems(items: ReadonlyArray<AgendaItem>): {
   return { allDayItems, timedEntries };
 }
 
-/** Fit-to-content hour window (±1h, default 7–21 when empty), half-hour aligned. */
+/** Fit-to-content hour window (±1h, default 7-21 when empty), half-hour aligned. */
 export function computeRange(entries: ReadonlyArray<TimedEntry>): {
   startMin: number;
   endMin: number;
@@ -112,7 +112,7 @@ export function computeRange(entries: ReadonlyArray<TimedEntry>): {
  * Widen a fit-to-content range so the current time is always inside it (with a
  * half-hour of breathing room each side, half-hour aligned, clamped to the day).
  * Used by the calendars showing "today" so the red "now" line is never clipped
- * out just because the day's items all sit in the afternoon — the line (and the
+ * out just because the day's items all sit in the afternoon - the line (and the
  * auto-scroll-to-now) needs `now` to be in the visible axis to render.
  */
 export function expandRangeToNow(
@@ -183,8 +183,8 @@ export function useMinuteTick(): Date {
       },
       60_000 - (Date.now() % 60_000),
     );
-    // iOS freezes timers while the PWA is backgrounded, so on resume `now` —
-    // and the date + red now-line derived from it — is stuck at the suspend
+    // iOS freezes timers while the PWA is backgrounded, so on resume `now` -
+    // and the date + red now-line derived from it - is stuck at the suspend
     // moment. Snap back to the real clock whenever the app returns to focus.
     const sync = () => {
       if (document.visibilityState === "visible") setNow(new Date());
@@ -230,7 +230,7 @@ export function TimedBlock({
           lastName: item.person.last_name,
           email: null,
         }) || "Bez imena"
-      : "—";
+      : "-";
     label = `${personName} · ${item.activity?.name ?? "Aktivnost"}`;
   } else if (item.kind === "external") {
     color = item.event.color ?? EXTERNAL_COLOR;
@@ -260,7 +260,7 @@ export function TimedBlock({
       )}
     >
       <div className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
-        {block.startTime}–{block.endTime}
+        {block.startTime}-{block.endTime}
       </div>
       <div className="truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
         {label}
@@ -271,8 +271,8 @@ export function TimedBlock({
 
 /**
  * All-day chips fill the width of their (often narrow, in the weekly grid) cell
- * as small tinted cards. Tints mirror the Uskoro filter pills — payment amber,
- * event blue, birthday emerald — so the row reads by kind at a glance, and the
+ * as small tinted cards. Tints mirror the Uskoro filter pills - payment amber,
+ * event blue, birthday emerald - so the row reads by kind at a glance, and the
  * colored 3px left border echoes the timed blocks below.
  */
 const ALL_DAY_CARD =
@@ -355,7 +355,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
   }
 
   if (item.kind === "external") {
-    // Tint by the source calendar's color (inline, since it's dynamic) — same
+    // Tint by the source calendar's color (inline, since it's dynamic) - same
     // bg/left-border treatment as the timed blocks.
     const color = item.event.color ?? EXTERNAL_COLOR;
     return (

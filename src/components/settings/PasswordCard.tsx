@@ -20,7 +20,7 @@ const MIN_LENGTH = 6;
 /**
  * Self-service password change for the signed-in member.
  *
- * The current password is verified first — `supabase.auth.updateUser({ password })`
+ * The current password is verified first - `supabase.auth.updateUser({ password })`
  * alone would let anyone with a borrowed unlocked phone lock the owner out of
  * their own account. Verification runs on a sessionless client so the live
  * session (and every query keyed off it) is untouched whether it passes or fails.
@@ -98,7 +98,7 @@ export function PasswordCard() {
       <CardHeader>
         <CardTitle>Lozinka</CardTitle>
         <CardDescription>
-          Promena važi odmah. Ostaješ prijavljen/a na ovom uređaju — na ostalima će možda tražiti
+          Promena važi odmah. Ostaješ prijavljen/a na ovom uređaju - na ostalima će možda tražiti
           novu prijavu.
         </CardDescription>
       </CardHeader>

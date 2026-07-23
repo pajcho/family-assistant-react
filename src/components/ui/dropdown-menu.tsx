@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 // Default to NON-modal. The whole app scrolls on the window with `position: sticky`
 // chrome (app header + the Uskoro week strip). Radix's modal scroll-lock sets
 // `overflow: hidden` on <body>, which turns body into a scroll container and breaks
-// those sticky elements — when the page is scrolled, opening a modal dropdown snaps
+// those sticky elements - when the page is scrolled, opening a modal dropdown snaps
 // the header/strip (and the menu anchored to them) off-screen until the next click.
 // Non-modal skips the scroll-lock entirely. Pass `modal` explicitly to override.
 function DropdownMenu({

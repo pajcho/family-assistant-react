@@ -5,11 +5,11 @@ import { useEffect, useRef } from "react";
  * the end of a list; `onReachEnd` fires whenever that element scrolls into view
  * (within `rootMargin`, so it triggers slightly before it's actually visible).
  *
- * `enabled` gates the observer — pass `false` once there's nothing more to load
+ * `enabled` gates the observer - pass `false` once there's nothing more to load
  * so it stops firing. `resetKey` re-creates the observer when it changes (pass
  * the current page/horizon): a freshly-created observer re-reports the
  * sentinel's intersection, so if the new content still doesn't fill the
- * viewport it keeps loading until it does or `enabled` flips off — no stuck
+ * viewport it keeps loading until it does or `enabled` flips off - no stuck
  * "sentinel parked in view" state.
  */
 export function useInfiniteScroll(

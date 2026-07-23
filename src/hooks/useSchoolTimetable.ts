@@ -109,7 +109,7 @@ export function useReplaceTimetableDay() {
 
       // Upsert (not insert) on the (person, variant, day, period) unique key:
       // the delete above clears the column first, so normally there's nothing
-      // to conflict with — but if a write ever overlaps (a double-fired save,
+      // to conflict with - but if a write ever overlaps (a double-fired save,
       // or another device editing the same column), upsert overwrites instead
       // of hard-failing with a duplicate-key error.
       const { error: insertError } = await supabase

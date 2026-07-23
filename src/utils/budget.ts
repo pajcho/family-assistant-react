@@ -57,7 +57,7 @@ export function monthOf(dateStr: string): string {
 }
 
 /* ------------------------------------------------------------------------- */
-/* Monthly cycle: income − spent = remaining, plus a projection to month-end */
+/* Monthly cycle: income - spent = remaining, plus a projection to month-end */
 /* ------------------------------------------------------------------------- */
 
 /** Per-category spend + optional limit for a month. */
@@ -70,23 +70,23 @@ export interface CategoryCycle {
 }
 
 export interface MonthlyCycle {
-  /** False when the family tracks no income at all — the UI shows spend-only. */
+  /** False when the family tracks no income at all - the UI shows spend-only. */
   hasIncome: boolean;
   /** Actual income CONFIRMED for the month (recurring confirmations + one-offs). */
   confirmedIncome: number;
   totalSpent: number;
-  /** confirmedIncome − totalSpent (money left after what's already been spent). */
+  /** confirmedIncome - totalSpent (money left after what's already been spent). */
   remaining: number;
   /**
    * Still-to-come income this month: active recurring SOURCES not yet confirmed.
-   * Zero for past months — history is only ever what was actually confirmed.
+   * Zero for past months - history is only ever what was actually confirmed.
    */
   expectedIncome: number;
   /** Sum of still-unpaid known payment occurrences due within this month. */
   projectedUnpaid: number;
   /**
    * Expected money left at month-end:
-   * (confirmedIncome + expectedIncome) − (totalSpent + projectedUnpaid).
+   * (confirmedIncome + expectedIncome) - (totalSpent + projectedUnpaid).
    */
   projectedRemaining: number;
   /** One entry per category (spend + limit math), for the breakdown coloring. */
@@ -111,22 +111,22 @@ export interface MonthlyCycleInput {
 }
 
 /**
- * The monthly budget cycle. Pure — the projection reuses the shared payment
+ * The monthly budget cycle. Pure - the projection reuses the shared payment
  * occurrence resolver (`expandPaymentOccurrences`), never a private copy.
  *
  * Income is confirmation-based (mirrors the spend side, where actual `expenses`
- * — not live payments — drive `totalSpent`):
+ * - not live payments - drive `totalSpent`):
  *   - `confirmedIncome` = sum of `income_entries` for `month`. This is FROZEN
  *     history: editing a recurring source today never rewrites a past month.
  *   - `expectedIncome` = active recurring SOURCES with no confirmation this
  *     month, but ONLY for `month ≥ currentMonth`. A past month projects nothing
- *     — it's exactly what was confirmed at the time.
+ *     - it's exactly what was confirmed at the time.
  *   - `totalSpent` = expenses whose `spent_on` is in `month` (already includes
  *     the auto-expenses written when a payment was paid).
  *   - `projectedUnpaid` = still-unpaid known occurrences due within `month`. The
  *     live `due_date` is the next-unpaid occurrence, so the resolver never
  *     re-counts an occurrence already paid. Paid one-time / paused are skipped.
- *   - `projectedRemaining` = (confirmed + expected) − (spent + unpaid).
+ *   - `projectedRemaining` = (confirmed + expected) - (spent + unpaid).
  *
  * A family with no sources and no confirmed income returns `hasIncome=false`
  * (spend-only view).
@@ -141,7 +141,7 @@ export function computeMonthlyCycle(input: MonthlyCycleInput): MonthlyCycle {
   const monthEntries = incomeEntries.filter((e) => e.month === month);
   const confirmedIncome = monthEntries.reduce((sum, e) => sum + e.amount, 0);
 
-  // Expected income = active sources not yet confirmed this month — current /
+  // Expected income = active sources not yet confirmed this month - current /
   // future only. A past month never re-projects; it's frozen at what came in.
   const activeSources = incomes.filter((i) => i.active);
   const confirmedSourceIds = new Set(

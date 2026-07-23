@@ -45,7 +45,7 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
       <IosInstallHint />
       {/* On mobile the card chrome (border, bg, shadow, padding) is dropped
-          so the form reads as the page itself — same content, edge-to-edge.
+          so the form reads as the page itself - same content, edge-to-edge.
           On md+ the card framing is preserved for the desktop look. */}
       <Card className="w-full max-w-md max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:py-0 max-md:shadow-none">
         <CardHeader className="max-md:px-0">

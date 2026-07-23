@@ -5,18 +5,18 @@ import { ListMaster } from "@/components/lists/ListMaster";
 import { useIsWide } from "@/hooks/useIsWide";
 
 /**
- * Layout route for `/lists/*` — the Apple Notes-style master-detail shell.
+ * Layout route for `/lists/*` - the Apple Notes-style master-detail shell.
  *
  * Mobile (< lg): renders just `<Outlet/>`. The index route shows the
  * full-screen master list; the detail route shows the full-screen list page.
  *
- * Desktop (>= lg): renders a *persistent* split — the list sidebar on the left
+ * Desktop (>= lg): renders a *persistent* split - the list sidebar on the left
  * (always mounted, survives navigation between lists) and the selected list's
  * detail in the right panel via `<Outlet/>`. The divider is draggable and its
  * position is remembered per-device in localStorage.
  */
 export const Route = createFileRoute("/_app/lists")({
-  // `?new=1` deep-links the create-list dialog open — used by the dashboard's
+  // `?new=1` deep-links the create-list dialog open - used by the dashboard's
   // "Dodaj → Lista" entry. Lives on the layout route (not the index) so it
   // reaches the sidebar's ListMaster on desktop even while the index route is
   // busy redirecting to a concrete list. Consumed + stripped by ListMaster.
@@ -43,7 +43,7 @@ function ListsSplit() {
 
   return (
     // Fill the viewport below the sticky 56px nav, minus <main>'s pt-6 + pb-6
-    // (24px each) = 6.5rem — so the page itself never scrolls on /lists at lg;
+    // (24px each) = 6.5rem - so the page itself never scrolls on /lists at lg;
     // each panel scrolls internally instead. `100dvh` (not vh) keeps it stable
     // against mobile URL-bar / safe-area changes.
     <div className="h-[calc(100dvh-6.5rem)] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">

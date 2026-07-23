@@ -4,7 +4,7 @@ import { format, startOfDay } from "date-fns";
 /**
  * A shared "today" that stays correct across iOS PWA suspends.
  *
- * The home-screen install keeps its JS context alive for days — a component
+ * The home-screen install keeps its JS context alive for days - a component
  * that reads `new Date()` once (in a `useMemo`, in state init, in a frozen
  * query range) keeps yesterday's date after the phone sits overnight, because
  * nothing remounts on resume. This holds today in a module-level store and
@@ -14,14 +14,14 @@ import { format, startOfDay } from "date-fns";
  *   - a timer scheduled for the next local midnight (rollover while open)
  *
  * Consumers get a referentially-stable snapshot, so they re-render only when the
- * calendar DAY actually changes — not on every focus. Reading it through
+ * calendar DAY actually changes - not on every focus. Reading it through
  * `useSyncExternalStore` means one set of listeners and one timer is shared by
  * every caller, however many mount.
  */
 export interface Today {
   /** Today as `yyyy-MM-dd` (local). */
   str: string;
-  /** Today at local start-of-day — a stable `Date` for arithmetic. */
+  /** Today at local start-of-day - a stable `Date` for arithmetic. */
   date: Date;
 }
 
@@ -32,7 +32,7 @@ function compute(): Today {
 
 // Module-level singleton: one snapshot, one listener set, one midnight timer
 // shared by all `useToday()` callers. The snapshot reference only changes when
-// the day rolls over — that's what keeps `useSyncExternalStore` stable.
+// the day rolls over - that's what keeps `useSyncExternalStore` stable.
 let snapshot = compute();
 const listeners = new Set<() => void>();
 let midnightTimer: ReturnType<typeof setTimeout> | undefined;
@@ -66,7 +66,7 @@ function subscribe(onStoreChange: () => void): () => void {
   if (listeners.size === 1) {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", refresh);
-    // Catch up silently if the module loaded a while before this first mount —
+    // Catch up silently if the module loaded a while before this first mount -
     // React reads `getSnapshot` right after subscribing, so no notify is needed.
     snapshot = compute();
     scheduleMidnight();
@@ -88,7 +88,7 @@ function getSnapshot(): Today {
   return snapshot;
 }
 
-/** Today (local), kept correct across iOS PWA suspends — see module doc. */
+/** Today (local), kept correct across iOS PWA suspends - see module doc. */
 export function useToday(): Today {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

@@ -19,14 +19,14 @@ import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/ut
 import { addDays } from "@/utils/date";
 
 /**
- * "Danas" tab — past-due payments in a "Prekoračeno" section, then every
+ * "Danas" tab - past-due payments in a "Prekoračeno" section, then every
  * activity, event, due payment and birthday for today, over
  * `useAgenda({ from: today, to: today })`. Rows open the shared detail dialogs;
  * "Izmeni" flows back to the dashboard's form dialogs through the `onEdit*`
  * props.
  *
  * The shared type+person `filter` (owned by the route) narrows both sections as
- * a pure pass over the agenda items; birthdays ignore the person facet — see
+ * a pure pass over the agenda items; birthdays ignore the person facet - see
  * `matchesAgendaFilter`.
  */
 export type AgendaTodayTabProps = {
@@ -60,7 +60,7 @@ export function AgendaTodayTab({
 
   // Single-day calendar column. Past-due payments have no place on a single-day
   // timeline (they're from earlier days), so they ride along as the same
-  // "Prekoračeno" list pinned above the calendar — otherwise they'd be invisible
+  // "Prekoračeno" list pinned above the calendar - otherwise they'd be invisible
   // in calendar view. `OverdueSection` renders nothing when there's none.
   if (view === "calendar") {
     return (
@@ -78,7 +78,7 @@ export function AgendaTodayTab({
   const filterActive = isAgendaFilterActive(filter);
 
   // Overdue (if any) sits above the always-visible "today" divider, which keeps
-  // the current date on screen in every state — list of items, all-clear, or
+  // the current date on screen in every state - list of items, all-clear, or
   // filtered-empty (mirrors how Todoist anchors the day).
   return (
     <div className="space-y-6">
@@ -98,7 +98,7 @@ export function AgendaTodayTab({
             Nema stavki za izabrane filtere.
           </p>
         ) : hasOverdue ? (
-          // Today itself is clear, but there's overdue above — stay matter-of-fact
+          // Today itself is clear, but there's overdue above - stay matter-of-fact
           // rather than celebratory.
           <div className="mt-3 space-y-2">
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -118,8 +118,8 @@ export function AgendaTodayTab({
 /**
  * "See what's next" link shown when today is clear. The Danas scope only loads
  * today (`from === to === today`), so tomorrow's count isn't available without
- * a second `useAgenda` — which must never be mounted twice (double realtime
- * subscription) — hence a plain CTA without the count.
+ * a second `useAgenda` - which must never be mounted twice (double realtime
+ * subscription) - hence a plain CTA without the count.
  */
 function UskoroCta() {
   return (
@@ -132,7 +132,7 @@ function UskoroCta() {
   );
 }
 
-/** Nothing scheduled and nothing overdue — a warm, personalized all-clear. */
+/** Nothing scheduled and nothing overdue - a warm, personalized all-clear. */
 function TodayEmptyState({ firstName }: { firstName: string | null }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">

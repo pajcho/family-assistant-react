@@ -21,7 +21,7 @@ import { getDisplayName } from "@/utils/identity";
 
 /**
  * Read-only detail popup for a mirrored Google event (opened from the agenda via
- * `useAgendaDetails`). Mirrored events are never editable in the app — the only
+ * `useAgendaDetails`). Mirrored events are never editable in the app - the only
  * Google action is "Otvori u Google" / "Otvori email" (the source link). On top
  * we allow APP-LOCAL enrichment (kept in external_event_local, not pushed to
  * Google): assign to a family member + set a family push reminder.
@@ -36,10 +36,10 @@ function timeRangeLabel(event: ExternalCalendarEvent): string {
   if (event.is_all_day || !event.start_time) return "Ceo dan";
   const start = normalizeTime(event.start_time);
   const end = event.end_time ? normalizeTime(event.end_time) : null;
-  return end ? `${start}–${end}` : start;
+  return end ? `${start}-${end}` : start;
 }
 
-/** Google Maps "search" deep link for a free-text location — opens the Maps app
+/** Google Maps "search" deep link for a free-text location - opens the Maps app
  *  on mobile, maps.google.com on desktop. */
 function mapsSearchUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
@@ -214,7 +214,7 @@ export function ExternalEventDetailDialog({
             ) : null}
 
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Događaj iz tvog Google kalendara — samo za prikaz. Izmene radi u Google-u.
+              Događaj iz tvog Google kalendara - samo za prikaz. Izmene radi u Google-u.
             </p>
           </div>
         ) : null}

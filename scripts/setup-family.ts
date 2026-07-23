@@ -3,7 +3,7 @@ import { createInterface, type Interface } from "readline";
 import { createClient } from "@supabase/supabase-js";
 
 /**
- * Family Assistant – setup family and two users.
+ * Family Assistant - setup family and two users.
  * Run: pnpm run setup-family (uses .env) or pnpm run setup-family:local (uses .env.local).
  * Both scripts use `tsx --env-file=...` to load SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY into
  * process.env before this file executes.
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     output: process.stdout,
   });
 
-  console.log("Porodični asistent – kreiranje porodice i korisnika\n");
+  console.log("Porodični asistent - kreiranje porodice i korisnika\n");
 
   const familyName = await ask(readInterface, "Naziv porodice: ");
   if (!familyName) {

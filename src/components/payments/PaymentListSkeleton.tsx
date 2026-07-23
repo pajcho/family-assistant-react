@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
 /**
- * Card-shaped loading placeholder for the payments list — matches the real
+ * Card-shaped loading placeholder for the payments list - matches the real
  * row frame (rounded card, name + due-date lines, amount on the right) so the
  * page doesn't jump when the data arrives.
  */

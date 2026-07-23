@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 /**
  * Unified "add" affordance, used in every feature page's header. Renders as a
  * labelled button in the header on desktop (lg+) and as a floating action
- * button in the bottom-right corner below lg (where the bottom nav lives —
- * tablets included). Place it where the header button should go — the FAB is
+ * button in the bottom-right corner below lg (where the bottom nav lives -
+ * tablets included). Place it where the header button should go - the FAB is
  * `fixed`, so its position in the DOM doesn't matter.
  */
 export type AddButtonProps = {

@@ -8,7 +8,7 @@
 //
 // Security: we extract the user id from the caller's JWT and pass
 // that id into `admin.updateUserById`. The body's `email` is the only
-// user-controlled input — there's no way for the caller to update
+// user-controlled input - there's no way for the caller to update
 // another user's row even if they tampered with the request.
 //
 // Validation (uniqueness, format) is delegated to GoTrue. Its errors
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   // this handler (the default `verify_jwt = true`), so by the time
   // we get here we can trust the claims. We do NOT call
   // `auth.getUser(bearer)` here because that would round-trip back
-  // to GoTrue with our service-role apikey — and GoTrue on the new
+  // to GoTrue with our service-role apikey - and GoTrue on the new
   // asymmetric-key projects rejects the legacy HS256 service-role
   // JWT as an apikey. Decoding the trusted token avoids that
   // entirely.
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
   // Pre-check uniqueness explicitly. The admin endpoint's catch-all
   // for "email already taken" is the unhelpful "Error updating user"
-  // — by checking ourselves we can return a specific, user-readable
+  // - by checking ourselves we can return a specific, user-readable
   // message. `listUsers` doesn't accept an email filter directly, so
   // paginate until we find a match. With ≤ a few users in a family
   // app this costs one page; the loop is just a safety net.
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     return json({ error: "Email već koristi drugi korisnik." }, 409);
   }
 
-  // `email_confirm: true` marks the new email as already verified —
+  // `email_confirm: true` marks the new email as already verified -
   // without it GoTrue would leave the row in an unconfirmed state
   // and our auth flow would lock the user out.
   const { error: adminError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
   });
   if (adminError) {
     // GoTrue messages cover both uniqueness ("email address has
-    // already been registered") and format ("Invalid email") —
+    // already been registered") and format ("Invalid email") -
     // relay them so the client can surface them in a toast.
     return json({ error: adminError.message }, 400);
   }

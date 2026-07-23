@@ -13,7 +13,7 @@ import { currentAge } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
 
 /**
- * Per-birthday detail popup — extracted from the old `DashboardBirthdayCard`'s
+ * Per-birthday detail popup - extracted from the old `DashboardBirthdayCard`'s
  * inline dialog so the unified agenda can open it on a birthday row. "Izmeni"
  * routes back to the dashboard's birthday form via `onEdit` (the dialog closes
  * itself first), mirroring the event/payment detail dialogs.

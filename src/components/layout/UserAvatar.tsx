@@ -9,16 +9,16 @@ import { getInitials, gravatarHash, gravatarUrl, type IdentityInput } from "@/ut
  *    no transparent gap while we resolve / load the Gravatar image).
  *  - A Gravatar `<img>` layers on top once we have a hash. We request
  *    Gravatar with `d=404`, so if the email has no avatar registered the
- *    request 404s, `onError` fires and we hide the img — initials stay
+ *    request 404s, `onError` fires and we hide the img - initials stay
  *    visible. Same fallback path covers network errors.
  *
  * The image renders at 2× the displayed pixel size for crisp HiDPI
- * rendering. The component is purely visual — wrap it in a button at the
+ * rendering. The component is purely visual - wrap it in a button at the
  * call site if you need it to trigger something.
  */
 
 interface UserAvatarProps extends IdentityInput {
-  /** Tailwind size — applied as both width and height. Default 36px (h-9 w-9). */
+  /** Tailwind size - applied as both width and height. Default 36px (h-9 w-9). */
   className?: string;
   /** Pixel size requested from Gravatar (defaults to 80). */
   gravatarSize?: number;

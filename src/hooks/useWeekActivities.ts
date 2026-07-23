@@ -13,7 +13,7 @@ import { useActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 
 /**
- * Derived hook — composes the three raw activity queries (`useActivities`,
+ * Derived hook - composes the three raw activity queries (`useActivities`,
  * `useActivitySchedule`, `useSchoolShiftAnchors`) and resolves them into
  * concrete per-week blocks ready for the weekly grid.
  *
@@ -63,7 +63,7 @@ export function useWeekActivities(
     });
 
     // Person filter moved from activity-level to block-level: multi-person
-    // activities should partially show — if the chip filter keeps only
+    // activities should partially show - if the chip filter keeps only
     // Lucija, a shared "Engleski" still appears for Lucija (just without
     // her sibling's block beside it).
     if (!personFilter || personFilter.size === 0) return allBlocks;

@@ -7,14 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Expense-category hooks (Faza 3/4) — the family's spend buckets, backed by
+ * Expense-category hooks (Faza 3/4) - the family's spend buckets, backed by
  * TanStack Query + Supabase Realtime. Same shape as the other entity hooks.
  *
  * Surface:
- *   - `useExpenseCategories()`      — list query (sorted) + realtime + `byId`
- *   - `useCreateExpenseCategory()`  — insert (appends after the last sort_order)
- *   - `useUpdateExpenseCategory()`  — rename / color / icon / limit / sort
- *   - `useDeleteExpenseCategory()`  — delete (expenses.category_id SET NULL in DB)
+ *   - `useExpenseCategories()`      - list query (sorted) + realtime + `byId`
+ *   - `useCreateExpenseCategory()`  - insert (appends after the last sort_order)
+ *   - `useUpdateExpenseCategory()`  - rename / color / icon / limit / sort
+ *   - `useDeleteExpenseCategory()`  - delete (expenses.category_id SET NULL in DB)
  *
  * `familyId` always comes from `useProfile()` so the RLS guard matches.
  */

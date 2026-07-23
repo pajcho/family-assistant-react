@@ -17,7 +17,7 @@ import { DAY_LABELS_FULL, SHIFT_LABELS } from "@/utils/activity";
 import { computeBellGrid, variantForShift } from "@/utils/schoolTimetable";
 import { useReplaceTimetableDay } from "@/hooks/useSchoolTimetable";
 
-/** Weekdays the editor exposes (Mon–Fri). Saturday/Sunday rarely have classes. */
+/** Weekdays the editor exposes (Mon-Fri). Saturday/Sunday rarely have classes. */
 const SCHOOL_DAYS = [0, 1, 2, 3, 4] as const;
 
 /** Which bell-schedule band a variant resolves to for this child. */
@@ -32,7 +32,7 @@ function bandForVariant(
 export type TimetableEditorPanelProps = {
   member: Profile;
   anchor: SchoolShiftAnchor | undefined;
-  /** All family timetable entries — filtered to this member internally. */
+  /** All family timetable entries - filtered to this member internally. */
   entries: ReadonlyArray<SchoolTimetableEntry>;
   bell: BellSchedule;
   /**
@@ -47,13 +47,13 @@ export type TimetableEditorPanelProps = {
 };
 
 /**
- * Fast subject entry body — type subjects one per line, times derived live
+ * Fast subject entry body - type subjects one per line, times derived live
  * from the bell schedule. Headerless so it can render inside a dialog or
  * inside the options sheet.
  *
  * Persistence: each (variant, day) column is replaced as a unit. The current
- * column is saved when switching variant/day, on explicit save, and — crucially
- * for the in-sheet flow — on unmount (i.e. when the user navigates back or
+ * column is saved when switching variant/day, on explicit save, and - crucially
+ * for the in-sheet flow - on unmount (i.e. when the user navigates back or
  * closes), so typed-but-not-saved edits aren't lost.
  */
 export function TimetableEditorPanel({
@@ -138,7 +138,7 @@ export function TimetableEditorPanel({
     return next;
   }, [text, replace, member.id, variant, day]);
 
-  // Flush pending edits on unmount — covers "navigate back" / "close" without
+  // Flush pending edits on unmount - covers "navigate back" / "close" without
   // an explicit save. Uses a ref so the cleanup sees the latest closure.
   const persistRef = useRef(persistCurrent);
   persistRef.current = persistCurrent;
@@ -181,12 +181,12 @@ export function TimetableEditorPanel({
 
       {!anchor ? (
         <div className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-          Ovo dete nema postavljenu smenu — raspored se prikazuje kao jutarnji (nedelja A). Postavi
+          Ovo dete nema postavljenu smenu - raspored se prikazuje kao jutarnji (nedelja A). Postavi
           smenu da bi se A/B i popodne računali ispravno.
         </div>
       ) : null}
 
-      {/* Variant selector — only for children whose shift rotates. */}
+      {/* Variant selector - only for children whose shift rotates. */}
       {showVariantTabs ? (
         <div className="space-y-1.5">
           <Label>Nedelja</Label>
@@ -271,12 +271,12 @@ export function TimetableEditorPanel({
                           {subject}
                         </span>
                         <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                          {slot ? `${slot.startTime}–${slot.endTime}` : "van satnice"}
+                          {slot ? `${slot.startTime}-${slot.endTime}` : "van satnice"}
                         </span>
                       </li>
                       {slot?.bigBreakAfter ? (
                         <li className="py-0.5 text-center text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                          — veliki odmor —
+                          - veliki odmor -
                         </li>
                       ) : null}
                     </Fragment>

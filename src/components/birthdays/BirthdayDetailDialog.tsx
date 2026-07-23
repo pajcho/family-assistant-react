@@ -20,11 +20,11 @@ import { currentAge, daysUntilBirthday } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
 
 /**
- * Detail popup for one birthday — the payments-sheet pattern: hero, state as
+ * Detail popup for one birthday - the payments-sheet pattern: hero, state as
  * badges ("za N dana", next age), info rows, footer with "Izmeni" and
  * "Organizuj proslavu" as the contextual primary (until a celebration
  * exists). The delete action lives as a confirm sub-view on the sheet stack
- * (see `useSheetStack`) — "←" back header, dismissal returns one level up.
+ * (see `useSheetStack`) - "←" back header, dismissal returns one level up.
  * Only the heavier forms (edit, celebration) still close the sheet and
  * delegate to the page's dialogs.
  */
@@ -41,7 +41,7 @@ export type BirthdayDetailDialogProps = {
 
 type View = "detail" | "actions" | "delete";
 
-/** "Puni 9 godina / 21 godinu / 3 godine" — Serbian count agreement. */
+/** "Puni 9 godina / 21 godinu / 3 godine" - Serbian count agreement. */
 function ageLabel(age: number): string {
   const mod10 = age % 10;
   const mod100 = age % 100;

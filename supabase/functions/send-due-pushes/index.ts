@@ -2,12 +2,12 @@
 //
 // Cron-triggered every minute. Two independent dispatch paths:
 //
-//   1. Digests — for each user with `morning_enabled` / `evening_enabled`,
+//   1. Digests - for each user with `morning_enabled` / `evening_enabled`,
 //      check if the current minute in their timezone matches their
 //      configured time and (if so + nothing logged for today) send a
 //      summary push.
 //
-//   2. Per-event reminders — for each `events` row with a non-null
+//   2. Per-event reminders - for each `events` row with a non-null
 //      `remind_minutes_before` AND `start_time`, compute the wall-clock
 //      reminder time. Every family member with a push subscription gets
 //      the reminder when their local clock hits that minute.
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Per-event reminders run on every tick regardless of force= mode —
+  // Per-event reminders run on every tick regardless of force= mode -
   // they don't have a "force" semantic; the reminder time is encoded
   // on the event itself.
   const reminderResults = await processEventReminders(supabase);
@@ -109,14 +109,14 @@ Deno.serve(async (req) => {
   const paymentResults = await processPaymentReminders(supabase);
   results.push(...paymentResults);
 
-  // Per-activity reminders — same idea as event reminders but the
+  // Per-activity reminders - same idea as event reminders but the
   // "occurrence" is computed by walking weekly schedule rules per
   // participant (respecting A/B shift patterns, every-N-week intervals,
   // active-from/to seasons, and per-person overrides).
   const activityResults = await processActivityReminders(supabase);
   results.push(...activityResults);
 
-  // Per-mirrored-Google-event reminders — like event reminders, but the time
+  // Per-mirrored-Google-event reminders - like event reminders, but the time
   // lives on the synced external event and the offset on external_event_local.
   const externalResults = await processExternalReminders(supabase);
   results.push(...externalResults);
@@ -148,7 +148,7 @@ async function processDigest(
     return { user_id: pref.user_id, kind, error: logError.message };
   }
 
-  // Resolve the user's family — events / payments / birthdays are
+  // Resolve the user's family - events / payments / birthdays are
   // family-scoped, not user-scoped.
   const { data: profile } = await supabase
     .from("profiles")
@@ -221,7 +221,7 @@ async function processDigest(
       // deno-lint-ignore no-explicit-any
       const status = (e as any)?.statusCode as number | undefined;
       if (status === 404 || status === 410) {
-        // Subscription is gone — drop it so we don't keep paying for
+        // Subscription is gone - drop it so we don't keep paying for
         // dead push-service round-trips on every cron tick.
         await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         dead++;
@@ -251,7 +251,7 @@ async function processEventReminders(
 ): Promise<unknown[]> {
   // Pull events whose date is within ±1 day of UTC "today". The actual
   // fire time is timezone-dependent so this is a deliberately wide
-  // filter — the per-event check below narrows down to the exact
+  // filter - the per-event check below narrows down to the exact
   // minute in each recipient's local clock.
   const utcDate = new Date().toISOString().slice(0, 10);
   const window = [addDays(utcDate, -1), utcDate, addDays(utcDate, 1)];
@@ -276,7 +276,7 @@ async function dispatchEventReminder(
   supabase: any,
   ev: EventRow,
 ): Promise<unknown[]> {
-  // Everyone in this family is a candidate recipient — the reminder is
+  // Everyone in this family is a candidate recipient - the reminder is
   // stored on the event itself, so it isn't tied to one user.
   const { data: profiles } = await supabase
     .from("profiles")
@@ -578,7 +578,7 @@ async function dispatchPaymentReminder(
   supabase: any,
   pay: PaymentRow,
 ): Promise<unknown[]> {
-  // Payments are family-scoped — everyone in the family gets the
+  // Payments are family-scoped - everyone in the family gets the
   // reminder. The fire time is anchored on each recipient's
   // `morning_time` (in their tz), so two members in different zones can
   // see the same reminder at different absolute instants.
@@ -691,7 +691,7 @@ function paymentReminderBody(pay: PaymentRow): string {
 
 function formatAmount(amount: number): string {
   // Serbian thousands separator is ".", and these amounts are always
-  // whole-RSD in this app — keep formatting minimal and locale-correct.
+  // whole-RSD in this app - keep formatting minimal and locale-correct.
   return new Intl.NumberFormat("sr-RS", { maximumFractionDigits: 0 }).format(amount);
 }
 
@@ -733,7 +733,7 @@ function pad2(n: number): string {
 // utils) and then match against each participant's local clock.
 //
 // Idempotency key extends the event_reminder pattern with the date and
-// person — `<schedule_id>:<YYYY-MM-DD>:<person_id>` — so the same rule
+// person - `<schedule_id>:<YYYY-MM-DD>:<person_id>` - so the same rule
 // firing in different weeks logs independently and each participant
 // claims their own slot.
 
@@ -800,7 +800,7 @@ async function processActivityReminders(
   // deno-lint-ignore no-explicit-any
   supabase: any,
 ): Promise<unknown[]> {
-  // One round trip for each table — small datasets per family, plenty fast.
+  // One round trip for each table - small datasets per family, plenty fast.
   // Profile + push-subscription bulk pulls let us dispatch each reminder
   // to every push-subscribed family member without per-occurrence queries.
   const [actsRes, schedRes, partsRes, ovRes, anchorsRes, prefsRes, profilesRes, subsRes] =
@@ -886,7 +886,7 @@ async function processActivityReminders(
 
   const out: unknown[] = [];
 
-  // Pass 1 — walk rules × participants. We use the family's timezone
+  // Pass 1 - walk rules × participants. We use the family's timezone
   // for the day-of-week and override lookup (the rule's day-of-week
   // is in the family's wall clock, not any individual user's), then
   // dispatch to every push-subscribed user in the family with the
@@ -935,7 +935,7 @@ async function processActivityReminders(
     }
   }
 
-  // Pass 2 — moved-here overrides whose new date is today in the family tz.
+  // Pass 2 - moved-here overrides whose new date is today in the family tz.
   for (const ov of overrides) {
     if (ov.action !== "reschedule") continue;
     if (!ov.override_date) continue;
@@ -955,7 +955,7 @@ async function processActivityReminders(
     if (activity.active_from && ov.override_date < activity.active_from) continue;
     if (activity.active_to && ov.override_date > activity.active_to) continue;
     // Participant might have been removed from the activity after the
-    // override was set — same silent-skip-and-reactivate semantic.
+    // override was set - same silent-skip-and-reactivate semantic.
     const persons = personsByActivity.get(activity.id);
     if (!persons?.includes(ov.person_id)) continue;
 
@@ -1029,7 +1029,7 @@ function matchesRuleOnDate(
  * parents to receive the same occurrence.
  *
  * Body wording flips based on whether the recipient is also the
- * participant — "Trening fudbala" for self, "Lucija • Trening fudbala"
+ * participant - "Trening fudbala" for self, "Lucija • Trening fudbala"
  * for a parent receiving a kid's reminder.
  */
 async function dispatchActivityReminder(

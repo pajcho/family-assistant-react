@@ -5,7 +5,7 @@ import { formatDate } from "@/utils/date";
 import { formatEventTimeRange, isEventEnded } from "@/utils/event";
 
 /**
- * Compact tappable row in the /events timeline — the PaymentTimelineRow
+ * Compact tappable row in the /events timeline - the PaymentTimelineRow
  * shape: name + time on the first line, meta + state chip on the second. No
  * inline actions; the tap opens `EventDetailDialog`, which carries them all.
  * `showDate` prefixes the meta with the date (flat search results span

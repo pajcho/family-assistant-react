@@ -7,14 +7,14 @@ import { useProfile } from "@/hooks/useProfile";
 import { replaceEventParticipants } from "@/hooks/useEventParticipants";
 
 /**
- * Events data hooks — direct port of `composables/useEvents.ts` from the
+ * Events data hooks - direct port of `composables/useEvents.ts` from the
  * sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
  *
  * Surface:
- *   - `useEventsList({ from?, to? })`  — list query + realtime subscription
- *   - `useCreateEvent()`               — insert mutation
- *   - `useUpdateEvent()`               — update mutation
- *   - `useDeleteEvent()`               — delete mutation
+ *   - `useEventsList({ from?, to? })`  - list query + realtime subscription
+ *   - `useCreateEvent()`               - insert mutation
+ *   - `useUpdateEvent()`               - update mutation
+ *   - `useDeleteEvent()`               - delete mutation
  *
  * `familyId` comes from `useProfile()`; never accept it from callers so the
  * Supabase RLS guard always matches the authenticated user.
@@ -56,8 +56,8 @@ export type UpdateEventInput = Partial<
 > & {
   /**
    * Replace the event's assignees. `undefined` leaves them untouched (so the
-   * quick cancel / reschedule actions don't clear assignment); any array —
-   * including empty — replaces the full set.
+   * quick cancel / reschedule actions don't clear assignment); any array -
+   * including empty - replaces the full set.
    */
   personIds?: string[];
 };
@@ -135,7 +135,7 @@ export function useEventsList(filters: EventListFilters = {}) {
 }
 
 /**
- * Upcoming celebration per birthday — active (non-canceled) events carrying a
+ * Upcoming celebration per birthday - active (non-canceled) events carrying a
  * `birthday_id` with a date from today on, keyed by that birthday. Powers the
  * "Proslava zakazana" chip on the birthdays page. The query key lives under
  * ["events", familyId] so every event mutation's invalidation refreshes it.

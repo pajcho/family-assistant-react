@@ -6,7 +6,7 @@
 // re-verifying the caller.
 //
 // Security: the caller is identified from their JWT `sub` (the Functions
-// platform verifies the signature first — default verify_jwt = true). We then
+// platform verifies the signature first - default verify_jwt = true). We then
 // load the caller's profile with the service role and require `is_admin` AND
 // that the target member shares the caller's `family_id`. The body can't be
 // used to act on another family or to self-elevate.
@@ -144,7 +144,7 @@ async function disableLogin(
   const existing = await admin.auth.admin.getUserById(profileId);
   if (!existing.data?.user) return json({ error: "Član nema nalog." }, 409);
 
-  // Never strip the family's last admin — that would lock everyone out of
+  // Never strip the family's last admin - that would lock everyone out of
   // roster management.
   if (targetIsAdmin) {
     const { count } = await admin
@@ -164,7 +164,7 @@ async function disableLogin(
   const del = await admin.auth.admin.deleteUser(profileId);
   if (del.error) return json({ error: del.error.message }, 500);
 
-  // A login-less member can't administer anything — drop the admin flag so the
+  // A login-less member can't administer anything - drop the admin flag so the
   // role can never linger on an account that can't sign in.
   await admin.from("profiles").update({ is_admin: false }).eq("id", profileId);
 

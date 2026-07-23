@@ -157,7 +157,7 @@ describe("expandPaymentOccurrences", () => {
   });
 
   it("surfaces a past live occurrence that was rescheduled into the window (Danas)", () => {
-    // due_date is yesterday, moved onto today — from === to === today.
+    // due_date is yesterday, moved onto today - from === to === today.
     const occ = expandPaymentOccurrences(
       payment({ due_date: "2026-06-09" }),
       "2026-06-10",
@@ -201,7 +201,7 @@ describe("expandPaymentOccurrences", () => {
 
 describe("isUpcomingPaymentOccurrence", () => {
   it("treats the live occurrence (keyed on due_date) as editable, even when due in the future", () => {
-    // The next/first instalment — e.g. due tomorrow — IS the live row, so it
+    // The next/first instalment - e.g. due tomorrow - IS the live row, so it
     // must stay actionable, not be locked as "Nadolazeće".
     expect(
       isUpcomingPaymentOccurrence({
@@ -410,7 +410,7 @@ describe("resolveBlocksInRange", () => {
 
   it("filters out occurrences before the range start", () => {
     const blocks = resolveBlocksInRange({
-      from: "2026-06-02", // Tuesday — drops Monday 06-01
+      from: "2026-06-02", // Tuesday - drops Monday 06-01
       to: MON_2,
       activities: [activity()],
       schedule: [schedule()],

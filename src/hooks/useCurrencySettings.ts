@@ -7,7 +7,7 @@ import { currencyOptions, normalizeEnabledCurrencies } from "@/utils/currency";
 
 /**
  * The family's enabled-currencies setting (Valute section on Settings).
- * Reads from the family row `useProfile` already caches — no extra query.
+ * Reads from the family row `useProfile` already caches - no extra query.
  * Updating is admin-only at the DB level (the "Admins can update own family"
  * RLS policy), mirrored in the UI by disabling the toggles for non-admins.
  */
@@ -27,7 +27,7 @@ export function useEnabledCurrencies() {
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      // The family row lives inside the profile query — refresh it everywhere.
+      // The family row lives inside the profile query - refresh it everywhere.
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (error: Error) => {

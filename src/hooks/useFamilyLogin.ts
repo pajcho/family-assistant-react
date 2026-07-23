@@ -13,7 +13,7 @@ import { readFunctionsError } from "@/utils/functionsError";
  * role and re-checks that the caller is an admin in the target's family.
  *
  * `create` re-keys the member's `profiles.id` to the new auth user's id so all
- * their history (activities, timetable, shifts) carries over — see the Edge
+ * their history (activities, timetable, shifts) carries over - see the Edge
  * Function and the `ON UPDATE CASCADE` FKs in the family_admin migration.
  * `disable` deletes the auth user; the profile row survives as a login-less
  * member (the FK to auth.users was dropped long ago).
@@ -57,7 +57,7 @@ export function useCreateMemberLogin() {
       return result.id ?? null;
     },
     onSuccess: () => {
-      // The member's profile id changed (re-key) and has_login flipped — refetch
+      // The member's profile id changed (re-key) and has_login flipped - refetch
       // the roster. Activities reference the new id via the cascade, so their
       // caches stay valid, but bounce them too in case a stale name lingered.
       void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });

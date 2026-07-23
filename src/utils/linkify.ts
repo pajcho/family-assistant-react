@@ -63,7 +63,7 @@ export function linkifyParts(text: string): LinkPart[] {
     const { core, trailing } = splitTrailing(raw);
     const href = toHref(core);
 
-    // Not a real URL — leave it folded into the surrounding text (its
+    // Not a real URL - leave it folded into the surrounding text (its
     // characters get picked up by the next slice / the trailing tail).
     if (!href) continue;
 

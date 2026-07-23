@@ -5,7 +5,7 @@ import { formatDate, isOverdue } from "@/utils/date";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
-/** Compact status pill — same colorway as the payments list row states. */
+/** Compact status pill - same colorway as the payments list row states. */
 function PaymentStatusPill({ payment }: { payment: Payment }) {
   if (payment.is_paid) {
     return (
@@ -33,7 +33,7 @@ function PaymentStatusPill({ payment }: { payment: Payment }) {
 
 /**
  * Read-only "Plaćanja" box listing the payments linked to one activity or
- * event — the reverse side of the payment link. Renders nothing when the list
+ * event - the reverse side of the payment link. Renders nothing when the list
  * is empty, so callers can mount it unconditionally. `children` slots extra
  * read-only content into the same box (the activity side appends its
  * per-month attendance breakdown there).

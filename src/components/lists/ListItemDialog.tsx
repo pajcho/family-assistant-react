@@ -31,7 +31,7 @@ export type ListItemDialogProps = {
 };
 
 /**
- * View / edit popup for a single list item — replaces the old inline-edit
+ * View / edit popup for a single list item - replaces the old inline-edit
  * affordance on `ListItemRow`. Tapping any item row opens this dialog so
  * users can rename the item and add/edit a free-text description that
  * supports Markdown.
@@ -43,7 +43,7 @@ export type ListItemDialogProps = {
  *   • Footer: Delete (left, destructive) + Cancel / Save (right)
  *
  * Wired with `ResponsiveDialog` so it renders as a centered modal on
- * desktop and as a bottom drawer on phones — same pattern as
+ * desktop and as a bottom drawer on phones - same pattern as
  * `ListFormDialog`. The dialog is unmounted between opens so the form
  * state resets cleanly whenever the user picks a different item.
  */
@@ -107,7 +107,7 @@ function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: Body
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <Label htmlFor="item-name">Naziv *</Label>
-        {/* No autoFocus — same reasoning as the list form: avoids the iOS
+        {/* No autoFocus - same reasoning as the list form: avoids the iOS
             keyboard popping up before the drawer has finished sliding in. */}
         <Input id="item-name" value={name} onChange={(e) => setName(e.target.value)} required />
       </div>

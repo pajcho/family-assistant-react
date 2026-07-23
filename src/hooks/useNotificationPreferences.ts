@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 /**
  * Reads + writes the user's notification preferences row (digest
  * opt-ins, times, timezone). A missing row is treated as "all opted
- * out" rather than an error — the row is lazily upserted on first
+ * out" rather than an error - the row is lazily upserted on first
  * save. RLS scopes everything to `auth.uid()`.
  *
  * Default timezone comes from `Intl` so it reflects the device's
@@ -48,7 +48,7 @@ function defaultPrefs(): NotificationPreferencesInput {
     evening_enabled: false,
     evening_time: "20:00",
     timezone: detectTimezone(),
-    // Match the column defaults — opted in for all four. A user who's
+    // Match the column defaults - opted in for all four. A user who's
     // enabled push notifications at all probably wants to know when
     // their partner adds something. Easy to turn off in settings.
     notify_on_list_create: true,
@@ -104,7 +104,7 @@ export function useNotificationPreferences() {
 
   // Memoise so consumers can safely use `prefs` as a useEffect dependency.
   // Without this, every parent render produces a new object reference
-  // and any effect keyed on `prefs` re-runs on every render — which in
+  // and any effect keyed on `prefs` re-runs on every render - which in
   // the settings page would keep stomping on the local form state.
   const fetched = query.data;
   const prefs = useMemo<NotificationPreferencesInput>(

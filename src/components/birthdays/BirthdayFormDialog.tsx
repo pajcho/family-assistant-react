@@ -10,7 +10,7 @@ import { BirthdayForm, type BirthdayFormPayload } from "@/components/birthdays/B
 /**
  * Wraps `BirthdayForm` in a `ResponsiveDialog` so the create / edit flow
  * renders as a centered modal on desktop and a bottom sheet (with drag
- * handle) on mobile — the visual pattern locked in by `.nuxt-screens` and
+ * handle) on mobile - the visual pattern locked in by `.nuxt-screens` and
  * MIGRATION_PLAN §1.a.
  *
  * The dialog uses the birthday id as a remount key on the form so switching

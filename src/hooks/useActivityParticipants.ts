@@ -11,7 +11,7 @@ import { useProfile } from "@/hooks/useProfile";
  * resolver fans `rules × participants` to emit one block per person per
  * occurrence.
  *
- * Writes go through `useReplaceActivityParticipants` — the form sends the
+ * Writes go through `useReplaceActivityParticipants` - the form sends the
  * full new set of person ids for one activity, the mutation deletes the
  * existing rows and inserts the new ones in a single Supabase round-trip.
  * Same pattern as `useReplaceActivitySchedule` for consistency.
@@ -62,7 +62,7 @@ export function useActivityParticipants() {
 /**
  * Replace all participants for one activity with the new set. Deletes
  * existing rows first, then inserts the new ones in a single batch. Empty
- * input is rejected — every activity must have at least one participant.
+ * input is rejected - every activity must have at least one participant.
  */
 export function useReplaceActivityParticipants() {
   const { familyId } = useProfile();

@@ -10,10 +10,10 @@ const CURRENCY_LABELS: Record<string, string> = {
 
 /**
  * Family-level currency setting (Porodica tab): which currencies the entry
- * forms offer. RSD is the base currency — every amount is STORED in RSD (NBS
+ * forms offer. RSD is the base currency - every amount is STORED in RSD (NBS
  * middle rate frozen at entry), so it's always on and can't be unchecked.
  * Disabling a currency never touches existing rows; it only removes the option
- * for new entries (rows already in that currency still edit cleanly — but once
+ * for new entries (rows already in that currency still edit cleanly - but once
  * switched to RSD and saved, the disabled currency is no longer offered).
  *
  * Saving goes through the "Admins can update own family" RLS policy, so the
@@ -56,7 +56,7 @@ export function CurrenciesCard() {
                 {CURRENCY_LABELS[code] ?? code}
                 {isBase ? (
                   <span className="ml-2 text-xs text-muted-foreground">
-                    osnovna valuta — uvek uključena
+                    osnovna valuta - uvek uključena
                   </span>
                 ) : null}
               </label>

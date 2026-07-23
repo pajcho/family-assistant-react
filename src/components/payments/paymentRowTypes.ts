@@ -8,16 +8,16 @@ import type {
 /* --- Discriminated union of /payments list-item shapes (mirrors Vue source) ---
  *
  * The payments list interleaves three row kinds, distinguished by `type`:
- *   - "payment"  — a live occurrence (the current due of a series / one-time).
- *   - "history"  — a past paid or skipped occurrence, frozen in payment_history.
- *   - "upcoming" — a projected future repetition, synthesized client-side.
+ *   - "payment"  - a live occurrence (the current due of a series / one-time).
+ *   - "history"  - a past paid or skipped occurrence, frozen in payment_history.
+ *   - "upcoming" - a projected future repetition, synthesized client-side.
  *
  * `computeCombinedList` in the route builds them; `PaymentTimeline` renders them.
  */
 
 export type PaymentRowItem = Payment & {
   type: "payment";
-  /** Original projected due date — the override key. Equals due_date when not moved. */
+  /** Original projected due date - the override key. Equals due_date when not moved. */
   occurrenceDate: string;
   override?: PaymentOverride | null;
 };
@@ -29,7 +29,7 @@ export type HistoryRowItem = {
   name: string;
   /** RSD paid for this occurrence. */
   amount: number;
-  /** THIS occurrence's frozen conversion (pay-time rate) — for the € badge. */
+  /** THIS occurrence's frozen conversion (pay-time rate) - for the € badge. */
   currency: string;
   original_amount: number | null;
   due_date: string;
@@ -50,9 +50,9 @@ export type UpcomingRowItem = {
   /** Mirrored from the parent payment so the row can show the € annotation. */
   currency: string;
   original_amount: number | null;
-  /** Effective (displayed) date — override_date when rescheduled, else the occurrence. */
+  /** Effective (displayed) date - override_date when rescheduled, else the occurrence. */
   due_date: string;
-  /** Original projected due date — the override key. */
+  /** Original projected due date - the override key. */
   occurrenceDate: string;
   override?: PaymentOverride | null;
   description: string | null;

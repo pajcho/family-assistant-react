@@ -7,7 +7,7 @@
 // human-readable device names later. We upsert keyed by `endpoint` so
 // re-subscribes after a reinstall don't create duplicate rows.
 //
-// RLS does the access check — the function runs under the caller's JWT,
+// RLS does the access check - the function runs under the caller's JWT,
 // so the `INSERT/UPDATE` is rejected if `user_id` doesn't match
 // `auth.uid()`. No service-role usage here; that's reserved for the
 // future cron job that sends pushes.

@@ -22,7 +22,7 @@ import {
 import { addDays, srLocale } from "@/utils/date";
 
 /**
- * "Uskoro" LIST view — an overdue "Prekoračeno" section, then everything from
+ * "Uskoro" LIST view - an overdue "Prekoračeno" section, then everything from
  * today onward grouped by day, with infinite scroll and a sticky Todoist-style
  * week strip on top that follows the scroll.
  *
@@ -30,13 +30,13 @@ import { addDays, srLocale } from "@/utils/date";
  * as the sentinel scrolls into view (or the week strip is swiped to its end),
  * up to a `MAX_HORIZON_DAYS` soft cap. Only the events query is range-scoped, so
  * growing the horizon costs at most one extra fetch; the rest is expanded
- * client-side. EVERY day in the window is rendered — days with no items show a
- * dimmed header — so the agenda reads as a continuous calendar. Each day section
+ * client-side. EVERY day in the window is rendered - days with no items show a
+ * dimmed header - so the agenda reads as a continuous calendar. Each day section
  * carries an `id` so the strip can scroll to it, and a window scroll-spy feeds
  * the strip the day currently at the top of the list.
  *
  * Split out from `AgendaUpcomingTab` so it and the weekly calendar are never
- * mounted together — two `useAgenda` instances would double-subscribe the shared
+ * mounted together - two `useAgenda` instances would double-subscribe the shared
  * realtime channels.
  */
 export type AgendaUpcomingListProps = {
@@ -58,7 +58,7 @@ export function AgendaUpcomingList({
 }: AgendaUpcomingListProps) {
   const [horizonDays, setHorizonDays] = useState(INITIAL_DAYS);
   const [activeDay, setActiveDay] = useState<string | null>(null);
-  // Month-picker jump target beyond the loaded window — scrolled to once the
+  // Month-picker jump target beyond the loaded window - scrolled to once the
   // horizon has grown enough for its day section to exist.
   const [pendingJumpDay, setPendingJumpDay] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ export function AgendaUpcomingList({
   // Window = [today, end of the week containing today + horizonDays]. Today is
   // the first day group (the Todoist "Upcoming" model), prefixed by the overdue
   // section; it also shows on the Danas tab. The end is snapped out to that
-  // week's Sunday so the window covers whole Mon–Sun weeks — every day the strip
+  // week's Sunday so the window covers whole Mon-Sun weeks - every day the strip
   // shows then has a rendered section to scroll to when tapped. Derive per horizon.
   const { str: todayStr, date: todayDate } = useToday();
   const { from, to, today, tomorrow } = useMemo(() => {
@@ -90,7 +90,7 @@ export function AgendaUpcomingList({
   const overdue = useOverduePayments();
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
-  // Every day in the window, ascending — one section is rendered per day so the
+  // Every day in the window, ascending - one section is rendered per day so the
   // agenda shows empty days too (dimmed), not just days that have items.
   const allDays = useMemo(() => {
     const start = parseISO(from + "T12:00:00");
@@ -98,7 +98,7 @@ export function AgendaUpcomingList({
     return Array.from({ length: count }, (_, i) => format(addDays(start, i), "yyyy-MM-dd"));
   }, [from, to]);
 
-  // Apply the shared filter, then regroup — so the day sections AND the week
+  // Apply the shared filter, then regroup - so the day sections AND the week
   // strip's dots both reflect the active filter.
   const { byDay } = useMemo(
     () => groupAgendaByDay(filterAgendaItems(allItems, filter)),
@@ -143,7 +143,7 @@ export function AgendaUpcomingList({
     let raf = 0;
     const compute = () => {
       raf = 0;
-      // While tweening to a tapped day, keep that day pinned as active — don't let
+      // While tweening to a tapped day, keep that day pinned as active - don't let
       // the spy re-select each day we pass on the way there.
       if (programmaticScrollRef.current) return;
       const line = (stripRef.current?.getBoundingClientRect().bottom ?? 140) + 12;
@@ -169,7 +169,7 @@ export function AgendaUpcomingList({
 
   const atCap = horizonDays >= MAX_HORIZON_DAYS;
   const growHorizon = () => setHorizonDays((d) => Math.min(d + CHUNK_DAYS, MAX_HORIZON_DAYS));
-  // Gate growth on `!isLoading` so each chunk waits for its fetch — this also
+  // Gate growth on `!isLoading` so each chunk waits for its fetch - this also
   // stops a load-time runaway where the sentinel, parked at the top while data
   // is pending, would pump the horizon to the cap before the first rows render.
   const sentinelRef = useInfiniteScroll(growHorizon, {
@@ -212,12 +212,12 @@ export function AgendaUpcomingList({
     releaseScrollPin();
     if (Math.abs(targetY - startY) < 1) return;
 
-    // Native, compositor-driven smooth scroll — NOT a main-thread rAF tween. On
+    // Native, compositor-driven smooth scroll - NOT a main-thread rAF tween. On
     // iOS, a per-frame JS scrollTo lets the list paint over the sticky header for a
     // frame while scrolling up (the reported "items over the header"); the browser's
     // own smooth scroll keeps the sticky layers ordered. Pin the spy for the scroll
     // and release it on scrollend (or when a user gesture takes over, or a safety
-    // timeout — covers the rare browser without a scrollend event).
+    // timeout - covers the rare browser without a scrollend event).
     programmaticScrollRef.current = true;
     const release = () => releaseScrollPin();
     window.addEventListener("scrollend", release, { once: true });
@@ -234,7 +234,7 @@ export function AgendaUpcomingList({
     window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
-  // Last day the month picker may jump to — the same 12-month cap the
+  // Last day the month picker may jump to - the same 12-month cap the
   // infinite scroll stops at.
   const maxDay = useMemo(
     () => format(addDays(todayDate, MAX_HORIZON_DAYS), "yyyy-MM-dd"),
@@ -243,7 +243,7 @@ export function AgendaUpcomingList({
 
   // Month-picker jump: inside the loaded window it's a plain scroll; beyond it,
   // grow the horizon to cover the day first (same mechanics as the infinite
-  // scroll — costs at most one events fetch) and scroll once the section exists.
+  // scroll - costs at most one events fetch) and scroll once the section exists.
   const jumpToDay = (day: string) => {
     if (day <= to) {
       scrollToDay(day);
@@ -255,14 +255,14 @@ export function AgendaUpcomingList({
   };
 
   // Day sections render for EVERY day in [from, to] (they don't wait for data),
-  // so as soon as the grown window covers the pending day we can scroll to it —
+  // so as soon as the grown window covers the pending day we can scroll to it -
   // one frame later, so layout has settled.
   useEffect(() => {
     if (!pendingJumpDay || pendingJumpDay > to) return;
     const day = pendingJumpDay;
     setPendingJumpDay(null);
     requestAnimationFrame(() => scrollToDay(day));
-    // scrollToDay is re-created per render but only reads refs + DOM — safe to omit.
+    // scrollToDay is re-created per render but only reads refs + DOM - safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingJumpDay, to]);
 
@@ -329,7 +329,7 @@ export function AgendaUpcomingList({
         )}
       </div>
 
-      {/* Sentinel — grows the horizon as it scrolls into view. */}
+      {/* Sentinel - grows the horizon as it scrolls into view. */}
       {!atCap ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
 
       {atCap && !showEmptyMsg && !showLoading ? (

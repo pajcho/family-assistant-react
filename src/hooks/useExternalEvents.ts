@@ -13,7 +13,7 @@ import { useProfile } from "@/hooks/useProfile";
  * worker upserts changes, so an open agenda refreshes itself.
  *
  * Unique channel name per hook instance (useId) so it never collides with
- * another subscriber on the same table — mirrors useEventsList.
+ * another subscriber on the same table - mirrors useEventsList.
  */
 
 interface ExternalEventFilters {
@@ -48,7 +48,7 @@ export function useExternalEventsList(filters: ExternalEventFilters = {}) {
     queryKey: ["external_calendar_events", familyId, { from, to }],
     queryFn: () => fetchExternalEvents({ from, to }),
     enabled: !!familyId,
-    // Keep the prior window's rows while a wider [from, to] refetches — same
+    // Keep the prior window's rows while a wider [from, to] refetches - same
     // reason as useEventsList: this query is range-scoped too, so a horizon
     // grow on "Uskoro" would otherwise blank it mid-scroll and (under a filter)
     // collapse the list, jumping the scroll to the top.

@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 /**
  * The "Brzi unos" picker row: a tappable row with a title, a summary of the
  * current selection and a "›" chevron, opening a sub-view in the same sheet
- * (SheetStack). One shape for Tip plaćanja, Kategorija and Više detalja —
+ * (SheetStack). One shape for Tip plaćanja, Kategorija and Više detalja -
  * the mobile replacement for inline selects/grids on long entry forms.
  */
 export type PickerRowProps = {

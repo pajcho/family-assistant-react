@@ -3,7 +3,7 @@ import { BanknotesIcon, PlusIcon, QrCodeIcon } from "@heroicons/react/24/outline
 import { AddSheetMenu } from "@/components/common/AddSheetMenu";
 
 /**
- * The budget page's "Dodaj" — the shared AddSheetMenu over the three ways
+ * The budget page's "Dodaj" - the shared AddSheetMenu over the three ways
  * money data enters the budget: scanning first (the most common entry),
  * manual expense, income.
  */

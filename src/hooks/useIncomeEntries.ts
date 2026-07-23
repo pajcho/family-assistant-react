@@ -7,18 +7,18 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Per-month income RECEIPTS — the frozen counterpart to the recurring `incomes`
+ * Per-month income RECEIPTS - the frozen counterpart to the recurring `incomes`
  * sources, mirroring how `payment_history` freezes paid payment occurrences.
  * The monthly budget cycle sums these (never the live sources), so editing a
  * source today never rewrites a past month's income.
  *
  * Surface:
- *   - `useIncomeEntries(month)`   — receipts for one "YYYY-MM" + realtime
- *   - `useConfirmIncome()`        — confirm a recurring source for a month
+ *   - `useIncomeEntries(month)`   - receipts for one "YYYY-MM" + realtime
+ *   - `useConfirmIncome()`        - confirm a recurring source for a month
  *                                   (upsert, one row per source per month)
- *   - `useAddOneTimeIncome()`     — record a one-off (bonus etc.)
- *   - `useUpdateIncomeEntry()`    — fix an existing receipt (by id)
- *   - `useDeleteIncomeEntry()`    — remove a receipt (by id)
+ *   - `useAddOneTimeIncome()`     - record a one-off (bonus etc.)
+ *   - `useUpdateIncomeEntry()`    - fix an existing receipt (by id)
+ *   - `useDeleteIncomeEntry()`    - remove a receipt (by id)
  */
 
 async function fetchIncomeEntries(familyId: string, month: string): Promise<IncomeEntry[]> {

@@ -21,10 +21,10 @@ export type ListInfoPanelProps = {
  *
  * Surfaces the audit columns we now keep on `lists` and `list_items`:
  *   • who created the list (owner_id) and when
- *   • who last modified the list — note this also fires on any nested
+ *   • who last modified the list - note this also fires on any nested
  *     item change, since the AFTER trigger bumps the parent's stamps
  *   • a per-item activity strip with the same "created by / last edited"
- *     pair — useful for "who added Mleko to the shopping list?"
+ *     pair - useful for "who added Mleko to the shopping list?"
  *
  * Names come from `useFamilyMembers()` (cached profile lookup). When the
  * author has been removed from the family / their auth row deleted, the
@@ -73,7 +73,7 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
                 const editor = item.updated_by_id ? byId.get(item.updated_by_id) : undefined;
                 // Hide the "last edited" line when it's identical to "created"
                 // (the row hasn't been touched since insert). Compare the
-                // timestamps — Postgres sets them equal on initial INSERT.
+                // timestamps - Postgres sets them equal on initial INSERT.
                 const wasEdited = item.updated_at !== item.created_at;
                 return (
                   <li key={item.id} className="space-y-1 px-3 py-2 text-sm">
@@ -129,7 +129,7 @@ function AuditRow({
 }) {
   // Single-row layout at every size: label left, value (name + relative
   // time) right. The original mobile variant used flex-col which stacked
-  // the value onto its own line — the wrap that produced was visually
+  // the value onto its own line - the wrap that produced was visually
   // confusing because the value was right-aligned on a row that looked
   // empty next to it.
   return (

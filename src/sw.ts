@@ -13,12 +13,12 @@ import { StaleWhileRevalidate } from "workbox-strategies";
  * Custom service worker for Porodični Asistent.
  *
  * Strategy:
- *   • Precache the built app shell (JS/CSS/HTML/icons) — `__WB_MANIFEST` is
+ *   • Precache the built app shell (JS/CSS/HTML/icons) - `__WB_MANIFEST` is
  *     injected by vite-plugin-pwa at build time.
  *   • SPA navigation fallback: every navigation request resolves to the
  *     cached `index.html`, so TanStack Router handles the route after hydration.
  *   • Stale-while-revalidate for cross-origin fonts/images.
- *   • Supabase REST/Realtime traffic is intentionally NOT cached — RLS and
+ *   • Supabase REST/Realtime traffic is intentionally NOT cached - RLS and
  *     auth tokens make stale responses dangerous, and TanStack Query already
  *     handles in-memory caching.
  *   • Push: the `push` handler shows a notification for payloads sent by the
@@ -32,7 +32,7 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
 };
 
-// Don't skip waiting on install — that would make every new deploy take
+// Don't skip waiting on install - that would make every new deploy take
 // over silently and the `useRegisterSW` "needRefresh" state would never
 // flip true. Instead, wait for the explicit `SKIP_WAITING` message that
 // `updateServiceWorker(true)` posts when the user taps the "Osveži" toast.
@@ -49,7 +49,7 @@ self.addEventListener("message", (event) => {
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// SPA navigation fallback — under GH Pages this resolves to
+// SPA navigation fallback - under GH Pages this resolves to
 // `/family-assistant-react/index.html`, which TanStack Router then routes
 // client-side. The denylist excludes asset/static requests so the regex
 // doesn't accidentally swallow them.
@@ -59,7 +59,7 @@ registerRoute(
   }),
 );
 
-// Cross-origin fonts + images — stale-while-revalidate so cold loads are
+// Cross-origin fonts + images - stale-while-revalidate so cold loads are
 // instant once the asset has been seen once.
 registerRoute(
   ({ url, request }: RouteMatchCallbackOptions) =>
@@ -97,7 +97,7 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? (event.data.json() as PushPayload) : { title: "Porodični Asistent" };
   } catch {
-    // Fallback when the push has no JSON body — still surface *something*
+    // Fallback when the push has no JSON body - still surface *something*
     // so the user knows a notification arrived, then we can debug.
     payload = { title: "Porodični Asistent", body: event.data?.text() ?? "" };
   }
@@ -118,7 +118,7 @@ self.addEventListener("notificationclick", (event) => {
   // Strip leading slashes so paths resolve *relative to the SW scope*
   // (e.g. `/family-assistant-react/`) rather than the origin root. Without
   // this, `"url": "/"` from a payload navigates to `pajcho.github.io/`
-  // — a 404 on GH Pages.
+  // - a 404 on GH Pages.
   const targetPath = (data?.url ?? "").replace(/^\/+/, "");
   const targetUrl = new URL(targetPath, self.registration.scope).href;
   event.waitUntil(

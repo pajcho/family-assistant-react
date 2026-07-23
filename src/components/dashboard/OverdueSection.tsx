@@ -6,7 +6,7 @@ import { srLocale } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
 
 /**
- * The "Prekoračeno" (overdue) section shared by the Danas and Uskoro tabs — the
+ * The "Prekoračeno" (overdue) section shared by the Danas and Uskoro tabs - the
  * past-due unpaid payments from `useOverduePayments`, pinned above today. The
  * red header signals lateness and carries the summed amount so the total
  * damage is glanceable; each row shows its due date in the gutter (the
@@ -24,7 +24,7 @@ export function OverdueSection({
   onSelect: (item: AgendaItem) => void;
 }) {
   if (items.length === 0) return null;
-  // Only payment amounts count towards the header total — today the section
+  // Only payment amounts count towards the header total - today the section
   // is payments-only, but the guard keeps a future mixed feed honest.
   const totalAmount = items.reduce(
     (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),

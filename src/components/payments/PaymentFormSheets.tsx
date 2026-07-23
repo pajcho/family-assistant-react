@@ -18,7 +18,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * The mobile "Brzi unos" sub-views for the payment form. Both are dumb
- * editors over the dialog-owned {@link PaymentFormState} — the SheetStack
+ * editors over the dialog-owned {@link PaymentFormState} - the SheetStack
  * "←" is the only way out, so everything commits as it's tapped.
  */
 
@@ -29,7 +29,7 @@ type SheetProps = {
 
 /**
  * Tip plaćanja: the recurrence-type option list plus everything conditioned
- * on it (Ponavljanje, Preostalo uplata, Promenljiv iznos, Pauziraj) — all of
+ * on it (Ponavljanje, Preostalo uplata, Promenljiv iznos, Pauziraj) - all of
  * "how this payment repeats" in one place. Stays open after a selection: the
  * conditional settings below are the reason the user came here.
  */
@@ -60,7 +60,7 @@ export function PaymentTipSheet({
                 setForm((s) => ({
                   ...s,
                   recurrence_period: option.value,
-                  // Always reset to 1 — weekly/monthly intervals don't share a
+                  // Always reset to 1 - weekly/monthly intervals don't share a
                   // scale, and for one-time/limited it's ignored on submit.
                   recurrence_interval: 1,
                 }))
@@ -115,7 +115,7 @@ export function PaymentTipSheet({
       {isRecurring ? (
         <SwitchRow
           title="Promenljiv iznos"
-          description="Iznos je okvirni — tačan potvrđuješ pri svakom plaćanju (režije)."
+          description="Iznos je okvirni - tačan potvrđuješ pri svakom plaćanju (režije)."
           checked={form.is_variable_amount}
           onChange={(is_variable_amount) => setForm((s) => ({ ...s, is_variable_amount }))}
         />
@@ -156,7 +156,7 @@ export function PaymentDetailsSheet({ form, setForm, isEdit }: SheetProps & { is
       <PaymentLinkField
         value={form.link}
         onChange={(link) => setForm((s) => ({ ...s, link }))}
-        // Only suggest while ADDING — an edited payment's name matching its
+        // Only suggest while ADDING - an edited payment's name matching its
         // own (or another) entity is noise, not a signal.
         suggestFromName={isEdit ? undefined : form.name}
       />

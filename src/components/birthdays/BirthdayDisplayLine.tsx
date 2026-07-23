@@ -3,7 +3,7 @@ import { currentAge, daysUntilBirthday } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
 
 /**
- * Compact display line for a birthday — name on the first line, then a row of
+ * Compact display line for a birthday - name on the first line, then a row of
  * icon-prefixed metadata (next age, formatted date, "days until" label).
  *
  * Direct port of `components/birthdays/BirthdayDisplayLine.vue`. Kept as its
@@ -23,7 +23,7 @@ export type BirthdayDisplayLineProps = {
 /**
  * "za N dana" pluralization. Matches the Vue source verbatim: 0 → "danas",
  * 1 → "sutra", everything else → `za N dana`. The Vue component does not
- * branch on dan/dana/dana — the migration-plan callout to "port Serbian
+ * branch on dan/dana/dana - the migration-plan callout to "port Serbian
  * pluralization for dan/dana" refers to keeping this exact mapping.
  */
 function daysLabel(days: number): string {

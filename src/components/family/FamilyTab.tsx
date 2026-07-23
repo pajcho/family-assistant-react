@@ -16,7 +16,7 @@ import { useIsWide } from "@/hooks/useIsWide";
 import { getDisplayName } from "@/utils/identity";
 
 /**
- * "Porodica" settings tab — manage the household: members, colors, who is a
+ * "Porodica" settings tab - manage the household: members, colors, who is a
  * student (timetable + shifts), and per-member logins (create / disable /
  * admin). Master-detail like the Lists page, but selection is local state
  * since this lives inside a tab rather than its own route.
@@ -160,7 +160,7 @@ function FamilyNameCard({ canManage }: { canManage: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle>Porodica</CardTitle>
-          <CardDescription>{familyName ?? "—"}</CardDescription>
+          <CardDescription>{familyName ?? "-"}</CardDescription>
         </CardHeader>
       </Card>
     );

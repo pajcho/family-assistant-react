@@ -60,12 +60,12 @@ function editorFrom(c: ExpenseCategory): EditorState {
 }
 
 /**
- * "Kategorije" management — rename / recolor / re-icon / set a monthly limit,
+ * "Kategorije" management - rename / recolor / re-icon / set a monthly limit,
  * plus add and delete. Deleting detaches expenses (category_id → NULL in the DB)
  * rather than removing them.
  *
  * The add/edit form and the delete confirm are sub-views on the sheet stack
- * ("← Nazad" header, dismissal returns to the list) — not inline forms or a
+ * ("← Nazad" header, dismissal returns to the list) - not inline forms or a
  * second dialog.
  */
 type View = "list" | "editor" | "delete";
@@ -177,7 +177,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
           <>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Da li ste sigurni da želite da obrišete „{toDelete.name}"? Troškovi neće biti obrisani
-              — samo ostaju bez kategorije.
+              - samo ostaju bez kategorije.
             </p>
             <ResponsiveDialogFooter>
               <Button variant="outline" onClick={pop} disabled={deleteCategory.isPending}>

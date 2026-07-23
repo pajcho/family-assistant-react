@@ -7,15 +7,15 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Household income hooks (Faza 4) — the recurring salaries the monthly-cycle
+ * Household income hooks (Faza 4) - the recurring salaries the monthly-cycle
  * view sums against spend. TanStack Query + Supabase Realtime, same shape as the
  * other entity hooks.
  *
  * Surface:
- *   - `useIncomes()`         — list query (active first) + realtime + total
- *   - `useCreateIncome()`    — insert
- *   - `useUpdateIncome()`    — edit (name / amount / day / person / active)
- *   - `useDeleteIncome()`    — delete
+ *   - `useIncomes()`         - list query (active first) + realtime + total
+ *   - `useCreateIncome()`    - insert
+ *   - `useUpdateIncome()`    - edit (name / amount / day / person / active)
+ *   - `useDeleteIncome()`    - delete
  */
 
 export type CreateIncomeInput = {

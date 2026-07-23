@@ -27,7 +27,7 @@ import { srLocale } from "@/utils/date";
 import { cn } from "@/lib/cn";
 
 /**
- * Weekly Mon–Sun timetable for the "Uskoro" tab — the calendar counterpart of
+ * Weekly Mon-Sun timetable for the "Uskoro" tab - the calendar counterpart of
  * the upcoming list. Seven day columns over a shared time axis (so every column
  * lines up), an all-day row per day, and a red "now" line in today's column.
  * Self-contained: owns the visible week + its own `useAgenda({week})` fetch, so
@@ -46,10 +46,10 @@ export type AgendaWeekCalendarProps = {
   onEditBirthday: (birthday: Birthday) => void;
 };
 
-/** 56px time gutter + 7 day columns — IDENTICAL to the activities WeekGrid so a
+/** 56px time gutter + 7 day columns - IDENTICAL to the activities WeekGrid so a
  *  day reads exactly as wide: fixed 260px (horizontal scroll) on mobile, equal
  *  flex columns filling the width on sm+. The fixed mobile px (not `1fr`) is
- *  deliberate — iOS Safari mis-sizes `1fr` tracks inside a min-width-expanded
+ *  deliberate - iOS Safari mis-sizes `1fr` tracks inside a min-width-expanded
  *  scroll box, collapsing the columns; fixed widths sidestep that entirely. */
 const GRID_COLS = "grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]";
 
@@ -68,7 +68,7 @@ export function AgendaWeekCalendar({
 
   // Follow the week as the day rolls over. `useMinuteTick` re-syncs on focus, so
   // when the app resumes after the week changed while suspended, `thisWeekStart`
-  // updates and we advance the visible week to match — but ONLY if the user was
+  // updates and we advance the visible week to match - but ONLY if the user was
   // parked on the current week; if they'd navigated elsewhere, leave them put.
   const prevWeekStartRef = useRef(thisWeekStart);
   useEffect(() => {
@@ -127,7 +127,7 @@ export function AgendaWeekCalendar({
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), 7), "yyyy-MM-dd"));
   const goToday = () => setWeekStart(thisWeekStart);
 
-  // Land on today's column when the week renders — only matters once the days
+  // Land on today's column when the week renders - only matters once the days
   // overflow (viewports too narrow for 7×165px). Horizontal only; the page owns
   // vertical scroll, so this never moves the window.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -177,7 +177,7 @@ export function AgendaWeekCalendar({
         {isLoading ? <span className="text-xs text-muted-foreground">Učitavanje…</span> : null}
       </div>
 
-      {/* Horizontal scroll only (no max-height) — the page owns vertical scroll,
+      {/* Horizontal scroll only (no max-height) - the page owns vertical scroll,
           so the calendar never scrolls vertically on its own. */}
       <div
         ref={scrollRef}
@@ -187,7 +187,7 @@ export function AgendaWeekCalendar({
             the activities grid); `sm:min-w-0` lets the 1fr columns fill the
             width on desktop without the all-day chips inflating max-content. */}
         <div className="min-w-max sm:min-w-0">
-          {/* Day headers — sticky on top. */}
+          {/* Day headers - sticky on top. */}
           <div
             className={cn(
               "sticky top-0 z-20 grid border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
@@ -214,7 +214,7 @@ export function AgendaWeekCalendar({
             ))}
           </div>
 
-          {/* All-day row — one cell per day; only rendered if the week has any. */}
+          {/* All-day row - one cell per day; only rendered if the week has any. */}
           {hasAnyAllDay ? (
             <div className={cn("grid border-b border-gray-200 dark:border-gray-700", GRID_COLS)}>
               <div className="sticky left-0 z-10 bg-white px-1 py-1.5 text-[9px] tracking-wide text-muted-foreground uppercase dark:bg-gray-800">
@@ -310,7 +310,7 @@ export function AgendaWeekCalendar({
 function formatWeekRange(weekStart: string, weekEnd: string): string {
   const start = parseISO(weekStart + "T12:00:00");
   const end = parseISO(weekEnd + "T12:00:00");
-  return `${format(start, "dd.MM", { locale: srLocale })} – ${format(end, "dd.MM.yyyy", {
+  return `${format(start, "dd.MM", { locale: srLocale })} - ${format(end, "dd.MM.yyyy", {
     locale: srLocale,
   })}`;
 }

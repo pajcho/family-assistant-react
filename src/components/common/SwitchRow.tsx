@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * A bordered option card with a title, a one-line description and a toggle
- * switch on the right — the "Brzi unos" replacement for bare checkboxes on
+ * switch on the right - the "Brzi unos" replacement for bare checkboxes on
  * mobile sub-sheets (Promenljiv iznos, Pauziraj plaćanje). The whole card is
  * the tap target.
  */

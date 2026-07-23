@@ -6,7 +6,7 @@ import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import { useSchoolTimetable } from "@/hooks/useSchoolTimetable";
 
 /**
- * Derived hook — composes the timetable entries, the family bell schedule, and
+ * Derived hook - composes the timetable entries, the family bell schedule, and
  * the shift anchors into concrete per-week school blocks for the grid. Mirrors
  * `useWeekActivities`: same `weekStart` + optional `personFilter` contract, so
  * the page can feed both into one `WeekGrid`.

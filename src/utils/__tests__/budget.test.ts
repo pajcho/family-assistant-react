@@ -216,7 +216,7 @@ describe("computeMonthlyCycle", () => {
     expect(c.expectedIncome).toBe(0);
   });
 
-  it("past month is frozen — no expected projection, only what was confirmed", () => {
+  it("past month is frozen - no expected projection, only what was confirmed", () => {
     const c = computeMonthlyCycle(
       base({
         month: "2026-05",
@@ -257,7 +257,7 @@ describe("computeMonthlyCycle", () => {
         payments: [payment({ amount: 50000, due_date: "2026-07-10" })],
       }),
     );
-    // 200000 confirmed − 30000 spent = 170000 remaining; − 50000 unpaid = 120000.
+    // 200000 confirmed - 30000 spent = 170000 remaining; - 50000 unpaid = 120000.
     expect(c.totalSpent).toBe(30000);
     expect(c.remaining).toBe(170000);
     expect(c.projectedUnpaid).toBe(50000);
@@ -327,7 +327,7 @@ describe("computeMonthlyCycle", () => {
     const c = computeMonthlyCycle(
       base({
         incomes: [income({ amount: 100000 })],
-        // Monthly bill due in August — no July occurrence.
+        // Monthly bill due in August - no July occurrence.
         payments: [payment({ amount: 50000, due_date: "2026-08-10" })],
       }),
     );

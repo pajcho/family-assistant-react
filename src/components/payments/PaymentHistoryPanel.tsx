@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 /**
  * Bodies for the "Istorija plaćanja" and "Poništi" sub-views that the payment
  * detail sheets (PaymentDetailDialog, PaymentOccurrenceDialog) render on their
- * sheet stack — history is a pushed view inside the SAME sheet, not a second
+ * sheet stack - history is a pushed view inside the SAME sheet, not a second
  * dialog (the old PaymentHistoryPopup), and the undo confirm is one more
  * level on the stack, not a dialog stacked on top.
  */
@@ -19,7 +19,7 @@ import { cn } from "@/lib/cn";
 export type PaymentHistoryListProps = {
   /** The payment whose history we're inspecting; null while closed. */
   payment: Payment | null;
-  /** "Poništi" on the latest entry — the parent pushes its undo view. */
+  /** "Poništi" on the latest entry - the parent pushes its undo view. */
   onRequestUndo: () => void;
 };
 
@@ -69,7 +69,7 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
                 ? `Otkazano${entry.note ? ` · ${entry.note}` : ""}`
                 : `Plaćeno ${entry.paid_date ? formatDate(entry.paid_date) : ""}`}
             </span>
-            {/* Frozen name from that occurrence — shown only when it
+            {/* Frozen name from that occurrence - shown only when it
                 differs from the payment's current name (renamed since). */}
             {entry.name && payment && entry.name !== payment.name ? (
               <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -111,10 +111,10 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
 }
 
 export type PaymentUndoConfirmProps = {
-  /** Series id — a history row's `payment_id` still works if the series row is gone. */
+  /** Series id - a history row's `payment_id` still works if the series row is gone. */
   paymentId: string | null;
   paymentName: string;
-  /** "Odustani" — pop back to the view the undo was requested from. */
+  /** "Odustani" - pop back to the view the undo was requested from. */
   onBack: () => void;
   /** Called after a successful undo (queries refresh underneath). */
   onDone: () => void;

@@ -8,7 +8,7 @@
 // into a short-lived, HMAC-signed `state`. The callback (which Google hits with
 // no Supabase session) trusts that signature to know whose tokens these are.
 //
-// We request `calendar.readonly` (read-only mirror — never write back) plus
+// We request `calendar.readonly` (read-only mirror - never write back) plus
 // `openid email` so the callback can read which Google account just connected.
 // `access_type=offline` + `prompt=consent` guarantee a refresh_token every time.
 

@@ -6,7 +6,7 @@ import { ArrowUpOnSquareIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/ou
  * Share → Add to Home Screen.
  *
  * iOS doesn't fire `beforeinstallprompt`, so there's no API for triggering
- * the install flow — Apple requires users to do it manually through the
+ * the install flow - Apple requires users to do it manually through the
  * Share sheet. This banner just educates them on how.
  *
  * Shown only when:
@@ -22,7 +22,7 @@ function isIosSafari(): boolean {
   const ua = navigator.userAgent;
   const isIos = /iPhone|iPad|iPod/.test(ua);
   // Exclude in-app webviews (Instagram, FB) where Add to Home Screen isn't
-  // available — they don't expose the standalone Safari Share sheet.
+  // available - they don't expose the standalone Safari Share sheet.
   const isInAppBrowser = /FBAN|FBAV|Instagram|Line\/|Twitter/i.test(ua);
   return isIos && !isInAppBrowser;
 }

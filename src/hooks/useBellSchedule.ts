@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * One bell schedule per family — the source of truth for class/break lengths
+ * One bell schedule per family - the source of truth for class/break lengths
  * and per-band start times. The migration seeds a default row for every
  * existing family; new families get one written on first save.
  *
@@ -15,7 +15,7 @@ import { useProfile } from "@/hooks/useProfile";
  * derive class times before the user ever opens the settings dialog.
  */
 
-/** Field defaults — kept in sync with the column defaults in the migration. */
+/** Field defaults - kept in sync with the column defaults in the migration. */
 export const BELL_DEFAULTS = {
   period_minutes: 45,
   small_break_minutes: 5,

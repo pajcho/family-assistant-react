@@ -10,7 +10,7 @@ import { effectivePaymentDueDate, isPaymentOccurrenceCanceled, overrideKey } fro
 /**
  * Per-occurrence payment overrides (cancel / reschedule of a single recurring
  * instance). The synthesizer (`computeCombinedList`) consults these to skip a
- * canceled occurrence or move a rescheduled one — the live payment row and the
+ * canceled occurrence or move a rescheduled one - the live payment row and the
  * mark-paid accounting are untouched. Keyed by `(payment_id, occurrence_date)`.
  *
  * The pure key / effective-date helpers now live in `@/utils/payment` (so the

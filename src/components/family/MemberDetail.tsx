@@ -42,7 +42,7 @@ export type MemberDetailProps = {
   /** Whether this member has a school timetable + shifts (an anchor row). */
   isStudent: boolean;
   currentUserId: string | null;
-  /** Total admins in the family — guards against demoting / disabling the last. */
+  /** Total admins in the family - guards against demoting / disabling the last. */
   adminCount: number;
   /** Mobile only: render a back button to return to the list. */
   onBack?: () => void;
@@ -165,7 +165,7 @@ export function MemberDetail({
               </p>
             ) : isLastAdmin ? (
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                Poslednji administrator — dodaj još jednog pre gašenja.
+                Poslednji administrator - dodaj još jednog pre gašenja.
               </p>
             ) : null}
           </div>
@@ -200,7 +200,7 @@ export function MemberDetail({
           id={`student-${member.id}`}
           icon={<AcademicCapIcon className="h-4 w-4" />}
           label="Učenik"
-          description="Ima raspored časova i smene — prikazuje se na kalendaru aktivnosti."
+          description="Ima raspored časova i smene - prikazuje se na kalendaru aktivnosti."
           checked={isStudent}
           disabled={upsertAnchor.isPending}
           onChange={(next) => {

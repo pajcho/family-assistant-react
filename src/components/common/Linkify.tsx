@@ -14,7 +14,7 @@ const DEFAULT_LINK_CLASS =
 /**
  * Render plain text with bare URLs turned into real, clickable `<a>` links
  * (Todoist-style). Used for list-item titles, which are stored as plain
- * text — Markdown descriptions go through `MarkdownText`, which autolinks
+ * text - Markdown descriptions go through `MarkdownText`, which autolinks
  * on its own.
  *
  * Each link stops click propagation so tapping a URL inside a clickable row

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 /**
  * The list↔calendar view preference for one dashboard page (Danas or Uskoro),
- * persisted per page in localStorage (NOT the URL) — it sticks until changed.
+ * persisted per page in localStorage (NOT the URL) - it sticks until changed.
  *
  * Per-device, best-effort: storage being unavailable (private mode / quota) just
  * means the choice doesn't persist, the UI still works. The Phase 4 calendar
@@ -31,7 +31,7 @@ export interface UseAgendaViewResult {
 }
 
 export function useAgendaView(page: AgendaPage): UseAgendaViewResult {
-  // Read synchronously on mount — the app is a client-only SPA, so there's no
+  // Read synchronously on mount - the app is a client-only SPA, so there's no
   // SSR flash to guard against and an honest first value avoids a list→calendar
   // flicker on load.
   const [view, setViewState] = useState<AgendaView>(() => readStored(page));
@@ -43,7 +43,7 @@ export function useAgendaView(page: AgendaPage): UseAgendaViewResult {
       try {
         window.localStorage.setItem(storageKey(page), next);
       } catch {
-        // Best-effort — persistence is optional, the toggle still works in-session.
+        // Best-effort - persistence is optional, the toggle still works in-session.
       }
     },
     [page],

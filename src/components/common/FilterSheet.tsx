@@ -16,7 +16,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/cn";
 
 /**
- * The shared filter sheet — bottom drawer on mobile, dialog on desktop — that
+ * The shared filter sheet - bottom drawer on mobile, dialog on desktop - that
  * every list page opens from `FilterTriggerButton`. Pages compose it from
  * `FilterSection` (uppercase heading + chip row) and `FilterSwitchRow`
  * (labelled switch for boolean view options). Changes apply live; "Gotovo"
@@ -25,7 +25,7 @@ import { cn } from "@/lib/cn";
 export type FilterSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Any non-default filter applied — shows the "Poništi sve" affordance. */
+  /** Any non-default filter applied - shows the "Poništi sve" affordance. */
   isActive: boolean;
   onReset: () => void;
   children: ReactNode;
@@ -72,7 +72,7 @@ export function FilterSection({ title, children }: { title: string; children: Re
 }
 
 /**
- * Labelled boolean row with a switch — for view options ("Prikaži i plaćena")
+ * Labelled boolean row with a switch - for view options ("Prikaži i plaćena")
  * that aren't chips. Plain button underneath (`role="switch"`), no Radix dep.
  */
 export function FilterSwitchRow({
@@ -119,7 +119,7 @@ export function FilterSwitchRow({
 /**
  * The applied-filters row under the toolbar: one removable chip per active
  * filter + "Poništi". Renders nothing when no filter is applied, so the row
- * costs zero chrome in the default state — but an active filter is never
+ * costs zero chrome in the default state - but an active filter is never
  * invisible (the classic hidden-filter trap of overflow patterns).
  */
 export type AppliedFilter = {

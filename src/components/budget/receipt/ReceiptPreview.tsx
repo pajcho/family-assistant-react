@@ -135,7 +135,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
     </div>
   );
 
-  // ——— Sub-views (mobile) ———
+  // --- Sub-views (mobile) ---
   if (view === "category") {
     return (
       <>
@@ -170,7 +170,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
     );
   }
 
-  // ——— Main view ———
+  // --- Main view ---
   const footer = (
     <div className="flex justify-end gap-2 pt-1">
       <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
@@ -201,7 +201,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
         description="Proveri iznos i izaberi kategoriju pre nego što sačuvaš."
       />
       {isDesktop ? (
-        // ——— Desktop: everything inline ———
+        // --- Desktop: everything inline ---
         <div className="space-y-5">
           {amountHero}
           <div className="space-y-2">
@@ -219,7 +219,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
           {footer}
         </div>
       ) : (
-        // ——— Mobile: "Brzi unos" picker rows ———
+        // --- Mobile: "Brzi unos" picker rows ---
         <div className="space-y-5">
           {amountHero}
           {warningsBlock}

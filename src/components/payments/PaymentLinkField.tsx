@@ -19,7 +19,7 @@ import { formatDate, subtractMonth } from "@/utils/date";
 import { format } from "date-fns";
 import { cn } from "@/lib/cn";
 
-/** The payment form's link state — maps to `activity_id` XOR `event_id` on submit. */
+/** The payment form's link state - maps to `activity_id` XOR `event_id` on submit. */
 export type PaymentLinkValue = {
   kind: PaymentLinkKind;
   id: string;
@@ -29,7 +29,7 @@ export type PaymentLinkFieldProps = {
   value: PaymentLinkValue | null;
   onChange: (value: PaymentLinkValue | null) => void;
   /**
-   * Auto-suggest source — the form's live Naziv value (ADD mode only). When
+   * Auto-suggest source - the form's live Naziv value (ADD mode only). When
    * it substring-matches an activity/event name (either direction,
    * case-insensitive) and nothing is linked yet, a one-tap
    * "Poveži sa: <name>?" chip appears under the field. Silent, non-blocking,
@@ -42,16 +42,16 @@ type LinkOption = {
   kind: PaymentLinkKind;
   id: string;
   name: string;
-  /** Event date — shown next to the name so same-named events stay tellable apart. */
+  /** Event date - shown next to the name so same-named events stay tellable apart. */
   date?: string;
   /**
-   * Assigned family members — shown as badges so same-named activities/events
+   * Assigned family members - shown as badges so same-named activities/events
    * for DIFFERENT members are tellable apart ("Engleski" for Nikola vs Sonja).
    */
   personIds: string[];
 };
 
-/** How far back the event options reach — recent past + everything upcoming. */
+/** How far back the event options reach - recent past + everything upcoming. */
 const EVENT_LOOKBACK_MONTHS = 3;
 
 /**
@@ -59,10 +59,10 @@ const EVENT_LOOKBACK_MONTHS = 3;
  * that is both a dropdown and an autocomplete. Closed it renders as an
  * input-shaped trigger showing the linked entity (type icon + name, with a ×
  * to unlink) or a placeholder; open it's a text input over the merged option
- * list — ALL activities (they're few) plus events from the last
+ * list - ALL activities (they're few) plus events from the last
  * {@link EVENT_LOOKBACK_MONTHS} months onward, both filtered client-side and
  * grouped "Aktivnosti" / "Događaji". Arrow keys move, Enter links, Escape
- * closes. Built on the existing Popover + Input primitives — no combobox
+ * closes. Built on the existing Popover + Input primitives - no combobox
  * dependency.
  *
  * A linked event OLDER than the lookback window isn't in the options, so the
@@ -72,7 +72,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  // `${kind}-${id}` of the dismissed suggestion — per suggestion, so a
+  // `${kind}-${id}` of the dismissed suggestion - per suggestion, so a
   // different match can still surface later while this one stays gone.
   const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
 
@@ -103,7 +103,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
         personIds: byActivity.get(a.id) ?? [],
       }),
     );
-    // Canceled events drop out — linking a payment to something that isn't
+    // Canceled events drop out - linking a payment to something that isn't
     // happening is never the intent (an existing link still displays fine).
     const events = (eventsQuery.data ?? [])
       .filter((e) => !e.canceled_at)
@@ -116,7 +116,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
           personIds: byEvent.get(e.id) ?? [],
         }),
       );
-    // Birthdays (poklon tracking) — soonest upcoming first, next date shown.
+    // Birthdays (poklon tracking) - soonest upcoming first, next date shown.
     const birthdays = [...(birthdaysQuery.data ?? [])]
       .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
       .map(
@@ -162,9 +162,9 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     : null;
 
   // Auto-suggest: first option whose name substring-matches the typed payment
-  // name (either direction — "Engleski Lucija jun" ⊃ "Engleski Lucija", and
+  // name (either direction - "Engleski Lucija jun" ⊃ "Engleski Lucija", and
   // "Engl" ⊂ it). Min 3 chars so single letters don't light it up. Live while
-  // typing — effectively the debounce-free version of "on blur", and just as
+  // typing - effectively the debounce-free version of "on blur", and just as
   // silent since the chip never steals focus.
   const suggestion = useMemo(() => {
     if (value) return null;
@@ -203,7 +203,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
         filtered.length === 0 ? 0 : (i - 1 + filtered.length) % filtered.length,
       );
     } else if (e.key === "Enter") {
-      // Inside the payment <form> — swallow the submit and link instead.
+      // Inside the payment <form> - swallow the submit and link instead.
       e.preventDefault();
       const option = filtered[activeIndex];
       if (option) pick(option);
@@ -249,7 +249,7 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     <div className="space-y-2">
       <Label htmlFor="payment-link">Poveži sa (opciono)</Label>
       <div className="relative">
-        {/* `modal` — required for touch scrolling of the option list when the
+        {/* `modal` - required for touch scrolling of the option list when the
             popover opens inside a dialog/drawer: the dialog's scroll-lock
             otherwise swallows touchmove on the portaled popover content. */}
         <Popover open={open} onOpenChange={handleOpenChange} modal>

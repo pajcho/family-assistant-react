@@ -7,10 +7,10 @@ import { addDays } from "@/utils/date";
 import { cn } from "@/lib/cn";
 
 /**
- * DatePicker + a row of quick-pick chips — the "Brzi unos" date field. The
+ * DatePicker + a row of quick-pick chips - the "Brzi unos" date field. The
  * chips cover the common dates in one tap; the picker stays for everything
- * else. Two orientations: `future` (due dates — Danas · Sutra · Za 7 dana ·
- * 1. of next month) and `past` (spent-on dates — Danas · Juče · Prekjuče).
+ * else. Two orientations: `future` (due dates - Danas · Sutra · Za 7 dana ·
+ * 1. of next month) and `past` (spent-on dates - Danas · Juče · Prekjuče).
  * Chip targets come from `useToday()` so a sheet left open across midnight /
  * PWA resume still offers the right dates.
  */

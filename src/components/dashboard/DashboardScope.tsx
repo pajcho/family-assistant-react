@@ -25,7 +25,7 @@ import { useProfile } from "@/hooks/useProfile";
 import type { Birthday, Event, Payment } from "@/types/database";
 
 /**
- * One dashboard scope — "Danas" (today) or "Uskoro" (today onward), each now a
+ * One dashboard scope - "Danas" (today) or "Uskoro" (today onward), each now a
  * route of its own (the bottom/top nav switches between them instead of in-page
  * tabs). Shared shell: the header + "Dodaj" menu, the type/person filter bar and
  * the per-page list↔calendar toggle, the scope's agenda, and the per-feature
@@ -42,11 +42,11 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
   const filters = useAgendaFilters();
   const view = useAgendaView(scope);
 
-  // Participant maps — only needed to prefill the edit forms.
+  // Participant maps - only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
   const { byPayment: paymentParticipantsByPayment } = usePaymentParticipants();
 
-  // Mutations — only the create/update side; deletes happen on feature pages.
+  // Mutations - only the create/update side; deletes happen on feature pages.
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const createPayment = useCreatePayment();
@@ -70,7 +70,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
   const [birthdayError, setBirthdayError] = useState<string | null>(null);
 
   // Activity add is self-contained (the dialog owns its mutations); the scope
-  // only flips it open. There's no edit path here — "Izmeni aktivnost" still
+  // only flips it open. There's no edit path here - "Izmeni aktivnost" still
   // deep-links to /activities.
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
@@ -226,7 +226,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             onAddPayment={openAddPayment}
             onAddBirthday={openAddBirthday}
             onAddExpense={() => setExpenseDialogOpen(true)}
-            // Lists live on /lists — deep-link there with the create dialog
+            // Lists live on /lists - deep-link there with the create dialog
             // already open (`?new=1`, consumed by ListMaster).
             onAddList={() => void navigate({ to: "/lists", search: { new: true } })}
           />

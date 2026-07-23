@@ -27,7 +27,7 @@ import { usePaymentsList } from "@/hooks/usePayments";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 
 /**
- * Unified agenda layer — merges activities, events, payments and birthdays for
+ * Unified agenda layer - merges activities, events, payments and birthdays for
  * a date range `[from, to]` into one chronologically-sorted list, generalizing
  * the today-only merge that used to live in `DashboardTodayCard`.
  *
@@ -37,14 +37,14 @@ import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
  *
  * All recurrence is expanded client-side by the pure helpers in `utils/`
  * (`resolveBlocksInRange`, `expandPaymentOccurrences`, `expandBirthdayOccurrences`)
- * over data the underlying hooks already load wholesale — only the events query
+ * over data the underlying hooks already load wholesale - only the events query
  * is range-scoped, so growing the horizon costs at most one extra events fetch.
  */
 
 /** Within-day ordering buckets, continuing the scheme from the old today card. */
-const ALL_DAY_SORT_KEY = 24 * 60 + 1; // 1441 — after every timed minute of the day
-const BIRTHDAY_SORT_KEY = ALL_DAY_SORT_KEY + 1; // 1442 — after all-day events
-const PAYMENT_SORT_KEY = ALL_DAY_SORT_KEY + 2; // 1443 — at the very bottom
+const ALL_DAY_SORT_KEY = 24 * 60 + 1; // 1441 - after every timed minute of the day
+const BIRTHDAY_SORT_KEY = ALL_DAY_SORT_KEY + 1; // 1442 - after all-day events
+const PAYMENT_SORT_KEY = ALL_DAY_SORT_KEY + 2; // 1443 - at the very bottom
 
 export type AgendaItem =
   | {
@@ -87,7 +87,7 @@ export type AgendaItem =
       personIds: string[];
     };
 
-/** Stable React key for an agenda row — unique per occurrence across kinds. */
+/** Stable React key for an agenda row - unique per occurrence across kinds. */
 export function agendaItemKey(item: AgendaItem): string {
   switch (item.kind) {
     case "activity":
@@ -119,7 +119,7 @@ function timeToMin(time: string): number {
 }
 
 export function useAgenda({ from, to }: { from: string; to: string }): UseAgendaResult {
-  // Activity inputs — same raw queries `useWeekActivities` composes.
+  // Activity inputs - same raw queries `useWeekActivities` composes.
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
   const overridesQuery = useActivityOverrides();

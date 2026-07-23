@@ -24,10 +24,10 @@ import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 
 /**
- * One agenda row — the discriminated-union renderer shared by the "Danas" and
+ * One agenda row - the discriminated-union renderer shared by the "Danas" and
  * "Uskoro" tabs. Lifted (activity / event / payment variants verbatim) out of
  * the old `DashboardTodayCard`, plus a birthday variant. Every variant uses the
- * same frame — a fixed time gutter, a type indicator, then a truncating label —
+ * same frame - a fixed time gutter, a type indicator, then a truncating label -
  * so rows line up whatever their kind. Clicking a row bubbles up via `onClick`
  * (the tab opens the matching detail dialog).
  */
@@ -47,7 +47,7 @@ export function AgendaItemRow({
 }: {
   item: AgendaItem;
   onClick: () => void;
-  /** Optional label for the (otherwise empty) payment time gutter — e.g. the
+  /** Optional label for the (otherwise empty) payment time gutter - e.g. the
    *  due date in the "Prekoračeno" section. */
   dateLabel?: string;
 }) {
@@ -72,7 +72,7 @@ export function AgendaItemRow({
       );
     case "payment":
       // A payment occurrence that ISN'T the series' live one (keyed on
-      // payment.due_date) is a future repetition ("nadolazeće") — only the Uskoro
+      // payment.due_date) is a future repetition ("nadolazeće") - only the Uskoro
       // list surfaces those. It's shown read-only there: no detail dialog, so
       // none of its actions (Pomeri / Otkaži / Označi kao plaćeno / Izmeni) can
       // fire before it becomes the current due. The live occurrence stays
@@ -128,7 +128,7 @@ function ActivityRow({
         lastName: person.last_name,
         email: null,
       }) || "Bez imena"
-    : "—";
+    : "-";
   const activityName = activity?.name ?? "Aktivnost";
   const today = format(new Date(), "yyyy-MM-dd");
   const isPast = isActivityBlockPast(block, today);
@@ -137,7 +137,7 @@ function ActivityRow({
     <li>
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
         <span className={TIME_GUTTER_CLASS}>
-          {block.startTime}–{block.endTime}
+          {block.startTime}-{block.endTime}
         </span>
         <span
           className="size-2.5 shrink-0 rounded-full"
@@ -167,7 +167,7 @@ function EventRow({
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
   const endTime = event.end_time ? normalizeTime(event.end_time) : null;
-  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}–${endTime}` : (startTime ?? "");
+  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}-${endTime}` : (startTime ?? "");
   const isPast = isEventEnded(event);
 
   return (
@@ -216,7 +216,7 @@ function PaymentRow({
         <span className="text-gray-700 dark:text-gray-300">
           <Amount value={payment.amount} round />
           {/* Hidden on phones: the dense single-line agenda row truncates, and
-              a clipped "(5…" is worse than no annotation — the payment detail
+              a clipped "(5…" is worse than no annotation - the payment detail
               carries the original. */}
           <AmountOriginal
             amount={payment.original_amount}
@@ -301,7 +301,7 @@ function ExternalEventRow({
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
   const endTime = event.end_time ? normalizeTime(event.end_time) : null;
-  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}–${endTime}` : (startTime ?? "");
+  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}-${endTime}` : (startTime ?? "");
   const isPast = isExternalEventPast(event);
 
   return (

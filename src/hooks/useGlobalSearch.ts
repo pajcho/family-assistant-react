@@ -6,13 +6,13 @@ import { formatAmount } from "@/utils/format";
 import { formatDate } from "@/utils/date";
 
 /**
- * Family-scoped global search (the ⌘K dialog) — parallel `ilike` name/title
+ * Family-scoped global search (the ⌘K dialog) - parallel `ilike` name/title
  * queries across every searchable entity, capped per group. Follows the data
  * hooks' conventions: `familyId` comes from `useProfile()` only (RLS enforces
  * the scope anyway), and a failed group degrades to an empty list rather than
  * failing the whole search.
  *
- * No realtime subscription — results are a transient snapshot; a short
+ * No realtime subscription - results are a transient snapshot; a short
  * staleTime plus `keepPreviousData` keeps typing flicker-free.
  */
 
@@ -30,7 +30,7 @@ export interface SearchResult {
   kind: SearchResultKind;
   id: string;
   title: string;
-  /** Secondary line — date, amount, parent list… */
+  /** Secondary line - date, amount, parent list… */
   subtitle: string | null;
   /** For `list_item`: the parent list to navigate to. */
   listId?: string;
@@ -127,7 +127,7 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
     results.push({ kind: "list", id: row.id, title: row.name, subtitle: null });
   }
   for (const row of listItems.data ?? []) {
-    // Nested select — Supabase types it loosely, so normalize object/array.
+    // Nested select - Supabase types it loosely, so normalize object/array.
     const parent = row.lists as { name: string } | { name: string }[] | null;
     const parentName = Array.isArray(parent) ? (parent[0]?.name ?? null) : (parent?.name ?? null);
     results.push({
@@ -161,7 +161,7 @@ export interface UseGlobalSearchResult {
 /** Minimum characters before firing the queries. */
 export const MIN_SEARCH_CHARS = 2;
 
-/** Stable empty result — keeps consumers' memo/effect deps quiet while disabled. */
+/** Stable empty result - keeps consumers' memo/effect deps quiet while disabled. */
 const NO_RESULTS: SearchResult[] = [];
 
 export function useGlobalSearch(term: string): UseGlobalSearchResult {

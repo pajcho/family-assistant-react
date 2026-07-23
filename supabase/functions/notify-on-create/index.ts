@@ -10,7 +10,7 @@
 // it without a user JWT; we authenticate via X-Cron-Secret instead.
 //
 // Idempotency: insert into `notification_log` keyed on (user_id, kind,
-// ref_id) BEFORE sending. The UNIQUE constraint catches retries — if
+// ref_id) BEFORE sending. The UNIQUE constraint catches retries - if
 // the row already exists, we skip the push. ref_id is the entity uuid
 // so the same trigger firing twice for the same entity is deduped, but
 // edits/re-inserts under a new id would notify again (correct).
@@ -35,7 +35,7 @@ interface NotifyRequest {
   familyId: string;
   /** Author. `null` for service-role inserts; the function then notifies everyone. */
   actorId: string | null;
-  /** Display name (e.g. list / event / payment name) — surfaced in the push body. */
+  /** Display name (e.g. list / event / payment name) - surfaced in the push body. */
   name: string;
 }
 
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   // Resolve actor name (for the push body). The actor row may not exist
-  // if the insert came from a service-role connection — fall back to a
+  // if the insert came from a service-role connection - fall back to a
   // neutral phrasing in that case.
   let actorName = "";
   if (body.actorId) {
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
   }
 
   // Look up each recipient's per-kind opt-in. Missing rows = use the
-  // column defaults (all true) — we can't query for "default true"
+  // column defaults (all true) - we can't query for "default true"
   // directly, so we treat absence as opted in.
   const { data: prefs } = await supabase
     .from("notification_preferences")
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
         // deno-lint-ignore no-explicit-any
         const status = (e as any)?.statusCode as number | undefined;
         if (status === 404 || status === 410) {
-          // Subscription is dead — drop the row to avoid the round-trip
+          // Subscription is dead - drop the row to avoid the round-trip
           // on every future notification.
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           dead++;

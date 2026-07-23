@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 /**
  * Settings → Kalendar. Connect / disconnect Google accounts and choose, per
  * calendar, whether its events are mirrored into the family agenda and to whom
- * (none / private / family). Read-only, one-way — nothing is written to Google.
+ * (none / private / family). Read-only, one-way - nothing is written to Google.
  */
 export function CalendarTab() {
   const { connections, isLoading, connect, isConnecting, disconnect, isDisconnecting } =
@@ -31,7 +31,7 @@ export function CalendarTab() {
         <CardTitle>Google kalendar</CardTitle>
         <CardDescription>
           Poveži svoj Google nalog i izaberi koje kalendare deliš. Sinhronizacija je jednosmerna i
-          samo za čitanje — ništa se ne menja u Google-u.
+          samo za čitanje - ništa se ne menja u Google-u.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -52,7 +52,7 @@ export function CalendarTab() {
                     </div>
                     {conn.needs_reauth ? (
                       <div className="text-xs text-amber-600 dark:text-amber-400">
-                        Veza je istekla — poveži ponovo da bi sinhronizacija nastavila.
+                        Veza je istekla - poveži ponovo da bi sinhronizacija nastavila.
                       </div>
                     ) : (
                       <div className="text-xs text-gray-500 dark:text-gray-400">Povezano</div>
@@ -186,7 +186,7 @@ interface SharingSelectProps {
 }
 
 function SharingSelect({ value, onChange }: SharingSelectProps) {
-  // Native <select> in Input-matching chrome — same approach as ReminderSelect,
+  // Native <select> in Input-matching chrome - same approach as ReminderSelect,
   // so mobile gets the system picker for free.
   return (
     <div className="relative w-36 shrink-0">
@@ -222,7 +222,7 @@ function SharingSelect({ value, onChange }: SharingSelectProps) {
 }
 
 /**
- * Per-member "what to import" toggles (skip-list — `default` events always come).
+ * Per-member "what to import" toggles (skip-list - `default` events always come).
  * Applies across all the member's calendars; changing one re-syncs them.
  */
 function ImportPrefs() {

@@ -5,15 +5,15 @@ import { CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 /**
  * Swipe-to-action wrapper for one list row.
  *
- *   ◀ swipe-left  — onSwipeLeft (delete; parent shows a confirm)
- *   swipe-right ▶ — onSwipeRight (toggle complete)
+ *   ◀ swipe-left  - onSwipeLeft (delete; parent shows a confirm)
+ *   swipe-right ▶ - onSwipeRight (toggle complete)
  *
  * Only active on touch-primary devices. We gate on `(pointer: coarse)`
  * rather than a viewport width: a desktop user with a narrow window is
  * still using a mouse and shouldn't lose the inline edit/delete buttons
  * to gestures they can't easily perform. On `pointer: fine` devices the
  * wrapper renders a plain <li> with no pointer handlers and no reveal
- * layers — equivalent to "swipe disabled".
+ * layers - equivalent to "swipe disabled".
  *
  * Implementation notes
  * --------------------
@@ -26,7 +26,7 @@ import { CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
  *   keeps scrolling normally.
  * • Tap-suppression: any meaningful horizontal movement flips a ref. The
  *   wrapper installs an `onClickCapture` that swallows the synthetic click
- *   that would otherwise fire after pointerup — so swiping doesn't also
+ *   that would otherwise fire after pointerup - so swiping doesn't also
  *   open the inline-edit input or toggle the checkbox.
  * • Snap-back animation: when the gesture doesn't reach the action
  *   threshold (or while idle) the foreground transitions back to dx=0
@@ -79,7 +79,7 @@ export function SwipeableListItem({
 }: SwipeableListItemProps) {
   const isTouchDevice = useHasCoarsePointer();
 
-  // Desktop / mouse: pass through as a plain row — no gestures, no reveal
+  // Desktop / mouse: pass through as a plain row - no gestures, no reveal
   // layers, no click-suppression. The inline edit/delete buttons in
   // `ListItemRow` already cover the same operations on hover.
   if (!isTouchDevice || disabled) {
@@ -162,7 +162,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
   };
 
   const handleClickCapture = (e: MouseEvent) => {
-    // Suppress the trailing click only when the user actually swiped — a
+    // Suppress the trailing click only when the user actually swiped - a
     // pure tap (no horizontal movement past TAP_BREAKOUT_PX) must still
     // reach the underlying button / checkbox.
     if (didSwipeRef.current) {
@@ -196,7 +196,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
       // (we only block native panning if we lock to horizontal).
       style={{ touchAction: "pan-y" }}
     >
-      {/* Reveal under-layers — pointer-events:none so they never intercept
+      {/* Reveal under-layers - pointer-events:none so they never intercept
           the swipe. The colored band grows from the edge inward as the row
           slides over it. */}
       {showLeftReveal ? (
@@ -216,7 +216,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
         </div>
       ) : null}
 
-      {/* Foreground — the actual row. Translates with the gesture; snaps
+      {/* Foreground - the actual row. Translates with the gesture; snaps
           back via CSS transition when we reset dx to 0. */}
       <div
         className="relative"

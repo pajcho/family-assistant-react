@@ -36,7 +36,7 @@ import { cn } from "@/lib/cn";
 /**
  * Detail + recategorize surface for a scanned-receipt expense. Amount and date
  * are read-only (they come from the fiscal receipt, like auto-payment rows),
- * but category / person / note are editable — the same "recategorize an
+ * but category / person / note are editable - the same "recategorize an
  * automatic row" affordance payments get.
  *
  * Mirrors the "Brzi unos" expense form: on mobile the editable bits collapse
@@ -156,7 +156,7 @@ export function ReceiptExpenseDialog({
   const [refreshInfo, setRefreshInfo] = useState<string | null>(null);
   // Local echo of the server-claimed receipt_checked_at: the expense prop is a
   // snapshot from the list, so a refresh attempt in THIS dialog won't update it
-  // until the invalidated query lands — the local claim bridges that gap.
+  // until the invalidated query lands - the local claim bridges that gap.
   const [localClaimAt, setLocalClaimAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -174,7 +174,7 @@ export function ReceiptExpenseDialog({
     }
   }, [expense, reset]);
 
-  // Cooldown countdown for "Osveži stavke" — mirrors the server-enforced claim.
+  // Cooldown countdown for "Osveži stavke" - mirrors the server-enforced claim.
   const checkedAt = expense?.receipt_checked_at ? Date.parse(expense.receipt_checked_at) : null;
   const claimAt = Math.max(checkedAt ?? 0, localClaimAt ?? 0) || null;
   const cooldownRemainingMs =
@@ -392,7 +392,7 @@ export function ReceiptExpenseDialog({
             </div>
 
             {isDesktop ? (
-              // ——— Desktop: everything inline ———
+              // --- Desktop: everything inline ---
               <>
                 <div className="space-y-2">
                   <Label>Kategorija</Label>
@@ -452,7 +452,7 @@ export function ReceiptExpenseDialog({
                 </div>
               </>
             ) : (
-              // ——— Mobile: "Brzi unos" picker rows (footer pinned by dialog) ———
+              // --- Mobile: "Brzi unos" picker rows (footer pinned by dialog) ---
               <div className="space-y-2">
                 <PickerRow
                   title="Kategorija"

@@ -172,7 +172,7 @@ async function setSharing(
 
     // Immediately pull this calendar so newly-shared events appear right away
     // instead of waiting for the 15-min cron. Run it AFTER the response
-    // (EdgeRuntime.waitUntil) so the click resolves instantly — a first full
+    // (EdgeRuntime.waitUntil) so the click resolves instantly - a first full
     // sync can take a moment. Errors are logged, never surfaced to the toggle.
     const syncNow = (async () => {
       const { data: cal } = await admin
@@ -212,7 +212,7 @@ async function listCalendars(
     try {
       accessToken = await getFreshAccessToken(admin, conn);
     } catch (e) {
-      // Reauth needed (token dead) — skip this connection, keep going. The
+      // Reauth needed (token dead) - skip this connection, keep going. The
       // connection is already flagged needs_reauth by the helper.
       if (e instanceof ReauthRequiredError) continue;
       throw e;
@@ -225,7 +225,7 @@ async function listCalendars(
         "https://www.googleapis.com/calendar/v3/users/me/calendarList?showHidden=false&minAccessRole=reader",
       );
     } catch {
-      continue; // transient Google error — don't fail the whole request
+      continue; // transient Google error - don't fail the whole request
     }
 
     const active = (list.items ?? []).filter((cal) => !cal.deleted);
@@ -247,7 +247,7 @@ async function listCalendars(
       );
     }
 
-    // "Events found" per calendar — fetched in parallel (ids only, so light).
+    // "Events found" per calendar - fetched in parallel (ids only, so light).
     const found = await Promise.all(active.map((cal) => fetchEventCount(accessToken, cal.id)));
     active.forEach((cal, i) => {
       const r = found[i];

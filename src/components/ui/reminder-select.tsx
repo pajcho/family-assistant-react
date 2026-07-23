@@ -82,7 +82,7 @@ export function ReminderSelect({
           </option>
         ))}
       </select>
-      {/* Caret — purely decorative; the native picker is what actually
+      {/* Caret - purely decorative; the native picker is what actually
           opens on click. */}
       <svg
         aria-hidden="true"

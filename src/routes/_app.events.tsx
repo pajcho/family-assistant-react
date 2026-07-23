@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_app/events")({
 const MIN_SEARCH_CHARS = 2;
 
 function EventsPage() {
-  // Filters — the same control set as /payments: a month picker (default
+  // Filters - the same control set as /payments: a month picker (default
   // "Svi događaji" = no bound, with the "Ovaj mesec" shortcut visible), a
   // text search, person chips and a "Sakrij završene" toggle chip. The list
   // is fetched unbounded and filtered client-side.
@@ -44,14 +44,14 @@ function EventsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
-  // Person filter — same convention as the dashboard's person facet: an empty
+  // Person filter - same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
 
-  // Detail popup — a row tap opens it; every action lives inside.
+  // Detail popup - a row tap opens it; every action lives inside.
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Dialog state — reschedule / cancel / delete žive kao sub-view-ovi UNUTAR
+  // Dialog state - reschedule / cancel / delete žive kao sub-view-ovi UNUTAR
   // detail popupa (sheet stack); stranica drži samo formu za dodavanje/izmenu.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -69,7 +69,7 @@ function EventsPage() {
   // (unassigned events hide while the filter is active).
   //
   // Search mode (≥ MIN_SEARCH_CHARS) matches name/description/notes and
-  // ignores the month + completed filters — they'd hide exactly what the
+  // ignores the month + completed filters - they'd hide exactly what the
   // user is looking for. The person facet still applies.
   const filteredEvents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -101,7 +101,7 @@ function EventsPage() {
     });
   };
 
-  // Timeline grouping — same as /payments: sections per day under the shared
+  // Timeline grouping - same as /payments: sections per day under the shared
   // AgendaDateHeader. Search mode stays flat (results span every month).
   const { str: today, date: todayDate } = useToday();
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
@@ -115,7 +115,7 @@ function EventsPage() {
     return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filteredEvents]);
 
-  // How many completed events the default view hides — the quiet reveal link.
+  // How many completed events the default view hides - the quiet reveal link.
   const hiddenCompletedCount = useMemo(() => {
     if (searchActive || !hideCompleted) return 0;
     return events.filter((e) => {

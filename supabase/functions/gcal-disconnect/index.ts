@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         body: new URLSearchParams({ token }),
       });
     } catch {
-      // ignore — revoke is best-effort
+      // ignore - revoke is best-effort
     }
   }
 

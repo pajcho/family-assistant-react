@@ -39,7 +39,7 @@ import { monthLabel } from "@/utils/budget";
 export type IncomesSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The budget month being viewed ("YYYY-MM") — confirmations land here. */
+  /** The budget month being viewed ("YYYY-MM") - confirmations land here. */
   month: string;
 };
 
@@ -56,7 +56,7 @@ function clampDayInMonth(month: string, day: number): string {
 
 /**
  * The sheet's current screen. Like the activities "Opcije" sheet, the forms
- * don't open a nested overlay — they're sub-views on the sheet stack, swapping
+ * don't open a nested overlay - they're sub-views on the sheet stack, swapping
  * the body in place with a "← Nazad" header (dismissing a form also returns to
  * the list). On mobile this gives each form the full drawer height (easy to
  * scroll), instead of an inline form cramped at the bottom of the list.
@@ -81,12 +81,12 @@ function memberOptions(members: ReadonlyArray<Profile>) {
 }
 
 /**
- * "Prihodi" — the family's income for ONE month plus the recurring source
+ * "Prihodi" - the family's income for ONE month plus the recurring source
  * templates.
  *
  * List screen: this month's actual income. Active recurring sources not yet
  * confirmed show a "Potvrdi" row; confirmed receipts and one-offs list below
- * with edit/delete. This is the frozen history the budget cycle sums — editing
+ * with edit/delete. This is the frozen history the budget cycle sums - editing
  * a source never rewrites it. Recurring source templates live in their own
  * stack view so monthly confirmation and long-term setup never compete in the
  * same scroll.
@@ -152,7 +152,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
 
   const title =
     view.kind === "list"
-      ? `Prihodi — ${monthLabel(month)}`
+      ? `Prihodi - ${monthLabel(month)}`
       : view.kind === "sources"
         ? "Redovni prihodi"
         : view.kind === "confirm"
@@ -538,7 +538,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
 }
 
 /* ------------------------------------------------------------------------- */
-/* Receipt form — confirm a source, edit a receipt, or add a one-off.        */
+/* Receipt form - confirm a source, edit a receipt, or add a one-off.        */
 /* Self-contained (owns its state + mutations), mirroring ShiftSetupForm.    */
 /* ------------------------------------------------------------------------- */
 
@@ -589,7 +589,7 @@ function EntryForm({
     const received_on = receivedOn || null;
     try {
       if (isLinked && linkedIncomeId) {
-        // Recurring confirmation — upsert on (income_id, month), so re-confirming
+        // Recurring confirmation - upsert on (income_id, month), so re-confirming
         // just corrects the amount instead of stacking rows.
         await confirmIncome.mutateAsync({
           income_id: linkedIncomeId,
@@ -688,7 +688,7 @@ function EntryForm({
 }
 
 /* ------------------------------------------------------------------------- */
-/* Source (recurring template) form — add / edit.                            */
+/* Source (recurring template) form - add / edit.                            */
 /* ------------------------------------------------------------------------- */
 
 function SourceForm({

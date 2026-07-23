@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
  *   1. `visualViewport.height` < `window.innerHeight` by more than
  *      `THRESHOLD_PX` (150). Works on iOS Safari, but iOS 17+ with
  *      `interactive-widget=resizes-content` (set in index.html) makes
- *      the two heights match — at which point this signal returns
+ *      the two heights match - at which point this signal returns
  *      false even though the keyboard is open.
  *
  *   2. `document.activeElement` is a text-entry control (input,
@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
  *      keyboard is visible when a text field has focus. Falls back
  *      gracefully when the user dismisses the keyboard via the
  *      accessory bar while still focused (the page hasn't told us
- *      either way, so the nav stays hidden a beat longer — better
+ *      either way, so the nav stays hidden a beat longer - better
  *      than flickering back on top of the keyboard).
  *
  * The two-signal approach means the nav slides out even on iOS 17+

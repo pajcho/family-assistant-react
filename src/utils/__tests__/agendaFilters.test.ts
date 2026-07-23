@@ -11,7 +11,7 @@ import {
 } from "../agendaFilters";
 
 /* ------------------------------------------------------------------------- */
-/* Minimal AgendaItem fixtures — only the fields the filter reads matter, so  */
+/* Minimal AgendaItem fixtures - only the fields the filter reads matter, so  */
 /* the rest is cast away rather than built out.                              */
 /* ------------------------------------------------------------------------- */
 
@@ -51,7 +51,7 @@ describe("agendaItemPersonIds", () => {
   });
 });
 
-describe("matchesAgendaFilter — type", () => {
+describe("matchesAgendaFilter - type", () => {
   it("empty kinds passes everything", () => {
     expect(matchesAgendaFilter(eventItem([]), filter())).toBe(true);
   });
@@ -65,7 +65,7 @@ describe("matchesAgendaFilter — type", () => {
   });
 });
 
-describe("matchesAgendaFilter — person", () => {
+describe("matchesAgendaFilter - person", () => {
   it("empty people passes everything", () => {
     expect(matchesAgendaFilter(eventItem([]), filter())).toBe(true);
   });
@@ -96,7 +96,7 @@ describe("matchesAgendaFilter — person", () => {
   });
 });
 
-describe("matchesAgendaFilter — combined", () => {
+describe("matchesAgendaFilter - combined", () => {
   it("requires both facets to pass", () => {
     const f = filter(["event"], ["ana"]);
     expect(matchesAgendaFilter(eventItem(["ana"]), f)).toBe(true);

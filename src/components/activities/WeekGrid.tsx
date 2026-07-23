@@ -14,13 +14,13 @@ import type { ResolvedSchoolBlock } from "@/utils/schoolTimetable";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
- * Weekly schedule grid — 7 day columns × 30-minute time slots. Time gutter
+ * Weekly schedule grid - 7 day columns × 30-minute time slots. Time gutter
  * on the left, blocks absolutely positioned inside their day column.
  *
  * Renders two kinds of blocks in the same time-positioned layout:
- *   • activities — trainings / music / etc. with explicit times (solid, in
+ *   • activities - trainings / music / etc. with explicit times (solid, in
  *     the person's color).
- *   • school     — class periods whose times are DERIVED from the bell
+ *   • school     - class periods whose times are DERIVED from the bell
  *     schedule. Drawn discreetly (lighter fill + a book glyph) so a full
  *     school day doesn't visually drown out the extracurriculars.
  * Both flow through the same lane-assignment sweep so an afternoon class that
@@ -84,7 +84,7 @@ function computeViewportRange(blocks: ReadonlyArray<GridBlock>): {
   }
 
   // Fit-to-content with ~1h breathing room on each side. Previously we
-  // always anchored to 7:00–21:00 which wasted vertical space when every
+  // always anchored to 7:00-21:00 which wasted vertical space when every
   // activity sat in a 3-hour band in the afternoon.
   const startMin = Math.max(0, earliest - 60);
   const endMin = Math.min(24 * 60, latest + 60);
@@ -156,13 +156,13 @@ export function WeekGrid({
   const totalHeightPx = slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
 
   // Current-time line position, in the same coordinate space as the blocks.
-  // Hidden when "now" falls outside the (fit-to-content) visible range — a
+  // Hidden when "now" falls outside the (fit-to-content) visible range - a
   // line pinned to the top/bottom edge would misrepresent where now actually
   // is relative to the activities.
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nowInViewport = nowMin >= startMin && nowMin <= endMin;
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
-  // Today, in the blocks' yyyy-MM-dd space — the boundary for fading elapsed
+  // Today, in the blocks' yyyy-MM-dd space - the boundary for fading elapsed
   // blocks. Derived from `now` so it advances at midnight along with the tick.
   const todayStr = format(now, "yyyy-MM-dd");
 
@@ -187,7 +187,7 @@ export function WeekGrid({
     return result;
   }, [allBlocks, startMin]);
 
-  // Hour labels — one per full hour inside the viewport range. Top inset
+  // Hour labels - one per full hour inside the viewport range. Top inset
   // matches the block positioning so labels and gridlines stay aligned.
   const hourLabels: { topPx: number; label: string }[] = [];
   const firstHour = Math.ceil(startMin / 60);
@@ -237,11 +237,11 @@ export function WeekGrid({
     >
       {/* `min-w-max` makes the inner wrapper size to its content (1876px on
           mobile, 7×fr on sm+). Without it, the wrapper inherits the
-          scroller's viewport width and the inner grid overflows it — which
+          scroller's viewport width and the inner grid overflows it - which
           breaks sticky-left positioning because the sticky element's
           containing block ends short of the scroll edges. */}
       <div className="min-w-max">
-        {/* Day headers — sticky on top so they stay visible while scrolling
+        {/* Day headers - sticky on top so they stay visible while scrolling
             vertically. z-20 (above the body's sticky-left gutter z-10) so
             the top-left intersection cleanly shows the header's empty
             placeholder, not the gutter's first hour label.
@@ -266,13 +266,13 @@ export function WeekGrid({
           ))}
         </div>
 
-        {/* Body — grid with the same column template; each cell is a relatively-
+        {/* Body - grid with the same column template; each cell is a relatively-
             positioned column the blocks layer on top of. */}
         <div
           className="grid grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]"
           style={{ height: `${totalHeightPx}px` }}
         >
-          {/* Time gutter — sticky-left so hour labels stay pinned while the
+          {/* Time gutter - sticky-left so hour labels stay pinned while the
               user scrolls horizontally between days. bg matches the card
               so day columns scrolling under it are fully obscured. z-10 sits
               below the header (z-20) so the top-left intersection stays
@@ -344,7 +344,7 @@ export function WeekGrid({
                 const isMovedAway = !!block.override?.movedTo;
                 const isMovedHere = !!block.override?.movedFrom;
                 const isSameDayReschedule = isRescheduled && !isMovedAway && !isMovedHere;
-                // Both canceled and moved-away render as ghost outlines —
+                // Both canceled and moved-away render as ghost outlines -
                 // they're a "this slot is empty for a reason" marker rather
                 // than an active block.
                 const isGhost = isCanceled || isMovedAway;
@@ -379,16 +379,16 @@ export function WeekGrid({
                       // they keep a lighter touch when still upcoming.
                       isPast ? "opacity-60" : isGhost ? "opacity-70" : null,
                     )}
-                    aria-label={activity ? `${activity.name} — ${block.startTime}` : "Aktivnost"}
+                    aria-label={activity ? `${activity.name} - ${block.startTime}` : "Aktivnost"}
                     title={
                       isCanceled
-                        ? `Otkazano · ranije ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                        ? `Otkazano · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
                         : isMovedAway
-                          ? `Pomereno na ${block.override?.movedTo} ${block.override?.rescheduledStartTime}–${block.override?.rescheduledEndTime}`
+                          ? `Pomereno na ${block.override?.movedTo} ${block.override?.rescheduledStartTime}-${block.override?.rescheduledEndTime}`
                           : isMovedHere
-                            ? `Pomereno sa ${block.override?.movedFrom} ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                            ? `Pomereno sa ${block.override?.movedFrom} ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
                             : isSameDayReschedule
-                              ? `Pomereno · ranije ${block.override?.originalStartTime}–${block.override?.originalEndTime}`
+                              ? `Pomereno · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
                               : undefined
                     }
                   >
@@ -469,7 +469,7 @@ export function WeekGrid({
                   </button>
                 );
               })}
-              {/* Current-time line — today's column only, when now is in
+              {/* Current-time line - today's column only, when now is in
                   range. After the blocks in DOM so it paints on top; no
                   z-index (stays under the sticky header/gutter) and
                   pointer-events-none so clicks still reach the blocks. */}
@@ -524,7 +524,7 @@ function SchoolBlock({
         borderLeftColor: color,
       }}
       className={cn(
-        // Solid (not dashed — dashed is reserved for canceled/ghost activity
+        // Solid (not dashed - dashed is reserved for canceled/ghost activity
         // blocks) but lighter and thinner than an activity: faint fill + 2px
         // colored left accent so a full school day reads as quiet background.
         "absolute overflow-hidden rounded-md border border-gray-200 border-l-2",
@@ -534,8 +534,8 @@ function SchoolBlock({
         // Faded once the class has ended, matching past activity blocks.
         isPast && "opacity-60",
       )}
-      aria-label={`${block.subject} — ${block.startTime}`}
-      title={`${block.subject}${block.room ? ` · ${block.room}` : ""} · ${block.startTime}–${block.endTime}`}
+      aria-label={`${block.subject} - ${block.startTime}`}
+      title={`${block.subject}${block.room ? ` · ${block.room}` : ""} · ${block.startTime}-${block.endTime}`}
     >
       <div className="flex items-center gap-1 text-muted-foreground">
         <BookOpenIcon className="h-2.5 w-2.5 shrink-0" />

@@ -1,7 +1,7 @@
 export interface Family {
   id: string;
   name: string;
-  /** Currencies the entry forms offer ('RSD' is the base and always present —
+  /** Currencies the entry forms offer ('RSD' is the base and always present -
    *  DB CHECK `families_rsd_always_enabled`). Disabling one never touches
    *  existing rows, it only narrows the choice for NEW entries. */
   enabled_currencies: string[];
@@ -13,7 +13,7 @@ export interface Profile {
   id: string;
   family_id: string;
   /**
-   * Computed by a Postgres trigger from `first_name` + `last_name` —
+   * Computed by a Postgres trigger from `first_name` + `last_name` -
    * still present on the row but the UI no longer writes to it directly.
    */
   full_name: string | null;
@@ -27,14 +27,14 @@ export interface Profile {
    */
   color: string | null;
   /**
-   * Family admin — may create/disable logins, manage the roster (add/remove
+   * Family admin - may create/disable logins, manage the roster (add/remove
    * members, set colors, mark students), and rename the family. Backfilled
    * `true` for everyone who had a login when the role was introduced; new
    * login-less members default `false`. Enforced in RLS via `is_family_admin()`.
    */
   is_admin: boolean;
   /**
-   * True iff this profile's `id` matches a row in `auth.users` — i.e. the
+   * True iff this profile's `id` matches a row in `auth.users` - i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional
    * here because not every read path goes through the view.
@@ -58,14 +58,14 @@ export interface Event {
    * Soft cancel. NULL = active; an ISO timestamp = canceled (and when).
    * Canceled events drop off the dashboard / upcoming list but are kept so
    * the calendar can still show them struck-through. "Rescheduling" an event
-   * changes `date` (and optionally the times) — no history is kept.
+   * changes `date` (and optionally the times) - no history is kept.
    */
   canceled_at: string | null;
   /** Optional free-text reason entered when canceling. Cleared on restore. */
   cancel_reason: string | null;
   /**
    * Set when the event was created via "Organizuj proslavu" on the birthdays
-   * page — links the celebration back to its birthday so the birthday row can
+   * page - links the celebration back to its birthday so the birthday row can
    * show a "proslava zakazana" chip. ON DELETE SET NULL.
    */
   birthday_id: string | null;
@@ -98,7 +98,7 @@ export interface Payment {
   family_id: string;
   name: string;
   description: string | null;
-  /** ALWAYS the RSD value (converted at entry for foreign-currency payments) —
+  /** ALWAYS the RSD value (converted at entry for foreign-currency payments) -
    *  projections and month summaries sum it currency-blind. */
   amount: number;
   /** Currency the payment was DEFINED in ("RSD" | "EUR" | …). */
@@ -106,13 +106,13 @@ export interface Payment {
   /** What was actually typed for a foreign-currency payment; null for RSD. */
   original_amount: number | null;
   /** NBS middle rate frozen at entry (1 unit of `currency` = N RSD); null for
-   *  RSD. Occurrences and history stay RSD — only the definition carries this. */
+   *  RSD. Occurrences and history stay RSD - only the definition carries this. */
   exchange_rate: number | null;
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
   /**
-   * "Every N periods" knob — meaningful for `monthly` (every N months) and
+   * "Every N periods" knob - meaningful for `monthly` (every N months) and
    * `weekly` (every N weeks). `one-time` and `limited` ignore this and always
    * behave as if interval = 1. Column is NOT NULL with a default of 1 in the
    * DB so old rows back-fill correctly.
@@ -124,7 +124,7 @@ export interface Payment {
   /**
    * Marks a recurring bill whose amount varies each period (struja, infostan…).
    * When true, `amount` is only a rough default ("okvirni iznos") used for
-   * projections, and each "mark as paid" prompts for the actual amount — which
+   * projections, and each "mark as paid" prompts for the actual amount - which
    * is snapshotted into `payment_history.amount` (and the auto-expense). Only
    * ever true for recurring payments; the form gates the toggle. Defaults false.
    */
@@ -133,19 +133,19 @@ export interface Payment {
   remind_days_before: number | null;
   /**
    * Optional link to the activity this payment pays for (e.g. "Engleski
-   * Lucija" ← monthly tuition). A payment links to AT MOST ONE thing — one
-   * activity OR one event — enforced by the `payments_single_link` CHECK
+   * Lucija" ← monthly tuition). A payment links to AT MOST ONE thing - one
+   * activity OR one event - enforced by the `payments_single_link` CHECK
    * (`num_nonnulls(activity_id, event_id) <= 1`). The reverse direction is
    * unbounded: an activity/event can have many linked payments. ON DELETE
    * SET NULL, so removing the activity detaches the link but keeps the
    * payment (and its history) intact.
    */
   activity_id: string | null;
-  /** Optional link to the event this payment pays for. XOR with `activity_id` — see above. */
+  /** Optional link to the event this payment pays for. XOR with `activity_id` - see above. */
   event_id: string | null;
   /**
    * Optional link to a birthday (poklon-tracking: "poklon za Markov
-   * rođendan"). Part of the same `payments_single_link` CHECK — a payment
+   * rođendan"). Part of the same `payments_single_link` CHECK - a payment
    * links to at most ONE of activity/event/birthday. ON DELETE SET NULL.
    */
   birthday_id: string | null;
@@ -171,7 +171,7 @@ export interface PaymentHistory {
   currency: string;
   /** Typed foreign amount + the rate used for THIS occurrence (default: NBS
    *  middle rate on the pay date, editable in the confirm step); null for RSD.
-   *  Each occurrence freezes its own conversion — not the definition-time one. */
+   *  Each occurrence freezes its own conversion - not the definition-time one. */
   original_amount: number | null;
   exchange_rate: number | null;
   due_date: string;
@@ -179,11 +179,11 @@ export interface PaymentHistory {
   paid_date: string | null;
   /** Whether this occurrence was paid or canceled (skipped). */
   status: PaymentHistoryStatus;
-  /** Optional reason — currently used for cancellations. */
+  /** Optional reason - currently used for cancellations. */
   note: string | null;
   /**
    * Snapshot of the payment's name at the moment this occurrence was
-   * paid/canceled — frozen so a later rename on the live payment doesn't
+   * paid/canceled - frozen so a later rename on the live payment doesn't
    * rewrite history. NULL only for rows created before this column existed
    * (the UI falls back to the live payment name).
    */
@@ -192,7 +192,7 @@ export interface PaymentHistory {
 }
 
 /**
- * Who a payment is for. Junction table mirroring `EventParticipant` — a
+ * Who a payment is for. Junction table mirroring `EventParticipant` - a
  * payment may have ZERO participants (a shared household bill).
  */
 export interface PaymentParticipant {
@@ -213,7 +213,7 @@ export interface PaymentOverride {
   id: string;
   payment_id: string;
   family_id: string;
-  /** YYYY-MM-DD — the original projected due date this override keys on. */
+  /** YYYY-MM-DD - the original projected due date this override keys on. */
   occurrence_date: string;
   action: PaymentOverrideAction;
   /** Required for `'reschedule'` (the new date); NULL for `'cancel'`. */
@@ -235,13 +235,13 @@ export interface Birthday {
 }
 
 // ---------------------------------------------------------------------------
-// Budget (Faza 3/4) — expense categories + the expenses ledger + incomes
+// Budget (Faza 3/4) - expense categories + the expenses ledger + incomes
 // ---------------------------------------------------------------------------
 
 /**
  * A family-editable spend bucket. `icon` is a short key the UI maps to a
  * heroicon (see `categoryIcon`); `color` is a hex string like profiles.color.
- * `monthly_limit` (Faza 4) is an optional RSD ceiling — NULL = untracked.
+ * `monthly_limit` (Faza 4) is an optional RSD ceiling - NULL = untracked.
  */
 export interface ExpenseCategory {
   id: string;
@@ -264,7 +264,7 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
 
 /**
  * One spend entry. Auto rows (`source='payment'`) carry `payment_id` +
- * `payment_due_date` (the occurrence they came from — also the trigger's
+ * `payment_due_date` (the occurrence they came from - also the trigger's
  * idempotency key) and inherit the payment's category/link. Receipt rows
  * (`source='receipt'`) carry `merchant` + `receipt_url` (the SUF verification
  * link, globally-unique dedup key) and own a set of `expense_items` loaded
@@ -273,7 +273,7 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
 export interface Expense {
   id: string;
   family_id: string;
-  /** ALWAYS the RSD value (converted at entry for foreign-currency rows) —
+  /** ALWAYS the RSD value (converted at entry for foreign-currency rows) -
    *  every aggregation sums it currency-blind. */
   amount: number;
   currency: string;
@@ -283,7 +283,7 @@ export interface Expense {
   /** NBS middle rate frozen at entry (1 unit of `currency` = N RSD); null for
    *  RSD rows. History is never re-converted, so rate drift can't change it. */
   exchange_rate: number | null;
-  /** YYYY-MM-DD — the day the money is counted against (occurrence date for auto rows). */
+  /** YYYY-MM-DD - the day the money is counted against (occurrence date for auto rows). */
   spent_on: string;
   category_id: string | null;
   person_id: string | null;
@@ -308,7 +308,7 @@ export interface Expense {
  * One line of a scanned receipt, child of an `expenses` row (source='receipt').
  * `total` is authoritative (discount-safe); `quantity` / `unit_price` are
  * best-effort (nullable) since odd receipt layouts hide the price×qty split.
- * Immutable + not realtime-published — loaded lazily with the parent's detail.
+ * Immutable + not realtime-published - loaded lazily with the parent's detail.
  */
 export interface ExpenseItem {
   id: string;
@@ -342,12 +342,12 @@ export interface Income {
 }
 
 /**
- * One actual income receipt for a given month — the frozen counterpart to a
+ * One actual income receipt for a given month - the frozen counterpart to a
  * recurring {@link Income} source, mirroring how `payment_history` freezes a
  * paid payment occurrence. Either a confirmation of a recurring source
  * (`income_id` set, one row per source per `month`) or a one-off
  * (`income_id = null`, `is_one_time = true`, e.g. a bonus). The monthly budget
- * cycle sums these — never the live sources — so editing a source today never
+ * cycle sums these - never the live sources - so editing a source today never
  * rewrites a past month's income. `month` is "YYYY-MM"; `received_on` is the
  * day it actually landed (informational).
  */
@@ -373,10 +373,10 @@ export interface IncomeEntry {
 export type SchoolShift = "morning" | "afternoon";
 
 /**
- * `'every'` — runs on each matching week (default; combined with
+ * `'every'` - runs on each matching week (default; combined with
  *             `recurrence_interval_weeks` for "every N weeks" patterns).
- * `'A'`     — only on weeks when the activity's person is in the MORNING shift.
- * `'B'`     — only on weeks when the activity's person is in the AFTERNOON shift.
+ * `'A'`     - only on weeks when the activity's person is in the MORNING shift.
+ * `'B'`     - only on weeks when the activity's person is in the AFTERNOON shift.
  *
  * A/B is implicitly bound to the person's `school_shift_anchors` row. If the
  * person has no anchor, A/B rules are skipped (the UI prevents creating them).
@@ -423,7 +423,7 @@ export interface ActivitySchedule {
   family_id: string;
   /** 0 = Monday, 6 = Sunday (UI is Monday-first). */
   day_of_week: number;
-  /** "HH:MM" or "HH:MM:SS" — Postgres TIME column. */
+  /** "HH:MM" or "HH:MM:SS" - Postgres TIME column. */
   start_time: string;
   end_time: string;
   week_pattern: WeekPattern;
@@ -444,7 +444,7 @@ export type ActivityOverrideAction = "cancel" | "reschedule";
 /**
  * Per-occurrence override on a schedule rule. Lookup key is
  * `(schedule_id, date)` (UNIQUE in the DB). The resolver applies overrides
- * AFTER deciding whether the underlying rule fires that day — if the rule
+ * AFTER deciding whether the underlying rule fires that day - if the rule
  * is silent (shift flipped, season ended, activity paused), the override
  * lies dormant in the database and reactivates when conditions return.
  */
@@ -454,11 +454,11 @@ export interface ActivityOverride {
   family_id: string;
   /**
    * Who this override applies to. Same termin can have separate overrides
-   * for different participants — e.g. one sibling sick, the other still
+   * for different participants - e.g. one sibling sick, the other still
    * goes. UNIQUE constraint is on (schedule_id, date, person_id).
    */
   person_id: string;
-  /** YYYY-MM-DD — the day the rule WOULD have fired. The override is keyed by this. */
+  /** YYYY-MM-DD - the day the rule WOULD have fired. The override is keyed by this. */
   date: string;
   action: ActivityOverrideAction;
   /** Required for `'reschedule'`. NULL for `'cancel'`. */
@@ -477,7 +477,7 @@ export interface ActivityOverride {
 }
 
 export interface SchoolShiftAnchor {
-  /** Primary key — one row per person. */
+  /** Primary key - one row per person. */
   person_id: string;
   family_id: string;
   /** Monday of the anchor week. The UI normalizes to Monday before insert. */
@@ -487,12 +487,12 @@ export interface SchoolShiftAnchor {
   flip_interval_weeks: number;
   /**
    * Whether the shift actually rotates. False for a child with a single,
-   * never-changing timetable — the derivation skips the flip math and returns
+   * never-changing timetable - the derivation skips the flip math and returns
    * the anchor straight back.
    *
    * NOTE: this is NOT the lever for 1st/2nd graders. Those kids DO rotate
    * (their subjects flip A↔B weekly), they just never change their time of
-   * day — that's `fixed_time_band` below. Keep `is_alternating` true for them.
+   * day - that's `fixed_time_band` below. Keep `is_alternating` true for them.
    */
   is_alternating: boolean;
   /**
@@ -527,7 +527,7 @@ export type TimetableVariant = "A" | "B";
 /**
  * One editable bell schedule per family. Class/break lengths are uniform;
  * each band carries its own start time and the position of the big break
- * (veliki odmor). Concrete class times are computed from this — never stored
+ * (veliki odmor). Concrete class times are computed from this - never stored
  * on the timetable rows themselves.
  */
 export interface BellSchedule {
@@ -537,7 +537,7 @@ export interface BellSchedule {
   big_break_minutes: number;
   /** Cap on how many class slots a band's derived grid can have. */
   max_periods: number;
-  /** "HH:MM[:SS]" — Postgres TIME. */
+  /** "HH:MM[:SS]" - Postgres TIME. */
   morning_start: string;
   /** Big break falls after this class index (0 = no big break). */
   morning_big_break_after: number;
@@ -552,7 +552,7 @@ export interface BellSchedule {
 
 /**
  * A single subject in one class slot of one weekday, for one child and one
- * rota variant. No wall-clock time here — the resolver maps `period_index`
+ * rota variant. No wall-clock time here - the resolver maps `period_index`
  * onto the bell grid computed for the child's resolved band.
  */
 export interface SchoolTimetableEntry {
@@ -576,7 +576,7 @@ export type ListScope = "personal" | "family";
 export interface List {
   id: string;
   family_id: string;
-  /** Creator of the list — also used as the access guard for personal scope. */
+  /** Creator of the list - also used as the access guard for personal scope. */
   owner_id: string;
   /** Who last modified the list (metadata or items inside it). */
   updated_by_id: string | null;
@@ -629,7 +629,7 @@ export interface ListWithItems extends List {
 export interface NotificationPreferences {
   user_id: string;
   morning_enabled: boolean;
-  /** "HH:MM" or "HH:MM:SS" — Postgres TIME column */
+  /** "HH:MM" or "HH:MM:SS" - Postgres TIME column */
   morning_time: string;
   evening_enabled: boolean;
   evening_time: string;
@@ -690,7 +690,7 @@ export interface GoogleConnectionSafe {
   scopes: string | null;
   /**
    * True after a token refresh failed (e.g. the 7-day refresh-token expiry that
-   * applies while the OAuth app is in Google "Testing" mode) — the UI shows a
+   * applies while the OAuth app is in Google "Testing" mode) - the UI shows a
    * "Poveži ponovo" prompt until the member re-consents.
    */
   needs_reauth: boolean;
@@ -755,7 +755,7 @@ export type GoogleCalendarSharing = "none" | "private" | "family";
 
 /**
  * A calendar under a connected Google account (`google_calendars`), as shown in
- * the Settings picker. `sharing` controls whether — and to whom — this
+ * the Settings picker. `sharing` controls whether - and to whom - this
  * calendar's events are mirrored: 'none' = don't import, 'private' = only the
  * connecting member, 'family' = the whole family. The OAuth tokens stay on
  * `google_connections`; this row carries no secrets.

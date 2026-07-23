@@ -49,7 +49,7 @@ function memberName(member: Profile | undefined): string {
 }
 
 /**
- * The "Opcije" hub — a bottom sheet (drawer on mobile) that collects the
+ * The "Opcije" hub - a bottom sheet (drawer on mobile) that collects the
  * page's secondary controls. Instead of closing on every action, it navigates
  * in place (sheet stack): clicking an option swaps the sheet's content to that
  * editor with a "← Nazad" header that returns to the hub, and dismissing the
@@ -57,7 +57,7 @@ function memberName(member: Profile | undefined): string {
  * stacking.
  *
  * Member management (add / remove / colors / logins) lives on the Porodica
- * settings tab — the "Porodica i članovi" button just redirects there.
+ * settings tab - the "Porodica i članovi" button just redirects there.
  */
 export function ActivityOptionsSheet({
   open,
@@ -94,9 +94,9 @@ export function ActivityOptionsSheet({
     effectiveView.kind === "hub"
       ? "Opcije"
       : effectiveView.kind === "shift"
-        ? `Smena — ${memberName(focusedMember)}`
+        ? `Smena - ${memberName(focusedMember)}`
         : effectiveView.kind === "timetable"
-          ? `Raspored — ${memberName(focusedMember)}`
+          ? `Raspored - ${memberName(focusedMember)}`
           : "Satnica zvona";
 
   return (

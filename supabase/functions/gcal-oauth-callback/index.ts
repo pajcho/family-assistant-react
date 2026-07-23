@@ -145,7 +145,7 @@ async function verifyState(state: string, secret: string): Promise<{ uid: string
   }
 }
 
-/** Decode a JWT payload without verifying — used only to read the id_token we
+/** Decode a JWT payload without verifying - used only to read the id_token we
  *  just received over TLS straight from Google's token endpoint. */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {

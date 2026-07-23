@@ -40,14 +40,14 @@ export type ActivityFormDialogProps = {
 type View = { kind: "form" | ActivityFormViewKind };
 
 /**
- * The "Brzi unos" shell around <ActivityForm> — same architecture as
+ * The "Brzi unos" shell around <ActivityForm> - same architecture as
  * PaymentFormDialog: dialog-owned SheetStack (mobile "Više detalja" pushes
  * the Detalji sub-view into the same sheet), dialog-owned form state (so
- * the mobile close→reopen hop keeps what was typed — including the whole
+ * the mobile close→reopen hop keeps what was typed - including the whole
  * Termini rule list), reseed on open / entity / async-loaded rules or
  * participants, pinned mobile footer. Desktop renders fully expanded.
  *
- * When editing (and the dialog is open — the section fetches payments), the
+ * When editing (and the dialog is open - the section fetches payments), the
  * read-only "Plaćanja" block is slotted into the form so linked payments and
  * the per-month attendance breakdown show up on the activity's own side of
  * the link. It renders nothing for activities without linked payments.
@@ -73,7 +73,7 @@ export function ActivityFormDialog({
   const { reset: resetStack } = stack;
 
   // Reseed on every open, and while open whenever the edited activity (or
-  // its async-loaded rules / participants) changes — same semantics the form
+  // its async-loaded rules / participants) changes - same semantics the form
   // had when it owned the state.
   useEffect(() => {
     if (!open) return;

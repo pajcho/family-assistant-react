@@ -10,14 +10,14 @@ import { srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
 
 /**
- * Todoist-style week strip for the "Uskoro" tab. A fixed Mon–Sun weekday header
- * over a horizontally-swipeable pager of week rows — one week per page.
+ * Todoist-style week strip for the "Uskoro" tab. A fixed Mon-Sun weekday header
+ * over a horizontally-swipeable pager of week rows - one week per page.
  *
  * The pager is a `transform: translateX` carousel, NOT a native scroll container.
  * iOS WebKit ignores `scroll-snap-stop: always` during momentum scrolling
  * (https://bugs.webkit.org/show_bug.cgi?id=243582), so a hard fling on a snap
  * scroller skips several weeks at once. Driving the page index straight from the
- * touch gesture makes one swipe move exactly one week — never a runaway fling.
+ * touch gesture makes one swipe move exactly one week - never a runaway fling.
  *
  * It follows the list: `activeDay` (the day at the top of the scrolled list) is
  * marked with a filled circle, and the pager pages to that day's week, so
@@ -39,10 +39,10 @@ const FLICK_MIN_PX = 8;
 const AXIS_LOCK_PX = 6;
 
 export type WeekStripProps = {
-  /** Week-start Mondays (yyyy-MM-dd), ascending — one page each. */
+  /** Week-start Mondays (yyyy-MM-dd), ascending - one page each. */
   weeks: string[];
   today: string;
-  /** First selectable day (today — the Uskoro window now starts at today). */
+  /** First selectable day (today - the Uskoro window now starts at today). */
   from: string;
   /** The day currently at the top of the list (scroll-spy), or null. */
   activeDay: string | null;
@@ -55,11 +55,11 @@ export type WeekStripProps = {
   onSelectDay: (day: string) => void;
   /**
    * A day was picked in the month-picker popover. Unlike `onSelectDay`, the
-   * target may lie beyond the loaded window — the owner grows the horizon
+   * target may lie beyond the loaded window - the owner grows the horizon
    * first, then scrolls.
    */
   onJumpToDay: (day: string) => void;
-  /** Fired when the pager is swiped to its last week — load more. */
+  /** Fired when the pager is swiped to its last week - load more. */
   onReachEnd: () => void;
 };
 
@@ -153,7 +153,7 @@ export function WeekStrip({
     const track = trackRef.current;
     gesture.current = null;
     if (track) track.style.transition = ""; // re-enable the settle animation
-    if (!g || g.axis !== "x") return; // a tap or a vertical scroll — nothing to settle
+    if (!g || g.axis !== "x") return; // a tap or a vertical scroll - nothing to settle
 
     const dx = e.changedTouches[0].clientX - g.x;
     const width = track?.clientWidth ?? 1;
@@ -162,7 +162,7 @@ export function WeekStrip({
     const target = advance ? page + (dx < 0 ? 1 : -1) : page;
     const next = Math.min(Math.max(target, 0), lastIndex);
 
-    // Settle imperatively — covers the snap-back case (next === page) where no
+    // Settle imperatively - covers the snap-back case (next === page) where no
     // re-render happens to reset the inline transform left over from the drag.
     if (track) track.style.transform = restingTransform(next);
     goToPage(next);
@@ -192,13 +192,13 @@ export function WeekStrip({
 
   return (
     <div>
-      {/* Month label doubles as the "jump to a day" affordance — a popover
+      {/* Month label doubles as the "jump to a day" affordance - a popover
           mini-calendar bounded to [today, horizon cap]. */}
       <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={`${monthLabel} — izaberi dan`}
+            aria-label={`${monthLabel} - izaberi dan`}
             className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:bg-gray-700/60"
           >
             {monthLabel}
@@ -223,7 +223,7 @@ export function WeekStrip({
         </PopoverContent>
       </Popover>
 
-      {/* Fixed weekday header — every week shares the same Mon–Sun columns. */}
+      {/* Fixed weekday header - every week shares the same Mon-Sun columns. */}
       <div className="grid grid-cols-7 gap-1 px-1">
         {WEEKDAY_INITIALS.map((wd) => (
           <div
@@ -235,7 +235,7 @@ export function WeekStrip({
         ))}
       </div>
 
-      {/* Swipeable week pager — a clipped viewport over a translateX track. */}
+      {/* Swipeable week pager - a clipped viewport over a translateX track. */}
       <div
         className="overflow-hidden overscroll-x-contain touch-pan-y"
         onTouchStart={onTouchStart}
@@ -260,11 +260,11 @@ export function WeekStrip({
                   const isToday = day === today;
                   const isActive = day === activeDay;
                   const isPast = day < today;
-                  // Any day from today on is tappable — the list renders a section
+                  // Any day from today on is tappable - the list renders a section
                   // per day (empty ones too), so there's always somewhere to land.
                   // The green dot below the number signals which days have events.
                   const selectable = day >= from;
-                  // Humanized for screen readers: "ponedeljak, 20. jul — 6 stavki".
+                  // Humanized for screen readers: "ponedeljak, 20. jul - 6 stavki".
                   const spokenDay = format(date, "EEEE, d. MMMM", { locale: srLocale });
                   return (
                     <button
@@ -272,7 +272,7 @@ export function WeekStrip({
                       type="button"
                       disabled={!selectable}
                       aria-label={
-                        count > 0 ? `${spokenDay} — ${count} ${stavkeLabel(count)}` : spokenDay
+                        count > 0 ? `${spokenDay} - ${count} ${stavkeLabel(count)}` : spokenDay
                       }
                       onClick={() => onSelectDay(day)}
                       className={cn(

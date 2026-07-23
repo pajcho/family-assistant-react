@@ -46,7 +46,7 @@ import { cn } from "@/lib/cn";
 import { getDisplayName } from "@/utils/identity";
 
 export const Route = createFileRoute("/_app/activities")({
-  // `?edit=<activityId>` deep-links the edit form open — used by the
+  // `?edit=<activityId>` deep-links the edit form open - used by the
   // dashboard's "Izmeni aktivnost" so it lands here with the dialog already
   // showing instead of dumping the user on the page.
   validateSearch: (search: Record<string, unknown>): { edit?: string } => ({
@@ -69,9 +69,9 @@ function ActivitiesPage() {
   const [personFilter, setPersonFilter] = useState<Set<string>>(() => new Set());
   // A/B patterns are only meaningful when the person's rota actually
   // alternates. A child with a single, never-changing timetable
-  // (is_alternating=false) has nothing to alternate between — their
+  // (is_alternating=false) has nothing to alternate between - their
   // activities are coerced to fire every week. (1st/2nd graders DO alternate
-  // their rota — they just have a fixed morning time band — so they stay in.)
+  // their rota - they just have a fixed morning time band - so they stay in.)
   const peopleWithShift = useMemo(() => {
     const set = new Set<string>();
     for (const [personId, anchor] of anchorsByPersonId) {
@@ -88,17 +88,17 @@ function ActivitiesPage() {
   // School view controls.
   const [showSchool, setShowSchool] = useState(true);
   const [timetableMemberId, setTimetableMemberId] = useState<string | null>(null);
-  // Column to pre-select when the editor opens from a school-block click —
+  // Column to pre-select when the editor opens from a school-block click -
   // the block's shift variant + weekday. Null when opened any other way.
   const [timetableInitial, setTimetableInitial] = useState<{
     variant: TimetableVariant;
     day: number;
   } | null>(null);
-  // "Opcije" sheet — a self-contained hub; the timetable also opens directly
+  // "Opcije" sheet - a self-contained hub; the timetable also opens directly
   // from a grid click via `timetableMemberId`.
   const [optionsOpen, setOptionsOpen] = useState(false);
 
-  // Resolved time band per child for the displayed week — drives the sun/moon
+  // Resolved time band per child for the displayed week - drives the sun/moon
   // badge on the filter chips and the shift label in the options sheet.
   const timeBandByPerson = useMemo(() => {
     const map = new Map<string, SchoolShift>();
@@ -108,7 +108,7 @@ function ActivitiesPage() {
     return map;
   }, [anchorsByPersonId, weekStart]);
 
-  // Dialog state — mirror the events page pattern.
+  // Dialog state - mirror the events page pattern.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -117,7 +117,7 @@ function ActivitiesPage() {
   const [toDelete, setToDelete] = useState<Activity | null>(null);
 
   // Per-occurrence action menu (cancel / reschedule / restore / jump to edit).
-  // Opened by clicking a block in the grid — the previous behavior of
+  // Opened by clicking a block in the grid - the previous behavior of
   // jumping straight to the activity-edit dialog now lives inside this
   // menu as the "Izmeni aktivnost" option.
   const [actionBlock, setActionBlock] = useState<ResolvedActivityBlock | null>(null);
@@ -136,7 +136,7 @@ function ActivitiesPage() {
   const activitiesById = useMemo(() => new Map(activities.map((a) => [a.id, a])), [activities]);
   const peopleById = useMemo(() => new Map(members.map((p) => [p.id, p])), [members]);
 
-  // Person ids per activity — used by AllActivitiesList for the chip
+  // Person ids per activity - used by AllActivitiesList for the chip
   // strip and by the edit dialog to prefill `existingPersonIds`.
   const personIdsByActivity = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -359,7 +359,7 @@ function ActivitiesPage() {
 
       {!isLoading && activities.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Još uvek nema aktivnosti. Dodaj prvu — trening, časove, muzičku ili šta god ide redovno
+          Još uvek nema aktivnosti. Dodaj prvu - trening, časove, muzičku ili šta god ide redovno
           tokom nedelje.
         </div>
       ) : null}
@@ -459,7 +459,7 @@ function countSchedule(schedule: ReadonlyArray<{ activity_id: string }>): Map<st
 function formatWeekRange(weekStart: string): string {
   const start = parseISO(weekStart + "T12:00:00");
   const end = addDays(start, 6);
-  return `${format(start, "dd.MM", { locale: srLocale })} – ${format(end, "dd.MM.yyyy", {
+  return `${format(start, "dd.MM", { locale: srLocale })} - ${format(end, "dd.MM.yyyy", {
     locale: srLocale,
   })}`;
 }
@@ -498,7 +498,7 @@ function AllActivitiesList({
                     lastName: p.last_name,
                     email: null,
                   }) || "Bez imena"
-                : "—";
+                : "-";
             })
             .join(", ");
           const count = scheduleCountByActivity.get(activity.id) ?? 0;
@@ -541,7 +541,7 @@ function AllActivitiesList({
                     <span>
                       {" · "}
                       {activity.active_from ? formatDate(activity.active_from) : "…"}
-                      {" – "}
+                      {" - "}
                       {activity.active_to ? formatDate(activity.active_to) : "…"}
                     </span>
                   ) : null}

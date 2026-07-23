@@ -10,11 +10,11 @@ import { vapidPublicKeyToUint8Array } from "@/lib/pwa-config";
  * upserts it into `push_subscriptions` keyed by endpoint.
  *
  * If the server upsert fails we tear the browser subscription back down
- * — better to leave the device unsubscribed than to have the browser
+ * - better to leave the device unsubscribed than to have the browser
  * think we're subscribed while the server has no record.
  *
  * iOS gotchas:
- *   • Permission can only be requested *inside an installed PWA* —
+ *   • Permission can only be requested *inside an installed PWA* -
  *     calling `Notification.requestPermission()` from a regular Safari
  *     tab is a no-op (`{ default }` forever) on iPhones.
  *   • Subscription survives reinstalls so we always re-read from the SW
@@ -37,7 +37,7 @@ export interface NotificationsState {
   subscription: SerialisedPushSubscription | null;
   /** True while a subscribe/unsubscribe call is in flight */
   pending: boolean;
-  /** Last error from subscribe/unsubscribe — exposed so the UI can surface it */
+  /** Last error from subscribe/unsubscribe - exposed so the UI can surface it */
   error: string | null;
 }
 
@@ -46,7 +46,7 @@ export interface UseNotifications extends NotificationsState {
   subscribe: () => Promise<void>;
   /** Tear down the push subscription for this device only */
   unsubscribe: () => Promise<void>;
-  /** Fire a local notification via the SW — useful to sanity-check the SW + permission */
+  /** Fire a local notification via the SW - useful to sanity-check the SW + permission */
   sendLocalTest: () => Promise<void>;
 }
 
@@ -154,7 +154,7 @@ export function useNotifications(): UseNotifications {
         // Delete the server row before tearing down the browser
         // subscription. RLS on `push_subscriptions` lets users delete
         // only their own rows. We tolerate a delete failure (e.g.
-        // offline) — the cron will eventually drop the row when it
+        // offline) - the cron will eventually drop the row when it
         // sees 410 Gone.
         await supabase.from("push_subscriptions").delete().eq("endpoint", existing.endpoint);
         await existing.unsubscribe();
@@ -171,7 +171,7 @@ export function useNotifications(): UseNotifications {
     if (!supported) return;
     const reg = await navigator.serviceWorker.ready;
     await reg.showNotification("Test obaveštenja", {
-      body: "Ovo je lokalno obaveštenje — proverava SW i dozvolu.",
+      body: "Ovo je lokalno obaveštenje - proverava SW i dozvolu.",
       tag: "local-test",
       data: { url: "/" },
     });

@@ -47,14 +47,14 @@ import { getDisplayName } from "@/utils/identity";
  * account dropdown (theme / settings / logout). No bottom bar.
  *
  * Mobile + tablet (< lg): top header is logo + the account dropdown. Navigation
- * lives in a fixed bottom tab bar — Danas · Uskoro · Plaćanja · Liste · Više.
+ * lives in a fixed bottom tab bar - Danas · Uskoro · Plaćanja · Liste · Više.
  * "Više" opens a bottom SHEET (vaul drawer) with a tile grid to the remaining
- * pages (Aktivnosti / Događaji / Budžet / Rođendani + Podešavanja) — roomier
+ * pages (Aktivnosti / Događaji / Budžet / Rođendani + Podešavanja) - roomier
  * tap targets than the old dropup menu, and the trigger stays highlighted
  * while you're on any of those pages.
  *
  * The breakpoint is `lg` (1024px), not `md`: the desktop row carries 7 items now
- * (Danas + Uskoro replaced the single dashboard link), which is tight at 768px —
+ * (Danas + Uskoro replaced the single dashboard link), which is tight at 768px -
  * so tablets keep the bottom bar.
  *
  * The bottom bar uses `padding: env(safe-area-inset-bottom)` so it doesn't
@@ -75,7 +75,7 @@ const DESKTOP_NAV_ITEMS: readonly NavItem[] = [
   { to: "/birthdays", label: "Rođendani", icon: CakeIcon },
 ];
 
-// Bottom bar primaries (< lg) — the four highest-frequency destinations
+// Bottom bar primaries (< lg) - the four highest-frequency destinations
 // (iOS-standard 5-slot bar with "Više" as the fifth); the rest live in the
 // "Više" sheet.
 const BOTTOM_PRIMARY_ITEMS: readonly NavItem[] = [
@@ -206,7 +206,7 @@ function AppMenu() {
         <button
           type="button"
           aria-label="Korisnički meni"
-          // Avatar doubles as the dropdown trigger — visually distinct from
+          // Avatar doubles as the dropdown trigger - visually distinct from
           // a hamburger so the affordance reads as "your account / menu".
           // The chevron is the explicit "this opens a dropdown" hint and
           // sits next to the name on wider viewports where there's room.
@@ -238,7 +238,7 @@ function AppMenu() {
         <div className="px-2 py-1.5">
           <ThemePickerRow mode={mode} onSelect={setMode} />
         </div>
-        {/* Page links aren't repeated here — the bottom bar (Danas/Uskoro/Liste
+        {/* Page links aren't repeated here - the bottom bar (Danas/Uskoro/Liste
             + the "Više" dropup) covers navigation below lg, and the top row
             covers it at lg+. */}
         <DropdownMenuSeparator />
@@ -337,7 +337,7 @@ function MobileBottomNav() {
       // `pb-[env(safe-area-inset-bottom)]` keeps the row above the iPhone
       // home indicator when launched from the home screen as a PWA. Opaque
       // background (no backdrop-blur) for the same iOS repaint reason as the
-      // top header — a fixed `backdrop-filter` bar flickers during scroll.
+      // top header - a fixed `backdrop-filter` bar flickers during scroll.
       className="fixed right-0 bottom-0 left-0 z-30 border-t border-gray-200/80 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-gray-700/80 dark:bg-gray-800"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5 pb-1.5">
@@ -357,7 +357,7 @@ function MobileBottomNav() {
 }
 
 /**
- * "Više" — a bottom sheet (vaul drawer) with a tile grid to the remaining
+ * "Više" - a bottom sheet (vaul drawer) with a tile grid to the remaining
  * pages. The trigger looks like a bottom-nav item and stays highlighted while
  * the current route is one of those pages, mirroring Todoist's "Browse".
  */

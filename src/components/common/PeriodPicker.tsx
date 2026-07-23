@@ -24,7 +24,7 @@ export type PeriodPickerShellProps = {
   onNext: () => void;
   prevAriaLabel: string;
   nextAriaLabel: string;
-  /** Center element — a plain label or a popover trigger. */
+  /** Center element - a plain label or a popover trigger. */
   children: ReactNode;
   className?: string;
 };
@@ -91,7 +91,7 @@ export type MonthPickerProps = {
   allOptionLabel?: string;
   /** Label of the back-to-current-month button. */
   resetLabel?: string;
-  /** Inclusive "YYYY-MM" bounds — arrows/grid can't leave the range (e.g. birthdays: current year only). */
+  /** Inclusive "YYYY-MM" bounds - arrows/grid can't leave the range (e.g. birthdays: current year only). */
   minMonth?: string;
   maxMonth?: string;
   className?: string;
@@ -109,7 +109,7 @@ export function MonthPicker({
   const [open, setOpen] = useState(false);
   const current = currentMonthYYYYMM();
   const isAll = value === ALL_MONTHS;
-  // Arrows step from the current month while in "all" mode — there's no
+  // Arrows step from the current month while in "all" mode - there's no
   // anchored month to step from, and landing next to today is what you want.
   const baseMonth = isAll ? current : value;
   const [gridYear, setGridYear] = useState<number>(() => Number(baseMonth.slice(0, 4)));

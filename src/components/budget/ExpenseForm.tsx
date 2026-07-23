@@ -32,7 +32,7 @@ import { cn } from "@/lib/cn";
 
 /** Submit shape for the quick-add / edit expense form. */
 export type ExpenseFormPayload = {
-  /** Always RSD — foreign entries are converted here, at submit time. */
+  /** Always RSD - foreign entries are converted here, at submit time. */
   amount: number;
   /** What the member entered in ("RSD" | "EUR"). */
   currency: string;
@@ -56,7 +56,7 @@ export type ExpenseFormState = {
   link: PaymentLinkValue | null;
 };
 
-/** Mobile sub-views the form's picker rows can open — see ExpenseFormDialog. */
+/** Mobile sub-views the form's picker rows can open - see ExpenseFormDialog. */
 export type ExpenseFormViewKind = "category" | "details";
 
 function initialLink(expense: Expense | null | undefined): PaymentLinkValue | null {
@@ -87,7 +87,7 @@ export function initialExpenseFormState(
 }
 
 /**
- * Optional single-select person chips ("Za koga") — shared by the desktop
+ * Optional single-select person chips ("Za koga") - shared by the desktop
  * layout and the mobile Detalji sub-sheet. Self-fetches the roster; renders
  * nothing for single-member families with no one to pick.
  */
@@ -143,7 +143,7 @@ export function ExpensePersonSelect({
 }
 
 export type ExpenseFormProps = {
-  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
   form: ExpenseFormState;
   setForm: Dispatch<SetStateAction<ExpenseFormState>>;
   /** Dialog-owned currency control (same reason). */
@@ -164,7 +164,7 @@ export type ExpenseFormProps = {
    */
   onRequestDelete?: () => void;
   /**
-   * Autofocus the amount once per dialog open — the dialog gates it so a
+   * Autofocus the amount once per dialog open - the dialog gates it so a
    * return from a sub-view (which remounts the form) doesn't re-pop the
    * keyboard mid-entry.
    */
@@ -177,12 +177,12 @@ export type ExpenseFormProps = {
  * a big autofocused amount field with the numeric keypad, then a tappable grid
  * of category chips, then "Dodaj".
  *
- * Mobile (<sm) — the "Brzi unos" layout: Iznos, Kategorija grid and Datum
+ * Mobile (<sm) - the "Brzi unos" layout: Iznos, Kategorija grid and Datum
  * (danas + Juče/Prekjuče chips) stay inline; Za koga, Beleška and Poveži sa
  * move behind a "Više detalja" row into a sub-view. The Odustani/Dodaj bar
  * is pinned by the dialog below the scroll area.
  *
- * Desktop (sm+) — the classic fully-expanded layout, unchanged.
+ * Desktop (sm+) - the classic fully-expanded layout, unchanged.
  */
 export function ExpenseForm({
   form,
@@ -336,7 +336,7 @@ export function ExpenseForm({
   );
 
   if (!isDesktop) {
-    // ——— Mobile: "Brzi unos" ———
+    // --- Mobile: "Brzi unos" ---
     const selectedCategory = form.category_id
       ? categories.find((c) => c.id === form.category_id)
       : null;
@@ -404,21 +404,21 @@ export function ExpenseForm({
     );
   }
 
-  // ——— Desktop: classic fully-expanded layout (unchanged) ———
+  // --- Desktop: classic fully-expanded layout (unchanged) ---
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {/* Scan a fiscal receipt instead of typing (add mode only). */}
       {scanButton}
 
-      {/* Amount — the star of the quick-add. Big, autofocused, numeric keypad.
+      {/* Amount - the star of the quick-add. Big, autofocused, numeric keypad.
           RSD stays the default; picking EUR reveals the NBS-rate row (what gets
           STORED as `amount` is always the converted RSD). */}
       {amountField}
 
-      {/* Category — tappable grid of colored chips. */}
+      {/* Category - tappable grid of colored chips. */}
       {categoryField}
 
-      {/* Date — defaults to danas. */}
+      {/* Date - defaults to danas. */}
       <div className="space-y-2">
         <Label htmlFor="expense-date">Datum</Label>
         <DatePicker
@@ -429,7 +429,7 @@ export function ExpenseForm({
         />
       </div>
 
-      {/* Person — optional single-select chips. */}
+      {/* Person - optional single-select chips. */}
       <ExpensePersonSelect
         value={form.person_id}
         onChange={(person_id) => setForm((s) => ({ ...s, person_id }))}

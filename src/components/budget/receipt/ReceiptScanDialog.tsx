@@ -93,13 +93,13 @@ export default function ReceiptScanDialog({
           return;
         }
       } catch {
-        // Pre-check failed — proceed with the normal import path.
+        // Pre-check failed - proceed with the normal import path.
       }
     }
     importReceipt.mutate(url, {
       onSuccess: async (data) => {
-        // Recognize an already-imported receipt right after parsing — before the
-        // preview — so the user sees "Račun je već dodat" immediately instead of
+        // Recognize an already-imported receipt right after parsing - before the
+        // preview - so the user sees "Račun je već dodat" immediately instead of
         // only after tapping Save. Keyed on the SUF receipt_url (unique index).
         // The save-time unique-violation handler below stays as a backstop
         // (covers a race, or a null familyId / failed pre-check here).
@@ -112,7 +112,7 @@ export default function ReceiptScanDialog({
               return;
             }
           } catch {
-            // Pre-check failed — fall through to the preview; the DB index still guards.
+            // Pre-check failed - fall through to the preview; the DB index still guards.
           }
         }
         setReceipt(data);

@@ -10,7 +10,7 @@ import { useProfile } from "@/hooks/useProfile";
  * as one big set per family so the week view doesn't need to fan out N
  * queries (one per activity).
  *
- * Writes are done via `replaceActivitySchedule()` — the form sends the full
+ * Writes are done via `replaceActivitySchedule()` - the form sends the full
  * new ruleset for an activity, the mutation deletes the existing rules and
  * inserts the new ones inside a single Supabase round-trip. Brief
  * inconsistency window is acceptable for MVP (no concurrent edits expected).

@@ -25,7 +25,7 @@ import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 import { formatDate, srLocale } from "@/utils/date";
 
 /**
- * `/birthdays` — list + CRUD for the family's birthdays.
+ * `/birthdays` - list + CRUD for the family's birthdays.
  *
  * Direct port of `pages/birthdays/index.vue`. Data and realtime are owned by
  * the Phase 2C hooks; the sort by "days until next birthday" lives here
@@ -50,10 +50,10 @@ function BirthdaysPage() {
   const createMutation = useCreateBirthday();
   const updateMutation = useUpdateBirthday();
 
-  // Filters — the shared control set: a month picker CLAMPED to the current
+  // Filters - the shared control set: a month picker CLAMPED to the current
   // year (birthdays repeat annually, so "Avg" means "this year's August"),
   // defaulting to "Svi rođendani"; a text search; and a "Sakrij prošle
-  // rođendane" toggle — ON by default, so the list opens with only the
+  // rođendane" toggle - ON by default, so the list opens with only the
   // upcoming ones.
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
@@ -62,14 +62,14 @@ function BirthdaysPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
 
-  // Detail popup — a row tap opens it; every action lives inside.
+  // Detail popup - a row tap opens it; every action lives inside.
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // "Organizuj proslavu" — the event form opens prefilled with the person's
+  // "Organizuj proslavu" - the event form opens prefilled with the person's
   // next birthday; the created event carries `birthday_id` so the row can show
   // the celebration chip. The same dialog re-opens an existing celebration.
   const [organizingFor, setOrganizingFor] = useState<Birthday | null>(null);
@@ -286,7 +286,7 @@ function BirthdaysPage() {
                   const celebration = celebrationByBirthday?.get(b.id) ?? null;
                   return (
                     <li key={b.id}>
-                      {/* Compact tappable row — every action lives in the
+                      {/* Compact tappable row - every action lives in the
                           detail popup the tap opens (payments pattern). */}
                       <button
                         type="button"
@@ -356,7 +356,7 @@ function BirthdaysPage() {
         defaults={
           organizingFor
             ? {
-                name: `Proslava — ${organizingFor.name}`,
+                name: `Proslava - ${organizingFor.name}`,
                 date: format(nextBirthdayDate(organizingFor.birth_date), "yyyy-MM-dd"),
               }
             : undefined

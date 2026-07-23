@@ -14,8 +14,8 @@ import { useProfile } from "@/hooks/useProfile";
  *
  * Activities and birthdays come from the existing family-wide caches (they're
  * few and always fetched wholesale). Events can't lean on `useEventsList` the
- * same way — its caches are windowed by `[from, to]`, and a linked event may
- * sit outside whatever window happens to be warm — so the hook batch-fetches
+ * same way - its caches are windowed by `[from, to]`, and a linked event may
+ * sit outside whatever window happens to be warm - so the hook batch-fetches
  * exactly the linked event ids in one query instead.
  */
 
@@ -25,7 +25,7 @@ export interface PaymentLinkTarget {
   kind: PaymentLinkKind;
   id: string;
   name: string;
-  /** The event's date (YYYY-MM-DD) — absent for activities, which have no single date. */
+  /** The event's date (YYYY-MM-DD) - absent for activities, which have no single date. */
   date?: string;
 }
 
@@ -39,7 +39,7 @@ export interface UsePaymentLinkTargetsResult {
   /**
    * Resolve one payment's link to its display target. Returns `null` when the
    * payment has no link OR the target hasn't loaded yet (callers just skip the
-   * row — it appears on the next render).
+   * row - it appears on the next render).
    */
   targetFor: (
     payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id">,
@@ -47,7 +47,7 @@ export interface UsePaymentLinkTargetsResult {
 }
 
 /**
- * Batch variant — mount ONCE per surface (page / dialog) and resolve every
+ * Batch variant - mount ONCE per surface (page / dialog) and resolve every
  * row through `targetFor`, instead of one hook per row.
  */
 export function usePaymentLinkTargets(

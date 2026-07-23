@@ -13,14 +13,14 @@ import {
  * The app-wide "sub-modal" convention: a detail sheet NEVER opens a second
  * overlay on top of itself. Drilling in (options menu, history, reschedule,
  * confirm…) pushes a view onto this stack and the sheet swaps its content in
- * place — one overlay, arbitrarily deep. Every non-root view shows a "←"
+ * place - one overlay, arbitrarily deep. Every non-root view shows a "←"
  * back arrow in its header ({@link SheetStackHeader}).
  *
  * Dismissing a sub-view (swipe-down, tap outside, Escape) goes BACK one level
  * instead of closing the whole flow:
  *   - desktop Dialog: the dismissal is swallowed and the stack pops in place;
  *   - mobile Drawer: the close is accepted (vaul has already committed to the
- *     exit — refusing it strands the drag transform), and the sheet reopens
+ *     exit - refusing it strands the drag transform), and the sheet reopens
  *     one level up after a short beat: the sub-view drops away and the
  *     previous view immediately rises back, without waiting out the full
  *     exit + enter animations back to back.
@@ -46,16 +46,16 @@ export type SheetStack<V> = {
   pop: () => void;
   /** Clear back to the root view (e.g. when the subject entity changes). */
   reset: () => void;
-  /** Feed this to <ResponsiveDialog open> — false while the mobile close→reopen hop runs. */
+  /** Feed this to <ResponsiveDialog open> - false while the mobile close→reopen hop runs. */
   dialogOpen: boolean;
   /**
-   * Feed this to <ResponsiveDialog key> — bumped on every mobile close→reopen
+   * Feed this to <ResponsiveDialog key> - bumped on every mobile close→reopen
    * hop so the drawer remounts fresh. Without it vaul reopens the SAME node
    * with the dismissal drag's translate still inlined and the sheet hangs
    * half-off-screen.
    */
   dialogKey: number;
-  /** Feed this to <ResponsiveDialog onOpenChange> — routes dismissals through the stack. */
+  /** Feed this to <ResponsiveDialog onOpenChange> - routes dismissals through the stack. */
   handleOpenChange: (next: boolean) => void;
 };
 
@@ -69,7 +69,7 @@ export function useSheetStack<V>(
   const [suspended, setSuspended] = useState(false);
   const [epoch, setEpoch] = useState(0);
   const reopenTimer = useRef<number | null>(null);
-  // Roots are often object literals recreated per render — keep the latest in
+  // Roots are often object literals recreated per render - keep the latest in
   // a ref so reset/effects never loop on identity.
   const rootRef = useRef(root);
   rootRef.current = root;
@@ -81,7 +81,7 @@ export function useSheetStack<V>(
     }
   };
 
-  // The owner closed (or unmounted the subject) — next open starts at the
+  // The owner closed (or unmounted the subject) - next open starts at the
   // root. Bail out (keep state identity) when there's nothing to reset: a
   // needless re-render here lands exactly while the drawer's exit animation
   // is starting, and interrupting that leaves Radix waiting on an
@@ -105,7 +105,7 @@ export function useSheetStack<V>(
     setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
   }, []);
   // Same bail-out as above: `reset()` runs from subject-change effects on
-  // every render cycle where the entity flips (including to null on close) —
+  // every render cycle where the entity flips (including to null on close) -
   // it must not schedule re-renders when the stack is already at the root.
   const reset = useCallback(() => {
     setStack((s) => (s.length > 1 ? [rootRef.current] : s));
@@ -119,7 +119,7 @@ export function useSheetStack<V>(
     if (stack.length > 1) {
       if (isDesktop) {
         // Radix Dialog in controlled mode simply stays open when we don't
-        // flip the prop — swap the content in place.
+        // flip the prop - swap the content in place.
         pop();
         return;
       }
@@ -158,7 +158,7 @@ export type SheetStackHeaderProps = {
   description?: ReactNode;
   /**
    * Visually hide the header (detail roots that lead with a hero row instead).
-   * The back arrow is never rendered in this state — an invisible but
+   * The back arrow is never rendered in this state - an invisible but
    * focusable button would trap keyboard users.
    */
   srOnly?: boolean;

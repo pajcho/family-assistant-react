@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Drill-down for one row of the "Po kategorijama" breakdown: this month's
- * expenses in the category, a 6-month mini trend, and — for real categories —
+ * expenses in the category, a 6-month mini trend, and - for real categories -
  * the "Postavi/Izmeni limit" editor with a suggestion from the recent average.
  * `categoryId: null` is the "Bez kategorije" bucket (no limit editor).
  */
@@ -72,7 +72,7 @@ export function CategoryDetailSheet({
   }, [expenses, row]);
   const total = useMemo(() => catExpenses.reduce((sum, e) => sum + e.amount, 0), [catExpenses]);
 
-  // Six months ending at `month` — the SAME range/key the page's BudgetTrend
+  // Six months ending at `month` - the SAME range/key the page's BudgetTrend
   // uses, so this piggybacks on an already-cached query.
   const trendMonths = useMemo(
     () => Array.from({ length: 6 }, (_, i) => shiftMonth(month, i - 5)),
@@ -95,7 +95,7 @@ export function CategoryDetailSheet({
   const trendMax = Math.max(...trend.map((t) => t.total), 1);
 
   // Suggestion = average of the previous months that had any spend, rounded
-  // to the nearest 500 — a sane starting limit, not a prescription.
+  // to the nearest 500 - a sane starting limit, not a prescription.
   const suggestion = useMemo(() => {
     const prior = trend.filter((t) => t.month !== month && t.total > 0);
     if (prior.length === 0) return null;
@@ -247,7 +247,7 @@ export function CategoryDetailSheet({
               </div>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Troškovi bez kategorije — dodeli kategoriju izmenom pojedinačnog troška.
+                Troškovi bez kategorije - dodeli kategoriju izmenom pojedinačnog troška.
               </p>
             )}
 

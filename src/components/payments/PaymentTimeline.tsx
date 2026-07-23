@@ -14,12 +14,12 @@ import { recurrenceLabel } from "@/utils/payment";
 /**
  * The /payments list, rendered as a "Uskoro"-style timeline: a "Prekoračeno"
  * section for overdue unpaid bills up top, then everything else grouped under a
- * shared day header (reuses `AgendaDateHeader`). Rows are compact and tappable —
+ * shared day header (reuses `AgendaDateHeader`). Rows are compact and tappable -
  * every action lives in the detail popup the tap opens, so no row carries inline
  * buttons. Resolved / paused / upcoming occurrences render dimmed in place and
  * are hidden by the "Sakrij plaćena" toggle upstream.
  *
- * `flat` (search mode) drops the grouping and the overdue split — results span
+ * `flat` (search mode) drops the grouping and the overdue split - results span
  * every month, newest first, so day headers would only add noise.
  */
 export type PaymentTimelineProps = {
@@ -81,7 +81,7 @@ function chipFor(
   // live payment row
   if (item.is_paid) return { label: "Plaćeno", tone: "emerald" };
   if (item.is_paused) return { label: "Pauzirano", tone: "slate" };
-  // Suppressed inside the "Prekoračeno" section — the header already says it.
+  // Suppressed inside the "Prekoračeno" section - the header already says it.
   if (!inOverdue && isOverdue(item.due_date)) return { label: "Prekoračeno", tone: "red" };
   return null;
 }
@@ -136,7 +136,7 @@ function PaymentTimelineRow({
         )}
       >
         {/* Left column (name + meta) and right column (amount, € original,
-            status chip — all pinned to the row's right edge) are siblings, so
+            status chip - all pinned to the row's right edge) are siblings, so
             the annotation can never push the meta row down and the chip stays
             exactly where it always was: bottom right. */}
         <span className="flex items-start gap-2">

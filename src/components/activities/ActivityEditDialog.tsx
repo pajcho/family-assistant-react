@@ -14,11 +14,11 @@ import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import type { Activity } from "@/types/database";
 
 /**
- * Self-contained "edit activity" dialog — the edit counterpart of
+ * Self-contained "edit activity" dialog - the edit counterpart of
  * `ActivityAddDialog`. Owns the roster, shift anchors, the activity's existing
  * termini + učesnici (prefill), and the three-write update flow (activity +
  * schedule rules + participants). Lets the dashboard's agenda detail popups open
- * the full edit form INLINE instead of deep-linking to /activities — the
+ * the full edit form INLINE instead of deep-linking to /activities - the
  * schedule/participants queries are already warm in the cache there (`useAgenda`
  * loads them), so there's no extra fetch and the form opens prefilled at once.
  */
@@ -43,7 +43,7 @@ export function ActivityEditDialog({
 
   const [error, setError] = useState<string | null>(null);
 
-  // A/B week patterns only matter for children whose rota actually alternates —
+  // A/B week patterns only matter for children whose rota actually alternates -
   // mirrors the /activities page + ActivityAddDialog derivation.
   const peopleWithShift = useMemo(() => {
     const set = new Set<string>();

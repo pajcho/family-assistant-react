@@ -10,7 +10,7 @@ import { useProfile } from "@/hooks/useProfile";
  * Mirrors `useActivityParticipants`, with two differences:
  *   - an event may have ZERO participants (family-wide event), so writes
  *     accept an empty set;
- *   - the write isn't its own mutation hook — `useCreateEvent` /
+ *   - the write isn't its own mutation hook - `useCreateEvent` /
  *     `useUpdateEvent` call `replaceEventParticipants` so a single submit
  *     persists the event and its assignees together.
  */
@@ -79,7 +79,7 @@ export function useEventParticipants(): UseEventParticipantsResult {
 /**
  * Replace the full set of assignees for one event: delete the existing rows,
  * then insert the new ones in a single round-trip. An empty `personIds`
- * simply clears the assignment. Not a hook — called from the event mutations
+ * simply clears the assignment. Not a hook - called from the event mutations
  * (and reusable by Phase 2's payments) so the caller already holds `familyId`.
  */
 export async function replaceEventParticipants(

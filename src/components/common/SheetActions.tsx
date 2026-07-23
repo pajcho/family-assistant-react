@@ -16,11 +16,11 @@ import { cn } from "@/lib/cn";
 
 /**
  * Shared "more actions" plumbing for detail sheets (payments, events,
- * birthdays): ONE item list feeds both surfaces — the desktop footer menu
+ * birthdays): ONE item list feeds both surfaces - the desktop footer menu
  * and the mobile "Opcije" sub-view rendered INSIDE the same sheet.
  *
  * The sub-view (not a second drawer!) is deliberate: two independent vaul
- * roots fight over the body scroll lock — closing the top one unlocks the
+ * roots fight over the body scroll lock - closing the top one unlocks the
  * page under the still-open bottom one and kills its drag-to-dismiss.
  */
 export type SheetAction = {
@@ -45,7 +45,7 @@ export function SheetActionsMobileTrigger({
 }: {
   items: SheetAction[];
   disabled?: boolean;
-  /** Mobile tap — the owning sheet switches to its "Opcije" sub-mode. */
+  /** Mobile tap - the owning sheet switches to its "Opcije" sub-mode. */
   onOpenActions: () => void;
 }) {
   const isDesktop = useIsDesktop();
@@ -112,7 +112,7 @@ export function SheetActionsMenu({
   );
 }
 
-/** The "Opcije" sub-view body — big, thumb-friendly rows. */
+/** The "Opcije" sub-view body - big, thumb-friendly rows. */
 export function SheetActionList({
   items,
   disabled = false,

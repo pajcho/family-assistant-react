@@ -30,7 +30,7 @@ export type EventFormDialogProps = {
   event: Event | null;
   /** Assignees of the event being edited; empty/omitted when adding. */
   initialPersonIds?: string[];
-  /** ADD-mode prefill (e.g. "Organizuj proslavu") — see EventFormDefaults. */
+  /** ADD-mode prefill (e.g. "Organizuj proslavu") - see EventFormDefaults. */
   defaults?: EventFormDefaults;
   /** Dialog title override; falls back to Dodaj/Izmeni događaj. */
   title?: string;
@@ -43,7 +43,7 @@ export type EventFormDialogProps = {
 type View = { kind: "form" | EventFormViewKind };
 
 /**
- * The "Brzi unos" shell around <EventForm> — same architecture as
+ * The "Brzi unos" shell around <EventForm> - same architecture as
  * PaymentFormDialog: dialog-owned SheetStack (mobile "Više detalja" pushes
  * the Detalji sub-view into the same sheet), dialog-owned form state (so the
  * mobile close→reopen hop keeps what was typed), reseed on open / entity /

@@ -9,7 +9,7 @@ import type { ListWithItems } from "@/types/database";
  * Both formats include item name, status, created-at, and completed-at so
  * the export is useful both as a human-readable snapshot (Markdown) and as
  * a spreadsheet-friendly archive (CSV). Files are triggered via a Blob URL
- * — no server round-trip, no temp storage.
+ * - no server round-trip, no temp storage.
  *
  * CSV notes
  * ---------
@@ -23,7 +23,7 @@ import type { ListWithItems } from "@/types/database";
  *
  * Markdown notes
  * --------------
- * • GitHub-flavoured task list — pastes into Issues / PRs / Notion / Slack
+ * • GitHub-flavoured task list - pastes into Issues / PRs / Notion / Slack
  *   with checkboxes intact.
  * • Active and completed sections are split so the active to-do list is
  *   easy to scan; completed items carry their finished-at timestamp.
@@ -34,7 +34,7 @@ const SCOPE_LABEL: Record<ListWithItems["scope"], string> = {
   personal: "Lično",
 };
 
-/** DD.MM.YYYY HH:mm or "" — used in both export formats. */
+/** DD.MM.YYYY HH:mm or "" - used in both export formats. */
 function formatStamp(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = parseISO(iso);
@@ -74,7 +74,7 @@ function slugify(name: string): string {
  * per GFM's lazy-continuation rules. Two spaces lines the content up
  * with the start of the task text (column 3, after `- `).
  *
- * We do not transform the markdown beyond indentation — any inline
+ * We do not transform the markdown beyond indentation - any inline
  * formatting (bold/italic/links) survives untouched, so the export
  * stays faithful to what the user typed in the popup.
  */
@@ -125,7 +125,7 @@ function buildMarkdown(list: ListWithItems): string {
   } else {
     for (const item of completed) {
       const stamp = formatStamp(item.completed_at);
-      lines.push(stamp ? `- [x] ${item.name} — završeno ${stamp}` : `- [x] ${item.name}`);
+      lines.push(stamp ? `- [x] ${item.name} - završeno ${stamp}` : `- [x] ${item.name}`);
       if (item.description && item.description.trim()) {
         lines.push(...indentDescription(item.description));
       }
@@ -142,7 +142,7 @@ function csvField(value: string): string {
 }
 
 function buildCsv(list: ListWithItems): string {
-  // Per-list metadata header — two-column key/value rows above the
+  // Per-list metadata header - two-column key/value rows above the
   // items table. CSV doesn't have a "metadata section" standard, but
   // every common viewer (Excel, Numbers, LibreOffice) is happy with a
   // few extra rows above the table proper, and parsers that read by
@@ -177,7 +177,7 @@ function buildCsv(list: ListWithItems): string {
 /**
  * Trigger a download for a string blob. We create the URL, click a
  * synthetic anchor, then revoke the URL so we don't keep references
- * around — same dance used by every "save text as file" snippet.
+ * around - same dance used by every "save text as file" snippet.
  */
 function downloadBlob(content: string, filename: string, mime: string): void {
   const blob = new Blob([content], { type: `${mime};charset=utf-8` });
@@ -204,5 +204,5 @@ export function exportListAsCsv(list: ListWithItems): void {
   downloadBlob(buildCsv(list), filename, "text/csv");
 }
 
-// Exposed for unit tests — pure transforms with no DOM side effects.
+// Exposed for unit tests - pure transforms with no DOM side effects.
 export const __testables = { buildMarkdown, buildCsv, slugify, csvField };

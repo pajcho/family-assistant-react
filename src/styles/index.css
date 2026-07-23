@@ -4,11 +4,11 @@
 
 /* Targets devices whose primary pointer is a mouse / trackpad (`pointer:
    fine`). Use it to gate UI that only makes sense with hover + precise
-   clicks — e.g. the inline edit/delete icons on list rows, which we hide
+   clicks - e.g. the inline edit/delete icons on list rows, which we hide
    on touch devices since swipe gestures cover the same actions there. */
 @custom-variant pointer-fine (@media (pointer: fine));
 
-/* shadcn/ui design tokens — neutral base, v4 @theme inline pattern */
+/* shadcn/ui design tokens - neutral base, v4 @theme inline pattern */
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(0 0% 3.9%);
@@ -16,7 +16,7 @@
   --card-foreground: hsl(0 0% 3.9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(0 0% 3.9%);
-  /* Primary = Tailwind blue-600 — matches the original Nuxt app's button color */
+  /* Primary = Tailwind blue-600 - matches the original Nuxt app's button color */
   --primary: hsl(217.2 91.2% 59.8%);
   --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(0 0% 96.1%);
@@ -35,11 +35,11 @@
 
 .dark {
   /* Dark surfaces aligned with Tailwind gray-900/800/700 so cards sit
-     LIGHTER than the body — matches the original Nuxt visual hierarchy
+     LIGHTER than the body - matches the original Nuxt visual hierarchy
      (which uses bg-gray-900 for body, bg-gray-800 for cards). */
   --background: hsl(222 47% 11%); /* gray-900 */
   --foreground: hsl(220 14% 96%); /* gray-100 */
-  --card: hsl(217 33% 17%); /* gray-800 — lighter than body */
+  --card: hsl(217 33% 17%); /* gray-800 - lighter than body */
   --card-foreground: hsl(220 14% 96%);
   --popover: hsl(217 33% 17%); /* gray-800 */
   --popover-foreground: hsl(220 14% 96%);
@@ -86,7 +86,7 @@
 }
 
 @layer base {
-  /* Tailwind v4 dropped the implicit border-gray-200 default — re-add it
+  /* Tailwind v4 dropped the implicit border-gray-200 default - re-add it
      using our --border token so shadcn's bare `border` utility renders
      against the design system instead of currentColor. */
   *,
@@ -112,7 +112,7 @@
   html,
   body {
     /* `overflow-x: clip` (not -hidden) contains horizontal bleed without
-       turning the document into an overflow scroll container — `-hidden`
+       turning the document into an overflow scroll container - `-hidden`
        does, which breaks `position: sticky` descendants (the Uskoro week
        strip). `clip` still clips the x-axis and leaves vertical document
        scrolling untouched. */
@@ -138,7 +138,7 @@
 
   /* When useTheme.setMode flips the dark class, it briefly stamps this
      class on <html> so the global transition-colors rule above doesn't
-     fire — eliminates the cascading flicker you'd otherwise see as every
+     fire - eliminates the cascading flicker you'd otherwise see as every
      element transitions independently over 200ms. */
   html.theme-switching,
   html.theme-switching *,

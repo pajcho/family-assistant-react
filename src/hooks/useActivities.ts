@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Activities data hooks — definition layer only. Schedule rules live in
+ * Activities data hooks - definition layer only. Schedule rules live in
  * `useActivitySchedule.ts`; the per-week resolved view comes from
  * `useWeekActivities.ts` which fans these together.
  *
@@ -142,7 +142,7 @@ export function useDeleteActivity() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["activities", familyId] });
       // Schedule + participants + overrides cascade-delete in the DB; the
-      // cached queries for those don't know that — invalidate too.
+      // cached queries for those don't know that - invalidate too.
       void queryClient.invalidateQueries({ queryKey: ["activity_schedule", familyId] });
       void queryClient.invalidateQueries({ queryKey: ["activity_participants", familyId] });
       void queryClient.invalidateQueries({ queryKey: ["activity_overrides", familyId] });

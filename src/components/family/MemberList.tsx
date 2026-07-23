@@ -21,8 +21,8 @@ export type MemberListProps = {
 /**
  * The master pane: every family member as a selectable row. Selection is local
  * state (this lives inside a Settings tab, not its own route), so a row is a
- * button rather than a router Link. Each row summarises the member's roles —
- * login, admin, student — in a muted subtitle, the same shape as the Lists
+ * button rather than a router Link. Each row summarises the member's roles -
+ * login, admin, student - in a muted subtitle, the same shape as the Lists
  * master rows.
  */
 export function MemberList({

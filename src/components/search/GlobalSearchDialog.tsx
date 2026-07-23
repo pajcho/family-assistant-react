@@ -31,12 +31,12 @@ import {
 import { cn } from "@/lib/cn";
 
 /**
- * Global search palette — opened by ⌘/Ctrl+K or the header's magnifying-glass
+ * Global search palette - opened by ⌘/Ctrl+K or the header's magnifying-glass
  * button. A debounced term fans out to the family-scoped `ilike` queries in
  * `useGlobalSearch`; hits are grouped by type with the agenda's icons/colors.
  * A static "Stranice" group matches page names (diacritic-insensitive, so
  * "rodjendani" finds Rođendani) and navigates. Entity hits (activity, event,
- * payment, birthday) open their EDIT dialog in place via LinkedEntityEditor —
+ * payment, birthday) open their EDIT dialog in place via LinkedEntityEditor -
  * no page change; only lists/list items (they ARE pages) and Google-mirror
  * events still navigate.
  */
@@ -69,7 +69,7 @@ type PageEntry = {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
-/** Navigable pages, matched by (normalized) name — "rodjendani" → /birthdays. */
+/** Navigable pages, matched by (normalized) name - "rodjendani" → /birthdays. */
 const PAGES: readonly PageEntry[] = [
   { to: "/", label: "Danas", Icon: HomeIcon },
   { to: "/uskoro", label: "Uskoro", Icon: CalendarDaysIcon },
@@ -88,7 +88,7 @@ type GroupMeta = {
   iconClass: string;
 };
 
-/** Display order of the result groups — pages first, then entity groups. */
+/** Display order of the result groups - pages first, then entity groups. */
 const GROUP_ORDER: readonly SearchResultKind[] = [
   "page",
   "activity",
@@ -168,11 +168,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const { results, isSearching, enabled } = useGlobalSearch(debouncedTerm);
 
-  // In-place edit for entity hits — mounted as a sibling of the palette so it
+  // In-place edit for entity hits - mounted as a sibling of the palette so it
   // survives the palette closing.
   const [editTarget, setEditTarget] = useState<EditableEntityRef | null>(null);
 
-  // Static page matches — instant, diacritic-insensitive, same min length.
+  // Static page matches - instant, diacritic-insensitive, same min length.
   const pageResults = useMemo<SearchResult[]>(() => {
     const q = normalizeTerm(debouncedTerm.trim());
     if (q.length < MIN_SEARCH_CHARS) return [];
@@ -186,7 +186,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const allResults = useMemo(() => [...pageResults, ...results], [pageResults, results]);
 
-  // Group in the canonical order, numbering the rows straight through — the
+  // Group in the canonical order, numbering the rows straight through - the
   // flat list drives the arrow-key highlight across group boundaries.
   const groups = useMemo(() => {
     let index = 0;
@@ -203,7 +203,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   );
   const hasResults = flatResults.length > 0;
 
-  // Keyboard highlight — reset to the top on every new result set, keep the
+  // Keyboard highlight - reset to the top on every new result set, keep the
   // highlighted row scrolled into view while arrowing.
   const [highlight, setHighlight] = useState(0);
   useEffect(() => {
@@ -217,13 +217,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     onOpenChange(false);
     switch (result.kind) {
       case "page": {
-        // Direct page-name hit — the one case that still navigates by design.
+        // Direct page-name hit - the one case that still navigates by design.
         const page = PAGES.find((p) => p.to === result.id);
         if (page) void navigate({ to: page.to });
         break;
       }
       case "list":
-        // A list IS a page — deep-link to it.
+        // A list IS a page - deep-link to it.
         void navigate({ to: "/lists/$listId", params: { listId: result.id } });
         break;
       case "list_item":
@@ -235,11 +235,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
       case "event":
       case "payment":
       case "birthday":
-        // Open the edit dialog right here — no redirect.
+        // Open the edit dialog right here - no redirect.
         setEditTarget({ kind: result.kind, id: result.id });
         break;
       case "external":
-        // Mirrored Google events are read-only and have no page of their own —
+        // Mirrored Google events are read-only and have no page of their own -
         // they live in the agenda, so land on Uskoro.
         void navigate({ to: "/uskoro" });
         break;
@@ -345,7 +345,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   );
 }
 
-/** DOM id for the flat result at `index` — aria-activedescendant target. */
+/** DOM id for the flat result at `index` - aria-activedescendant target. */
 function optionId(index: number): string {
   return `global-search-option-${index}`;
 }
