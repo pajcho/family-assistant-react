@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { SunIcon } from "@heroicons/react/24/outline";
 
+import { EmptyState } from "@/components/common/EmptyState";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaDayCalendar } from "@/components/dashboard/AgendaDayCalendar";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
@@ -58,24 +59,45 @@ export function AgendaTodayTab({
     [overdue.items, filter],
   );
 
-  // Single-day calendar column. Past-due payments have no place on a single-day
-  // timeline (they're from earlier days), so they ride along as the same
-  // "Prekoračeno" list pinned above the calendar - otherwise they'd be invisible
-  // in calendar view. `OverdueSection` renders nothing when there's none.
-  if (view === "calendar") {
-    return (
-      <div className="space-y-4">
-        <OverdueSection items={overdueItems} onSelect={onSelect} />
-        <AgendaDayCalendar items={items} onSelect={onSelect} />
-        {dialogs}
-      </div>
-    );
-  }
-
   const loading = isLoading || overdue.isLoading;
   const hasOverdue = overdueItems.length > 0;
   const hasToday = items.length > 0;
   const filterActive = isAgendaFilterActive(filter);
+
+  // Single-day calendar column. Past-due payments have no place on a single-day
+  // timeline (they're from earlier days), so they ride along as the same
+  // "Prekoračeno" list pinned above the calendar - otherwise they'd be invisible
+  // in calendar view. `OverdueSection` renders nothing when there's none.
+  // An empty grid gets the same all-clear the list view shows, floated over the
+  // hours - a bare grid with only the red "now" line reads as broken.
+  if (view === "calendar") {
+    const emptyOverlay =
+      !loading && !hasToday ? (
+        filterActive ? (
+          <EmptyState variant="overlay" description="Nema stavki za izabrane filtere." />
+        ) : (
+          <EmptyState
+            variant="overlay"
+            icon={SunIcon}
+            tone="amber"
+            title={`Uživaj u danu${firstName ? `, ${firstName}` : ""}.`}
+            description="Nemaš ništa zakazano za danas - sve što dodaš pojaviće se ovde."
+          >
+            <div className="mt-3">
+              <UskoroCta />
+            </div>
+          </EmptyState>
+        )
+      ) : undefined;
+
+    return (
+      <div className="space-y-4">
+        <OverdueSection items={overdueItems} onSelect={onSelect} />
+        <AgendaDayCalendar items={items} onSelect={onSelect} emptyOverlay={emptyOverlay} />
+        {dialogs}
+      </div>
+    );
+  }
 
   // Overdue (if any) sits above the always-visible "today" divider, which keeps
   // the current date on screen in every state - list of items, all-clear, or

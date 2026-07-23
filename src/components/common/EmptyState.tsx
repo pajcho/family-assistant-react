@@ -17,6 +17,12 @@ import { cn } from "@/lib/cn";
  *     A quiet plain card: one sentence plus an optional escape-hatch link
  *     ("Očisti filtere").
  *
+ *   - `overlay` - a floating card over an empty calendar grid (the grid stays
+ *     faintly visible behind it, so the screen still reads as a calendar).
+ *     The PARENT must be `position: relative`; the overlay pins itself near
+ *     the top so it's visible without scrolling on tall grids. No dashed
+ *     border, solid background (iOS backdrop-filter is a known hazard here).
+ *
  * Tones follow the app-wide per-type accent convention (see AddMenu / AppNav
  * "Više" tiles): event=blue, payment=amber, birthday=emerald, list=purple,
  * activity=violet, expense=rose.
@@ -46,7 +52,7 @@ const TONE_CLASSES: Record<EmptyStateTone, { tile: string; icon: string }> = {
 export type EmptyStateAction = { label: string; onClick: () => void };
 
 export type EmptyStateProps = {
-  variant?: "starter" | "filter";
+  variant?: "starter" | "filter" | "overlay";
   /** Starter only - domain icon shown in the pastel tile. */
   icon?: ComponentType<{ className?: string }>;
   tone?: EmptyStateTone;
@@ -78,6 +84,69 @@ export function EmptyState({
   children,
 }: EmptyStateProps) {
   const toneClasses = TONE_CLASSES[tone];
+
+  if (variant === "overlay") {
+    return (
+      <div
+        className={cn(
+          // z-20 + rendered AFTER the grid: above the calendars' sticky-left
+          // time gutter (z-10) and level with their sticky day headers (z-20,
+          // earlier in DOM), while staying under the page-sticky bars (z-30).
+          "pointer-events-none absolute inset-0 z-20 flex items-start justify-center px-4 pt-16",
+          className,
+        )}
+      >
+        <div className="pointer-events-auto w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 text-center shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          {Icon ? (
+            <div
+              className={cn(
+                "mx-auto mb-3 flex size-12 items-center justify-center rounded-full",
+                toneClasses.tile,
+              )}
+            >
+              <Icon className={cn("size-6", toneClasses.icon)} />
+            </div>
+          ) : null}
+          {title ? (
+            <p className="text-base font-semibold text-balance text-gray-900 dark:text-white">
+              {title}
+            </p>
+          ) : null}
+          {description ? (
+            <p
+              className={cn(
+                "text-sm text-pretty text-gray-500 dark:text-gray-400",
+                title && "mt-1",
+              )}
+            >
+              {description}
+            </p>
+          ) : null}
+          {action ? (
+            <Button onClick={action.onClick} className="mt-4">
+              <PlusIcon className="mr-2 h-5 w-5" />
+              {action.label}
+            </Button>
+          ) : null}
+          {examples && examples.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+              {examples.map((example) => (
+                <button
+                  key={example.label}
+                  type="button"
+                  onClick={example.onClick}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  + {example.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "filter") {
     return (

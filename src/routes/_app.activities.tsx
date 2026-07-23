@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   Cog6ToothIcon,
   PencilSquareIcon,
+  Squares2X2Icon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { addDays, format, parseISO } from "date-fns";
@@ -11,6 +12,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EmptyState } from "@/components/common/EmptyState";
 import { PeriodPickerShell } from "@/components/common/PeriodPicker";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
@@ -111,6 +113,8 @@ function ActivitiesPage() {
   // Dialog state - mirror the events page pattern.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
+  // Starter-chip prefill ("+ Trening" on the empty grid overlay).
+  const [addInitialName, setAddInitialName] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -166,6 +170,14 @@ function ActivitiesPage() {
   const openAdd = () => {
     setEditing(null);
     setFormError(null);
+    setAddInitialName(null);
+    setDialogOpen(true);
+  };
+
+  const openAddWithName = (name: string) => {
+    setEditing(null);
+    setFormError(null);
+    setAddInitialName(name);
     setDialogOpen(true);
   };
 
@@ -248,6 +260,7 @@ function ActivitiesPage() {
     if (!open) {
       setEditing(null);
       setFormError(null);
+      setAddInitialName(null);
     }
   };
 
@@ -343,26 +356,38 @@ function ActivitiesPage() {
       {isLoading ? (
         <div className="text-gray-500">Učitavanje…</div>
       ) : (
-        <WeekGrid
-          weekStart={weekStart}
-          blocks={week.blocks}
-          schoolBlocks={showSchool ? school.blocks : []}
-          activitiesById={activitiesById}
-          peopleById={peopleById}
-          onBlockClick={handleBlockClick}
-          onSchoolBlockClick={(block) => {
-            setTimetableMemberId(block.personId);
-            setTimetableInitial({ variant: block.variant, day: block.dayOfWeek });
-          }}
-        />
-      )}
-
-      {!isLoading && activities.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          Još uvek nema aktivnosti. Dodaj prvu - trening, časove, muzičku ili šta god ide redovno
-          tokom nedelje.
+        // The starter overlay floats over the (faint, still visible) week grid -
+        // a bare 07-22h grid with no explanation reads as broken to a new user.
+        <div className="relative">
+          <WeekGrid
+            weekStart={weekStart}
+            blocks={week.blocks}
+            schoolBlocks={showSchool ? school.blocks : []}
+            activitiesById={activitiesById}
+            peopleById={peopleById}
+            onBlockClick={handleBlockClick}
+            onSchoolBlockClick={(block) => {
+              setTimetableMemberId(block.personId);
+              setTimetableInitial({ variant: block.variant, day: block.dayOfWeek });
+            }}
+          />
+          {/* AFTER the grid in DOM so it paints above its sticky gutter/header. */}
+          {activities.length === 0 ? (
+            <EmptyState
+              variant="overlay"
+              icon={Squares2X2Icon}
+              tone="violet"
+              title="Trening, muzička, engleski..."
+              description="Unesi nedeljni raspored jednom - ponavlja se sam, a izmene rešavaš izuzecima."
+              action={{ label: "Dodaj aktivnost", onClick: openAdd }}
+              examples={["Trening", "Muzička", "Engleski"].map((name) => ({
+                label: name,
+                onClick: () => openAddWithName(name),
+              }))}
+            />
+          ) : null}
         </div>
-      ) : null}
+      )}
 
       {activities.length > 0 ? (
         <AllActivitiesList
@@ -379,6 +404,7 @@ function ActivitiesPage() {
         open={dialogOpen}
         onOpenChange={handleDialogOpenChange}
         activity={editing}
+        initialName={addInitialName ?? undefined}
         existingRules={editingRules}
         existingPersonIds={editingPersonIds}
         people={members}

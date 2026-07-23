@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 
+import { CalendarDaysIcon } from "@heroicons/react/24/outline";
+
+import { EmptyState } from "@/components/common/EmptyState";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
@@ -41,6 +44,8 @@ import { addDays, srLocale } from "@/utils/date";
  */
 export type AgendaUpcomingListProps = {
   filter: AgendaFilter;
+  /** Opens the add-event dialog - the starter empty state's CTA. */
+  onAddEvent: () => void;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
@@ -52,6 +57,7 @@ const MAX_HORIZON_DAYS = 365;
 
 export function AgendaUpcomingList({
   filter,
+  onAddEvent,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
@@ -270,6 +276,10 @@ export function AgendaUpcomingList({
   // days); first load shows a spinner; otherwise render every day in the window.
   const showEmptyMsg = filterActive && !hasItems && overdueItems.length === 0;
   const showLoading = !showEmptyMsg && isLoading && !hasItems;
+  // Nothing in the whole horizon and no filter - the day skeleton alone reads
+  // as broken, so a starter card explains the screen above the (kept) day rows.
+  const showStarter =
+    !filterActive && !isLoading && !hasItems && overdueItems.length === 0 && !overdue.isLoading;
 
   return (
     <div>
@@ -296,6 +306,16 @@ export function AgendaUpcomingList({
 
       <div className="space-y-6">
         <OverdueSection items={overdueItems} onSelect={onSelect} />
+
+        {showStarter ? (
+          <EmptyState
+            icon={CalendarDaysIcon}
+            tone="blue"
+            title="Uskoro je još prazno"
+            description="Dodaj događaj, aktivnost ili plaćanje i ovde ćeš uvek videti šta koga čeka."
+            action={{ label: "Dodaj događaj", onClick: onAddEvent }}
+          />
+        ) : null}
 
         {showEmptyMsg ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">

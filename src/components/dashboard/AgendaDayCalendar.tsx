@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { format } from "date-fns";
 
 import {
@@ -30,9 +31,12 @@ import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
 export function AgendaDayCalendar({
   items,
   onSelect,
+  emptyOverlay,
 }: {
   items: AgendaItem[];
   onSelect: (item: AgendaItem) => void;
+  /** Rendered over the grid (parent decides when) - see EmptyState "overlay". */
+  emptyOverlay?: ReactNode;
 }) {
   const now = useMinuteTick();
 
@@ -59,7 +63,7 @@ export function AgendaDayCalendar({
   const todayStr = format(now, "yyyy-MM-dd");
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       {allDayItems.length > 0 ? (
         <div className="grid grid-cols-[56px_1fr] border-b border-gray-200 dark:border-gray-700">
           <div className="px-2 py-2 text-[10px] tracking-wide text-muted-foreground uppercase">
@@ -123,6 +127,7 @@ export function AgendaDayCalendar({
           </div>
         </div>
       </div>
+      {emptyOverlay}
     </div>
   );
 }

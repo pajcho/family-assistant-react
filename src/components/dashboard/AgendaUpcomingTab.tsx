@@ -13,6 +13,8 @@ import type { AgendaFilter } from "@/utils/agendaFilters";
 export type AgendaUpcomingTabProps = {
   view: AgendaView;
   filter: AgendaFilter;
+  /** Opens the add-event dialog - the list's starter empty state CTA. */
+  onAddEvent: () => void;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
@@ -21,6 +23,7 @@ export type AgendaUpcomingTabProps = {
 export function AgendaUpcomingTab({
   view,
   filter,
+  onAddEvent,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
@@ -38,6 +41,7 @@ export function AgendaUpcomingTab({
   return (
     <AgendaUpcomingList
       filter={filter}
+      onAddEvent={onAddEvent}
       onEditEvent={onEditEvent}
       onEditPayment={onEditPayment}
       onEditBirthday={onEditBirthday}

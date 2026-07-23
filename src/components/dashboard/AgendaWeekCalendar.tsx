@@ -3,6 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/common/EmptyState";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import {
   AllDayChip,
@@ -22,7 +23,7 @@ import {
 import { type AgendaItem, agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { DAY_LABELS_SHORT, getThisWeekStart, getWeekStart } from "@/utils/activity";
-import { type AgendaFilter, filterAgendaItems } from "@/utils/agendaFilters";
+import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
 import { srLocale } from "@/utils/date";
 import { cn } from "@/lib/cn";
 
@@ -178,129 +179,147 @@ export function AgendaWeekCalendar({
       </div>
 
       {/* Horizontal scroll only (no max-height) - the page owns vertical scroll,
-          so the calendar never scrolls vertically on its own. */}
-      <div
-        ref={scrollRef}
-        className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-      >
-        {/* `min-w-max` sizes to the fixed 260px columns on mobile (scrolls, like
+          so the calendar never scrolls vertically on its own. The empty overlay
+          sits on a RELATIVE WRAPPER around the scroll container (not inside it),
+          so it stays centered in the visible area instead of scrolling away
+          with the 7x260px mobile columns. */}
+      <div className="relative">
+        <div
+          ref={scrollRef}
+          className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+        >
+          {/* `min-w-max` sizes to the fixed 260px columns on mobile (scrolls, like
             the activities grid); `sm:min-w-0` lets the 1fr columns fill the
             width on desktop without the all-day chips inflating max-content. */}
-        <div className="min-w-max sm:min-w-0">
-          {/* Day headers - sticky on top. */}
-          <div
-            className={cn(
-              "sticky top-0 z-20 grid border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
-              GRID_COLS,
-            )}
-          >
-            <div />
-            {days.map((date, i) => (
-              <div
-                key={date}
-                data-day-index={i}
-                className={cn(
-                  "border-l border-gray-200 px-2 py-2 text-center dark:border-gray-700",
-                  date === todayStr && "bg-blue-50 dark:bg-blue-950/30",
-                )}
-              >
-                <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">
-                  {DAY_LABELS_SHORT[i]}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {format(parseISO(date + "T12:00:00"), "d.M.")}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* All-day row - one cell per day; only rendered if the week has any. */}
-          {hasAnyAllDay ? (
-            <div className={cn("grid border-b border-gray-200 dark:border-gray-700", GRID_COLS)}>
-              <div className="sticky left-0 z-10 bg-white px-1 py-1.5 text-[9px] tracking-wide text-muted-foreground uppercase dark:bg-gray-800">
-                Ceo dan
-              </div>
-              {perDay.map((d) => (
+          <div className="min-w-max sm:min-w-0">
+            {/* Day headers - sticky on top. */}
+            <div
+              className={cn(
+                "sticky top-0 z-20 grid border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
+                GRID_COLS,
+              )}
+            >
+              <div />
+              {days.map((date, i) => (
                 <div
-                  key={d.date}
+                  key={date}
+                  data-day-index={i}
                   className={cn(
-                    "flex min-w-0 flex-col gap-1 border-l border-gray-200 p-1 dark:border-gray-700",
-                    d.date === todayStr && "bg-blue-50/40 dark:bg-blue-950/10",
+                    "border-l border-gray-200 px-2 py-2 text-center dark:border-gray-700",
+                    date === todayStr && "bg-blue-50 dark:bg-blue-950/30",
                   )}
                 >
-                  {d.allDayItems.map((item) => (
-                    <AllDayChip
-                      key={agendaItemKey(item)}
-                      item={item}
-                      onClick={() => onSelect(item)}
-                    />
-                  ))}
+                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+                    {DAY_LABELS_SHORT[i]}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {format(parseISO(date + "T12:00:00"), "d.M.")}
+                  </div>
                 </div>
               ))}
             </div>
-          ) : null}
 
-          {/* Time grid. */}
-          <div className={cn("grid", GRID_COLS)} style={{ height: `${totalHeightPx}px` }}>
-            {/* Sticky-left time gutter. */}
-            <div className="sticky left-0 z-10 bg-white dark:bg-gray-800">
-              {hourLabels.map((hl) => (
-                <div
-                  key={hl.label}
-                  style={{ top: `${hl.topPx}px` }}
-                  className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
-                >
-                  {hl.label}
+            {/* All-day row - one cell per day; only rendered if the week has any. */}
+            {hasAnyAllDay ? (
+              <div className={cn("grid border-b border-gray-200 dark:border-gray-700", GRID_COLS)}>
+                <div className="sticky left-0 z-10 bg-white px-1 py-1.5 text-[9px] tracking-wide text-muted-foreground uppercase dark:bg-gray-800">
+                  Ceo dan
                 </div>
-              ))}
-              {nowInViewport ? (
-                <div
-                  style={{ top: `${nowTopPx}px` }}
-                  className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
-                >
-                  {format(now, "HH:mm")}
-                </div>
-              ) : null}
-            </div>
+                {perDay.map((d) => (
+                  <div
+                    key={d.date}
+                    className={cn(
+                      "flex min-w-0 flex-col gap-1 border-l border-gray-200 p-1 dark:border-gray-700",
+                      d.date === todayStr && "bg-blue-50/40 dark:bg-blue-950/10",
+                    )}
+                  >
+                    {d.allDayItems.map((item) => (
+                      <AllDayChip
+                        key={agendaItemKey(item)}
+                        item={item}
+                        onClick={() => onSelect(item)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-            {/* 7 day columns. */}
-            {perDay.map((d) => (
-              <div
-                key={d.date}
-                className={cn(
-                  "relative border-l border-gray-200 dark:border-gray-700",
-                  d.date === todayStr && "bg-blue-50/40 dark:bg-blue-950/10",
-                )}
-              >
+            {/* Time grid. */}
+            <div className={cn("grid", GRID_COLS)} style={{ height: `${totalHeightPx}px` }}>
+              {/* Sticky-left time gutter. */}
+              <div className="sticky left-0 z-10 bg-white dark:bg-gray-800">
                 {hourLabels.map((hl) => (
                   <div
                     key={hl.label}
                     style={{ top: `${hl.topPx}px` }}
-                    className="absolute inset-x-0 border-t border-gray-100 dark:border-gray-700/60"
-                  />
-                ))}
-                {(positionedByDate.get(d.date) ?? []).map((block) => (
-                  <TimedBlock
-                    key={agendaItemKey(block.item)}
-                    block={block}
-                    todayStr={todayStr}
-                    nowMin={nowMin}
-                    onClick={() => onSelect(block.item)}
-                  />
-                ))}
-                {d.date === todayStr && nowInViewport ? (
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
-                    style={{ top: `${nowTopPx}px` }}
+                    className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
                   >
-                    <span className="absolute top-0 left-0 size-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+                    {hl.label}
+                  </div>
+                ))}
+                {nowInViewport ? (
+                  <div
+                    style={{ top: `${nowTopPx}px` }}
+                    className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
+                  >
+                    {format(now, "HH:mm")}
                   </div>
                 ) : null}
               </div>
-            ))}
+
+              {/* 7 day columns. */}
+              {perDay.map((d) => (
+                <div
+                  key={d.date}
+                  className={cn(
+                    "relative border-l border-gray-200 dark:border-gray-700",
+                    d.date === todayStr && "bg-blue-50/40 dark:bg-blue-950/10",
+                  )}
+                >
+                  {hourLabels.map((hl) => (
+                    <div
+                      key={hl.label}
+                      style={{ top: `${hl.topPx}px` }}
+                      className="absolute inset-x-0 border-t border-gray-100 dark:border-gray-700/60"
+                    />
+                  ))}
+                  {(positionedByDate.get(d.date) ?? []).map((block) => (
+                    <TimedBlock
+                      key={agendaItemKey(block.item)}
+                      block={block}
+                      todayStr={todayStr}
+                      nowMin={nowMin}
+                      onClick={() => onSelect(block.item)}
+                    />
+                  ))}
+                  {d.date === todayStr && nowInViewport ? (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
+                      style={{ top: `${nowTopPx}px` }}
+                    >
+                      <span className="absolute top-0 left-0 size-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+        {/* AFTER the scroll container in DOM so it paints above the sticky-left
+            time gutter (z-10) and the sticky day header (z-20, earlier). */}
+        {!isLoading && items.length === 0 ? (
+          isAgendaFilterActive(filter) ? (
+            <EmptyState variant="overlay" description="Nema stavki za izabrane filtere." />
+          ) : (
+            <EmptyState
+              variant="overlay"
+              title="Nedelja je još prazna"
+              description="Sve što dodaš - događaji, aktivnosti, plaćanja, rođendani - pojaviće se ovde."
+            />
+          )
+        ) : null}
       </div>
       {dialogs}
     </div>
