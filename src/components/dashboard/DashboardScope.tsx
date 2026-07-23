@@ -271,6 +271,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             <AgendaUpcomingTab
               view={view.view}
               filter={filters.filter}
+              onAddEvent={openAddEvent}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
                 void openEditPayment(payment);

@@ -27,6 +27,11 @@ export type ActivityFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: Activity | null;
+  /**
+   * Add mode only - pre-fills the name (starter-chip "+ Trening" on the
+   * empty state). Ignored while editing.
+   */
+  initialName?: string;
   existingRules?: ReadonlyArray<ActivitySchedule>;
   existingPersonIds?: ReadonlyArray<string>;
   people: ReadonlyArray<Profile>;
@@ -56,6 +61,7 @@ export function ActivityFormDialog({
   open,
   onOpenChange,
   activity,
+  initialName,
   existingRules,
   existingPersonIds,
   people,
@@ -67,9 +73,11 @@ export function ActivityFormDialog({
 }: ActivityFormDialogProps) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
-  const [form, setForm] = useState<ActivityFormState>(() =>
-    initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId),
-  );
+  const seedName = activity ? undefined : initialName;
+  const [form, setForm] = useState<ActivityFormState>(() => ({
+    ...initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId),
+    ...(seedName ? { name: seedName } : null),
+  }));
   const { reset: resetStack } = stack;
 
   // Reseed on every open, and while open whenever the edited activity (or
@@ -77,9 +85,12 @@ export function ActivityFormDialog({
   // had when it owned the state.
   useEffect(() => {
     if (!open) return;
-    setForm(initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId));
+    setForm({
+      ...initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId),
+      ...(activity ? null : initialName ? { name: initialName } : null),
+    });
     resetStack();
-  }, [open, activity, existingRules, existingPersonIds, fallbackPersonId, resetStack]);
+  }, [open, activity, initialName, existingRules, existingPersonIds, fallbackPersonId, resetStack]);
 
   const title = activity ? "Izmeni aktivnost" : "Dodaj aktivnost";
   const view = stack.view;
