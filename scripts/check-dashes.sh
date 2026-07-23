@@ -8,17 +8,22 @@
 # schema_migrations.statements on prod) and U+2500 "─" box-drawing separators,
 # which are ASCII art in comments rather than punctuation.
 #
-# Matching is done in perl, not grep: a bracket expression like [—–−] is matched
-# byte-wise unless the locale is UTF-8, and since every one of these characters
-# starts with 0xE2 that would also flag "→", "─", "•" and friends.
+# Matching is done in perl, not grep: a bracket expression listing those code
+# points is matched byte-wise unless the locale is UTF-8, and since every one of
+# them starts with 0xE2 that would also flag arrows, box-drawing and bullets.
+#
+# AGENTS.md is skipped because it is the rule's own documentation: it has to
+# print the banned glyphs in order to say which ones are banned, so it would
+# always fail its own check. This file avoids them by naming code points only,
+# which is why it needs no exemption.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
-# git-tracked, excluding already-applied migrations, text files only (-I drops
-# binaries such as icons and screenshots).
+# git-tracked, excluding already-applied migrations and the rule doc, text files
+# only (-I drops binaries such as icons and screenshots).
 files=$(
-  git ls-files | grep -v '^supabase/migrations/' | while IFS= read -r f; do
+  git ls-files | grep -vE '^(supabase/migrations/|AGENTS\.md$)' | while IFS= read -r f; do
     grep -Iq . "$f" 2>/dev/null && printf '%s\n' "$f"
   done
 )
