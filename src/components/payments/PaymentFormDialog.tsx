@@ -26,6 +26,11 @@ export type PaymentFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payment: Payment | null;
+  /**
+   * Add mode only - pre-fills the name (starter-chip "+ Kirija" on the empty
+   * state). Ignored while editing.
+   */
+  initialName?: string;
   /** Assignees of the payment being edited; empty/omitted when adding. */
   initialPersonIds?: string[];
   /** When the payment already has history, recurrence type radios get disabled. */
@@ -58,6 +63,7 @@ export function PaymentFormDialog({
   open,
   onOpenChange,
   payment,
+  initialName,
   initialPersonIds,
   hasHistory,
   error,
@@ -66,9 +72,11 @@ export function PaymentFormDialog({
 }: PaymentFormDialogProps) {
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
-  const [form, setForm] = useState<PaymentFormState>(() =>
-    initialPaymentFormState(payment, initialPersonIds ?? [], today.str),
-  );
+  const seedName = payment ? undefined : initialName;
+  const [form, setForm] = useState<PaymentFormState>(() => ({
+    ...initialPaymentFormState(payment, initialPersonIds ?? [], today.str),
+    ...(seedName ? { name: seedName } : null),
+  }));
   const ca = useCurrencyAmount(payment, form.due_date);
   const { reset: resetCurrency } = ca;
   const { reset: resetStack } = stack;
@@ -84,12 +92,17 @@ export function PaymentFormDialog({
   // every open - and while open, whenever the edited entity itself changes.
   useEffect(() => {
     if (!open) return;
-    setForm(
-      initialPaymentFormState(payment, personSeed ? personSeed.split(",") : [], todayRef.current),
-    );
+    setForm({
+      ...initialPaymentFormState(
+        payment,
+        personSeed ? personSeed.split(",") : [],
+        todayRef.current,
+      ),
+      ...(payment ? null : initialName ? { name: initialName } : null),
+    });
     resetCurrency(payment?.currency, payment?.exchange_rate);
     resetStack();
-  }, [open, payment, personSeed, resetCurrency, resetStack]);
+  }, [open, payment, initialName, personSeed, resetCurrency, resetStack]);
 
   const title = payment ? "Izmeni plaćanje" : "Dodaj plaćanje";
   const view = stack.view;

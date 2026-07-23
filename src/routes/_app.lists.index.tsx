@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Navigate, createFileRoute } from "@tanstack/react-router";
-import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
+import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
+import { ClipboardDocumentListIcon, PlusIcon } from "@heroicons/react/24/outline";
 
+import { Button } from "@/components/ui/button";
 import { ListMaster } from "@/components/lists/ListMaster";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useListsWithItems } from "@/hooks/useLists";
@@ -45,9 +46,23 @@ function ListsIndex() {
     return <Navigate to="/lists/$listId" params={{ listId: target }} replace />;
   }
 
+  // No lists at all - the sidebar shows its own compact empty state; the
+  // detail pane carries the pitch + CTA (`?new=1` opens ListMaster's create
+  // dialog, same deep-link the dashboard "Dodaj → Lista" uses).
   return (
     <DetailPlaceholder>
-      Izaberite listu sa leve strane ili napravite novu pomoću dugmeta „+".
+      <span className="block text-base font-semibold text-gray-900 dark:text-white">
+        Još nemaš nijednu listu
+      </span>
+      <span className="mt-1 block">
+        Napravi prvu listu - npr. „Šoping" deljenu sa porodicom ili „Lične obaveze".
+      </span>
+      <Button asChild className="mt-4">
+        <Link to="/lists" search={{ new: true }}>
+          <PlusIcon className="mr-2 h-5 w-5" />
+          Dodaj prvu listu
+        </Link>
+      </Button>
     </DetailPlaceholder>
   );
 }

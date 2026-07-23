@@ -279,7 +279,7 @@ export function ListBody({
         {active.length === 0 ? (
           <p className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
             {completed.length === 0
-              ? "Lista je prazna. Dodajte prvu stavku ispod."
+              ? "Lista je prazna. Dodaj prvu stavku ispod."
               : "Sve stavke su završene."}
           </p>
         ) : activeGroups ? (

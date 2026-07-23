@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
+  ClipboardDocumentListIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   UserGroupIcon,
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddButton } from "@/components/common/AddButton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { previewLine } from "@/components/common/MarkdownText";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
@@ -87,9 +89,18 @@ export function ListMaster({ variant }: ListMasterProps) {
 
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Starter-chip prefill ("+ Šoping" on the empty state).
+  const [addInitialName, setAddInitialName] = useState<string | null>(null);
 
   const openAdd = () => {
     setFormError(null);
+    setAddInitialName(null);
+    setFormOpen(true);
+  };
+
+  const openAddWithName = (name: string) => {
+    setFormError(null);
+    setAddInitialName(name);
     setFormOpen(true);
   };
 
@@ -122,7 +133,10 @@ export function ListMaster({ variant }: ListMasterProps) {
 
   const handleFormOpenChange = (open: boolean) => {
     setFormOpen(open);
-    if (!open) setFormError(null);
+    if (!open) {
+      setFormError(null);
+      setAddInitialName(null);
+    }
   };
 
   const clearFilters = () => {
@@ -143,6 +157,7 @@ export function ListMaster({ variant }: ListMasterProps) {
       onOpenChange={handleFormOpenChange}
       list={null}
       mode="create"
+      initialName={addInitialName ?? undefined}
       error={formError}
       saving={createList.isPending}
       onSubmit={(payload) => {
@@ -217,7 +232,7 @@ export function ListMaster({ variant }: ListMasterProps) {
             <ListMasterSkeleton variant="sidebar" />
           ) : showEmpty ? (
             <div className="px-2 py-8 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-300">Još nemate nijednu listu.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Još nemaš nijednu listu.</p>
               <Button onClick={openAdd} size="sm" className="mt-3">
                 <PlusIcon className="mr-1.5 h-4 w-4" />
                 Dodaj listu
@@ -257,28 +272,30 @@ export function ListMaster({ variant }: ListMasterProps) {
       {isLoading ? <ListMasterSkeleton variant="page" /> : null}
 
       {showEmpty ? (
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-gray-700 dark:text-gray-300">Još nemate nijednu listu.</p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Napravite prvu listu - npr. „Šoping" deljen sa porodicom ili „Lične obaveze".
-          </p>
-          <Button onClick={openAdd} className="mt-4">
-            <PlusIcon className="mr-2 h-5 w-5" />
-            Dodaj prvu listu
-          </Button>
-        </div>
+        <EmptyState
+          className="mt-6"
+          icon={ClipboardDocumentListIcon}
+          tone="purple"
+          title="Još nemaš nijednu listu"
+          description={
+            'Napravi prvu listu - npr. „Šoping" deljenu sa porodicom ili „Lične obaveze".'
+          }
+          action={{ label: "Dodaj prvu listu", onClick: openAdd }}
+          examples={["Šoping", "Obaveze"].map((name) => ({
+            label: name,
+            onClick: () => openAddWithName(name),
+          }))}
+        />
       ) : null}
 
       {showNoMatches ? (
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-gray-700 dark:text-gray-300">Nijedna lista ne odgovara filteru.</p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Probajte drugačiju pretragu ili promenite filter pristupa.
-          </p>
-          <Button variant="outline" onClick={clearFilters} className="mt-4">
-            Poništi filtere
-          </Button>
-        </div>
+        <EmptyState
+          className="mt-6"
+          variant="filter"
+          title="Nijedna lista ne odgovara filteru"
+          description="Probaj drugačiju pretragu ili promeni filter pristupa."
+          secondaryAction={{ label: "Poništi filtere", onClick: clearFilters }}
+        />
       ) : null}
 
       {!isLoading && filteredLists.length > 0 ? (

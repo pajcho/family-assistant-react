@@ -36,6 +36,8 @@ export type ListFormProps = {
   list?: List | null;
   /** Defaults to "create". See {@link ListFormMode}. */
   mode?: ListFormMode;
+  /** Create mode only - pre-fills the name (starter-chip "+ Šoping"). */
+  initialName?: string;
   saving?: boolean;
   onSubmit: (payload: ListFormPayload) => void;
   onCancel: () => void;
@@ -64,9 +66,9 @@ const AUTO_DELETE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "168", label: "Posle 1 nedelje" },
 ];
 
-function initialState(list: List | null | undefined): FormState {
+function initialState(list: List | null | undefined, initialName?: string): FormState {
   return {
-    name: list?.name ?? "",
+    name: list?.name ?? initialName ?? "",
     scope: list?.scope ?? "family",
     autoDelete:
       list?.auto_delete_completed_after_hours != null
@@ -82,15 +84,16 @@ function initialState(list: List | null | undefined): FormState {
 export function ListForm({
   list,
   mode = "create",
+  initialName,
   saving = false,
   onSubmit,
   onCancel,
 }: ListFormProps) {
-  const [form, setForm] = useState<FormState>(() => initialState(list));
+  const [form, setForm] = useState<FormState>(() => initialState(list, initialName));
 
   useEffect(() => {
-    setForm(initialState(list));
-  }, [list]);
+    setForm(initialState(list, initialName));
+  }, [list, initialName]);
 
   const submitLabel =
     mode === "edit" ? "Sačuvaj izmene" : mode === "duplicate" ? "Dupliraj" : "Dodaj";
@@ -137,7 +140,7 @@ export function ListForm({
           rows={3}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Možete koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
+          Možeš koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
           <code className="font-mono"> - stavka</code>, linkovi).
         </p>
       </div>
@@ -156,7 +159,7 @@ export function ListForm({
             active={form.scope === "personal"}
             icon={UserIcon}
             title="Lično"
-            description="Samo vi"
+            description="Samo ti"
             onClick={() => setForm((s) => ({ ...s, scope: "personal" }))}
           />
         </div>
