@@ -13,7 +13,6 @@ import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import type { AgendaView } from "@/hooks/useAgendaView";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
-import { useProfile } from "@/hooks/useProfile";
 import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
@@ -33,6 +32,12 @@ import { addDays } from "@/utils/date";
 export type AgendaTodayTabProps = {
   view: AgendaView;
   filter: AgendaFilter;
+  /**
+   * The "Prvi koraci" card is showing above - the all-clear empty state then
+   * drops the "slobodno predahni" tone (a brand-new family has nothing to
+   * rest FROM; the honest read is "add something or enjoy the quiet").
+   */
+  onboardingActive?: boolean;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
@@ -41,6 +46,7 @@ export type AgendaTodayTabProps = {
 export function AgendaTodayTab({
   view,
   filter,
+  onboardingActive = false,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
@@ -49,8 +55,6 @@ export function AgendaTodayTab({
   const tomorrow = format(addDays(todayDate, 1), "yyyy-MM-dd");
   const { items: allItems, isLoading } = useAgenda({ from: today, to: today });
   const overdue = useOverduePayments();
-  const { profile } = useProfile();
-  const firstName = profile?.first_name?.trim() || null;
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
   const items = useMemo(() => filterAgendaItems(allItems, filter), [allItems, filter]);
@@ -80,7 +84,7 @@ export function AgendaTodayTab({
             variant="overlay"
             icon={SunIcon}
             tone="amber"
-            title={`Uživaj u danu${firstName ? `, ${firstName}` : ""}.`}
+            title="Uživaj u danu."
             description="Nemaš ništa zakazano za danas - sve što dodaš pojaviće se ovde."
           >
             <div className="mt-3">
@@ -129,7 +133,7 @@ export function AgendaTodayTab({
             <UskoroCta />
           </div>
         ) : (
-          <TodayEmptyState firstName={firstName} />
+          <TodayEmptyState onboardingActive={onboardingActive} />
         )}
       </section>
       {dialogs}
@@ -154,20 +158,38 @@ function UskoroCta() {
   );
 }
 
-/** Nothing scheduled and nothing overdue - a warm, personalized all-clear. */
-function TodayEmptyState({ firstName }: { firstName: string | null }) {
+/**
+ * Nothing scheduled and nothing overdue - a warm all-clear. Deliberately
+ * WITHOUT the user's first name: Serbian vocative declension would demand
+ * "Miloše", not "Miloš", and getting it wrong reads worse than omitting it.
+ * While the "Prvi koraci" card is up, the copy stays matter-of-fact: telling
+ * a brand-new family to "predahni" from a calendar they haven't filled yet
+ * reads as tone-deaf; the warm version returns once they're set up.
+ */
+function TodayEmptyState({ onboardingActive }: { onboardingActive: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/15">
         <SunIcon className="size-7 text-amber-500 dark:text-amber-400" />
       </div>
       <div className="space-y-1">
-        <p className="text-base font-semibold text-gray-900 dark:text-white">
-          Uživaj u danu{firstName ? `, ${firstName}` : ""}.
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Nemaš ništa zakazano za danas, slobodno predahni.
-        </p>
+        {onboardingActive ? (
+          <>
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
+              Za danas nema ničega.
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Dodaj nešto preko „Prvih koraka" iznad - ili predahni.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-base font-semibold text-gray-900 dark:text-white">Uživaj u danu.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nemaš ništa zakazano za danas, slobodno predahni.
+            </p>
+          </>
+        )}
       </div>
       <UskoroCta />
     </div>
