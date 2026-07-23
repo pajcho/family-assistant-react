@@ -7,7 +7,7 @@
 // re-converted and this endpoint is never on any read path.
 //
 //   • Cache: `exchange_rates` (PK date+currency), read/written with the
-//     service role. Members have SELECT-only RLS and can never write rates —
+//     service role. Members have SELECT-only RLS and can never write rates -
 //     a user session cannot poison the cache.
 //   • Upstream on miss: kurs.resenje.org, a public JSON API over the official
 //     NBS list. Weekend/holiday dates return the last published list with

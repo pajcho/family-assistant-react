@@ -9,15 +9,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Lists data hooks — replaces the old `useExpenses.ts`.
+ * Lists data hooks - replaces the old `useExpenses.ts`.
  *
  * One screen renders many lists, so we fetch lists + their items in a
  * single nested select. Realtime subscriptions watch both tables and
  * invalidate the combined query on any change.
  *
  * Scope semantics:
- *   - `family` — visible to everyone in the user's family
- *   - `personal` — visible only to the owner
+ *   - `family` - visible to everyone in the user's family
+ *   - `personal` - visible only to the owner
  *
  * Visibility is enforced server-side via RLS; the client queries by
  * `family_id` (which both kinds share) and lets the policy do the rest.
@@ -53,7 +53,7 @@ export type UpdateListItemInput = {
 /**
  * Re-apply the list's display order to its items.
  *
- * `sort_order` is the single source of truth — assigned at insert time
+ * `sort_order` is the single source of truth - assigned at insert time
  * (append at the end) and rewritten by `useReorderListItems` when the
  * user drags rows around. Smart sort is a *view-time projection* on top:
  * when `smart_sort_enabled = true` we re-arrange the items into aisle
@@ -62,7 +62,7 @@ export type UpdateListItemInput = {
  *
  * Extracted so the optimistic mutations (`useCreateListItem` etc.) can
  * drop a placeholder into the cache and have it land in the same slot
- * the next server-side fetch would put it in — no visible re-shuffle
+ * the next server-side fetch would put it in - no visible re-shuffle
  * when the realtime invalidation catches up.
  */
 function applyItemOrdering(list: ListWithItems): ListWithItems {
@@ -74,7 +74,7 @@ function applyItemOrdering(list: ListWithItems): ListWithItems {
 async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
   // Most-recently-active list first. The AFTER trigger on list_items bumps
   // the parent list's `updated_at`, so adding/checking/renaming any item
-  // promotes the list to the top — matches the "I just used this list, put
+  // promotes the list to the top - matches the "I just used this list, put
   // it where I can find it" mental model on the dashboard and overview.
   const { data, error } = await supabase
     .from("lists")
@@ -94,8 +94,8 @@ export function useListsWithItems() {
   // dashboard card), and a *shared* channel topic makes Supabase throw
   // "cannot add `postgres_changes` callbacks after `subscribe()`" when the
   // second instance subscribes to the same topic. A per-instance topic gives
-  // each mount its own channel — they all just invalidate the same query, which
-  // React Query dedupes — and also avoids the same collision during the brief
+  // each mount its own channel - they all just invalidate the same query, which
+  // React Query dedupes - and also avoids the same collision during the brief
   // overlap when navigating between two screens that both read lists.
   const instanceId = useId();
 
@@ -149,7 +149,7 @@ export function useCreateList() {
       if (!familyId) throw new Error("Nema porodice");
       if (!user?.id) throw new Error("Niste prijavljeni");
 
-      // Append to the end — same pattern as the old expenses table.
+      // Append to the end - same pattern as the old expenses table.
       const { data: maxData } = await supabase
         .from("lists")
         .select("sort_order")
@@ -227,10 +227,10 @@ export function useDeleteList() {
 }
 
 /**
- * Bulk-clone items into a (freshly created) list — the "Dupliraj sa
+ * Bulk-clone items into a (freshly created) list - the "Dupliraj sa
  * stavkama" half of the duplicate flow. Copies name, notes and the manual
  * sort_order, but always inserts as NOT completed: the use-case is a fresh
- * shopping list from a template, not an archive copy. No optimistic update —
+ * shopping list from a template, not an archive copy. No optimistic update -
  * this runs right after the list insert, so the invalidate is what surfaces
  * the new list + items together.
  */
@@ -287,7 +287,7 @@ export function useCreateListItem() {
       // Look up the parent list from the cache so we can compute next
       // sort_order (append-at-end) without an extra round-trip. We skip
       // any temp placeholder rows that `onMutate` may have just inserted
-      // for parallel creates — otherwise back-to-back submissions would
+      // for parallel creates - otherwise back-to-back submissions would
       // race the cache and produce sparse / off-by-one sort_orders.
       const cached = queryClient.getQueryData<ListWithItems[]>(["lists", familyId]);
       const parent = cached?.find((l) => l.id === payload.list_id);
@@ -404,7 +404,7 @@ export function useUpdateListItem() {
       if (error) throw new Error(error.message);
       // Smart sort is applied client-side at fetch time, so a rename that
       // changes the item's category (e.g. "Mleko" → "Hleb") simply lands
-      // in the right aisle on the next render — no sort_order rewrite
+      // in the right aisle on the next render - no sort_order rewrite
       // needed.
       return data as ListItem;
     },
@@ -490,7 +490,7 @@ export function useReorderListItems() {
 
   return useMutation({
     mutationFn: async (updates: ListItemReorderInput[]): Promise<void> => {
-      // Fire all updates in parallel — same pattern as `useReorderExpenses`
+      // Fire all updates in parallel - same pattern as `useReorderExpenses`
       // had before the expenses feature was removed. Each call goes through
       // RLS individually, so a partial failure surfaces the first error.
       const results = await Promise.all(
@@ -519,7 +519,7 @@ export function useReorderListItems() {
             )
             .sort((a, b) => a.sort_order - b.sort_order);
           // Smart sort is a view-time projection that re-runs on every
-          // render via `fetchListsWithItems`. We don't apply it here —
+          // render via `fetchListsWithItems`. We don't apply it here -
           // drag-to-reorder is only exposed when smart sort is OFF, so
           // the manual order is what the user expects to see.
           return { ...list, list_items: patched };
@@ -543,7 +543,7 @@ export function useReorderListItems() {
 /**
  * Toggle `lists.smart_sort_enabled` for one list.
  *
- * Smart sort is purely a view-time projection — `fetchListsWithItems`
+ * Smart sort is purely a view-time projection - `fetchListsWithItems`
  * applies the category sort client-side when the flag is on. Toggling
  * the flag is therefore a single boolean write with no follow-up bulk
  * update, and turning the flag back off non-destructively restores the

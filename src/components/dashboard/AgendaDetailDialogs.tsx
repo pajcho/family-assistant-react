@@ -22,7 +22,7 @@ import type { ResolvedActivityBlock } from "@/utils/activity";
  * inside event/payment/birthday flows back to the dashboard's form dialogs via
  * `onEditEvent` / `onEditPayment` / `onEditBirthday`. Activity edit opens the full
  * form INLINE via the self-contained `ActivityEditDialog` (no /activities
- * redirect) — its schedule/participants data is already warm from `useAgenda`.
+ * redirect) - its schedule/participants data is already warm from `useAgenda`.
  */
 export function useAgendaDetails({
   onEditEvent,
@@ -105,7 +105,7 @@ export function useAgendaDetails({
         onEditActivity={(activity) => setEditingActivity(activity)}
       />
 
-      {/* Full edit form, opened inline from the block action menu — no redirect
+      {/* Full edit form, opened inline from the block action menu - no redirect
           to /activities (the schedule/participants queries are already warm). */}
       <ActivityEditDialog
         activity={editingActivity}

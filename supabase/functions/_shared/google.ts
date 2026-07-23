@@ -17,7 +17,7 @@ export interface Connection {
 
 /**
  * Thrown when a connection can no longer be refreshed (refresh token revoked or
- * expired — e.g. the 7-day Testing-mode expiry). The connection is flagged
+ * expired - e.g. the 7-day Testing-mode expiry). The connection is flagged
  * `needs_reauth` before throwing so the UI can prompt a reconnect; callers
  * should catch this and skip that connection rather than fail the whole request.
  */
@@ -84,7 +84,7 @@ async function flagReauth(admin: Admin, connectionId: string): Promise<void> {
 }
 
 /**
- * A non-2xx response from the Google API. `status` lets callers branch — most
+ * A non-2xx response from the Google API. `status` lets callers branch - most
  * importantly on 410 GONE, which means a `syncToken` expired and the caller must
  * wipe + full-resync that calendar.
  */

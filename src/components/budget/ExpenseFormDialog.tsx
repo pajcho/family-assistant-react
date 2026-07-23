@@ -47,7 +47,7 @@ export type ExpenseFormDialogProps = {
 type View = { kind: "form" | ExpenseFormViewKind | "delete" };
 
 /**
- * The "Brzi unos" shell around <ExpenseForm> — same architecture as
+ * The "Brzi unos" shell around <ExpenseForm> - same architecture as
  * PaymentFormDialog: the dialog owns the SheetStack (mobile "Više detalja"
  * row pushes the Detalji sub-view into this same sheet), the form state +
  * currency control (so the SheetStack's mobile close→reopen hop can't drop
@@ -77,7 +77,7 @@ export function ExpenseFormDialog({
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
   const todayRef = useRef(today.str);
   todayRef.current = today.str;
-  // Amount autofocus fires once per OPEN, not once per form mount — a return
+  // Amount autofocus fires once per OPEN, not once per form mount - a return
   // from the Detalji sub-view remounts the form and must not re-pop the
   // keyboard.
   const focusedOnceRef = useRef(false);
@@ -172,7 +172,7 @@ export function ExpenseFormDialog({
               onScanReceipt={onScanReceipt}
               onOpenView={(kind) => stack.push({ kind })}
               onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
-              // Editing opens on the existing values — don't yank focus (and the
+              // Editing opens on the existing values - don't yank focus (and the
               // keyboard) onto the amount; that's a quick-ADD affordance only.
               autoFocusAmount={!isEdit && !focusedOnceRef.current}
               onAutoFocusedAmount={() => {
@@ -187,7 +187,7 @@ export function ExpenseFormDialog({
               value={form.category_id}
               onChange={(category_id) => {
                 setForm((s) => ({ ...s, category_id }));
-                // Nothing else to configure here — selection pops right back.
+                // Nothing else to configure here - selection pops right back.
                 stack.pop();
               }}
             />

@@ -13,14 +13,14 @@ export const Route = createFileRoute("/_app/lists/")({
 });
 
 /**
- * `/lists` — behaves differently per breakpoint:
+ * `/lists` - behaves differently per breakpoint:
  *
  * Mobile (< lg): this route IS the master list, full-screen. Tapping a row
  * deep-links to the detail page.
  *
  * Desktop (>= lg): the master already lives in the persistent shell sidebar
  * (`_app.lists.tsx`), so this route's only job is to decide which list to open
- * and redirect there — last-opened (if it still exists) → first list →
+ * and redirect there - last-opened (if it still exists) → first list →
  * (no lists) a placeholder. Selection is URL-driven, so deep-links,
  * back/forward and the dashboard all land on the right list.
  *

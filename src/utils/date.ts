@@ -17,7 +17,7 @@ import {
 import { srLatn } from "date-fns/locale";
 
 /**
- * Serbian (Latin) locale for date-fns. The app is fully Latin-script —
+ * Serbian (Latin) locale for date-fns. The app is fully Latin-script -
  * the default `sr` import renders relative phrases like "pre 1 dan" in
  * Cyrillic, which doesn't match the rest of the UI.
  */
@@ -85,7 +85,7 @@ export function subtractMonth(dateStr: string, count = 1): string {
   return format(prev, "yyyy-MM-dd");
 }
 
-/** Add `count` weeks (count * 7 days). No day-capping needed — week arithmetic never overflows a month. */
+/** Add `count` weeks (count * 7 days). No day-capping needed - week arithmetic never overflows a month. */
 export function addWeek(dateStr: string, count = 1): string {
   const date = parseISO(dateStr + "T12:00:00");
   const next = addDays(date, 7 * count);
@@ -155,7 +155,7 @@ export function isMonthlyOccurrenceMonth(
 /**
  * Enumerate the weekly occurrences of a payment that fall inside `monthYYYYMM`.
  * A weekly payment with interval `N` has occurrences at `dueDate`, `dueDate + 7N`,
- * `dueDate + 14N`, … — we walk forward (or backward when the requested month
+ * `dueDate + 14N`, … - we walk forward (or backward when the requested month
  * is in the past relative to the due date) and collect the ones that match.
  *
  * Used by the payments page to generate upcoming rows for each occurrence in
@@ -174,7 +174,7 @@ export function getWeeklyOccurrencesInMonth(
 
   let current = dueDateStr;
   // If due date is past the requested month, rewind until we're at or before
-  // the month start. Bounded — `safeInterval >= 1` guarantees progress.
+  // the month start. Bounded - `safeInterval >= 1` guarantees progress.
   while (current > monthEnd) {
     current = subtractWeek(current, safeInterval);
   }
@@ -201,10 +201,10 @@ export function dueDateInCurrentMonth(pastDueDateStr: string): string {
   return format(new Date(today.getFullYear(), today.getMonth(), safeDay), "yyyy-MM-dd");
 }
 
-/** Format date as DD.MM.YYYY (Serbian). Returns "—" for invalid input so a single bad row can't blow up a render. */
+/** Format date as DD.MM.YYYY (Serbian). Returns "-" for invalid input so a single bad row can't blow up a render. */
 export function formatDate(date: Date | string): string {
   const dateObj = typeof date === "string" ? parseISO(date) : date;
-  if (!isValid(dateObj)) return "—";
+  if (!isValid(dateObj)) return "-";
   return format(dateObj, "dd.MM.yyyy", { locale: srLocale });
 }
 
@@ -251,24 +251,24 @@ export function dueDayLabel(dueDateStr: string): string {
 }
 
 /**
- * "pre 2 minuta" / "pre 1 sat" — Serbian-Latin relative phrasing for an
+ * "pre 2 minuta" / "pre 1 sat" - Serbian-Latin relative phrasing for an
  * ISO timestamp. Used in audit / activity displays where the exact date
  * is less interesting than how recent it is.
  */
 export function formatRelative(iso: string | Date | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const date = typeof iso === "string" ? parseISO(iso) : iso;
-  if (!isValid(date)) return "—";
+  if (!isValid(date)) return "-";
   return formatDistanceToNow(date, { locale: srLocale, addSuffix: true });
 }
 
 /**
- * DD.MM.YYYY HH:mm — full timestamp for audit panels and tooltips. Falls
- * back to "—" on parse failure so a single bad row can't blow up a render.
+ * DD.MM.YYYY HH:mm - full timestamp for audit panels and tooltips. Falls
+ * back to "-" on parse failure so a single bad row can't blow up a render.
  */
 export function formatDateTime(iso: string | Date | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const date = typeof iso === "string" ? parseISO(iso) : iso;
-  if (!isValid(date)) return "—";
+  if (!isValid(date)) return "-";
   return format(date, "dd.MM.yyyy HH:mm", { locale: srLocale });
 }

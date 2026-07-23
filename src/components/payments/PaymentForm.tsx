@@ -32,11 +32,11 @@ import { currencySymbol, parseDecimal } from "@/utils/currency";
 import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
 
-/** Form payload — mirrors the Vue PaymentForm.vue submit shape. */
+/** Form payload - mirrors the Vue PaymentForm.vue submit shape. */
 export type PaymentFormPayload = {
   name: string;
   description: string | null;
-  /** Always RSD — foreign entries are converted here, at submit time. */
+  /** Always RSD - foreign entries are converted here, at submit time. */
   amount: number;
   /** Currency the payment was entered in ("RSD" | "EUR" | …). */
   currency: string;
@@ -46,18 +46,18 @@ export type PaymentFormPayload = {
   due_date: string;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod;
-  /** "Every N periods" — always present, defaults to 1 for one-time/limited. */
+  /** "Every N periods" - always present, defaults to 1 for one-time/limited. */
   recurrence_interval: number;
   remaining_occurrences?: number | null;
-  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  /** Recurring bill with a per-period amount - see `Payment.is_variable_amount`. */
   is_variable_amount: boolean;
   is_paused?: boolean;
   remind_days_before: number | null;
-  /** Linked activity — XOR with the other two; all null when unlinked. */
+  /** Linked activity - XOR with the other two; all null when unlinked. */
   activity_id: string | null;
-  /** Linked event — XOR with the other two. */
+  /** Linked event - XOR with the other two. */
   event_id: string | null;
-  /** Linked birthday (poklon tracking) — XOR with the other two. */
+  /** Linked birthday (poklon tracking) - XOR with the other two. */
   birthday_id: string | null;
   /** Optional budget category (inherited by each paid occurrence's auto-expense). */
   category_id: string | null;
@@ -75,18 +75,18 @@ export type PaymentFormState = {
   recurrence_interval: number;
   /** kept as string for consistent controlled-input behavior */
   remaining_occurrences: string;
-  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  /** Recurring bill with a per-period amount - see `Payment.is_variable_amount`. */
   is_variable_amount: boolean;
   is_paused: boolean;
   remind_days_before: number | null;
-  /** Single Jira-style link to an activity or event — see PaymentLinkField. */
+  /** Single Jira-style link to an activity or event - see PaymentLinkField. */
   link: PaymentLinkValue | null;
   /** Optional budget category id, or null for "Bez kategorije". */
   category_id: string | null;
   personIds: string[];
 };
 
-/** Mobile sub-views the form's picker rows can open — see PaymentFormDialog. */
+/** Mobile sub-views the form's picker rows can open - see PaymentFormDialog. */
 export type PaymentFormViewKind = "tip" | "category" | "details";
 
 export const RECURRENCE_OPTIONS: ReadonlyArray<{ value: RecurrencePeriod; label: string }> = [
@@ -119,7 +119,7 @@ function initialLink(payment: Payment | null | undefined): PaymentLinkValue | nu
 
 /**
  * Seed for the dialog-owned form state. `today` (yyyy-MM-dd) pre-fills the
- * due date when ADDING — the most common due date is "danas", and the quick
+ * due date when ADDING - the most common due date is "danas", and the quick
  * chips / picker make any other date one tap away.
  */
 export function initialPaymentFormState(
@@ -151,7 +151,7 @@ export function initialPaymentFormState(
   };
 }
 
-/** "Mesečno · svaka 2 meseca · promenljiv iznos · pauzirano" — the Tip row summary. */
+/** "Mesečno · svaka 2 meseca · promenljiv iznos · pauzirano" - the Tip row summary. */
 export function recurrenceSummary(form: PaymentFormState): string {
   const parts: string[] = [
     RECURRENCE_OPTIONS.find((o) => o.value === form.recurrence_period)?.label ?? "",
@@ -173,7 +173,7 @@ export function recurrenceSummary(form: PaymentFormState): string {
 }
 
 export type PaymentFormProps = {
-  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
   form: PaymentFormState;
   setForm: Dispatch<SetStateAction<PaymentFormState>>;
   /** Dialog-owned currency control (same reason). */
@@ -189,19 +189,19 @@ export type PaymentFormProps = {
 };
 
 /**
- * Mobile (<sm) — the "Brzi unos" layout: the three always-typed fields
+ * Mobile (<sm) - the "Brzi unos" layout: the three always-typed fields
  * (Naziv, big Iznos, Datum with quick chips), then three picker rows (Tip
  * plaćanja / Kategorija / Više detalja) opening sub-views in the same sheet,
  * with a sticky Odustani/Dodaj footer.
  *
- * Desktop (sm+) — the classic fully-expanded layout, unchanged:
- *   • Naziv / Opis — full width
- *   • Za koga — assignee pills (optional)
- *   • Poveži sa — link combobox to one activity/event (optional)
- *   • Kategorija — native select
- *   • Tip — native select, disabled when `hasHistory`; gates Ponavljanje /
+ * Desktop (sm+) - the classic fully-expanded layout, unchanged:
+ *   • Naziv / Opis - full width
+ *   • Za koga - assignee pills (optional)
+ *   • Poveži sa - link combobox to one activity/event (optional)
+ *   • Kategorija - native select
+ *   • Tip - native select, disabled when `hasHistory`; gates Ponavljanje /
  *     Preostalo uplata / Promenljiv iznos below it
- *   • Iznos — label + currency toggle row, NBS-rate row for foreign entries
+ *   • Iznos - label + currency toggle row, NBS-rate row for foreign entries
  *   • Datum dospeća, Pauziraj (edit+recurring), Podsetnik
  *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
  */
@@ -237,7 +237,7 @@ export function PaymentForm({
     setForm((s) => ({
       ...s,
       recurrence_period: next,
-      // Always reset to 1 — weekly/monthly intervals don't share a scale, and
+      // Always reset to 1 - weekly/monthly intervals don't share a scale, and
       // for one-time/limited the interval is ignored on submit anyway.
       recurrence_interval: 1,
     }));
@@ -248,7 +248,7 @@ export function PaymentForm({
     const amountNum = parseDecimal(form.amount);
     if (!form.name.trim() || !form.due_date || !(amountNum > 0)) return;
     // Foreign entries freeze the conversion HERE (typed amount + NBS rate kept
-    // verbatim, `amount` becomes RSD) — same contract as ExpenseForm.
+    // verbatim, `amount` becomes RSD) - same contract as ExpenseForm.
     const frozen = ca.freeze(amountNum);
     if (!frozen) return;
     const remainingNum =
@@ -262,7 +262,7 @@ export function PaymentForm({
       recurrence_period: form.recurrence_period,
       recurrence_interval: showIntervalSelect ? form.recurrence_interval : 1,
       remaining_occurrences: form.recurrence_period === "limited" ? (remainingNum ?? null) : null,
-      // Variable amount is a recurring-only concept — never persist a stray flag
+      // Variable amount is a recurring-only concept - never persist a stray flag
       // if the user toggled it on and then switched Tip back to one-time.
       is_variable_amount: isRecurring ? form.is_variable_amount : false,
       is_paused: isRecurring ? form.is_paused : false,
@@ -278,7 +278,7 @@ export function PaymentForm({
   const amountLabel = form.is_variable_amount ? "Okvirni iznos *" : "Iznos *";
 
   if (!isDesktop) {
-    // ——— Mobile: "Brzi unos" ———
+    // --- Mobile: "Brzi unos" ---
     const selectedCategory = form.category_id
       ? categories.find((c) => c.id === form.category_id)
       : null;
@@ -323,7 +323,7 @@ export function PaymentForm({
             placeholder="npr. Internet račun"
           />
         </div>
-        {/* Amount — the star, mirroring ExpenseForm's quick-add field. */}
+        {/* Amount - the star, mirroring ExpenseForm's quick-add field. */}
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="amount">{amountLabel}</Label>
@@ -406,7 +406,7 @@ export function PaymentForm({
     );
   }
 
-  // ——— Desktop: classic fully-expanded layout (unchanged) ———
+  // --- Desktop: classic fully-expanded layout (unchanged) ---
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
@@ -436,7 +436,7 @@ export function PaymentForm({
       <PaymentLinkField
         value={form.link}
         onChange={(link) => setForm((s) => ({ ...s, link }))}
-        // Only suggest while ADDING — an edited payment's name matching its
+        // Only suggest while ADDING - an edited payment's name matching its
         // own (or another) entity is noise, not a signal.
         suggestFromName={isEdit ? undefined : form.name}
       />
@@ -446,7 +446,7 @@ export function PaymentForm({
         onChange={(category_id) => setForm((s) => ({ ...s, category_id }))}
       />
       {/* Tip drives the conditional fields below it (Ponavljanje, Preostalo
-          uplata, Promenljiv iznos), so it sits ABOVE Iznos/Datum — the birač
+          uplata, Promenljiv iznos), so it sits ABOVE Iznos/Datum - the birač
           comes first, then everything that depends on it. */}
       <div className={cn("grid gap-4", showIntervalSelect ? "grid-cols-2" : "grid-cols-1")}>
         <div className="space-y-2">
@@ -491,7 +491,7 @@ export function PaymentForm({
           />
         </div>
       ) : null}
-      {/* Iznos — full-width, mirroring ExpenseForm: label and currency toggle
+      {/* Iznos - full-width, mirroring ExpenseForm: label and currency toggle
           share the row, the input carries the currency symbol as a suffix,
           and the NBS-rate row slots directly underneath. */}
       <div className="space-y-2">
@@ -519,10 +519,10 @@ export function PaymentForm({
           inputId="payment-rate"
         />
       </div>
-      {/* Variable amount sits directly under Iznos — it describes the amount,
+      {/* Variable amount sits directly under Iznos - it describes the amount,
           not the date. Recurring-only concept (režije koje variraju); the
           toggle depends on the Tip value, not on whether the Tip select is
-          enabled — so it still shows for a payment with history you want to
+          enabled - so it still shows for a payment with history you want to
           convert to variable. */}
       {isRecurring ? (
         <div className="space-y-2">
@@ -537,7 +537,7 @@ export function PaymentForm({
           </label>
           {form.is_variable_amount ? (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Uneseni iznos je okvirni — pri svakom označavanju kao plaćeno potvrđuješ tačan iznos.
+              Uneseni iznos je okvirni - pri svakom označavanju kao plaćeno potvrđuješ tačan iznos.
             </p>
           ) : null}
         </div>

@@ -42,7 +42,7 @@ export function AmountOriginal({
   amount: number | null;
   currency: string;
   className?: string;
-  /** Wrap in parentheses — for inline placement right after an <Amount>. */
+  /** Wrap in parentheses - for inline placement right after an <Amount>. */
   parens?: boolean;
 }) {
   if (currency === "RSD" || amount == null) return null;

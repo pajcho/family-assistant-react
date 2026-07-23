@@ -17,7 +17,7 @@ describe("utils", () => {
   });
 
   it("daysUntilBirthday returns ~10 for a birth date 10 days from today (any year)", () => {
-    // Pick a birth date whose MM-DD is exactly 10 days from today. Year doesn't matter —
+    // Pick a birth date whose MM-DD is exactly 10 days from today. Year doesn't matter -
     // the util computes the next birthday from today and only the month/day are used to
     // decide whether the next occurrence falls this year or next.
     const target = addDays(new Date(), 10);

@@ -19,7 +19,7 @@ import { DAY_LABELS_FULL } from "@/utils/activity";
 import { formatDate } from "@/utils/date";
 
 /**
- * Form payload — the parent page splits this into:
+ * Form payload - the parent page splits this into:
  *   • create/update activity (everything except `rules` and `person_ids`)
  *   • replace schedule rules in one batch (`rules`)
  *   • replace participants in one batch (`person_ids`)
@@ -59,7 +59,7 @@ export type ActivityFormState = {
   rules: ScheduleRuleDraft[];
 };
 
-/** Mobile sub-views the form's picker row can open — see ActivityFormDialog. */
+/** Mobile sub-views the form's picker row can open - see ActivityFormDialog. */
 export type ActivityFormViewKind = "details";
 
 const DAY_OPTIONS: ReadonlyArray<{ value: number; label: string }> = DAY_LABELS_FULL.map(
@@ -135,7 +135,7 @@ export function initialActivityFormState(
     existingRules && existingRules.length > 0
       ? existingRules.map((r) => ({
           day_of_week: r.day_of_week,
-          // Postgres TIME comes back as "HH:MM:SS" — the time input wants "HH:MM".
+          // Postgres TIME comes back as "HH:MM:SS" - the time input wants "HH:MM".
           start_time: r.start_time.slice(0, 5),
           end_time: r.end_time.slice(0, 5),
           week_pattern: r.week_pattern,
@@ -164,7 +164,7 @@ export function initialActivityFormState(
 }
 
 export type ActivityFormProps = {
-  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
   form: ActivityFormState;
   setForm: Dispatch<SetStateAction<ActivityFormState>>;
   activity?: Activity | null;
@@ -173,7 +173,7 @@ export type ActivityFormProps = {
   saving?: boolean;
   /**
    * Read-only "Plaćanja" block (linked payments + monthly breakdown), slotted
-   * in above the footer buttons when editing. The dialog owns the data — the
+   * in above the footer buttons when editing. The dialog owns the data - the
    * form stays a dumb layout shell for it.
    */
   paymentsSection?: ReactNode;
@@ -184,13 +184,13 @@ export type ActivityFormProps = {
 };
 
 /**
- * Mobile (<sm) — the "Brzi unos" layout: Naziv, Učesnici and the Termini
+ * Mobile (<sm) - the "Brzi unos" layout: Naziv, Učesnici and the Termini
  * rule cards stay inline (the schedule IS the activity), Pauziraj becomes a
  * switch card on edit; Opis, Sezona, Podsetnik and Beleške move behind a
  * "Više detalja" row into a sub-view. The Odustani/Dodaj bar is pinned by
  * the dialog below the scroll area.
  *
- * Desktop (sm+) — the classic fully-expanded layout, unchanged.
+ * Desktop (sm+) - the classic fully-expanded layout, unchanged.
  */
 export function ActivityForm({
   form,
@@ -234,12 +234,12 @@ export function ActivityForm({
     const trimmedName = form.name.trim();
     if (!trimmedName || form.person_ids.length === 0) return;
 
-    // Drop rules with invalid times (end <= start) silently — the row UI
+    // Drop rules with invalid times (end <= start) silently - the row UI
     // already nudges with the inputs going red; submitting just skips them.
     const validRules = form.rules
       .filter((r) => r.start_time && r.end_time && r.end_time > r.start_time)
       // When no selected participant has a shift, A/B rules don't make
-      // sense — coerce to 'every' so the row still survives.
+      // sense - coerce to 'every' so the row still survives.
       .map((r) =>
         !personHasShift && r.week_pattern !== "every"
           ? { ...r, week_pattern: "every" as const, recurrence_interval_weeks: 1 }
@@ -311,7 +311,7 @@ export function ActivityForm({
             <div
               key={index}
               className={cn(
-                // Card-style stacked layout — works in the narrow drawer on
+                // Card-style stacked layout - works in the narrow drawer on
                 // mobile and stays readable on desktop. Day select on top
                 // gets the full row width so the longest names (Ponedeljak,
                 // Četvrtak) never truncate.
@@ -347,7 +347,7 @@ export function ActivityForm({
                     clearable={false}
                   />
                 </div>
-                <span className="shrink-0 text-sm text-muted-foreground">–</span>
+                <span className="shrink-0 text-sm text-muted-foreground">-</span>
                 <div className="min-w-0 flex-1">
                   <TimePicker
                     value={rule.end_time}
@@ -356,7 +356,7 @@ export function ActivityForm({
                   />
                 </div>
               </div>
-              {/* Pattern dropdown — composite values like `every:2` carry
+              {/* Pattern dropdown - composite values like `every:2` carry
                   both the week_pattern and the recurrence interval so the
                   rule card stays a single row of fields. A/B options are
                   filtered out for people without an alternating shift. */}
@@ -376,13 +376,13 @@ export function ActivityForm({
   );
 
   if (!isDesktop) {
-    // ——— Mobile: "Brzi unos" ———
+    // --- Mobile: "Brzi unos" ---
     const detailParts: string[] = [];
     if (form.description.trim()) detailParts.push("Opis ✓");
     if (form.active_from || form.active_to) {
       const from = form.active_from ? formatDate(form.active_from) : "…";
       const to = form.active_to ? formatDate(form.active_to) : "…";
-      detailParts.push(`Sezona ${from} – ${to}`);
+      detailParts.push(`Sezona ${from} - ${to}`);
     }
     if (form.remind_minutes_before != null) {
       const reminder = EVENT_REMINDER_OPTIONS.find((o) => o.value === form.remind_minutes_before);
@@ -422,7 +422,7 @@ export function ActivityForm({
     );
   }
 
-  // ——— Desktop: classic fully-expanded layout (unchanged) ———
+  // --- Desktop: classic fully-expanded layout (unchanged) ---
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {nameField}

@@ -87,12 +87,12 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
             return decodedRef.current;
           }
         } catch {
-          /* transient detect error — try again next tick */
+          /* transient detect error - try again next tick */
         }
         return false;
       }
 
-      // zxing-wasm fallback: sample only the centre square of the frame — the
+      // zxing-wasm fallback: sample only the centre square of the frame - the
       // square viewport renders the video with object-cover, so that region is
       // exactly what the user sees (and 2-4× fewer pixels to decode).
       const w = video.videoWidth;
@@ -125,7 +125,7 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "environment",
-            // Without explicit size hints iOS Safari defaults to 640×480 —
+            // Without explicit size hints iOS Safari defaults to 640×480 -
             // far too coarse for dense fiscal QR codes (~2-3px per module).
             width: { ideal: 1920 },
             height: { ideal: 1080 },

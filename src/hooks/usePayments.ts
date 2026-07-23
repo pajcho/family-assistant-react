@@ -15,24 +15,24 @@ import {
 } from "@/utils/date";
 
 /**
- * Payments data hooks — direct port of `composables/usePayments.ts` from the
+ * Payments data hooks - direct port of `composables/usePayments.ts` from the
  * sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
  *
  * Surface:
- *   - `usePaymentsList({ hidePaid? })`               — list query + realtime
- *   - `usePaymentHistory({ monthFilter? })`          — family-wide history query
- *   - `usePaymentHistoryByPaymentId(paymentId)`      — per-payment history query
- *   - `useCreatePayment()`                           — insert mutation
- *   - `useUpdatePayment()`                           — update mutation
- *   - `useDeletePayment()`                           — delete mutation
- *   - `useMarkPaymentPaid()`                         — multi-step "mark paid"
- *   - `useTogglePaymentPause()`                      — pause/unpause toggle
- *   - `useUndoLastPayment()`                         — multi-step revert
- *   - `hasPaymentHistory(paymentId)`                 — imperative async helper
- *   - `getLastHistoryEntry(paymentId)`               — imperative async helper
+ *   - `usePaymentsList({ hidePaid? })`               - list query + realtime
+ *   - `usePaymentHistory({ monthFilter? })`          - family-wide history query
+ *   - `usePaymentHistoryByPaymentId(paymentId)`      - per-payment history query
+ *   - `useCreatePayment()`                           - insert mutation
+ *   - `useUpdatePayment()`                           - update mutation
+ *   - `useDeletePayment()`                           - delete mutation
+ *   - `useMarkPaymentPaid()`                         - multi-step "mark paid"
+ *   - `useTogglePaymentPause()`                      - pause/unpause toggle
+ *   - `useUndoLastPayment()`                         - multi-step revert
+ *   - `hasPaymentHistory(paymentId)`                 - imperative async helper
+ *   - `getLastHistoryEntry(paymentId)`               - imperative async helper
  *
  * The recurrence-period branching inside `markAsPaid` / `undoLastPayment`
- * mirrors the Vue source line-for-line. Do not paraphrase — getting it wrong
+ * mirrors the Vue source line-for-line. Do not paraphrase - getting it wrong
  * desyncs the DB.
  *
  * Realtime: a single channel subscribes to BOTH `payments` and `payment_history`
@@ -63,16 +63,16 @@ export type CreatePaymentInput = {
   recurrence_period: RecurrencePeriod | null;
   recurrence_interval?: number;
   remaining_occurrences?: number | null;
-  /** Recurring bill with a per-period amount — see `Payment.is_variable_amount`. */
+  /** Recurring bill with a per-period amount - see `Payment.is_variable_amount`. */
   is_variable_amount?: boolean;
   remind_days_before?: number | null;
-  /** Linked activity — at most one link may be set (DB CHECK `payments_single_link`). */
+  /** Linked activity - at most one link may be set (DB CHECK `payments_single_link`). */
   activity_id?: string | null;
-  /** Linked event — XOR with the other two links. */
+  /** Linked event - XOR with the other two links. */
   event_id?: string | null;
-  /** Linked birthday (poklon tracking) — XOR with the other two links. */
+  /** Linked birthday (poklon tracking) - XOR with the other two links. */
   birthday_id?: string | null;
-  /** Optional budget category — inherited by each paid occurrence's auto-expense. */
+  /** Optional budget category - inherited by each paid occurrence's auto-expense. */
   category_id?: string | null;
   /** Family members this payment is for. Omit/empty = unassigned. */
   personIds?: string[];
@@ -103,7 +103,7 @@ export type UpdatePaymentInput = Partial<
 > & {
   /**
    * Replace the payment's assignees. `undefined` leaves them untouched; any
-   * array — including empty — replaces the full set.
+   * array - including empty - replaces the full set.
    */
   personIds?: string[];
 };
@@ -148,7 +148,7 @@ async function fetchPaymentHistoryByPaymentId(paymentId: string): Promise<Paymen
     .from("payment_history")
     .select("*")
     .eq("payment_id", paymentId)
-    // created_at, not paid_date — canceled entries have no paid_date but must
+    // created_at, not paid_date - canceled entries have no paid_date but must
     // still sort newest-first (the latest entry gets the Undo action).
     .order("created_at", { ascending: false });
   if (error) return [];
@@ -156,7 +156,7 @@ async function fetchPaymentHistoryByPaymentId(paymentId: string): Promise<Paymen
 }
 
 /**
- * Imperative helper — called from inside mutations / UI handlers (e.g. the
+ * Imperative helper - called from inside mutations / UI handlers (e.g. the
  * payments page checks this before opening the edit dialog to disable the
  * recurrence-type radios). Not a React Query hook on purpose.
  */
@@ -170,7 +170,7 @@ export async function hasPaymentHistory(paymentId: string): Promise<boolean> {
 }
 
 /**
- * Imperative helper — used by `undoLastPayment` to fetch the latest history
+ * Imperative helper - used by `undoLastPayment` to fetch the latest history
  * row for idempotency checks. Returns `null` when no history exists.
  */
 export async function getLastHistoryEntry(paymentId: string): Promise<PaymentHistory | null> {
@@ -272,7 +272,7 @@ export function usePaymentHistoryByPaymentId(paymentId: string | null | undefine
 /**
  * Invalidate every query produced by this hook family. Mutations call this
  * on success so the list, family-wide history, and per-payment history all
- * refresh — the partial-key form for `payment_history` covers both shapes.
+ * refresh - the partial-key form for `payment_history` covers both shapes.
  */
 function invalidateAll(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -381,10 +381,10 @@ export function useDeletePayment() {
  *        (do NOT advance `due_date`); otherwise advance `due_date` by one
  *        month and keep `is_paid: false`. Limited ignores `recurrence_interval`.
  *
- * The live `amount` is never overwritten — for a variable bill it stays as the
+ * The live `amount` is never overwritten - for a variable bill it stays as the
  * rough default ("okvirni iznos") that drives next-month projections.
  *
- * Not transactional — supabase-js doesn't expose Postgres transactions.
+ * Not transactional - supabase-js doesn't expose Postgres transactions.
  * If any step fails the toast surfaces it and realtime re-syncs state.
  */
 export type MarkPaymentPaidInput = {
@@ -442,7 +442,7 @@ export function useMarkPaymentPaid() {
       // rewrites this occurrence's history.
       // Variable bills pass the actual paid amount; fixed ones snapshot the
       // live amount. A non-positive override would trip the expenses CHECK
-      // (amount > 0) in the auto-expense trigger, so the UI validates first —
+      // (amount > 0) in the auto-expense trigger, so the UI validates first -
       // guard here too as a backstop.
       const historyAmount = amount != null && amount > 0 ? amount : row.amount;
 
@@ -546,7 +546,7 @@ export function useMarkPaymentPaid() {
 /**
  * Cancel (skip) the current occurrence of a RECURRING payment: record a
  * `status: 'canceled'` row in `payment_history` (with optional reason) and
- * advance the live `due_date` to the next occurrence — so the next one becomes
+ * advance the live `due_date` to the next occurrence - so the next one becomes
  * active and the skip stays visible in history. The advance branches mirror
  * `useMarkPaymentPaid`. One-time payments don't use this (they keep a
  * display-only cancel override). "Undo" of a canceled entry goes through the
@@ -681,13 +681,13 @@ export function useTogglePaymentPause() {
  * Multi-step "undo last payment":
  *   1. Read the live `payments` row.
  *   2. Read the last `payment_history` row for this payment. If none exists
- *      surface a friendly "već vraćeno" error — the entry has already been
+ *      surface a friendly "već vraćeno" error - the entry has already been
  *      reverted on another device or in a previous attempt.
  *   3. Delete that history row.
  *   4. Revert the live row based on `recurrence_period`, guarded by an
  *      "already reverted" idempotency check: if the deleted history row's
  *      `due_date` matches the current live `due_date`, the previous attempt
- *      already rolled the live row back (only the history delete failed) —
+ *      already rolled the live row back (only the history delete failed) -
  *      skip the write to avoid double-reverting.
  *
  * Revert rules:

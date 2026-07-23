@@ -13,7 +13,7 @@ export type MarkdownTextProps = {
  * Renders user-supplied markdown (list / item descriptions) with a small,
  * project-local set of element overrides.
  *
- * We don't use the `@tailwindcss/typography` plugin — the surface area is
+ * We don't use the `@tailwindcss/typography` plugin - the surface area is
  * narrow (a handful of formatted paragraphs), so a few Tailwind utility
  * classes per element get us a consistent look without dragging in a
  * full prose stylesheet.
@@ -29,7 +29,7 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
     <div
       className={cn(
         "text-sm leading-relaxed text-gray-700 dark:text-gray-300",
-        // Reset the dialog's overall vertical rhythm — markdown blocks get
+        // Reset the dialog's overall vertical rhythm - markdown blocks get
         // their own breathing room from the component overrides below.
         "space-y-2",
         className,
@@ -96,7 +96,7 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
  * preview reads as plain prose rather than as raw markdown.
  *
  * Edge cases (table rows, code blocks, links) intentionally degrade to
- * the raw text — the popup gives the user the formatted view; the
+ * the raw text - the popup gives the user the formatted view; the
  * preview just needs to hint that a description exists.
  */
 export function previewLine(description: string | null | undefined): string {

@@ -5,7 +5,7 @@ import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { cn } from "@/lib/cn";
 
 /**
- * Tappable grid of category tiles — the same visual as ExpenseForm's inline
+ * Tappable grid of category tiles - the same visual as ExpenseForm's inline
  * grid, packaged for the "Brzi unos" Kategorija sub-view. Self-fetches the
  * category list; the parent owns only the selected id (`null` = "Bez
  * kategorije", offered as the first tile). Every tap selects (no toggle):

@@ -17,7 +17,7 @@
 // verify_jwt = true (see supabase/config.toml): called from the client with the
 // member's session, so the platform rejects unauthenticated calls before we run.
 //
-// SSRF guard: we ONLY ever fetch https://suf.purs.gov.rs/v/… — protocol, exact
+// SSRF guard: we ONLY ever fetch https://suf.purs.gov.rs/v/… - protocol, exact
 // host and path prefix are all validated before the outbound fetch, so this
 // endpoint can't be turned into a proxy for arbitrary URLs.
 //
@@ -43,7 +43,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 // only backfills `retryAfterSeconds` if the RPC response ever lacks it. The
 // client mirrors it too (RECEIPT_REFRESH_COOLDOWN_SECONDS) for the countdown.
 const REFRESH_COOLDOWN_SECONDS = 180;
-// A browser-ish UA — the PURS page has been known to vary its output for
+// A browser-ish UA - the PURS page has been known to vary its output for
 // obvious bots. Keep it plausible without impersonating a specific version.
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
 
 /**
  * Atomically claims the per-receipt refresh cooldown via the
- * `claim_receipt_refresh` RPC (SECURITY INVOKER — RLS scopes it to the
- * caller's family; single conditional UPDATE — concurrent claims race safely).
+ * `claim_receipt_refresh` RPC (SECURITY INVOKER - RLS scopes it to the
+ * caller's family; single conditional UPDATE - concurrent claims race safely).
  * Returns a ready error Response when the refresh must NOT proceed (unknown
  * receipt, or claimed too recently), null when the claim succeeded. The claim
  * happens BEFORE the outbound fetch on purpose: the PURS request is the

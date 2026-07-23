@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
  * Shared single-row list toolbar: `[period] [🔍] [Filteri •N]`. On mobile the
  * search collapses to an icon that expands over the whole row (with "Otkaži");
  * from `sm` up the input stays visible inline. Sheet-based filters hang off
- * the trailing `FilterTriggerButton` — the sheet itself is the page's
+ * the trailing `FilterTriggerButton` - the sheet itself is the page's
  * `FilterSheet`.
  */
 export type FilterBarProps = {
@@ -53,7 +53,7 @@ export function FilterBar({
   return (
     // flex-wrap: when the picker carries its "Ovaj mesec" reset (or a long
     // "Svi …" label) the trailing buttons wrap to a second line instead of
-    // clipping — the single-row promise holds in the common case.
+    // clipping - the single-row promise holds in the common case.
     <div className="flex flex-wrap items-center gap-2">
       {picker ? (
         <div className={cn("flex min-w-0 items-center", expanded && "hidden sm:flex")}>
@@ -117,7 +117,7 @@ export function FilterBar({
 }
 
 /**
- * The "Filteri" trigger — outline pill with a funnel icon and a count badge;
+ * The "Filteri" trigger - outline pill with a funnel icon and a count badge;
  * turns blue while any non-default filter is applied. Shared by every list
  * page and the dashboard so the affordance reads identically everywhere.
  */
@@ -141,7 +141,7 @@ export function FilterTriggerButton({
       <FunnelIcon className="size-4" />
       Filteri
       {/* Overlaid on the corner so appearing/disappearing never changes the
-          button's width — the toolbar row can't reflow when a filter lands. */}
+          button's width - the toolbar row can't reflow when a filter lands. */}
       {count > 0 ? (
         <span className="absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-semibold text-white tabular-nums shadow-sm">
           {count}

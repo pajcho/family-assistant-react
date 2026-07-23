@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseJournal } from "./parse.ts";
 import { transliterateReceipt, transliterateToLatin } from "./transliterate.ts";
 
-describe("transliterateToLatin — monographs", () => {
+describe("transliterateToLatin - monographs", () => {
   it("maps the special Serbian letters", () => {
     expect(transliterateToLatin("Ђорђе")).toBe("Đorđe");
     expect(transliterateToLatin("ЂОРЂЕ")).toBe("ĐORĐE");
@@ -19,7 +19,7 @@ describe("transliterateToLatin — monographs", () => {
   });
 });
 
-describe("transliterateToLatin — digraph casing rule", () => {
+describe("transliterateToLatin - digraph casing rule", () => {
   it("uses title-case digraphs in mixed-case words", () => {
     expect(transliterateToLatin("Љубица")).toBe("Ljubica");
     expect(transliterateToLatin("Књига")).toBe("Knjiga");
@@ -39,7 +39,7 @@ describe("transliterateToLatin — digraph casing rule", () => {
   });
 });
 
-describe("transliterateToLatin — pass-through", () => {
+describe("transliterateToLatin - pass-through", () => {
   it("leaves Latin brand names, digits and punctuation unchanged", () => {
     expect(transliterateToLatin("NIKE Helanke g np tght W")).toBe("NIKE Helanke g np tght W");
     expect(transliterateToLatin("ZARA TC USCE")).toBe("ZARA TC USCE");
@@ -70,7 +70,7 @@ const CYRILLIC_JOURNAL = `============ ФИСКАЛНИ РАЧУН ============
 ПФР време:          05.02.2026. 08:15:00
 ПФР број рачуна: ABCDEFGH-ABCDEFGH-12345`;
 
-describe("transliterateReceipt — end-to-end on a Cyrillic merchant", () => {
+describe("transliterateReceipt - end-to-end on a Cyrillic merchant", () => {
   const raw = parseJournal(CYRILLIC_JOURNAL);
   const latin = transliterateReceipt(raw);
 

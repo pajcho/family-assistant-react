@@ -27,7 +27,7 @@ import type { Event, Payment } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 
 /**
- * In-place edit dialog for an entity referenced from somewhere else — a
+ * In-place edit dialog for an entity referenced from somewhere else - a
  * payment's "Povezano sa" chip, or a global-search hit. Instead of navigating
  * to the entity's page, the caller mounts this and the edit form opens right
  * where the user is.

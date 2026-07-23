@@ -18,10 +18,10 @@ import {
 import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
 
 /**
- * Single-day calendar column for the "Danas" tab — the calendar counterpart of
+ * Single-day calendar column for the "Danas" tab - the calendar counterpart of
  * the today list. An "All day / Ceo dan" row on top (payments, birthdays,
  * all-day events), then an hourly grid with timed activities + events laid into
- * side-by-side lanes on overlap and a red "now" line. Grows to its full height —
+ * side-by-side lanes on overlap and a red "now" line. Grows to its full height -
  * the page scrolls, the calendar never does (matching the weekly calendar). The
  * axis always includes "now", so the red line sits near the top and is visible
  * on open without scrolling. Tapping a block opens the same detail dialog the
@@ -39,8 +39,8 @@ export function AgendaDayCalendar({
   const { allDayItems, timedEntries } = useMemo(() => splitAgendaItems(items), [items]);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   // Fit the axis to today's items, then keep "now" inside it. With no timed items
-  // (a common "today"), anchor a compact window at "now" instead of the 07–21
-  // default so the red line sits near the top on open — the page never has to be
+  // (a common "today"), anchor a compact window at "now" instead of the 07-21
+  // default so the red line sits near the top on open - the page never has to be
   // scrolled to find the current time, and the overdue list above stays in view.
   const { startMin, endMin } = useMemo(() => {
     const base =
@@ -77,7 +77,7 @@ export function AgendaDayCalendar({
         className="grid grid-cols-[56px_1fr]"
         style={{ height: `${gridHeightPx(startMin, endMin)}px` }}
       >
-        {/* Time gutter — hour labels + the "now" timestamp. */}
+        {/* Time gutter - hour labels + the "now" timestamp. */}
         <div className="relative">
           {hourLabels.map((hl) => (
             <div
@@ -96,7 +96,7 @@ export function AgendaDayCalendar({
           </div>
         </div>
 
-        {/* Day column — gridlines, positioned blocks, now line. */}
+        {/* Day column - gridlines, positioned blocks, now line. */}
         <div className="relative border-l border-gray-200 dark:border-gray-700">
           {hourLabels.map((hl) => (
             <div

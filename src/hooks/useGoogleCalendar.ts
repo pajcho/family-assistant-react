@@ -9,7 +9,7 @@ import { readFunctionsError } from "@/utils/functionsError";
 /**
  * Manages the current member's Google Calendar connections (Phase A).
  *
- * Reads connection STATUS from the token-free `google_connections_safe` view —
+ * Reads connection STATUS from the token-free `google_connections_safe` view -
  * the OAuth tokens never reach the client; they live on a service-role-only
  * base table touched solely by the Edge Functions.
  *

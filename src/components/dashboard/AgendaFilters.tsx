@@ -17,7 +17,7 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { AGENDA_KINDS, type AgendaFilter, type AgendaKind } from "@/utils/agendaFilters";
 
 /**
- * Shared dashboard filter bar — item type + person — applied identically to the
+ * Shared dashboard filter bar - item type + person - applied identically to the
  * Danas and Uskoro lists (and, later, the calendar). Matches the plan's
  * placement: visible chips inline on desktop (md+, there's room), a compact
  * "Filteri" button opening a bottom sheet on mobile.

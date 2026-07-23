@@ -2,7 +2,7 @@ import type { Payment, PaymentOverride, RecurrencePeriod } from "@/types/databas
 import { addMonth, addWeek, formatDate } from "@/utils/date";
 
 /**
- * Short label for a payment's recurrence — used in list rows, dashboard cards,
+ * Short label for a payment's recurrence - used in list rows, dashboard cards,
  * and the detail popup. Returns the natural Serbian (Latin) phrasing based on
  * the period + interval combination.
  *
@@ -39,7 +39,7 @@ export function recurrenceLabel(period: RecurrencePeriod | null, interval: numbe
 
 /**
  * The date the series advances to after the current occurrence is resolved
- * (paid or canceled) — i.e. when the NEXT payment comes due. Mirrors the
+ * (paid or canceled) - i.e. when the NEXT payment comes due. Mirrors the
  * advance in `useMarkPaymentPaid` / `useCancelPaymentOccurrence`: monthly →
  * +N months, weekly → +N weeks, limited → +1 month (null on the last
  * instalment). One-time payments have no next occurrence (null).
@@ -72,7 +72,7 @@ export type PaymentCancelCopy = {
 /**
  * Type-aware copy for the "cancel this occurrence" dialog. A one-time payment
  * reads as a plain cancel; a recurring one explains that the current occurrence
- * is skipped and names the date the next one comes due — computed the same way
+ * is skipped and names the date the next one comes due - computed the same way
  * mark-paid / cancel advance the series (monthly→+N months, weekly→+N weeks,
  * limited→+1 month unless it's the last). The placeholder matches the cadence.
  */
@@ -109,10 +109,10 @@ export function paymentCancelCopy(
 }
 
 /* ------------------------------------------------------------------------- */
-/* Per-occurrence overrides — pure helpers                                   */
+/* Per-occurrence overrides - pure helpers                                   */
 /*                                                                           */
 /* Live next to the recurrence math (and free of React / Supabase) so the    */
-/* unified `useAgenda` projection — and its unit tests — can read overrides   */
+/* unified `useAgenda` projection - and its unit tests - can read overrides   */
 /* without dragging the `usePaymentOverrides` hook's Supabase client into a   */
 /* non-React context. Re-exported from `@/hooks/usePaymentOverrides` for the  */
 /* existing call sites.                                                       */
@@ -124,7 +124,7 @@ export function overrideKey(paymentId: string, occurrenceDate: string): string {
 }
 
 /**
- * The effective due date of a payment occurrence — the reschedule
+ * The effective due date of a payment occurrence - the reschedule
  * `override_date` when moved, otherwise the original `dueDate`. Use this
  * wherever the UI decides "is it due today / soon" so a moved payment shows on
  * its new date.
@@ -148,13 +148,13 @@ export function isPaymentOccurrenceCanceled(
 }
 
 /**
- * Whether a payment's CURRENT live occurrence is past due — unpaid, unpaused,
+ * Whether a payment's CURRENT live occurrence is past due - unpaid, unpaused,
  * not canceled, and its effective due date is before `today` (YYYY-MM-DD).
  *
  * The live occurrence keys on `payment.due_date`, which advances as instalments
  * are paid/canceled, so an unpaid payment whose anchor already slipped into the
  * past is overdue. Reschedules move the effective date (a payment pushed to the
- * future is no longer overdue). Drives the dashboard "Prekoračeno" section —
+ * future is no longer overdue). Drives the dashboard "Prekoračeno" section -
  * past events/activities are NOT overdue, they simply happened.
  */
 export function isPaymentOverdue(
@@ -169,8 +169,8 @@ export function isPaymentOverdue(
 
 /**
  * Whether a projected payment occurrence is a future repetition rather than the
- * series' live one. The live occurrence keys on `payment.due_date` — the next
- * unpaid instalment, which advances as occurrences are paid/canceled — and stays
+ * series' live one. The live occurrence keys on `payment.due_date` - the next
+ * unpaid instalment, which advances as occurrences are paid/canceled - and stays
  * fully actionable in the agenda; every later occurrence renders read-only
  * ("Nadolazeće"). Mirrors the payments page, where only the live `due_date` row
  * carries actions and the rest are synthetic "upcoming" rows.
@@ -190,24 +190,24 @@ export function isUpcomingPaymentOccurrence(occurrence: {
 export interface PaymentOccurrence {
   /** The original projected due date this occurrence keys on (YYYY-MM-DD). */
   occurrenceDate: string;
-  /** Where it actually falls — the reschedule `override_date` if moved, else `occurrenceDate`. */
+  /** Where it actually falls - the reschedule `override_date` if moved, else `occurrenceDate`. */
   effectiveDate: string;
 }
 
 /**
  * Enumerate a payment's occurrences whose EFFECTIVE date lands within
  * `[from, to]` (inclusive, YYYY-MM-DD). Walks forward from the live `due_date`
- * by the recurrence step — mirroring `nextPaymentOccurrenceDate` / mark-paid:
+ * by the recurrence step - mirroring `nextPaymentOccurrenceDate` / mark-paid:
  * weekly → +N weeks, monthly → +N months, limited → +1 month for up to
  * `remaining_occurrences`, one-time → a single occurrence. Each occurrence's
  * per-instance override is applied: a `cancel` drops it, a `reschedule` moves
  * its effective date.
  *
- * Pure (no React / Supabase) so the unified `useAgenda` layer — and the Phase 4
- * calendar — can project payments across a range and unit-test the walk.
+ * Pure (no React / Supabase) so the unified `useAgenda` layer - and the Phase 4
+ * calendar - can project payments across a range and unit-test the walk.
  * Bucketed by `effectiveDate`, so a payment moved inside the window surfaces on
  * its new day. Known edge: an occurrence whose ORIGINAL date sits just past
- * `to` but is rescheduled INTO the window won't appear — reschedules are capped
+ * `to` but is rescheduled INTO the window won't appear - reschedules are capped
  * at "the day before the next occurrence", so the gap is at most one step.
  */
 export function expandPaymentOccurrences(

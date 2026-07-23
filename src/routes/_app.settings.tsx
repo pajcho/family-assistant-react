@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_app/settings")({
   // Deep-linkable active tab (e.g. /settings?tab=family from the Activities
   // options sheet). Unknown / missing values fall back to the Profil tab.
   // `gcal`/`reason` are the one-shot flags the Google OAuth callback redirects
-  // back with — kept in the schema so SettingsPage can read and then clear them.
+  // back with - kept in the schema so SettingsPage can read and then clear them.
   validateSearch: (
     search: Record<string, unknown>,
   ): { tab?: SettingsTab; gcal?: "connected" | "error"; reason?: string } => {
@@ -193,7 +193,7 @@ function ProfileCard() {
         setEmailChanging(false);
         return;
       }
-      // The JWT still carries the old email until the session refreshes —
+      // The JWT still carries the old email until the session refreshes -
       // force a refresh so `useAuth().user.email` reflects the new value
       // and the form's `emailDirty` flag resets without a reload.
       await supabase.auth.refreshSession();
@@ -292,7 +292,7 @@ function NotificationsTab() {
 
   // Heartbeat: refresh `last_used_at` on this device's row each time
   // the user lands on the notifications tab. Without this the column
-  // only updates on subscribe — meaning a device that's been quietly
+  // only updates on subscribe - meaning a device that's been quietly
   // receiving pushes would still show "subscribed N months ago".
   useTouchCurrentSubscription(n.subscription?.endpoint ?? null);
 
@@ -329,7 +329,7 @@ function NotificationsCard({ n }: NotificationsCardProps) {
         ) : n.permission === "denied" ? (
           // Once permission is denied, calling Notification.requestPermission()
           // silently returns "denied" without re-prompting, so the button below
-          // won't recover the state — point the user at browser settings.
+          // won't recover the state - point the user at browser settings.
           <p className="text-sm text-amber-600 dark:text-amber-400">
             Dozvola za obaveštenja je odbijena u pregledaču. Otvori postavke pregledača (ili
             sistemske postavke za ovu aplikaciju na iPhone-u) i uključi obaveštenja, pa pokušaj
@@ -369,7 +369,7 @@ function SessionsCard({ n }: SessionsCardProps) {
   const currentEndpoint = n.subscription?.endpoint ?? null;
 
   // Hide the card entirely when the user has zero sessions and isn't
-  // subscribed on this device — there's literally nothing to manage
+  // subscribed on this device - there's literally nothing to manage
   // and showing an empty card would just be visual noise above the
   // digests config.
   if (!isLoading && subscriptions.length === 0 && !n.isSubscribed) {
@@ -394,7 +394,7 @@ function SessionsCard({ n }: SessionsCardProps) {
         <CardTitle>Aktivne sesije</CardTitle>
         <CardDescription>
           Uređaji na kojima si uključio/la obaveštenja. Klikom na X isključuješ sesiju samo za taj
-          uređaj — ostali nastavljaju da rade.
+          uređaj - ostali nastavljaju da rade.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -478,7 +478,7 @@ function formatLastSeen(iso: string | null | undefined): string {
  * creates a list / event / payment / birthday. Backed by 4 boolean
  * columns on `notification_preferences`; share the same hook as the
  * digests card so all opt-ins save together. Defaults to opted-in for
- * every kind — turning notifications on means you probably want to
+ * every kind - turning notifications on means you probably want to
  * know when your partner adds something.
  */
 function FamilyCreateNotificationsCard() {
@@ -579,7 +579,7 @@ function FamilyCreateRow({ id, label, checked, onChange, disabled }: FamilyCreat
 function DigestsCard() {
   const { prefs, isLoading, save, saving } = useNotificationPreferences();
   // Local form state so toggling and typing time values feels instant
-  // — committed on "Sačuvaj". Resync whenever the upstream `prefs`
+  // - committed on "Sačuvaj". Resync whenever the upstream `prefs`
   // change (initial load, post-save refetch, or a save from another tab).
   const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
   useEffect(() => setForm(prefs), [prefs]);

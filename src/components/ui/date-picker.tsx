@@ -103,7 +103,7 @@ export function DatePicker({
             onSelect={handleSelect}
             autoFocus
             locale={srLocale}
-            // Month + year dropdowns in the caption — jumping 10 years back is
+            // Month + year dropdowns in the caption - jumping 10 years back is
             // two dropdown picks instead of 120 arrow clicks.
             captionLayout="dropdown"
             startMonth={new Date(new Date().getFullYear() - YEARS_BACK, 0)}

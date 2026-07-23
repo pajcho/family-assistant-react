@@ -30,7 +30,7 @@ const DESKTOP_MEDIA_QUERY = "(min-width: 640px)";
 
 /**
  * SSR-safe(-ish) media query hook. Defaults to `false` (mobile / Drawer) until the matchMedia
- * subscription confirms desktop — matches the plan's "default behavior must be Drawer until the
+ * subscription confirms desktop - matches the plan's "default behavior must be Drawer until the
  * media query confirms desktop" note.
  */
 function useIsDesktop(): boolean {
@@ -76,7 +76,7 @@ function ResponsiveDialog({ children, ...props }: RootProps) {
 
   // Vaul's default `repositionInputs={true}` translates the entire drawer
   // upward by the on-screen keyboard's height when an input is focused.
-  // The math overshoots on tall drawers in iOS Safari — the focused
+  // The math overshoots on tall drawers in iOS Safari - the focused
   // field ends up above the viewport while later fields remain visible.
   // Disabling it hands the job back to Safari's native scroll-into-view
   // (which only scrolls the inner overflow-y:auto container, no transform
@@ -120,7 +120,7 @@ type ContentProps = ComponentProps<typeof DialogContent> &
      */
     showCloseButton?: boolean;
     /**
-     * Action bar pinned OUTSIDE the scroll area on mobile — content scrolls
+     * Action bar pinned OUTSIDE the scroll area on mobile - content scrolls
      * behind it, the bar stays at the sheet bottom in thumb reach (the
      * "Brzi unos" footer). On desktop it simply renders after the content.
      * Buttons inside submit via the `form` attribute when they belong to a
@@ -162,7 +162,7 @@ function ResponsiveDialogContent({
         // 90vh is the cap. The `min-h-[60vh]` keeps short forms (e.g.
         // the 3-field list form) from leaving a visible band of page
         // background between the drawer's bottom and the iOS keyboard
-        // — without it, iOS Safari positions the short fixed-bottom
+        // - without it, iOS Safari positions the short fixed-bottom
         // drawer relative to the visualViewport bottom and the page
         // shows through above the keyboard.
         // The keyboard-aware scroll of focused inputs is Vaul's job

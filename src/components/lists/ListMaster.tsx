@@ -43,11 +43,11 @@ export type ListMasterProps = {
 };
 
 /**
- * Master list of all lists — the left pane of the Apple Notes-style
+ * Master list of all lists - the left pane of the Apple Notes-style
  * master-detail layout on desktop, and the full-screen list on mobile.
  *
  * Owns only *create* (the `+`) and *selection*. Per-list actions (edit,
- * duplicate, delete, export…) live in the detail pane's header — you act on
+ * duplicate, delete, export…) live in the detail pane's header - you act on
  * the open list, the same way Apple Notes acts on the open note.
  *
  * Reads the shared `useListsWithItems()` cache directly (no props) so it stays
@@ -95,7 +95,7 @@ export function ListMaster({ variant }: ListMasterProps) {
 
   // Dashboard "Dodaj → Lista" deep-link (`/lists?new=1`): open the create
   // dialog, then strip the param so it won't reopen on a re-render or back
-  // navigation — same pattern as `?edit=` on /activities. The param lives on
+  // navigation - same pattern as `?edit=` on /activities. The param lives on
   // the layout route, so this fires for whichever variant is mounted (sidebar
   // on desktop, page on mobile). `to: "."` keeps the strip on the current
   // URL even if the desktop index has already redirected to /lists/$listId.
@@ -260,7 +260,7 @@ export function ListMaster({ variant }: ListMasterProps) {
         <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
           <p className="text-gray-700 dark:text-gray-300">Još nemate nijednu listu.</p>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Napravite prvu listu — npr. „Šoping" deljen sa porodicom ili „Lične obaveze".
+            Napravite prvu listu - npr. „Šoping" deljen sa porodicom ili „Lične obaveze".
           </p>
           <Button onClick={openAdd} className="mt-4">
             <PlusIcon className="mr-2 h-5 w-5" />
@@ -293,8 +293,8 @@ export function ListMaster({ variant }: ListMasterProps) {
 }
 
 /**
- * Row-shaped loading placeholder matching `ListMasterRow`'s two variants —
- * name line + right-aligned count — so the pane doesn't jump when the lists
+ * Row-shaped loading placeholder matching `ListMasterRow`'s two variants -
+ * name line + right-aligned count - so the pane doesn't jump when the lists
  * arrive.
  */
 function ListMasterSkeleton({ variant }: { variant: MasterVariant }) {

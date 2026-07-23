@@ -3,7 +3,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Pill-shaped boolean filter toggle — the chip idiom the events page
+ * Pill-shaped boolean filter toggle - the chip idiom the events page
  * introduced for "Sakrij završene", extracted so every page's list filters
  * (plaćanja, događaji, rođendani) read the same. Sits inline with
  * PersonFilterChips; `aria-pressed` carries the state for screen readers.

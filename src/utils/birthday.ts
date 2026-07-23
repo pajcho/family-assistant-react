@@ -43,7 +43,7 @@ export function daysUntilBirthday(birthDate: string): number {
  * Project a birthday's (month, day) into every year spanned by `[from, to]`
  * (inclusive, YYYY-MM-DD), returning the dates that land inside the range.
  * Feb-29 is clamped to Feb-28 in non-leap years so the birthday still surfaces.
- * Pure — the unified `useAgenda` layer enumerates birthdays across a range with
+ * Pure - the unified `useAgenda` layer enumerates birthdays across a range with
  * this.
  */
 export function expandBirthdayOccurrences(

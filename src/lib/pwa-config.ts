@@ -2,13 +2,13 @@
  * Public configuration for Web Push.
  *
  * VAPID public keys are sent in plaintext to push services as part of every
- * subscription, so they are inherently public — committing this constant is
+ * subscription, so they are inherently public - committing this constant is
  * the standard pattern. The matching *private* key lives outside the repo
  * (Supabase Edge Function secret in production; ephemeral local file during
  * the validation phase) and is required to sign every push the server sends.
  *
  * Regenerate the pair with `npx web-push generate-vapid-keys`. If you do,
- * every existing `push_subscriptions` row becomes invalid — push services
+ * every existing `push_subscriptions` row becomes invalid - push services
  * reject pushes signed by a different VAPID key than the one used at
  * subscribe time.
  */

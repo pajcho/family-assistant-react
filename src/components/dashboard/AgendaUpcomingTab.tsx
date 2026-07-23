@@ -5,9 +5,9 @@ import type { Birthday, Event, Payment } from "@/types/database";
 import type { AgendaFilter } from "@/utils/agendaFilters";
 
 /**
- * "Uskoro" tab — a thin switch between the day-grouped LIST and the weekly
- * Mon–Sun CALENDAR, driven by the per-page view toggle. Rendering exactly one of
- * them (never both) keeps a single `useAgenda` mounted — two would double-
+ * "Uskoro" tab - a thin switch between the day-grouped LIST and the weekly
+ * Mon-Sun CALENDAR, driven by the per-page view toggle. Rendering exactly one of
+ * them (never both) keeps a single `useAgenda` mounted - two would double-
  * subscribe the shared realtime channels and crash.
  */
 export type AgendaUpcomingTabProps = {

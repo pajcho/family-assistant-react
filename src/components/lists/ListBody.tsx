@@ -32,7 +32,7 @@ export type ListBodyProps = {
   onToggleItem: (item: ListItem) => void;
   /**
    * Apply edits from the item popup (name + optional description).
-   * Replaces the old `onRenameItem` — the same callback now ferries the
+   * Replaces the old `onRenameItem` - the same callback now ferries the
    * whole payload so the parent doesn't need separate rename / update
    * paths.
    */
@@ -50,7 +50,7 @@ export type ListBodyProps = {
 };
 
 /**
- * Shared body for the list detail view — the desktop master-detail panel and
+ * Shared body for the list detail view - the desktop master-detail panel and
  * the mobile full-page list both render it. Owns:
  *   • the controlled `draft` for the add-item input
  *   • the show/hide-completed toggle state
@@ -80,7 +80,7 @@ export function ListBody({
 
   // Item-popup state. When non-null the `ListItemDialog` is open and renders
   // the editor for this item. The popup replaces the previous inline rename
-  // affordance — tapping any row's text or its pencil icon flips this on.
+  // affordance - tapping any row's text or its pencil icon flips this on.
   const [editingItem, setEditingItem] = useState<ListItem | null>(null);
 
   // Keep the dialog's `item` in sync with realtime updates: if the cache
@@ -91,7 +91,7 @@ export function ListBody({
     if (!editingItem) return;
     const fresh = list.list_items.find((it) => it.id === editingItem.id);
     if (!fresh) {
-      // Item was deleted (locally or remotely) — close the popup.
+      // Item was deleted (locally or remotely) - close the popup.
       setEditingItem(null);
       return;
     }
@@ -145,7 +145,7 @@ export function ListBody({
       }, 600);
       hideTimersRef.current.set(item.id, handle);
     } else {
-      // Un-checking from the completed section — drop any leftover hide
+      // Un-checking from the completed section - drop any leftover hide
       // entry so the item doesn't double-render.
       setPendingHideIds((prev) => {
         if (!prev.has(item.id)) return prev;
@@ -161,7 +161,7 @@ export function ListBody({
   const completed = list.list_items.filter((i) => i.is_completed && !pendingHideIds.has(i.id));
 
   // Categorise active items only. Completed items are tucked away under
-  // the collapse and don't need to participate in category grouping —
+  // the collapse and don't need to participate in category grouping -
   // a "Voće i povrće" header above a single struck-through "Jabuke" entry
   // would just be visual noise. Items are guaranteed to be in category
   // order whenever `showCategoryHeaders` is on (the parent list's
@@ -208,7 +208,7 @@ export function ListBody({
   // ---------------------------------------------------------------------------
   // Drag-to-reorder
   // ---------------------------------------------------------------------------
-  // Available only when smart sort is OFF — when smart sort is on the
+  // Available only when smart sort is OFF - when smart sort is on the
   // visual order is derived from category, so manual drag would either
   // be discarded by the next render or surprise the user.
   //
@@ -220,7 +220,7 @@ export function ListBody({
 
   // PointerSensor with a small activation distance: a quick tap on the
   // handle (e.g. the user adjusting focus) won't start a drag, but any
-  // real pull will. Covers both mouse and touch — the pointer events spec
+  // real pull will. Covers both mouse and touch - the pointer events spec
   // unifies them.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -234,7 +234,7 @@ export function ListBody({
 
     // Build the new global order: reordered active items in their new
     // positions, then completed items keeping their relative order. We
-    // renumber every row from 1 so sort_order stays dense — completed
+    // renumber every row from 1 so sort_order stays dense - completed
     // items therefore get fresh values too, but their visual order in
     // the completed section is preserved.
     const reorderedActive = arrayMove(active, oldIndex, newIndex);
@@ -283,13 +283,13 @@ export function ListBody({
               : "Sve stavke su završene."}
           </p>
         ) : activeGroups ? (
-          // Headers branch — a fresh `<ul>` per category so the headings
+          // Headers branch - a fresh `<ul>` per category so the headings
           // sit between sibling lists rather than as fake list items
           // (cleaner for assistive tech). Drag is intentionally not wired
           // up here because the visual order is derived from category.
           <CategorizedItems groups={activeGroups} renderRow={renderRow} />
         ) : reorderable ? (
-          // Sortable flat list — only when smart sort is OFF. We pass
+          // Sortable flat list - only when smart sort is OFF. We pass
           // active item ids to `SortableContext` and render each row via
           // `SortableActiveRow`, which wires the per-row `useSortable`
           // bindings into the drag handle inside `ListItemRow`.
@@ -405,7 +405,7 @@ function CategorizedItems({
  * Sortable wrapper for one active row. Calls `useSortable` per item and
  * threads the resulting drag bindings into `ListItemRow` via its
  * `dragHandle` prop. The outer `<div>` carries the transform that
- * dnd-kit uses to animate the row during a drag — kept as a div rather
+ * dnd-kit uses to animate the row during a drag - kept as a div rather
  * than a `<li>` so we don't double up with the `<li>` that
  * `SwipeableListItem` renders internally.
  *
@@ -440,7 +440,7 @@ function SortableActiveRow({
   // current "over" slot's size. When a sortable list has rows of varying
   // heights (e.g. one row has a description preview underneath the
   // title, another doesn't), the dragged row visibly squishes or
-  // stretches as it crosses those neighbours — which reads as "the
+  // stretches as it crosses those neighbours - which reads as "the
   // dragged text takes on the style of whatever was underneath", and at
   // small scales the squished text can even look slanted.
   //
@@ -464,7 +464,7 @@ function SortableActiveRow({
       <SwipeableListItem
         onSwipeRight={onSwipeRight}
         onSwipeLeft={onSwipeLeft}
-        // Suppress swipe gestures while a drag is in progress — touch
+        // Suppress swipe gestures while a drag is in progress - touch
         // devices would otherwise see a long pointer trail as both a
         // drag (via dnd-kit) and a swipe (via SwipeableListItem).
         disabled={isDragging}

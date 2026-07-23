@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 /**
  * Junction-table rows linking payments to the family members they're for.
  * Mirrors `useEventParticipants`: a payment may have ZERO participants, and
- * the write isn't its own mutation hook — `useCreatePayment` /
+ * the write isn't its own mutation hook - `useCreatePayment` /
  * `useUpdatePayment` call `replacePaymentParticipants` so one submit persists
  * the payment and its assignees together.
  */
@@ -77,7 +77,7 @@ export function usePaymentParticipants(): UsePaymentParticipantsResult {
 /**
  * Replace the full set of assignees for one payment: delete existing rows,
  * then insert the new ones in a single round-trip. Empty `personIds` clears
- * the assignment. Not a hook — called from the payment mutations.
+ * the assignment. Not a hook - called from the payment mutations.
  */
 export async function replacePaymentParticipants(
   familyId: string,

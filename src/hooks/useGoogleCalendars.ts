@@ -14,7 +14,7 @@ import { readFunctionsError } from "@/utils/functionsError";
  * refreshes CalendarList from Google into `google_calendars` (preserving prior
  * sharing choices) and returns the rows. Sharing changes go through
  * `{ action: "set_sharing" }` and are applied optimistically so the picker feels
- * instant — and so toggling doesn't re-hit Google for every change.
+ * instant - and so toggling doesn't re-hit Google for every change.
  *
  * Pass `enabled = false` when there are no connections yet, to avoid a needless
  * round-trip.

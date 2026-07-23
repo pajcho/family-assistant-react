@@ -30,7 +30,7 @@ import { formatEventTimeRange } from "@/utils/event";
  * through `onEdit`.
  *
  * "Pomeri" (date + time) and "Otkaži" (soft cancel with optional reason) are
- * self-contained here via `useUpdateEvent` — sub-views on the sheet stack
+ * self-contained here via `useUpdateEvent` - sub-views on the sheet stack
  * (see `useSheetStack`): "←" back header, dismissal returns to the detail
  * view, and they close on success since a canceled/moved event leaves the
  * dashboard.
@@ -234,7 +234,7 @@ export function EventDetailDialog({
                 </dl>
               </div>
 
-              {/* Linked payments — the event side of the payment link. Renders
+              {/* Linked payments - the event side of the payment link. Renders
                   nothing (and only fetches while an event is selected) when
                   the event has none. */}
               <EventPaymentsSection eventId={event.id} />

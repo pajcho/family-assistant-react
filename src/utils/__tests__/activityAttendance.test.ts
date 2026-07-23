@@ -10,7 +10,7 @@ import type {
 import { computeActivityMonthlySummaries } from "../activityAttendance";
 
 /* ------------------------------------------------------------------------- */
-/* Fixtures — June 2026 starts on a Monday (Mondays: 1, 8, 15, 22, 29);      */
+/* Fixtures - June 2026 starts on a Monday (Mondays: 1, 8, 15, 22, 29);      */
 /* July 2026 Mondays: 6, 13, 20, 27.                                         */
 /* ------------------------------------------------------------------------- */
 
@@ -25,7 +25,7 @@ function activity(over: Partial<Activity> = {}): Activity {
     is_paused: false,
     remind_minutes_before: null,
     notes: null,
-    created_at: "2026-01-05T00:00:00Z", // a Monday — stable interval anchor
+    created_at: "2026-01-05T00:00:00Z", // a Monday - stable interval anchor
     updated_at: "2026-01-05T00:00:00Z",
     ...over,
   };
@@ -98,7 +98,7 @@ function summarize(
 /* Held-session counting                                                     */
 /* ------------------------------------------------------------------------- */
 
-describe("computeActivityMonthlySummaries — held sessions", () => {
+describe("computeActivityMonthlySummaries - held sessions", () => {
   it("counts each schedule occurrence per month, newest month first", () => {
     const months = summarize();
     expect(months.map((m) => m.month)).toEqual(["2026-07", "2026-06"]);
@@ -122,7 +122,7 @@ describe("computeActivityMonthlySummaries — held sessions", () => {
       participants: [participant("p1"), participant("p2")],
       overrides: [activityOverride({ date: "2026-06-08", person_id: "p1" })],
     });
-    // Two siblings share the same slot — one skipping doesn't cancel the termin.
+    // Two siblings share the same slot - one skipping doesn't cancel the termin.
     expect(months.find((m) => m.month === "2026-06")?.heldSessions).toBe(5);
   });
 
@@ -179,7 +179,7 @@ describe("computeActivityMonthlySummaries — held sessions", () => {
       activity: activity({ active_from: "2026-06-01" }),
       schedule: [schedule({ recurrence_interval_weeks: 2 })],
     });
-    // From Jun 1 every other Monday: Jun 1, 15, 29 — then Jul 13, 27.
+    // From Jun 1 every other Monday: Jun 1, 15, 29 - then Jul 13, 27.
     expect(months.find((m) => m.month === "2026-06")?.heldSessions).toBe(3);
     expect(months.find((m) => m.month === "2026-07")?.heldSessions).toBe(2);
   });
@@ -195,7 +195,7 @@ describe("computeActivityMonthlySummaries — held sessions", () => {
 /* Paid totals                                                               */
 /* ------------------------------------------------------------------------- */
 
-describe("computeActivityMonthlySummaries — paid totals", () => {
+describe("computeActivityMonthlySummaries - paid totals", () => {
   it("sums paid history of linked payments by due-date month", () => {
     const months = summarize({
       linkedPaymentIds: new Set(["pay1", "pay2"]),

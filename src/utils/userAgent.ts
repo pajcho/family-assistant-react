@@ -1,11 +1,11 @@
 /**
  * Lightweight User-Agent parser, just for labelling push-subscription
- * rows in the settings UI. Returns a short "Browser · OS" string —
+ * rows in the settings UI. Returns a short "Browser · OS" string -
  * e.g. "Chrome · macOS" or "Safari · iPhone". Detection order matters
  * (e.g. Edge advertises both "Edg/" and "Chrome/", so Edge must be
  * checked first).
  *
- * Intentionally not exhaustive — we only need enough resolution for the
+ * Intentionally not exhaustive - we only need enough resolution for the
  * user to recognise their own devices in the session list.
  */
 
@@ -23,7 +23,7 @@ function detectBrowser(ua: string): string {
   if (/OPR\/|Opera\//.test(ua)) return "Opera";
   if (/Firefox\//.test(ua)) return "Firefox";
   if (/Chrome\//.test(ua)) return "Chrome";
-  // Safari's UA includes "Safari/" but so does Chrome's — Chrome was
+  // Safari's UA includes "Safari/" but so does Chrome's - Chrome was
   // already returned above, so anything left with "Safari/" is real Safari.
   if (/Safari\//.test(ua)) return "Safari";
   return "";
@@ -34,7 +34,7 @@ function detectOs(ua: string): string {
   if (/iPad/.test(ua)) return "iPad";
   if (/Android/.test(ua)) return "Android";
   if (/Windows NT/.test(ua)) return "Windows";
-  // "Mac OS X" appears in iOS UAs too — iPhone/iPad were already
+  // "Mac OS X" appears in iOS UAs too - iPhone/iPad were already
   // matched above, so this branch is desktop only.
   if (/Mac OS X|Macintosh/.test(ua)) return "macOS";
   if (/Linux/.test(ua)) return "Linux";

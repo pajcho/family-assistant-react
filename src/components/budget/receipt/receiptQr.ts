@@ -3,7 +3,7 @@
 // main bundle.
 //
 // Two decode paths:
-//   • BarcodeDetector (native, fast) when the browser exposes it — used for the
+//   • BarcodeDetector (native, fast) when the browser exposes it - used for the
 //     live camera loop and as a first pass on uploaded images. iOS Safari has
 //     no BarcodeDetector, so iPhones never take this path.
 //   • zxing-wasm (ZXing C++ compiled to WASM) everywhere else. Far stronger
@@ -68,7 +68,7 @@ export async function decodeQrFromImageData(data: ImageData): Promise<string | n
 /**
  * Decodes a QR code from an uploaded image file. Tries the native detector
  * first when available (free on Chrome/Android), then zxing-wasm on a
- * high-resolution sample — dense fiscal QR codes often only resolve near full
+ * high-resolution sample - dense fiscal QR codes often only resolve near full
  * resolution, and ZXing's own tryDownscale covers the smaller scales in the
  * same call. Returns the payload or null.
  */

@@ -13,7 +13,8 @@
     "test:ui": "vitest --ui",
     "lint": "oxlint",
     "fmt": "oxfmt",
-    "check": "oxfmt --check && oxlint --deny-warnings",
+    "check:dashes": "bash scripts/check-dashes.sh",
+    "check": "oxfmt --check && oxlint --deny-warnings && pnpm run check:dashes",
     "setup-family": "tsx --env-file=.env scripts/setup-family.ts",
     "setup-family:local": "tsx --env-file=.env.local scripts/setup-family.ts"
   },

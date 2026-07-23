@@ -8,18 +8,18 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Expenses ledger hooks (Faza 3/4) — backed by TanStack Query + Supabase
+ * Expenses ledger hooks (Faza 3/4) - backed by TanStack Query + Supabase
  * Realtime. The list query is scoped to a date range so the Budget page fetches
  * one month (or a wider window for the trend chart) at a time.
  *
  * Surface:
- *   - `useExpenses({ from, to })`   — range query + realtime invalidation
- *   - `useCreateExpense()`          — insert a manual expense
- *   - `useUpdateExpense()`          — edit a manual expense
- *   - `useDeleteExpense()`          — delete a manual expense
+ *   - `useExpenses({ from, to })`   - range query + realtime invalidation
+ *   - `useCreateExpense()`          - insert a manual expense
+ *   - `useUpdateExpense()`          - edit a manual expense
+ *   - `useDeleteExpense()`          - delete a manual expense
  *
  * Auto rows (`source='payment'`) are written/removed by a DB trigger, never by
- * these mutations — the UI keeps them read-only. Realtime is what surfaces a
+ * these mutations - the UI keeps them read-only. Realtime is what surfaces a
  * trigger-inserted row on the Budget page the moment a payment is marked paid.
  *
  * The realtime channel topic carries a per-hook `useId()` so several instances
@@ -195,7 +195,7 @@ export function useDeleteExpense() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Receipt import (Faza 5) — save a scanned receipt as a source='receipt' expense
+// Receipt import (Faza 5) - save a scanned receipt as a source='receipt' expense
 // (+ its line items), lazy item loading for detail, and merchant→category memory.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -310,7 +310,7 @@ export interface ExpenseSearchHit {
 
 /**
  * Family-wide expense search across ALL months: `note` + `merchant` on the
- * expense itself, plus receipt line items by name — so "mleko" finds the
+ * expense itself, plus receipt line items by name - so "mleko" finds the
  * receipt it was bought on. Item matches pull in their parent expense even
  * when the expense's own fields don't match.
  */
@@ -395,7 +395,7 @@ async function fetchExpenseItems(expenseId: string): Promise<ExpenseItem[]> {
 }
 
 /**
- * Lazily loads a receipt expense's line items — enabled only when a detail view
+ * Lazily loads a receipt expense's line items - enabled only when a detail view
  * for `expenseId` is open. Items are immutable and not realtime-published, so a
  * generous staleTime is fine.
  */
@@ -426,7 +426,7 @@ async function fetchReceiptItemCounts(expenseIds: string[]): Promise<Record<stri
 
 /**
  * Item counts for a set of receipt expenses (for the "N stavki" list subtitle).
- * One bounded query over the month's receipt rows — items themselves load lazily
+ * One bounded query over the month's receipt rows - items themselves load lazily
  * only when a detail opens.
  */
 export function useReceiptItemCounts(expenseIds: string[]) {

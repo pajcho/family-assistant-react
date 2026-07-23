@@ -11,13 +11,13 @@ import { cn } from "@/lib/cn";
 /**
  * Shared multi-currency plumbing for the entry forms (ExpenseForm,
  * PaymentForm): one hook that owns the currency + editable NBS rate, and two
- * small pieces the forms place wherever their layout wants them —
+ * small pieces the forms place wherever their layout wants them -
  * `<CurrencyToggle>` (next to the amount label) and `<ExchangeRateRow>` (the
  * "Kurs" input + live RSD preview + status line).
  *
  * The "frozen rate" contract lives in `freeze()`: at submit time the typed
  * amount + rate become `{ amount: RSD, currency, original_amount,
- * exchange_rate }` — conversion happens exactly once, never on read.
+ * exchange_rate }` - conversion happens exactly once, never on read.
  */
 
 /** What `freeze()` contributes to a submit payload. */
@@ -149,7 +149,7 @@ export function useCurrencyAmount(
 
 /**
  * Segmented currency picker for a form's amount label row. Renders NOTHING
- * when there's only one option (family disabled all foreign currencies) —
+ * when there's only one option (family disabled all foreign currencies) -
  * the form then behaves exactly like the pre-multi-currency app.
  */
 export function CurrencyToggle({
@@ -233,7 +233,7 @@ export function ExchangeRateRow({
         {c.rateLoading ? (
           "Učitavam srednji kurs NBS…"
         ) : c.rateError ? (
-          "Kurs NBS trenutno nije dostupan — unesi kurs ručno."
+          "Kurs NBS trenutno nije dostupan - unesi kurs ručno."
         ) : c.suggestedRate != null && c.rateNum !== c.suggestedRate ? (
           <button
             type="button"

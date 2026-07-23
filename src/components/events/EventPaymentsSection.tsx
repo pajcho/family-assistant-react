@@ -4,7 +4,7 @@ import { LinkedPaymentsList } from "@/components/payments/LinkedPaymentsList";
 import { usePaymentsList } from "@/hooks/usePayments";
 
 /**
- * Read-only "Plaćanja" section for the event detail dialog — the reverse side
+ * Read-only "Plaćanja" section for the event detail dialog - the reverse side
  * of the payment → event link. Just the linked payments with status; events
  * have no schedule, so there's no monthly breakdown (that's the activity
  * side's `ActivityPaymentsSection`). Renders nothing without linked payments.

@@ -30,7 +30,7 @@ export function getDisplayName({ firstName, lastName, email }: IdentityInput): s
 
 function emailLocalParts(email: string): string[] {
   const local = email.split("@")[0] ?? "";
-  // Split on common identity separators. Order doesn't matter — any run
+  // Split on common identity separators. Order doesn't matter - any run
   // of separators collapses to a single boundary.
   return local
     .split(/[._\-+]+/)
@@ -58,7 +58,7 @@ export function getInitials(input: IdentityInput): string {
 }
 
 /**
- * SHA-256 of a normalised email — the modern Gravatar identifier.
+ * SHA-256 of a normalised email - the modern Gravatar identifier.
  * Returns null in environments without WebCrypto (e.g. very old browsers).
  */
 export async function gravatarHash(email: string): Promise<string | null> {

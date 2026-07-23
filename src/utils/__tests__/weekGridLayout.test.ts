@@ -37,7 +37,7 @@ describe("assignLanes", () => {
   });
 
   it("divides by PEAK overlap, not group size, for a transitive chain", () => {
-    // a–b overlap and b–c overlap, but a and c do not. Group size is 3, yet at
+    // a-b overlap and b-c overlap, but a and c do not. Group size is 3, yet at
     // most 2 are ever active at once → 2 columns, not 3 (no dead column right).
     const out = assignLanes([
       b("a", "10:00", "10:40"),
@@ -49,7 +49,7 @@ describe("assignLanes", () => {
 
   it("keeps a 5-block school-period chain at 2 columns (the reported bug)", () => {
     // Sequential 45-min classes interleaved with two activities that straddle
-    // them — the production case that left ~60% of the column empty when width
+    // them - the production case that left ~60% of the column empty when width
     // was divided by group size (5) instead of peak overlap (2).
     const out = assignLanes([
       b("E", "09:55", "10:40"),
@@ -63,7 +63,7 @@ describe("assignLanes", () => {
 
   it("expands a block into columns freed by finished neighbours", () => {
     // b & c run early; a spans the whole window; d starts after b & c end.
-    // Peak overlap is 3 (a+b+c at 10:00), so 3 columns — but d finds the two
+    // Peak overlap is 3 (a+b+c at 10:00), so 3 columns - but d finds the two
     // lower columns free for its whole span and widens across them.
     const out = byId(
       assignLanes([

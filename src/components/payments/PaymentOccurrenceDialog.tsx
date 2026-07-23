@@ -24,7 +24,7 @@ import { recurrenceLabel } from "@/utils/payment";
  * Read-only detail popup for the two occurrence rows that aren't the series'
  * live one: paid/skipped HISTORY entries and projected UPCOMING repetitions.
  * Neither maps onto a mutable `Payment` occurrence, so this shows the frozen
- * snapshot plus the one action that applies — "Poništi" on the last history
+ * snapshot plus the one action that applies - "Poništi" on the last history
  * entry, "Izmeni" on the underlying series. The live occurrence gets the full
  * `PaymentDetailDialog` instead.
  *
@@ -36,7 +36,7 @@ export type PaymentOccurrenceDialogProps = {
   onOpenChange: (open: boolean) => void;
   item: HistoryRowItem | UpcomingRowItem | null;
   personIds?: string[];
-  /** Underlying series row — used for "Izmeni" / "Istorija". Null if deleted. */
+  /** Underlying series row - used for "Izmeni" / "Istorija". Null if deleted. */
   payment: Payment | null;
   onEdit: (payment: Payment) => void;
 };
@@ -205,7 +205,7 @@ export function PaymentOccurrenceDialog({
 
                 {isUpcoming ? (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Nadolazeća rata — označavanje plaćenim, pomeranje i preskakanje postaju dostupni
+                    Nadolazeća rata - označavanje plaćenim, pomeranje i preskakanje postaju dostupni
                     kada rata dođe na red.
                   </p>
                 ) : null}

@@ -13,7 +13,7 @@ export type ListFormDialogProps = {
   list: List | null;
   /**
    * Optional intent. Defaults to inferring "edit" when a `list` is passed
-   * and "create" otherwise — so existing call sites (dashboard add, detail
+   * and "create" otherwise - so existing call sites (dashboard add, detail
    * edit) keep working untouched. Pass "duplicate" explicitly to pre-fill
    * from a list while still creating a new one.
    */

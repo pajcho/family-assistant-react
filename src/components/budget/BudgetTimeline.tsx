@@ -12,12 +12,12 @@ import { stavkeLabel } from "@/utils/plural";
 import { useToday } from "@/hooks/useToday";
 
 /**
- * The month's expenses ("troškovi") as a day-grouped timeline — the same
+ * The month's expenses ("troškovi") as a day-grouped timeline - the same
  * "Uskoro"/payments day grouping applied to the ledger (reuses
  * `AgendaDateHeader`). Every row opens a modal on tap: manual → the edit form
  * (with delete inside it), receipt → the receipt detail, payment-sourced
  * ("iz plaćanja") → the underlying payment's detail popup. Events and
- * birthdays are intentionally NOT here — they don't cost anything, and any
+ * birthdays are intentionally NOT here - they don't cost anything, and any
  * spend tied to them already shows as a row.
  */
 export type BudgetTimelineProps = {

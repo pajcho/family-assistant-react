@@ -1,6 +1,6 @@
 // supabase/functions/_shared/expandEvent.ts
 //
-// Pure date/time expansion for the gcal sync — deliberately free of any Supabase
+// Pure date/time expansion for the gcal sync - deliberately free of any Supabase
 // (or other network) imports so it stays unit-testable in plain Node/Vitest.
 //
 // We have no multi-day event model locally: the agenda buckets everything by a
@@ -69,8 +69,8 @@ function allDay(localDate: string): When {
  * One `When` per day the event occupies. Returns `[]` for an event with no
  * usable start (shouldn't happen with singleEvents=true).
  *
- *   • All-day (`start.date`/`end.date`): Google's `end.date` is EXCLUSIVE — an
- *     11–14 Jun event is start=11, end=15. One all-day row for each of 11..14.
+ *   • All-day (`start.date`/`end.date`): Google's `end.date` is EXCLUSIVE - an
+ *     11-14 Jun event is start=11, end=15. One all-day row for each of 11..14.
  *   • Timed, single calendar day: one timed row (unchanged from before).
  *   • Timed, multiple calendar days: day 1 keeps its start time (open-ended),
  *     the following days become all-day continuation rows. An end at exactly
@@ -86,7 +86,7 @@ export function expandWhen(ev: EventWhenInput, tz: string): When[] {
       out.push(allDay(d));
     }
     if (addIsoDays(start, MAX_SPAN_DAYS) < endExclusive) {
-      console.warn(`gcal: all-day event ${ev.id ?? "?"} spans >${MAX_SPAN_DAYS}d — clamped`);
+      console.warn(`gcal: all-day event ${ev.id ?? "?"} spans >${MAX_SPAN_DAYS}d - clamped`);
     }
     return out;
   }
@@ -117,7 +117,7 @@ export function expandWhen(ev: EventWhenInput, tz: string): When[] {
   // doesn't occupy `endParts.date`.
   const lastDate = endParts.time === "00:00" ? addIsoDays(endParts.date, -1) : endParts.date;
 
-  // Single calendar day (the common case) — or a malformed end before start.
+  // Single calendar day (the common case) - or a malformed end before start.
   if (lastDate <= startParts.date) {
     return [
       {
@@ -150,7 +150,7 @@ export function expandWhen(ev: EventWhenInput, tz: string): When[] {
     out.push(allDay(d));
   }
   if (addIsoDays(startParts.date, MAX_SPAN_DAYS - 1) < lastDate) {
-    console.warn(`gcal: timed event ${ev.id ?? "?"} spans >${MAX_SPAN_DAYS}d — clamped`);
+    console.warn(`gcal: timed event ${ev.id ?? "?"} spans >${MAX_SPAN_DAYS}d - clamped`);
   }
   return out;
 }

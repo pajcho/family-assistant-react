@@ -3,7 +3,7 @@ import { CakeIcon, CalendarIcon, UserGroupIcon } from "@heroicons/react/24/outli
 import type { PaymentLinkKind, PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import { cn } from "@/lib/cn";
 
-/** Type icon for a payment link — activity violet, event blue, birthday pink. */
+/** Type icon for a payment link - activity violet, event blue, birthday pink. */
 export function PaymentLinkIcon({
   kind,
   className,
@@ -33,7 +33,7 @@ export function PaymentLinkIcon({
 }
 
 /**
- * Tappable "Povezano sa" chip — type icon + linked entity name. Shared by the
+ * Tappable "Povezano sa" chip - type icon + linked entity name. Shared by the
  * payment detail dialog and the Plaćanja list rows; navigation lives with the
  * caller (activity → /activities?edit=<id>, event → /events).
  */

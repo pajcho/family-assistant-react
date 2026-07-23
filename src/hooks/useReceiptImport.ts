@@ -8,7 +8,7 @@ import type { Expense } from "@/types/database";
 /**
  * Calls the `receipt-import` Edge Function, which fetches + parses a Serbian
  * fiscal-receipt page (suf.purs.gov.rs/v/…) and returns the parsed data already
- * transliterated to Latin. No DB work happens here — the caller previews the
+ * transliterated to Latin. No DB work happens here - the caller previews the
  * result and saves it through the normal expenses insert path
  * (`useSaveReceiptExpense`) so RLS stays uniform.
  */
@@ -27,7 +27,7 @@ export interface ParsedReceipt {
   companyName: string | null;
   storeName: string | null;
   pib: string | null;
-  /** ISO 8601 with the Belgrade offset — the first 10 chars are the local date. */
+  /** ISO 8601 with the Belgrade offset - the first 10 chars are the local date. */
   issuedAt: string;
   totalAmount: number;
   items: ParsedReceiptItem[];
@@ -109,7 +109,7 @@ export function useReceiptRefresh() {
       if (!receipt) throw new Error("Nismo mogli da pročitamo račun.");
       if (receipt.journalPending || receipt.items.length === 0) return { status: "pending" };
 
-      // Another device may have backfilled while we fetched — never double-insert.
+      // Another device may have backfilled while we fetched - never double-insert.
       const { data: existing } = await supabase
         .from("expense_items")
         .select("id")
@@ -132,7 +132,7 @@ export function useReceiptRefresh() {
     },
     onSettled: (_res, _err, expense) => {
       void queryClient.invalidateQueries({ queryKey: ["expense_items", expense.id] });
-      // The claimed receipt_checked_at lives on the expense row — refetch it so
+      // The claimed receipt_checked_at lives on the expense row - refetch it so
       // a reopened detail renders the correct countdown.
       void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
     },

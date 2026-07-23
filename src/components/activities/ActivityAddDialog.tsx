@@ -10,7 +10,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 
 /**
- * Self-contained "add activity" dialog — owns the roster, shift anchors and the
+ * Self-contained "add activity" dialog - owns the roster, shift anchors and the
  * three-write create flow (activity + schedule rules + participants) that
  * otherwise lives in the /activities page. Lets the dashboard's "Dodaj" menu
  * offer Aktivnost alongside Događaj / Plaćanje / Rođendan without duplicating the
@@ -33,7 +33,7 @@ export function ActivityAddDialog({
 
   const [error, setError] = useState<string | null>(null);
 
-  // A/B week patterns only matter for children whose rota actually alternates —
+  // A/B week patterns only matter for children whose rota actually alternates -
   // mirrors the /activities page derivation.
   const peopleWithShift = useMemo(() => {
     const set = new Set<string>();

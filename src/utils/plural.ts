@@ -2,9 +2,9 @@
  * Serbian paucal agreement helpers.
  *
  * Serbian nouns take three forms depending on the count's last digit(s):
- *   - one  — 1, 21, 101, 201 … (n % 10 === 1, except the 11 teen)
- *   - few  — 2–4, 22–24, 202–204 … (n % 10 ∈ 2..4, except the 12–14 teens)
- *   - many — everything else (0, 5–20, 25–30, 100, 110 …)
+ *   - one  - 1, 21, 101, 201 … (n % 10 === 1, except the 11 teen)
+ *   - few  - 2-4, 22-24, 202-204 … (n % 10 ∈ 2..4, except the 12-14 teens)
+ *   - many - everything else (0, 5-20, 25-30, 100, 110 …)
  */
 export function serbianPlural(
   count: number,

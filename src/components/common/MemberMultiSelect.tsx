@@ -16,7 +16,7 @@ export type MemberMultiSelectProps = {
 /**
  * Inline toggle pills for assigning an event / payment to one or more people.
  * Self-fetches the roster; the parent owns only the selected ids. Compact
- * (wraps, no bordered box) and matches the `PersonChip` filter style — a
+ * (wraps, no bordered box) and matches the `PersonChip` filter style - a
  * selected pill gets the person's color as tint + border. Allows zero
  * selection. Reused by the events, payments, and activities forms.
  */

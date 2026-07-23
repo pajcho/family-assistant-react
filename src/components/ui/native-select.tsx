@@ -4,7 +4,7 @@
  * ActivityForm still carries its own copy (migrates with its own redesign).
  */
 
-/** Tailwind chrome that matches `<Input>` — shared by the native selects. */
+/** Tailwind chrome that matches `<Input>` - shared by the native selects. */
 export const SELECT_CHROME =
   "h-9 w-full min-w-0 cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50";
 

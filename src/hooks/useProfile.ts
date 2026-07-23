@@ -100,7 +100,7 @@ export function useProfile() {
 
 /**
  * Rename the current user's family. Admin-only at the DB level (the
- * "Admins can update own family" RLS policy) — the UI only exposes it on the
+ * "Admins can update own family" RLS policy) - the UI only exposes it on the
  * Porodica tab, which is itself admin-gated. Invalidates the profile cache so
  * `familyName` refreshes everywhere it's read.
  */

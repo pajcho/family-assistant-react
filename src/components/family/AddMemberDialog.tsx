@@ -24,7 +24,7 @@ export type AddMemberDialogProps = {
 };
 
 /**
- * Add a family member — login-less by default (a child), or with a login in one
+ * Add a family member - login-less by default (a child), or with a login in one
  * step. The login path creates the profile first, then attaches an auth user
  * (which re-keys the profile id), so we hand back the *final* id to select.
  */

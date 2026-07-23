@@ -13,7 +13,7 @@ import { readFunctionsError } from "@/utils/functionsError";
  * effect right away. Saved optimistically.
  *
  * Defaults (and a member with no row): Gmail travel ON, contact birthdays + work
- * markers OFF — mirror `DEFAULT_PREFS` in _shared/calendarSync.ts.
+ * markers OFF - mirror `DEFAULT_PREFS` in _shared/calendarSync.ts.
  */
 export const DEFAULT_SYNC_PREFS: GoogleSyncPreferences = {
   import_from_gmail: true,

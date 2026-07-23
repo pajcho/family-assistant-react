@@ -5,7 +5,7 @@
  * to `/lists` re-opens whatever was last viewed instead of forcing a fresh
  * pick. Stored as a bare id string under one localStorage key; an absent or
  * unreadable value just means "no memory yet" and the caller falls back to the
- * first list. We never need to proactively clear a stale id — the resolver
+ * first list. We never need to proactively clear a stale id - the resolver
  * re-checks that the id still exists and falls through to the first list if not.
  *
  * Per-device on purpose: which list you had open on your phone shouldn't
@@ -20,7 +20,7 @@ export function readLastOpenedListId(): string | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     return raw && raw.length > 0 ? raw : null;
   } catch {
-    // Storage disabled (private mode) — behave as if there's no memory.
+    // Storage disabled (private mode) - behave as if there's no memory.
     return null;
   }
 }
@@ -30,6 +30,6 @@ export function writeLastOpenedListId(id: string): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, id);
   } catch {
-    // Quota exceeded / private mode — persistence is best-effort, the UI still works.
+    // Quota exceeded / private mode - persistence is best-effort, the UI still works.
   }
 }

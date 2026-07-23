@@ -12,7 +12,7 @@ import { computeActivityMonthlySummaries } from "@/utils/activityAttendance";
 import { Amount } from "@/components/common/Amount";
 
 /**
- * Read-only "Plaćanja" section inside the activity edit dialog — the reverse
+ * Read-only "Plaćanja" section inside the activity edit dialog - the reverse
  * side of the payment → activity link. Renders nothing until the activity has
  * at least one linked payment; then lists them and appends the per-month
  * attendance breakdown for the current + last 6 months

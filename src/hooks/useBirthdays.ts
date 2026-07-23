@@ -6,14 +6,14 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Birthdays data hooks — direct port of `composables/useBirthdays.ts` from
+ * Birthdays data hooks - direct port of `composables/useBirthdays.ts` from
  * the sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
  *
  * Surface:
- *   - `useBirthdaysList()`     — list query + realtime subscription
- *   - `useCreateBirthday()`    — insert mutation
- *   - `useUpdateBirthday()`    — update mutation
- *   - `useDeleteBirthday()`    — delete mutation
+ *   - `useBirthdaysList()`     - list query + realtime subscription
+ *   - `useCreateBirthday()`    - insert mutation
+ *   - `useUpdateBirthday()`    - update mutation
+ *   - `useDeleteBirthday()`    - delete mutation
  *
  * `familyId` comes from `useProfile()`; never accept it from callers so the
  * Supabase RLS guard always matches the authenticated user.
@@ -44,8 +44,8 @@ async function fetchBirthdays(familyId: string): Promise<Birthday[]> {
 /**
  * Read-only birthdays query sharing `useBirthdaysList`'s cache key but WITHOUT
  * the realtime channel. The channel topic is fixed per family (no useId), so a
- * second simultaneous subscription — e.g. the payment link picker while the
- * birthdays page is open — would collide. Secondary surfaces use this one; the
+ * second simultaneous subscription - e.g. the payment link picker while the
+ * birthdays page is open - would collide. Secondary surfaces use this one; the
  * shared query key keeps the data in sync with the page's subscription and
  * with mutation invalidations.
  */

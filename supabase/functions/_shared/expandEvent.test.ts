@@ -16,7 +16,7 @@ describe("addIsoDays", () => {
   });
 });
 
-describe("expandWhen — all-day", () => {
+describe("expandWhen - all-day", () => {
   it("splits a multi-day all-day event into one row per day (end.date is exclusive)", () => {
     const out = expandWhen(
       { id: "e", start: { date: "2026-06-11" }, end: { date: "2026-06-15" } },
@@ -55,7 +55,7 @@ describe("expandWhen — all-day", () => {
   });
 });
 
-describe("expandWhen — timed", () => {
+describe("expandWhen - timed", () => {
   it("keeps a single-day timed event as one row with start + end times", () => {
     const out = expandWhen(
       {
@@ -125,7 +125,7 @@ describe("expandWhen — timed", () => {
   });
 });
 
-describe("expandWhen — no usable start", () => {
+describe("expandWhen - no usable start", () => {
   it("returns [] when there is no start", () => {
     expect(expandWhen({}, TZ)).toEqual([]);
     expect(expandWhen({ end: { date: "2026-06-12" } }, TZ)).toEqual([]);

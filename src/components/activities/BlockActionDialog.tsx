@@ -80,7 +80,7 @@ export function BlockActionDialog({
         lastName: person.last_name,
         email: null,
       }) || "Bez imena"
-    : "—";
+    : "-";
   const color = person?.color ?? fallbackColorForProfile(block.personId);
   const dateLabel = formatBlockDate(block.date);
 
@@ -165,7 +165,7 @@ export function BlockActionDialog({
           <div className="mb-4 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800/60 dark:text-gray-200">
             Redovan termin:{" "}
             <span className="font-medium tabular-nums">
-              {block.startTime}–{block.endTime}
+              {block.startTime}-{block.endTime}
             </span>
           </div>
         )}
@@ -254,7 +254,7 @@ function ActionList({
       <ActionRow
         icon={XCircleIcon}
         label={isCanceled ? "Već je otkazan" : "Otkaži ovaj termin"}
-        description="Samo ovaj jedan put — ostali ostaju"
+        description="Samo ovaj jedan put - ostali ostaju"
         onClick={onCancel}
         disabled={saving || isCanceled}
       />
@@ -344,7 +344,7 @@ function OverrideBanner({
           <div>
             Otkazano za ovaj dan ·{" "}
             <span className="line-through tabular-nums opacity-70">
-              {originalStart}–{originalEnd}
+              {originalStart}-{originalEnd}
             </span>
           </div>
           {note ? <div className="mt-0.5 text-xs opacity-80">{note}</div> : null}
@@ -360,13 +360,13 @@ function OverrideBanner({
         {movedToDifferentDay ? (
           <div>
             <span className="line-through opacity-70">
-              {formatBlockDate(originalDate)} {originalStart}–{originalEnd}
+              {formatBlockDate(originalDate)} {originalStart}-{originalEnd}
             </span>
             <span className="mx-1.5">→</span>
             <span className="font-medium">
               {formatBlockDate(newDate as string)}{" "}
               <span className="tabular-nums">
-                {newStart}–{newEnd}
+                {newStart}-{newEnd}
               </span>
             </span>
           </div>
@@ -374,11 +374,11 @@ function OverrideBanner({
           <div>
             Pomereno na{" "}
             <span className="font-medium tabular-nums">
-              {newStart}–{newEnd}
+              {newStart}-{newEnd}
             </span>{" "}
             · ranije{" "}
             <span className="tabular-nums line-through opacity-70">
-              {originalStart}–{originalEnd}
+              {originalStart}-{originalEnd}
             </span>
           </div>
         )}
@@ -401,7 +401,7 @@ function CancelForm({ saving, onBack, onConfirm }: CancelFormProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Otkazuje se samo ovaj termin — ostali ostaju u rasporedu.
+        Otkazuje se samo ovaj termin - ostali ostaju u rasporedu.
       </p>
       <div className="space-y-1.5">
         <Label htmlFor="cancel-note">Razlog (opciono)</Label>
@@ -432,7 +432,7 @@ function CancelForm({ saving, onBack, onConfirm }: CancelFormProps) {
 
 interface RescheduleFormProps {
   block: ResolvedActivityBlock;
-  /** Original date the rule would have fired on — the override's lookup key. */
+  /** Original date the rule would have fired on - the override's lookup key. */
   originalDate: string;
   saving: boolean;
   onCancel: () => void;

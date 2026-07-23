@@ -27,7 +27,7 @@ export type EventFormPayload = {
   /** Family members the event is for. Empty = unassigned (family-wide). */
   personIds: string[];
   /**
-   * Set to `null` only when a full-form edit changed the date/time — clearing
+   * Set to `null` only when a full-form edit changed the date/time - clearing
    * any stale "Razlog pomeranja" so it can't outlive the move it described.
    * Omitted otherwise (leaves the stored value untouched).
    */
@@ -49,12 +49,12 @@ export type EventFormState = {
   personIds: string[];
 };
 
-/** Mobile sub-views the form's picker row can open — see EventFormDialog. */
+/** Mobile sub-views the form's picker row can open - see EventFormDialog. */
 export type EventFormViewKind = "details";
 
 /**
  * Seed for the dialog-owned form state. `today` pre-fills the date when
- * ADDING without an explicit default — same convention as payments.
+ * ADDING without an explicit default - same convention as payments.
  */
 export function initialEventFormState(
   event: Event | null | undefined,
@@ -78,7 +78,7 @@ export function initialEventFormState(
 }
 
 export type EventFormProps = {
-  /** Dialog-owned state — survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
   form: EventFormState;
   setForm: Dispatch<SetStateAction<EventFormState>>;
   event?: Event | null;
@@ -92,13 +92,13 @@ export type EventFormProps = {
 };
 
 /**
- * Mobile (<sm) — the "Brzi unos" layout: Naziv, Datum (danas + quick chips),
+ * Mobile (<sm) - the "Brzi unos" layout: Naziv, Datum (danas + quick chips),
  * the Ceo dan switch and (when timed) Početak/Završetak stay inline; Opis,
  * Za koga, Podsetnik and Napomene move behind a "Više detalja" row into a
  * sub-view. The Odustani/Dodaj bar is pinned by the dialog below the scroll
  * area.
  *
- * Desktop (sm+) — the classic fully-expanded layout, unchanged.
+ * Desktop (sm+) - the classic fully-expanded layout, unchanged.
  */
 export function EventForm({
   form,
@@ -123,7 +123,7 @@ export function EventForm({
     const resolvedEnd = form.allDay ? null : endTime || null;
     // A full-form edit that shifts the date/time is itself a "move", so any
     // reschedule reason left over from an earlier "Pomeri" no longer matches
-    // the new date — drop it (mirrors how the Pomeri dialogs overwrite it).
+    // the new date - drop it (mirrors how the Pomeri dialogs overwrite it).
     // Untouched otherwise so a pure name/notes edit keeps a legitimate reason.
     const scheduleChanged =
       !!event &&
@@ -138,7 +138,7 @@ export function EventForm({
       end_time: resolvedEnd,
       notes: form.notes.trim() || null,
       // Reminders only fire when there's a wall-clock start_time to
-      // anchor the offset against — clear the field if the user toggled
+      // anchor the offset against - clear the field if the user toggled
       // back to all-day or removed the start time after picking one.
       remind_minutes_before: resolvedStart ? form.remind_minutes_before : null,
       personIds: form.personIds,
@@ -185,7 +185,7 @@ export function EventForm({
     ) : null;
 
   if (!isDesktop) {
-    // ——— Mobile: "Brzi unos" ———
+    // --- Mobile: "Brzi unos" ---
     const detailParts: string[] = [];
     if (form.description.trim()) detailParts.push("Opis ✓");
     if (form.personIds.length > 0) {
@@ -237,7 +237,7 @@ export function EventForm({
         />
         <SwitchRow
           title="Ceo dan"
-          description="Bez početka i završetka — događaj važi ceo dan."
+          description="Bez početka i završetka - događaj važi ceo dan."
           checked={form.allDay}
           onChange={(allDay) => setForm((s) => ({ ...s, allDay }))}
         />
@@ -253,7 +253,7 @@ export function EventForm({
     );
   }
 
-  // ——— Desktop: classic fully-expanded layout (unchanged) ———
+  // --- Desktop: classic fully-expanded layout (unchanged) ---
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">

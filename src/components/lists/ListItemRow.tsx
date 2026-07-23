@@ -11,7 +11,7 @@ import type { ListItem } from "@/types/database";
 /**
  * Bindings forwarded from `useSortable` so this row can host a drag
  * handle. Only the listeners/attributes for the handle button are
- * needed — the row's outer ref + transform are applied by the parent
+ * needed - the row's outer ref + transform are applied by the parent
  * `SortableRow` wrapper.
  */
 export type DragHandleBindings = {
@@ -34,7 +34,7 @@ export type ListItemRowProps = {
 };
 
 /**
- * One row inside a list — checkbox + name (+ description preview) +
+ * One row inside a list - checkbox + name (+ description preview) +
  * (desktop-only) edit/delete icons.
  *
  * Returns a `<div>` rather than `<li>`; the parent owns the list element so
@@ -79,7 +79,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           className="h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
         />
       </label>
-      {/* Hit-target scoping: same approach as before — the wrapper owns the
+      {/* Hit-target scoping: same approach as before - the wrapper owns the
           flex-1 stretch (with inert right padding) while the button shrinks
           to text width so only the visible label area is a tap target.
           `items-stretch` lets the button still fill the row vertically so
@@ -134,7 +134,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           ) : null}
         </div>
       </div>
-      {/* Inline action buttons — mouse-only. Touch users get the same
+      {/* Inline action buttons - mouse-only. Touch users get the same
           operations via tap-to-open + swipe gestures, so the icons would
           just be visual noise. The `pointer-fine` variant is defined in
           src/styles/index.css and maps to `@media (pointer: fine)`. */}
@@ -156,12 +156,12 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           <TrashIcon className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
         </Button>
       </div>
-      {/* Drag handle — only rendered when the list is reorderable
+      {/* Drag handle - only rendered when the list is reorderable
           (smart-sort off + active section). Lives in its own slot so it
           stays visible on touch devices where the pencil/trash buttons
           are hidden; on desktop it joins the hover/focus reveal so the
           row stays clean by default. The listeners come from the parent
-          `SortableRow`'s `useSortable()` call — attaching them only to
+          `SortableRow`'s `useSortable()` call - attaching them only to
           the handle button (not the row body) keeps tap-to-open, swipe
           gestures, and the checkbox label all working untouched. */}
       {dragHandle ? (

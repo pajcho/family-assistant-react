@@ -8,8 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * App-local enrichment for mirrored Google events — assignment to a family
- * member + a push reminder — keyed by the stable `ical_uid` so it survives
+ * App-local enrichment for mirrored Google events - assignment to a family
+ * member + a push reminder - keyed by the stable `ical_uid` so it survives
  * re-syncs. Read as a `byUid` map (the whole family's set is small) and written
  * with `setLocal` (a partial upsert: pass only the field you're changing). The
  * client writes directly via RLS; realtime keeps other members in sync.

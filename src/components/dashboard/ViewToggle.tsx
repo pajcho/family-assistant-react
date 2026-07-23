@@ -6,7 +6,7 @@ import type { AgendaView } from "@/hooks/useAgendaView";
 /**
  * List ↔ calendar segmented toggle, shown top-right of a dashboard page. Drives
  * the per-page `useAgendaView` preference. Icon + label on sm+, icon-only on the
- * narrowest screens — `sr-only` (not `hidden`, which would drop the text from
+ * narrowest screens - `sr-only` (not `hidden`, which would drop the text from
  * the accessibility tree) keeps the label available to assistive tech there.
  */
 const SEGMENT_CLASS =

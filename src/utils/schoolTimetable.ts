@@ -15,14 +15,14 @@ import { deriveShiftForWeek, normalizeTime } from "./activity";
  *
  * The whole point of this feature: the user types SUBJECTS per slot, never
  * times. Concrete class times are derived here from the family's
- * `BellSchedule` plus the child's resolved time band — change the bell
+ * `BellSchedule` plus the child's resolved time band - change the bell
  * schedule and every class moves automatically.
  *
- * Two independent axes (the crux of the model — see the migration header):
- *   • VARIANT (A/B)  — which timetable is active this week. Driven by the
+ * Two independent axes (the crux of the model - see the migration header):
+ *   • VARIANT (A/B)  - which timetable is active this week. Driven by the
  *                      child's rota shift (`deriveShiftForWeek`): morning weeks
  *                      use 'A', afternoon weeks use 'B'.
- *   • TIME BAND      — which bell-schedule start times apply. Equals the rota
+ *   • TIME BAND      - which bell-schedule start times apply. Equals the rota
  *                      shift UNLESS `fixed_time_band` pins it. 1st/2nd graders
  *                      pin it to 'morning' so subjects still flip A↔B while the
  *                      clock stays put.
@@ -33,7 +33,7 @@ import { deriveShiftForWeek, normalizeTime } from "./activity";
 // ---------------------------------------------------------------------------
 
 /**
- * The rota shift this child is in for `weekStart` — drives WHICH timetable
+ * The rota shift this child is in for `weekStart` - drives WHICH timetable
  * (A/B) is active. `deriveShiftForWeek` already collapses to `anchor_shift`
  * for non-alternating children, so this is constant for them.
  */
@@ -64,7 +64,7 @@ export function variantForWeek(
 }
 
 /**
- * The TIME band for the week — which bell-schedule start times apply. Equals
+ * The TIME band for the week - which bell-schedule start times apply. Equals
  * the rota shift, unless `fixed_time_band` overrides it (1st/2nd graders).
  */
 export function timeBandForWeek(
@@ -82,7 +82,7 @@ export function timeBandForWeek(
 }
 
 // ---------------------------------------------------------------------------
-// Bell grid — turning a band into concrete per-slot times
+// Bell grid - turning a band into concrete per-slot times
 // ---------------------------------------------------------------------------
 
 export interface BellSlot {
@@ -143,7 +143,7 @@ export function bandParams(
 /**
  * Compute the ordered class slots for a band: walk forward from the band's
  * start, each class `period_minutes` long, with `small_break_minutes` between
- * classes — except after `bigBreakAfter`, where the gap is `big_break_minutes`.
+ * classes - except after `bigBreakAfter`, where the gap is `big_break_minutes`.
  * Produces `max_periods` slots.
  */
 export function computeBellGrid(
@@ -167,15 +167,15 @@ export function computeBellGrid(
 }
 
 // ---------------------------------------------------------------------------
-// Week resolution — one block per class occurrence
+// Week resolution - one block per class occurrence
 // ---------------------------------------------------------------------------
 
 export interface ResolvedSchoolBlock {
   entryId: string;
   personId: string;
-  /** YYYY-MM-DD — the concrete day inside the requested week. */
+  /** YYYY-MM-DD - the concrete day inside the requested week. */
   date: string;
-  /** 0..6 Monday-first — grid column. */
+  /** 0..6 Monday-first - grid column. */
   dayOfWeek: number;
   periodIndex: number;
   /** "HH:MM" derived from the bell grid. */
@@ -195,7 +195,7 @@ export interface ResolvedSchoolBlock {
  * compute that band's bell grid, and emit one block per entry whose variant
  * matches and whose `period_index` lands inside the grid.
  *
- * `weekStart` MUST already be a Monday (YYYY-MM-DD) — caller's job, same
+ * `weekStart` MUST already be a Monday (YYYY-MM-DD) - caller's job, same
  * contract as `resolveWeekBlocks`.
  *
  * Defensive fallbacks (none should happen with a well-formed UI):
@@ -237,7 +237,7 @@ export function resolveSchoolWeekBlocks(args: {
     for (const entry of personEntries) {
       if (entry.variant !== variant) continue;
       const slot = slotByIndex.get(entry.period_index);
-      if (!slot) continue; // period beyond max_periods — skip defensively.
+      if (!slot) continue; // period beyond max_periods - skip defensively.
       const date = format(addDays(monday, entry.day_of_week), "yyyy-MM-dd");
       blocks.push({
         entryId: entry.id,

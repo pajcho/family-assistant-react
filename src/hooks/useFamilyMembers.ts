@@ -13,11 +13,11 @@ import { useProfile } from "@/hooks/useProfile";
  * `updated_by_id` audit fields throughout the lists UI.
  *
  * Returns both the raw list (for cases where you want to iterate) and a
- * `byId` map for O(1) lookup at render time. Cached for 5 min — family
+ * `byId` map for O(1) lookup at render time. Cached for 5 min - family
  * membership doesn't change often, and a stale name resolves to the same
  * string anyway.
  *
- * RLS: the `profiles` table has two stacked SELECT policies — "own profile"
+ * RLS: the `profiles` table has two stacked SELECT policies - "own profile"
  * (id = auth.uid()) and "family profiles" (family_id = caller's family_id).
  * The second one is what makes this query return more than one row.
  */
@@ -67,7 +67,7 @@ export function useFamilyMembers(): UseFamilyMembersResult {
 
 /**
  * Insert a new household-member profile that has no Supabase auth user
- * behind it — used for children and other family members who never log in.
+ * behind it - used for children and other family members who never log in.
  * Requires the FK from `profiles.id` to `auth.users.id` to be dropped
  * (household_members migration) and the family-scoped INSERT policy.
  */
@@ -108,7 +108,7 @@ export function useCreateFamilyMember() {
 
 /**
  * Delete a household-member profile. RLS blocks deleting your own row
- * (would orphan the auth session) — caller is expected to hide the delete
+ * (would orphan the auth session) - caller is expected to hide the delete
  * button for the current user.
  */
 export function useDeleteFamilyMember() {
@@ -137,7 +137,7 @@ export function useDeleteFamilyMember() {
 /**
  * Update the `color` on any profile in the caller's family. Requires the
  * "Users can update own family profiles" RLS policy added in the activities
- * migration — without it the row-level guard rejects updates to other
+ * migration - without it the row-level guard rejects updates to other
  * members' profiles (a parent setting up colors for child profiles).
  */
 export function useUpdateProfileColor() {
@@ -154,7 +154,7 @@ export function useUpdateProfileColor() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
-      // The caller's own profile is also cached under "profile" — invalidate
+      // The caller's own profile is also cached under "profile" - invalidate
       // so the avatar / name display picks up the new color.
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
@@ -201,7 +201,7 @@ export function useUpdateMemberName() {
 
 /**
  * Grant or revoke the family-admin role on a member with a login. Admin-only
- * (RLS). The caller is responsible for never revoking the last admin — the UI
+ * (RLS). The caller is responsible for never revoking the last admin - the UI
  * disables the toggle in that case so a family can't lock itself out.
  */
 export function useSetMemberAdmin() {

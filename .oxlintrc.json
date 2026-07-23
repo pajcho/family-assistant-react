@@ -10,7 +10,7 @@
     // Enforce named imports from "react" (React-team convention): forbid
     // `import * as React` so hooks/types come in as `useState` / `type ReactNode`.
     "import/no-namespace": "error",
-    // False-positives on our standard pattern — an <input> nested in a <label>
+    // False-positives on our standard pattern - an <input> nested in a <label>
     // with sibling <span> text (already accessible, some also have aria-label).
     "jsx-a11y/control-has-associated-label": "off",
     // autoFocus is deliberate UX here (first field in dialogs / date popovers).

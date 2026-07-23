@@ -22,7 +22,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * Used to verify a password (`signInWithPassword`) before a sensitive change:
  * doing that on the main `supabase` client would swap the live session for a
  * fresh one and fire SIGNED_IN across the app. This one writes nothing to
- * storage, never refreshes, and is discarded after the call — the extra GoTrue
+ * storage, never refreshes, and is discarded after the call - the extra GoTrue
  * session it opens is left to expire on its own (signing it out would default
  * to global scope and kill the user's real session).
  */

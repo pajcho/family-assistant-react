@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Per-occurrence overrides on activity_schedule rules. The hook surface
- * mirrors the other activity hooks — list query with realtime + a single
+ * mirrors the other activity hooks - list query with realtime + a single
  * `upsert` mutation that the action menu uses for both "create override"
  * and "change existing override". The UNIQUE(schedule_id, date) constraint
  * means there is only ever one override per occurrence; replacing it
@@ -17,9 +17,9 @@ import { useProfile } from "@/hooks/useProfile";
 
 export type UpsertOverrideInput = {
   schedule_id: string;
-  /** Whose override this is — same termin can have separate overrides per participant. */
+  /** Whose override this is - same termin can have separate overrides per participant. */
   person_id: string;
-  /** Original date the rule would have fired on — the override's lookup key. */
+  /** Original date the rule would have fired on - the override's lookup key. */
   date: string;
   action: ActivityOverrideAction;
   override_start_time?: string | null;
@@ -97,7 +97,7 @@ export function useUpsertActivityOverride() {
             family_id: familyId,
             date: payload.date,
             action: payload.action,
-            // Always send both — null clears them, which is the right state
+            // Always send both - null clears them, which is the right state
             // when switching a previously-reschedule override to cancel.
             override_start_time:
               payload.action === "reschedule" ? (payload.override_start_time ?? null) : null,

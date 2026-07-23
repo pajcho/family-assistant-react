@@ -7,7 +7,7 @@ import { toast } from "sonner";
  *
  * When a new SW activates (because a fresh deploy went live), this surfaces
  * a persistent sonner toast with a "Osveži" action. We deliberately don't
- * silently reload — users may have unsaved input in a dialog. The toast
+ * silently reload - users may have unsaved input in a dialog. The toast
  * stays until they dismiss or refresh.
  *
  * Mount this hook ONCE inside the authenticated app shell.
@@ -18,7 +18,7 @@ import { toast } from "sonner";
  * version is invisible until the user closes and reopens the app. We
  * widen the trigger surface by:
  *   1. polling via `registration.update()` every UPDATE_INTERVAL_MS
- *   2. forcing a check whenever the document becomes visible again —
+ *   2. forcing a check whenever the document becomes visible again -
  *      iOS suspends background tabs / PWAs, so coming back into focus
  *      is the natural moment to look for a new deploy.
  */
@@ -45,14 +45,14 @@ export function usePwaUpdate(): void {
     if (typeof window === "undefined") return;
     // In dev the SW is rebuilt on every change, so `reg.update()` here would
     // perpetually re-detect a "new" version and re-fire the toast below. The
-    // real update flow only matters for a production build — exercise it with
+    // real update flow only matters for a production build - exercise it with
     // `vite preview`, not `vite dev`.
     if (!import.meta.env.PROD) return;
     const check = () => {
       const reg = registrationRef.current;
       if (!reg) return;
       void reg.update().catch(() => {
-        // Network blip / SW gone — nothing actionable, ignore.
+        // Network blip / SW gone - nothing actionable, ignore.
       });
     };
 
@@ -71,7 +71,7 @@ export function usePwaUpdate(): void {
   }, []);
 
   useEffect(() => {
-    // Scope the prompt to production: see the polling effect above — in dev
+    // Scope the prompt to production: see the polling effect above - in dev
     // `needRefresh` flips on every rebuild, so the toast would never stop
     // reappearing.
     if (!import.meta.env.PROD) return;

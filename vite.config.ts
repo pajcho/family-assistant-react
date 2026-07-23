@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
   // base path, mirroring the original Nuxt app's NUXT_APP_BASE_URL pattern.
   // `mode` is "production" for both `vite build` and `vite preview`, so
   // running preview locally exercises the exact base-path behaviour GH
-  // Pages will see — unlike `command`, which would be "serve" in preview.
+  // Pages will see - unlike `command`, which would be "serve" in preview.
   base: mode === "production" ? "/family-assistant-react/" : "/",
   plugins: [
     tanstackRouter({
@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
       injectRegister: false,
       // `start_url: "."` and `scope: "."` keep the manifest portable between
       // dev (`/`) and the GH Pages base path (`/family-assistant-react/`)
-      // — vite-plugin-pwa resolves them relative to `base` at build time.
+      // - vite-plugin-pwa resolves them relative to `base` at build time.
       manifest: {
         name: "Porodični Asistent",
         short_name: "Porodicni Asistent",
@@ -60,7 +60,7 @@ export default defineConfig(({ mode }) => ({
         // instantly and offline once the SW has precached it.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,wasm}"],
         // Splash screens are huge (~30MB total) and only used at native
-        // launch time from the home-screen icon — caching them via SW would
+        // launch time from the home-screen icon - caching them via SW would
         // bloat the precache without speeding anything up.
         globIgnores: ["**/apple-splash-*.png"],
       },

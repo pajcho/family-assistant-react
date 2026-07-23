@@ -9,7 +9,7 @@ export type Laned<T> = T & {
   /** 1-based column index within the overlap group. */
   lane: number;
   /**
-   * Number of columns the group is divided into — the PEAK number of blocks
+   * Number of columns the group is divided into - the PEAK number of blocks
    * active at the same instant, NOT the group's total size.
    */
   totalLanes: number;
@@ -29,15 +29,15 @@ type TimeBlock = { startTime: string; endTime: string };
  *
  * Two passes over an interval graph:
  *  1. Sweep start-sorted blocks, grouping ones that transitively overlap, and
- *     greedily give each the lowest free column — reusing a column the instant
+ *     greedily give each the lowest free column - reusing a column the instant
  *     its previous occupant ends.
  *  2. Per group, set `totalLanes` to the PEAK column count, then expand each
  *     block rightward across columns holding nothing that overlaps it.
  *
- * The peak count matters: a transitive chain (A–B overlap, B–C overlap, but
- * A–C don't) reuses columns, so the group's *size* over-counts the columns
+ * The peak count matters: a transitive chain (A-B overlap, B-C overlap, but
+ * A-C don't) reuses columns, so the group's *size* over-counts the columns
  * ever used at once. Dividing width by the size left the surplus columns
- * empty on the right — the bug this layout fixes.
+ * empty on the right - the bug this layout fixes.
  */
 export function assignLanes<T extends TimeBlock>(daysBlocks: ReadonlyArray<T>): Laned<T>[] {
   const sorted = [...daysBlocks].sort((a, b) => {

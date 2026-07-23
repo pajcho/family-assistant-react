@@ -10,7 +10,7 @@ import {
 import { AddSheetMenu } from "@/components/common/AddSheetMenu";
 
 /**
- * The dashboard's "Dodaj" — the shared AddSheetMenu over the four agenda
+ * The dashboard's "Dodaj" - the shared AddSheetMenu over the four agenda
  * types, a "Lista" shortcut and quick expense entry. Lists live on /lists, so
  * only that entry navigates away; every other flow opens in place. Tile sheet
  * on mobile, labelled header dropdown on desktop.

@@ -6,13 +6,13 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Lists every push subscription belonging to the current user — i.e.
- * every device on which they've enabled notifications — and lets them
+ * Lists every push subscription belonging to the current user - i.e.
+ * every device on which they've enabled notifications - and lets them
  * revoke a row by id.
  *
  * Revoking a row removes it from `push_subscriptions`. That stops the
  * cron job from sending pushes to that endpoint, but it does NOT tear
- * down the SW subscription on the remote device — that device's
+ * down the SW subscription on the remote device - that device's
  * `useNotifications` will still report `isSubscribed = true` until the
  * user re-opens the app there (at which point the server row is missing
  * and re-subscribing will re-create it). That's intentional: we can't
@@ -74,10 +74,10 @@ export function usePushSubscriptions() {
  * Bumps `last_used_at` on the row matching `endpoint` so the session
  * list reflects "this device was active just now" whenever the app is
  * opened with an existing push subscription. Fires at most once per
- * mount per endpoint — RLS scopes the UPDATE to the user's own rows.
+ * mount per endpoint - RLS scopes the UPDATE to the user's own rows.
  *
  * Lives in this file (rather than inside `useNotifications`) so the
- * write only happens on screens that care about the session list — no
+ * write only happens on screens that care about the session list - no
  * point heating the row on every screen mount.
  */
 export function useTouchCurrentSubscription(endpoint: string | null | undefined): void {

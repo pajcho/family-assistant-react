@@ -5,12 +5,12 @@ import { srLocale } from "@/utils/date";
 
 /**
  * Shared day divider for the agenda lists (Danas + Uskoro). Renders e.g.
- * "4. jun · Danas · Četvrtak" — the date and the relative token (Danas/Sutra,
+ * "4. jun · Danas · Četvrtak" - the date and the relative token (Danas/Sutra,
  * omitted for later days) in bold, the weekday lighter, dot-separated, under a
  * hairline rule. `today`/`tomorrow` are passed as yyyy-MM-dd so the relative
  * token is decided by string match, without re-deriving "now" per header.
  *
- * `muted` dims the WHOLE header uniformly to a disabled-looking gray — used by
+ * `muted` dims the WHOLE header uniformly to a disabled-looking gray - used by
  * the Uskoro list for days that carry no items (now always shown). The relative
  * token (Danas/Sutra) drops its bold too, so an empty day reads as plainly
  * inactive rather than half-highlighted.

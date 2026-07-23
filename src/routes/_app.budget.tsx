@@ -98,18 +98,18 @@ function BudgetPage() {
   const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
   // Filter sheet: person + expense source, both with the empty-set = "no
   // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
-  // modules) — the cycle summary stays family-level.
+  // modules) - the cycle summary stays family-level.
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(() => new Set());
-  // "Projekcija do kraja meseca" row — collapsed by default, tap to expand.
+  // "Projekcija do kraja meseca" row - collapsed by default, tap to expand.
   const [projOpen, setProjOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   // Stays true after the first open so the lazy chunk loads once and the close
   // animation can play; the dialog releases the camera whenever `open` is false.
   const [scanMounted, setScanMounted] = useState(false);
 
-  // Search (note/merchant + receipt line items) — spans ALL months, so while
+  // Search (note/merchant + receipt line items) - spans ALL months, so while
   // active it replaces the month sections below.
   const [searchTerm, setSearchTerm] = useState("");
   const search = useExpenseSearch(searchTerm);
@@ -137,7 +137,7 @@ function BudgetPage() {
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
   // Person/source filters narrow what the lists show. The cycle summary
-  // (Prihodi/Potrošeno/Preostalo) intentionally stays family-level — income
+  // (Prihodi/Potrošeno/Preostalo) intentionally stays family-level - income
   // isn't per-person, so a filtered "Preostalo" would lie.
   const filteredExpenses = useMemo(() => {
     if (selectedPersonIds.size === 0 && selectedSources.size === 0) return expenses;
@@ -196,12 +196,12 @@ function BudgetPage() {
     [month, currentMonth, incomes, incomeEntries, expenses, payments, paymentOverrides, categories],
   );
 
-  // Share of confirmed income already spent — fills the budget bar and picks its
-  // color (green under 75%, amber 75–100%, red once over budget).
+  // Share of confirmed income already spent - fills the budget bar and picks its
+  // color (green under 75%, amber 75-100%, red once over budget).
   const spentPct = cycle.confirmedIncome > 0 ? (cycle.totalSpent / cycle.confirmedIncome) * 100 : 0;
   const budgetBarColor = spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#10b981";
 
-  // Safe-to-spend pace + month-over-month delta — current month only (pace
+  // Safe-to-spend pace + month-over-month delta - current month only (pace
   // means nothing for history, and MoM compares "up to the same day").
   const { date: todayDate, str: todayStr } = useToday();
   const isCurrentMonth = month === currentMonth;
@@ -225,7 +225,7 @@ function BudgetPage() {
     };
   }, [isCurrentMonth, cycle.totalSpent, todayStr, prevExpenses, prevMonth]);
 
-  // Recurring sources not yet confirmed for THIS month — the "potvrdi platu"
+  // Recurring sources not yet confirmed for THIS month - the "potvrdi platu"
   // reminder. Only surfaced for the current month (don't nag while browsing
   // history); confirming happens in the Prihodi sheet.
   const pendingIncomeCount = useMemo(() => {
@@ -276,7 +276,7 @@ function BudgetPage() {
   );
   const { data: itemCounts } = useReceiptItemCounts(receiptExpenseIds);
 
-  // Fixed (auto rows from payments) vs variable (everything else) — the
+  // Fixed (auto rows from payments) vs variable (everything else) - the
   // Monarch "flex budgeting" split in one stacked bar.
   const fixedVar = useMemo(() => {
     let fixed = 0;
@@ -288,7 +288,7 @@ function BudgetPage() {
     return { fixed, variable, total: fixed + variable };
   }, [filteredExpenses]);
 
-  // Top merchants from scanned receipts — "12.400 od toga u Maxiju" is what
+  // Top merchants from scanned receipts - "12.400 od toga u Maxiju" is what
   // turns awareness into action (N26 Wrap-Up pattern).
   const topMerchants = useMemo(() => {
     const byMerchant = new Map<string, { total: number; count: number }>();
@@ -347,7 +347,7 @@ function BudgetPage() {
     setAddOpen(true);
   };
 
-  // A "source: payment" expense links back to its payment via payment_id — tap
+  // A "source: payment" expense links back to its payment via payment_id - tap
   // it to open the payment detail popup in its read-only "info" variant (the
   // expense row is a PAST paid occurrence; occurrence actions here would hit
   // the NEXT one).
@@ -356,17 +356,17 @@ function BudgetPage() {
     setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
   };
 
-  // "Izmeni" in that popup — full payment edit form, right here on /budget.
+  // "Izmeni" in that popup - full payment edit form, right here on /budget.
   const openEditPayment = async (payment: Payment) => {
     setEditingPayment(payment);
     setPaymentHasHistory(false);
     setPaymentFormError(null);
     setPaymentFormOpen(true);
-    // Async — disable the recurrence radios once we know history exists.
+    // Async - disable the recurrence radios once we know history exists.
     try {
       setPaymentHasHistory(await hasPaymentHistory(payment.id));
     } catch {
-      /* keep false — radios stay enabled */
+      /* keep false - radios stay enabled */
     }
   };
 
@@ -419,7 +419,7 @@ function BudgetPage() {
   };
 
   // Delete lives inside the edit modal now (bottom-left "Obriši" → confirm
-  // sub-view) — no separate row action.
+  // sub-view) - no separate row action.
   const handleDeleteEditing = async () => {
     if (!editing) return;
     try {
@@ -444,7 +444,7 @@ function BudgetPage() {
         />
       </div>
 
-      {/* One-row toolbar — the shared FilterBar pattern. */}
+      {/* One-row toolbar - the shared FilterBar pattern. */}
       <div className="mt-4 space-y-3">
         <FilterBar
           picker={<MonthPicker value={month} onChange={setMonth} />}
@@ -468,12 +468,12 @@ function BudgetPage() {
         />
       ) : null}
 
-      {/* Cycle header — when the family has incomes it shows the full cycle
+      {/* Cycle header - when the family has incomes it shows the full cycle
           (Prihodi · Potrošeno · Preostalo + projection); otherwise just the
           month's spend, with a nudge to add incomes. */}
       {!searchActive && cycle.hasIncome ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          {/* The three amounts stay on ONE baseline — nothing may push them
+          {/* The three amounts stay on ONE baseline - nothing may push them
               apart; extra context (pace, MoM) lives under the bar. */}
           <div className="grid grid-cols-3 gap-2 text-center">
             {/* flex-col + justify-start: buttons vertically CENTER their
@@ -497,7 +497,7 @@ function BudgetPage() {
               <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
                 <Amount value={cycle.totalSpent} round />
               </div>
-              {/* MoM sits centered UNDER the amount — the three values above
+              {/* MoM sits centered UNDER the amount - the three values above
                   stay on one baseline. */}
               {momDelta ? (
                 <div className="mt-1 flex justify-center">
@@ -593,7 +593,7 @@ function BudgetPage() {
                   ) : null}
                   {cycle.projectedUnpaid > 0 ? (
                     <span>
-                      neplaćeno −<Amount value={cycle.projectedUnpaid} round />
+                      neplaćeno -<Amount value={cycle.projectedUnpaid} round />
                     </span>
                   ) : null}
                 </div>
@@ -733,7 +733,7 @@ function BudgetPage() {
               </section>
             ) : null}
 
-            {/* Fixed vs variable — auto rows from payments vs everything else. */}
+            {/* Fixed vs variable - auto rows from payments vs everything else. */}
             {fixedVar.fixed > 0 && fixedVar.variable > 0 ? (
               <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                 <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">

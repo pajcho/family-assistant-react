@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Row-shaped loading placeholder for the agenda lists (Danas + Uskoro),
- * mirroring `AgendaItemRow`'s frame — time gutter | type indicator | label —
+ * mirroring `AgendaItemRow`'s frame - time gutter | type indicator | label -
  * so the page doesn't jump when the real rows arrive. Widths vary per row to
  * read as text, not as a table.
  */

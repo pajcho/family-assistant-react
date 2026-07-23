@@ -19,7 +19,7 @@ export type TimetableEditorProps = {
   onOpenChange: (open: boolean) => void;
   member: Profile;
   anchor: SchoolShiftAnchor | undefined;
-  /** All family timetable entries — filtered to this member internally. */
+  /** All family timetable entries - filtered to this member internally. */
   entries: ReadonlyArray<SchoolTimetableEntry>;
   bell: BellSchedule;
   /** Pre-selected shift variant + weekday, from the clicked grid block. */
@@ -28,7 +28,7 @@ export type TimetableEditorProps = {
 };
 
 /**
- * Standalone dialog wrapper around the timetable editor — used when a school
+ * Standalone dialog wrapper around the timetable editor - used when a school
  * block on the grid is clicked. The options sheet renders the same panel
  * inline instead. The panel persists on unmount, so closing here saves.
  */
@@ -49,7 +49,7 @@ export function TimetableEditor({
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-2xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Raspored časova — {name}</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>Raspored časova - {name}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         <TimetableEditorPanel
           member={member}

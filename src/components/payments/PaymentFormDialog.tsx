@@ -42,16 +42,16 @@ type View = { kind: "form" | PaymentFormViewKind };
  * The "Brzi unos" shell around PaymentForm.
  *
  * Owns three things the form itself must not:
- *   - the SheetStack — the mobile picker rows (Tip plaćanja / Kategorija /
+ *   - the SheetStack - the mobile picker rows (Tip plaćanja / Kategorija /
  *     Više detalja) push sub-views into this same sheet, "←" pops back;
- *   - the form state + currency control — lifted here so the SheetStack's
+ *   - the form state + currency control - lifted here so the SheetStack's
  *     mobile close→reopen hop (which remounts the dialog subtree via
  *     `dialogKey`) can't drop what the user already typed;
  *   - the reseed: state resets on every open and when the edited payment /
  *     its async-loaded assignees change.
  *
  * On desktop (sm+) the form renders fully expanded and none of the sub-views
- * are reachable — the dialog behaves exactly like the pre-redesign one.
+ * are reachable - the dialog behaves exactly like the pre-redesign one.
  * The parent page still wires submit → mutation.
  */
 export function PaymentFormDialog({
@@ -81,7 +81,7 @@ export function PaymentFormDialog({
   todayRef.current = today.str;
 
   // The dialog stays mounted at the route level, so state must reseed on
-  // every open — and while open, whenever the edited entity itself changes.
+  // every open - and while open, whenever the edited entity itself changes.
   useEffect(() => {
     if (!open) return;
     setForm(
@@ -161,7 +161,7 @@ export function PaymentFormDialog({
               value={form.category_id}
               onChange={(category_id) => {
                 setForm((s) => ({ ...s, category_id }));
-                // Nothing else to configure here — selection pops right back.
+                // Nothing else to configure here - selection pops right back.
                 stack.pop();
               }}
             />

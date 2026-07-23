@@ -2,7 +2,7 @@ import type { AgendaItem } from "@/hooks/useAgenda";
 
 /**
  * Pure type + person filtering over `useAgenda` output. Kept here (not in the
- * hook) so both dashboard tabs — and, later, the Phase 4 calendar — apply the
+ * hook) so both dashboard tabs - and, later, the Phase 4 calendar - apply the
  * exact same predicate, and so the rules are unit-testable without standing up
  * the data layer. State lives in `useAgendaFilters`; the UI in `AgendaFilters`.
  */
@@ -25,7 +25,7 @@ export interface AgendaFilter {
   personIds: ReadonlySet<string>;
 }
 
-/** The neutral filter — everything passes. */
+/** The neutral filter - everything passes. */
 export const EMPTY_AGENDA_FILTER: AgendaFilter = {
   kinds: new Set<AgendaKind>(),
   personIds: new Set<string>(),
@@ -50,7 +50,7 @@ export function agendaItemPersonIds(item: AgendaItem): string[] {
  *
  * - Type: with kinds selected, only those kinds pass.
  * - Person: with people selected, an item passes only if it's assigned to at
- *   least one of them. **Birthdays are exempt — always shown** (they carry no
+ *   least one of them. **Birthdays are exempt - always shown** (they carry no
  *   person). An unassigned event / payment / Google event is hidden while a
  *   person filter is active (it's nobody's); assigning a Google event to a
  *   member makes it appear under their filter.
@@ -87,7 +87,7 @@ export function isAgendaFilterActive(filter: AgendaFilter): boolean {
   return filter.kinds.size > 0 || filter.personIds.size > 0;
 }
 
-/** Count of active filter facets — drives the mobile "Filteri" badge. */
+/** Count of active filter facets - drives the mobile "Filteri" badge. */
 export function agendaFilterCount(filter: AgendaFilter): number {
   return filter.kinds.size + filter.personIds.size;
 }

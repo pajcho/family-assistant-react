@@ -36,14 +36,14 @@ import { formatDate } from "@/utils/date";
 import { formatEventTimeRange, isEventEnded } from "@/utils/event";
 
 /**
- * Detail popup for one event on the /events page — the payments-sheet
+ * Detail popup for one event on the /events page - the payments-sheet
  * pattern: hero (icon + name + time), state as badges, info rows, footer with
  * "Izmeni" (+ "Vrati" as the contextual primary when canceled), everything
  * else behind the secondary actions menu (mobile: "Opcije" sub-view,
  * desktop: labeled footer dropdown).
  *
  * Reschedule, cancel-with-reason and the delete confirm are sub-views on the
- * sheet stack (see `useSheetStack`) — same sheet, "←" back header, dismissal
+ * sheet stack (see `useSheetStack`) - same sheet, "←" back header, dismissal
  * returns one level up. Only the full edit form still closes the sheet and
  * delegates to the page's form dialog via `onEdit`.
  */
@@ -82,7 +82,7 @@ export function EventDetailDialog({
   const isCanceled = !!event?.canceled_at;
   const isEnded = !!event && !isCanceled && isEventEnded(event);
 
-  // The full edit form lives in the page's own dialog — close and hand off.
+  // The full edit form lives in the page's own dialog - close and hand off.
   const handleEdit = () => {
     if (!event) return;
     onOpenChange(false);

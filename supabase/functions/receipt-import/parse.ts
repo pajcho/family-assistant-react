@@ -5,7 +5,7 @@
 // the real captured HTML + synthetic journal fixtures (see parse.test.ts).
 //
 // The suf.purs.gov.rs/v/?vl=<token> verification page embeds the full receipt
-// "journal" — a fixed-width (40-col) monospaced text block — inside
+// "journal" - a fixed-width (40-col) monospaced text block - inside
 // `<pre style="font-family:monospace">…</pre>`, terminated by `<br/><img …>`
 // (the QR image). We parse that journal, NOT the page's structured DOM labels:
 // `totalAmountLabel` / `sdcDateTimeLabel` / `invoiceNumberLabel` / `tinLabel`
@@ -14,15 +14,15 @@
 // retailers where the surrounding HTML is not.
 //
 // Robustness contract (enforced here):
-//   • REQUIRED — totalAmount, issuedAt, and *some* merchant identity
+//   • REQUIRED - totalAmount, issuedAt, and *some* merchant identity
 //     (companyName | storeName | pib). Missing → typed ReceiptParseError; the
 //     Edge Function maps it to a 422 + Serbian message.
-//   • BEST-EFFORT — items. Item parsing is fully guarded: any failure yields an
+//   • BEST-EFFORT - items. Item parsing is fully guarded: any failure yields an
 //     empty `items` array plus a warning string, and NEVER fails the import.
 //
 // PENDING-JOURNAL fallback: receipts from offline fiscal devices (e.g. NIS
 // gas-station automats) are verified by PURS but their journal arrives only
-// after the issuer syncs — the page has NO <pre> at all ("Журнал … ће бити
+// after the issuer syncs - the page has NO <pre> at all ("Журнал … ће бити
 // видљив по успостављању везе издаваоца рачуна са сервером ПУРС"). The
 // server-rendered "Преглед за штампу" block (#PrintInvoice) still carries PIB,
 // company, store, grand total and the security-element timestamp, so we parse
@@ -53,7 +53,7 @@ export interface ReceiptItem {
   quantity: number | null;
   /** Best-effort. NULL when the price×qty split couldn't be read. */
   unitPrice: number | null;
-  /** Line total — always present for a parsed item, authoritative (discounts). */
+  /** Line total - always present for a parsed item, authoritative (discounts). */
   total: number;
 }
 
@@ -72,12 +72,12 @@ export interface ParsedReceipt {
   issuedAt: string;
   /** Grand total in RSD. */
   totalAmount: number;
-  /** Best-effort line items (may be empty — see `warnings`). */
+  /** Best-effort line items (may be empty - see `warnings`). */
   items: ReceiptItem[];
   /** Non-fatal notes (Serbian, UI-facing). Empty on a fully-parsed receipt. */
   warnings: string[];
   /** True when the page had no journal yet (offline issuer, not synced to
-   *  PURS) and the data came from the print-block fallback — the client offers
+   *  PURS) and the data came from the print-block fallback - the client offers
    *  "Osveži stavke" for these. */
   journalPending: boolean;
 }
@@ -102,9 +102,9 @@ const FATAL_MESSAGES: Record<ReceiptParseErrorCode, string> = {
   no_merchant: "Nismo mogli da prepoznamo prodavca na računu.",
 };
 
-const ITEMS_WARNING = "Stavke nisu prepoznate — sačuvaćemo ukupan iznos.";
+const ITEMS_WARNING = "Stavke nisu prepoznate - sačuvaćemo ukupan iznos.";
 const PENDING_ITEMS_WARNING =
-  "Prodavac još nije poslao sadržaj računa poreskoj upravi — sačuvaćemo ukupan iznos bez stavki.";
+  "Prodavac još nije poslao sadržaj računa poreskoj upravi - sačuvaćemo ukupan iznos bez stavki.";
 
 // ───────────────────────────────────────────────────────────────────────────
 // Number parsing
@@ -114,7 +114,7 @@ const PENDING_ITEMS_WARNING =
  * Parses a Serbian-formatted money string to a JS number.
  *   "1.234,56" → 1234.56   "4.990,00" → 4990   "831,67" → 831.67
  * Defensive about the comma-less case: a lone dot is a decimal only when it's a
- * single dot with 1–2 trailing digits ("4990.00"); otherwise dots are thousands
+ * single dot with 1-2 trailing digits ("4990.00"); otherwise dots are thousands
  * separators ("1.234" → 1234). Returns null when nothing numeric is present.
  */
 export function parseSerbianAmount(raw: string): number | null {
@@ -164,7 +164,7 @@ function pad2(n: number): string {
 
 /**
  * Europe/Belgrade UTC offset (minutes east of UTC) at a UTC instant, via Intl
- * (standard ECMAScript — available in Deno and Node/vitest alike).
+ * (standard ECMAScript - available in Deno and Node/vitest alike).
  */
 function belgradeOffsetMinutes(atUtcMs: number): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
@@ -282,7 +282,7 @@ function parseHeader(lines: string[]): {
       }
     }
 
-    // PIB: a standalone 8–11 digit run (optional "ПИБ:" label).
+    // PIB: a standalone 8-11 digit run (optional "ПИБ:" label).
     if (pib === null) {
       const pibM = line.match(/^(?:пиб\s*:?\s*)?(\d{8,11})\b/i);
       if (pibM) {
@@ -303,7 +303,7 @@ function parseHeader(lines: string[]): {
 
 /**
  * Picks the friendliest merchant label. Prefers the store name, but store names
- * like "MPO 060" are internal codes — fall back to the company name for those.
+ * like "MPO 060" are internal codes - fall back to the company name for those.
  */
 function pickMerchant(storeName: string | null, companyName: string | null): string | null {
   if (storeName) {
@@ -343,7 +343,7 @@ function findTotal(lines: string[]): number | null {
 // Items (best-effort)
 // ───────────────────────────────────────────────────────────────────────────
 
-// A pure amounts line: 2–3 Serbian numbers, nothing else. Anchors each item.
+// A pure amounts line: 2-3 Serbian numbers, nothing else. Anchors each item.
 const AMOUNTS_LINE_RE = /^\s*-?\d[\d.,]*(?:\s+-?\d[\d.,]*){1,2}\s*$/;
 
 const ITEMS_HEADER_RE = /(артикли|artikli)/i;
@@ -353,12 +353,12 @@ const TAX_SECTION_RE = /(о[зж]нака|oznaka).*(стопа|stopa)/i;
 /** Strips the product code prefix and the trailing unit/tax tokens from a name block. */
 function cleanItemName(raw: string): string {
   let s = raw.replace(/\s+/g, " ").trim();
-  // Strip a trailing tax mark: a 1–3 glyph token in parens, e.g. (Ђ) (Т) (А).
+  // Strip a trailing tax mark: a 1-3 glyph token in parens, e.g. (Ђ) (Т) (А).
   s = s.replace(/\(\s*[^()\s]{1,3}\s*\)\s*$/, "").trim();
   // Strip a trailing unit token: /kom, (Kom), (kg), (kes)… (letters, ≤5, in
   // parens or slash-prefixed; tolerate the space left by a column-split ")" ).
   s = s.replace(/(?:\/\s*[A-Za-zА-Яа-яЂђ.]{1,6}|\(\s*[A-Za-zА-Яа-яЂђ.]{1,6}\s*\))\s*$/, "").trim();
-  // Strip the leading product-code token — but ONLY when it looks like a code
+  // Strip the leading product-code token - but ONLY when it looks like a code
   // (i.e. contains a digit): barcodes/PLUs like "0593646640103", "05RN",
   // "DA1028-010". Some retailers (e.g. Maxi/Delhaize) print NO code column, so
   // the line starts with the product name itself ("Snickers Classic 50g"); a
@@ -515,7 +515,7 @@ function extractJournal(html: string): string | null {
   return null;
 }
 
-/** Replaces tags with spaces and collapses whitespace — for small value cells. */
+/** Replaces tags with spaces and collapses whitespace - for small value cells. */
 function stripTags(s: string): string {
   return s
     .replace(/<[^>]+>/g, " ")
@@ -543,7 +543,7 @@ function printFieldValue(html: string, labelAlternatives: string): string | null
 /**
  * Pending-journal fallback (see the header comment): reads the required fields
  * from the server-rendered #PrintInvoice block of the verification page.
- * Returns null when the block is missing or lacks a required field — the
+ * Returns null when the block is missing or lacks a required field - the
  * caller then reports the ordinary no_journal error.
  */
 function parsePrintInvoice(decodedHtml: string): ParsedReceipt | null {
@@ -565,7 +565,7 @@ function parsePrintInvoice(decodedHtml: string): ParsedReceipt | null {
 
   const pib = printFieldValue(region, "ПИБ|PIB")?.match(/\d{8,11}/)?.[0] ?? null;
   const companyName = printFieldValue(region, "Предузеће|Preduze[ćc]e");
-  // Store label sometimes keeps the `<storeId>-` prefix — strip it like the
+  // Store label sometimes keeps the `<storeId>-` prefix - strip it like the
   // journal header parser does.
   const storeRaw = printFieldValue(region, "Место продаје|Mesto prodaje");
   const storeName = storeRaw ? storeRaw.replace(/^\d{3,}\s*-\s*/, "").trim() || null : null;

@@ -1,11 +1,11 @@
 // supabase/functions/_shared/calendarSync.ts
 //
-// Per-calendar event sync, shared by gcal-sync (the cron worker — all shared
+// Per-calendar event sync, shared by gcal-sync (the cron worker - all shared
 // calendars) and gcal-calendars (an immediate one-calendar sync right after the
 // user shares it, so events show up without waiting for the cron). Pulls changes
 // incrementally via the stored syncToken (full window when there's none), upserts
 // events, deletes cancelled / self-declined ones, and persists the new
-// nextSyncToken — all under a short-lived per-calendar lock.
+// nextSyncToken - all under a short-lived per-calendar lock.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getFreshAccessToken, googleGet, GoogleApiError, ReauthRequiredError } from "./google.ts";
@@ -18,7 +18,7 @@ const WINDOW_PAST_DAYS = 30;
 const WINDOW_FUTURE_DAYS = 365;
 const DEFAULT_TZ = "Europe/Belgrade";
 
-/** Columns (incl. the connection embed) syncOneCalendar needs — shared by both callers. */
+/** Columns (incl. the connection embed) syncOneCalendar needs - shared by both callers. */
 export const CALENDAR_SELECT =
   "id, google_calendar_id, sharing, family_id, owner_user_id, sync_token, color, connection:google_connections(id, access_token, refresh_token, token_expires_at)";
 
@@ -63,7 +63,7 @@ interface EventsPage {
 export type SyncOutcome = "synced" | "reauth" | "skipped";
 
 /**
- * Sync one calendar end-to-end under its lock. Safe to call concurrently — a
+ * Sync one calendar end-to-end under its lock. Safe to call concurrently - a
  * calendar already being synced by another run returns "skipped". On HTTP 410
  * (expired syncToken) the calendar's events are wiped and full-resynced.
  */
@@ -102,7 +102,7 @@ export async function syncOneCalendar(admin: Admin, cal: SyncCalendarRow): Promi
 
 /**
  * Counts events in the sync window for a calendar (one page, capped at 2500),
- * using `fields=items/id` so only event ids come over the wire — for the
+ * using `fields=items/id` so only event ids come over the wire - for the
  * picker's "events found" hint. Same window/expansion as the real sync so the
  * number reflects what would be mirrored. Returns null on error.
  */
@@ -226,10 +226,10 @@ async function applyEvent(
     return;
   }
 
-  // A Google event spanning several days becomes one row per day — we have no
+  // A Google event spanning several days becomes one row per day - we have no
   // multi-day model locally, and the agenda buckets purely on local_date.
   const whens = expandWhen(ev, tz);
-  if (whens.length === 0) return; // no usable start — shouldn't happen with singleEvents=true
+  if (whens.length === 0) return; // no usable start - shouldn't happen with singleEvents=true
 
   // Fields shared by every day-row of this event.
   const common = {
@@ -265,7 +265,7 @@ async function applyEvent(
     .upsert(rows, { onConflict: "calendar_id,google_event_id,local_date" });
 
   // Prune day-rows left over from a previously longer span (e.g. the event was
-  // shortened from 11–14 to 11–12): drop this event's rows whose day is no
+  // shortened from 11-14 to 11-12): drop this event's rows whose day is no
   // longer part of it. Normal re-syncs match exactly here and delete nothing.
   const keep = whens.map((w) => `"${w.localDate}"`).join(",");
   await admin
@@ -291,7 +291,7 @@ interface SyncPrefs {
   import_work_markers: boolean;
 }
 
-// Member with no prefs row uses these — Gmail travel ON, the rest OFF (noise).
+// Member with no prefs row uses these - Gmail travel ON, the rest OFF (noise).
 const DEFAULT_PREFS: SyncPrefs = {
   import_from_gmail: true,
   import_birthdays: false,
@@ -299,7 +299,7 @@ const DEFAULT_PREFS: SyncPrefs = {
 };
 
 /** The set of eventTypes NOT to mirror, from the owner's import prefs. `default`
- *  (and any unknown/future type) is never skipped — skip-list, not allow-list. */
+ *  (and any unknown/future type) is never skipped - skip-list, not allow-list. */
 async function getSkipTypes(admin: Admin, ownerUserId: string): Promise<Set<string>> {
   const { data } = await admin
     .from("google_sync_preferences")

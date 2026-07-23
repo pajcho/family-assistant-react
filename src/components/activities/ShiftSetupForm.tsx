@@ -13,14 +13,14 @@ import { useDeleteSchoolShiftAnchor, useUpsertSchoolShiftAnchor } from "@/hooks/
 export type ShiftSetupFormProps = {
   member: Profile;
   anchor: SchoolShiftAnchor | undefined;
-  /** Called after a successful save or remove — typically closes the dialog. */
+  /** Called after a successful save or remove - typically closes the dialog. */
   onClose?: () => void;
 };
 
 /**
  * The school-shift setup form for one child: anchor week + shift, plus the
  * two independent toggles (A/B rotation, fixed morning band) and the pred-čas
- * option. Self-contained — owns its save + remove mutations.
+ * option. Self-contained - owns its save + remove mutations.
  *
  * Remove uses an inline two-step confirm (not a separate dialog) so it can
  * live safely inside another dialog/drawer without nested overlays.
@@ -30,7 +30,7 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
   const deleteAnchor = useDeleteSchoolShiftAnchor();
 
   // Defaults: week = current week (so the date is useful as-is), shift = null
-  // when no anchor exists yet — preselecting a shift would imply the child is
+  // when no anchor exists yet - preselecting a shift would imply the child is
   // already in it.
   const [weekStart, setWeekStart] = useState<string | null>(
     anchor?.anchor_week_start ?? getThisWeekStart(),
@@ -88,7 +88,7 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
         {fixedMorning
           ? "Dete je uvek u jutarnjoj smeni, ali se raspored i dalje smenjuje po nedeljama (A/B). Smena te nedelje samo bira koja je nedelja A, a koja B."
           : isAlternating
-            ? "Postavi nedelju i smenu — sve ostalo se računa automatski (smena se naizmenice menja svake nedelje)."
+            ? "Postavi nedelju i smenu - sve ostalo se računa automatski (smena se naizmenice menja svake nedelje)."
             : "Postavi smenu u kojoj dete uvek ostaje. Nedelja se koristi samo kao polazna tačka."}
       </p>
       <div className="space-y-1.5">

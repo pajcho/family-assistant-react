@@ -21,7 +21,7 @@ function activityAnchorWeek(activity: Pick<Activity, "active_from" | "created_at
 }
 
 /**
- * Pure helpers for the Activities feature — week math, school-shift
+ * Pure helpers for the Activities feature - week math, school-shift
  * derivation, and A/B-pattern resolution. Kept free of React / Supabase so
  * they can be unit-tested in isolation and reused on the server later
  * (digests, push notifications) without dragging hooks along.
@@ -79,7 +79,7 @@ export function getWeekStart(date: Date | string): string {
   let d: Date;
   if (date == null) {
     // Defensive: never throw on a missing date (stale client / partial
-    // data) — fall back to the current week.
+    // data) - fall back to the current week.
     d = startOfDay(new Date());
   } else if (typeof date === "string") {
     // YYYY-MM-DD gets noon attached so the parsed Date stays inside the
@@ -94,14 +94,14 @@ export function getWeekStart(date: Date | string): string {
   return format(monday, "yyyy-MM-dd");
 }
 
-/** Today's Monday — convenience for "this week" defaults. */
+/** Today's Monday - convenience for "this week" defaults. */
 export function getThisWeekStart(): string {
   return getWeekStart(new Date());
 }
 
 /**
  * Whole weeks elapsed from `fromWeekStart` to `toWeekStart`. Both inputs are
- * expected to already be Mondays (YYYY-MM-DD) — caller normalizes with
+ * expected to already be Mondays (YYYY-MM-DD) - caller normalizes with
  * `getWeekStart` first.
  */
 export function weeksBetween(fromWeekStart: string, toWeekStart: string): number {
@@ -124,7 +124,7 @@ export function oppositeShift(shift: SchoolShift): SchoolShift {
  * weeks the shift flips. Weeks before the anchor walk back the same way.
  *
  * When `is_alternating` is false (1st/2nd graders), skip the flip math
- * entirely — the shift is always whatever was anchored.
+ * entirely - the shift is always whatever was anchored.
  */
 export function deriveShiftForWeek(
   anchor: Pick<
@@ -153,7 +153,7 @@ export function deriveShiftForWeek(
  * activity's person is in `shift`. `'every'` always fires; `'A'` fires on
  * morning weeks; `'B'` fires on afternoon weeks.
  *
- * When the person has no shift anchor, A/B rules silently skip — the UI
+ * When the person has no shift anchor, A/B rules silently skip - the UI
  * prevents creating them in that case, so this is a defensive default
  * rather than a regularly hit path.
  */
@@ -192,9 +192,9 @@ export interface ResolvedActivityBlock {
   scheduleId: string;
   activityId: string;
   personId: string;
-  /** YYYY-MM-DD — the exact day of this occurrence inside the requested week. */
+  /** YYYY-MM-DD - the exact day of this occurrence inside the requested week. */
   date: string;
-  /** 0..6 Monday-first — convenience for the grid column. */
+  /** 0..6 Monday-first - convenience for the grid column. */
   dayOfWeek: number;
   /**
    * Effective times after applying any reschedule override. The grid uses
@@ -264,7 +264,7 @@ export function resolveWeekBlocks(args: {
   const scheduleById = new Map(schedule.map((s) => [s.id, s]));
 
   // Person ids per activity. Empty array = no participants → no blocks for
-  // that activity (defensive — the UI prevents activities with zero
+  // that activity (defensive - the UI prevents activities with zero
   // participants).
   const personsByActivity = new Map<string, string[]>();
   for (const p of participants) {
@@ -273,7 +273,7 @@ export function resolveWeekBlocks(args: {
     else personsByActivity.set(p.activity_id, [p.person_id]);
   }
 
-  // Indexed by `${schedule_id}|${date}|${person_id}` — per-person key
+  // Indexed by `${schedule_id}|${date}|${person_id}` - per-person key
   // matches the new UNIQUE constraint so each participant has their own
   // override slot for the same occurrence.
   const overridesByKey = new Map<string, ActivityOverride>();
@@ -310,7 +310,7 @@ export function resolveWeekBlocks(args: {
     const baseEnd = normalizeTime(rule.end_time);
 
     for (const personId of persons) {
-      // A/B resolution — uses THIS person's shift anchor. Two siblings on
+      // A/B resolution - uses THIS person's shift anchor. Two siblings on
       // the same rule can resolve to different shifts (different schools,
       // different cycles), so we check per person.
       if (rule.week_pattern !== "every") {
@@ -388,7 +388,7 @@ export function resolveWeekBlocks(args: {
     if (!activity) continue;
     // Sanity check: only emit if this person is still a participant on the
     // activity. If they were removed after the override was created, skip
-    // — same silent-skip-and-reactivate semantic we use elsewhere.
+    // - same silent-skip-and-reactivate semantic we use elsewhere.
     const persons = personsByActivity.get(activity.id);
     if (!persons?.includes(override.person_id)) continue;
     if (!isActivityActiveOn(activity, override.override_date)) continue;
@@ -427,11 +427,11 @@ export function resolveWeekBlocks(args: {
 /**
  * Resolve activity blocks across an arbitrary date range `[from, to]`
  * (inclusive, YYYY-MM-DD) by resolving every week the range touches and keeping
- * the days that fall inside it. Resolving the FULL contiguous week span — not
- * just the boundary weeks — is what keeps cross-week reschedules correct: a
+ * the days that fall inside it. Resolving the FULL contiguous week span - not
+ * just the boundary weeks - is what keeps cross-week reschedules correct: a
  * moved termin leaves a ghost in its origin week (Pass 1 of `resolveWeekBlocks`)
  * and a real block in its target week (Pass 2), and both weeks get resolved
- * here. Pure — the unified `useAgenda` layer projects activities over a range
+ * here. Pure - the unified `useAgenda` layer projects activities over a range
  * with this; callers apply their own cancel/moved-away display filter.
  */
 export function resolveBlocksInRange(args: {
@@ -457,7 +457,7 @@ export function resolveBlocksInRange(args: {
   return blocks;
 }
 
-/** Strip seconds — Postgres TIME comes back as "HH:MM:SS" but we only need HH:MM. */
+/** Strip seconds - Postgres TIME comes back as "HH:MM:SS" but we only need HH:MM. */
 export function normalizeTime(time: string | null | undefined): string {
   // Defensive: a stale client running against a migrated schema can hand
   // us an undefined field. Degrade to "" instead of throwing and white-
@@ -466,7 +466,7 @@ export function normalizeTime(time: string | null | undefined): string {
   return time.length >= 5 ? time.slice(0, 5) : time;
 }
 
-/** Convert "HH:MM" to minutes since midnight — for grid row positioning. */
+/** Convert "HH:MM" to minutes since midnight - for grid row positioning. */
 export function timeToMinutes(time: string): number {
   const normalized = normalizeTime(time);
   const [h, m] = normalized.split(":").map(Number);
@@ -492,7 +492,7 @@ export const PROFILE_COLOR_PALETTE = [
 ] as const;
 
 /**
- * Deterministic placeholder for profiles without a `color` set yet — same
+ * Deterministic placeholder for profiles without a `color` set yet - same
  * id always picks the same palette slot so the UI doesn't churn between
  * renders.
  */

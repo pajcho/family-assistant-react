@@ -12,13 +12,13 @@ export interface ExchangeRateResult {
 /**
  * Official NBS middle rate for (currency, date), via the `exchange-rate` edge
  * function (which caches every resolved pair in `exchange_rates`). Used only
- * while entering a foreign-currency expense — the chosen rate is frozen into
+ * while entering a foreign-currency expense - the chosen rate is frozen into
  * the expense row, so nothing ever re-fetches rates for existing data.
  *
  * Historical rates are immutable → staleTime Infinity. A missing or future
  * `date` resolves to today: NBS publishes no forward rates, and a form whose
  * date isn't picked yet (PaymentForm's due_date starts empty) still needs a
- * rate the moment a foreign currency is selected — today's list is the best
+ * rate the moment a foreign currency is selected - today's list is the best
  * available answer in both cases. Picking a past date later refetches.
  */
 export function useExchangeRate(currency: string, date: string | null) {

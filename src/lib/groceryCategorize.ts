@@ -2,11 +2,11 @@
  * Lightweight, offline grocery categoriser for the smart-sort button.
  *
  * Why offline / keyword-based instead of LLM:
- *   • Zero latency on tap — the button reorders items in one round-trip to
+ *   • Zero latency on tap - the button reorders items in one round-trip to
  *     Supabase, no AI call sitting between user and result.
  *   • No API cost / no key handling / no Edge Function infra.
- *   • Family lists are short (typically 5–30 items) and the language is
- *     Serbian-Latin + a sprinkle of brand names — a curated stem dictionary
+ *   • Family lists are short (typically 5-30 items) and the language is
+ *     Serbian-Latin + a sprinkle of brand names - a curated stem dictionary
  *     reaches >90% recall on real shopping lists without any model.
  *
  * Matching strategy
@@ -20,7 +20,7 @@
  * Stems handle Serbian inflection cheaply: "jabuk" hits "jabuka",
  * "jabuke", "jabukama". Order in `CATEGORY_ORDER` is the rendering order
  * and the tie-breaker when a name matches multiple categories (most
- * specific category should come first — see `pantry` ordering below).
+ * specific category should come first - see `pantry` ordering below).
  */
 
 export type GroceryCategory =
@@ -42,7 +42,7 @@ export type GroceryCategory =
  *   • the order categories are rendered in after smart-sort (left-to-right
  *     of a typical Balkan supermarket aisle layout: produce → dairy → meat
  *     → bakery → pantry → frozen → drinks → sweets → non-food at the end)
- *   • the tie-breaker when an item matches multiple category stems —
+ *   • the tie-breaker when an item matches multiple category stems -
  *     earlier categories win, so put the more specific one first
  */
 export const CATEGORY_ORDER: GroceryCategory[] = [
@@ -78,19 +78,19 @@ export const CATEGORY_LABEL: Record<GroceryCategory, string> = {
 
 /**
  * Per-category keyword stems. Stems should be prefixes of the inflected
- * forms you expect to encounter — e.g. "jabuk" matches jabuka, jabuke,
+ * forms you expect to encounter - e.g. "jabuk" matches jabuka, jabuke,
  * jabukama. Keep stems short enough to catch all reasonable inflections,
  * long enough to avoid false positives (e.g. don't stem `so` (salt) to
- * `s` — that would match everything).
+ * `s` - that would match everything).
  *
  * Brand names are included where they unambiguously identify a category:
  * "ariel" → cleaning, "kinder" → sweets, "imlek" doesn't help (just a
- * dairy brand among others — relies on item name also containing "mleko"
+ * dairy brand among others - relies on item name also containing "mleko"
  * or similar).
  */
 const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
   fruits_veg: [
-    // Fruits — stems
+    // Fruits - stems
     "jabuk",
     "banan",
     "naranc",
@@ -120,7 +120,7 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "nar",
     "kokos",
     "rogac",
-    // Vegetables — stems
+    // Vegetables - stems
     "krompir",
     "krastav",
     "paradajz",
@@ -218,7 +218,7 @@ const KEYWORDS: Record<Exclude<GroceryCategory, "other">, string[]> = {
     "burgers",
     // Serbian charcuterie / grilled meat that doesn't share a stem with
     // the generic "meso" / "kobasic" entries above. Skip "vesalic" here
-    // because clothes hangers share that stem — the household entry uses
+    // because clothes hangers share that stem - the household entry uses
     // the multi-word "vesalic za odecu" form to disambiguate.
     "cevap",
     "kulen",
@@ -474,7 +474,7 @@ function stripDiacritics(s: string): string {
       .replace(/\p{Diacritic}/gu, "")
       // The "normalize+strip" trick handles standard combining-diacritics
       // (š, č, ž etc.) but Serbian "đ" / "Đ" decompose oddly in some
-      // browsers — handle them explicitly. The "ć" and "ś" are already
+      // browsers - handle them explicitly. The "ć" and "ś" are already
       // covered by Diacritic stripping above.
       .replace(/đ/g, "d")
       .replace(/Đ/g, "D")
@@ -489,12 +489,12 @@ function tokens(name: string): string[] {
 
 /**
  * Categorise a single item by its display name. Items that don't hit any
- * stem fall back to `other` — they still render, just under the catch-all
+ * stem fall back to `other` - they still render, just under the catch-all
  * group after smart-sort.
  */
 export function categorize(name: string): GroceryCategory {
   const t = tokens(name);
-  // Stems can include spaces (e.g. "pasta za zube") — for those we test
+  // Stems can include spaces (e.g. "pasta za zube") - for those we test
   // against the full normalised string. Single-word stems test against
   // individual tokens via prefix match.
   const fullNorm = stripDiacritics(name.toLowerCase());
@@ -532,7 +532,7 @@ export function applyCategorySort<T extends { name: string; sort_order: number }
 
 export interface IsShoppingListResult {
   isShopping: boolean;
-  /** Fraction of items recognised as groceries — useful for diagnostics / tests. */
+  /** Fraction of items recognised as groceries - useful for diagnostics / tests. */
   recognisedRatio: number;
 }
 

@@ -55,14 +55,14 @@ export const Route = createFileRoute("/_app/lists/$listId")({
  *
  * Renders in two contexts off the same component:
  *   • Desktop (>= lg): inside the right panel of the master-detail shell. The
- *     sidebar is already on screen, so there is no back button — the panel just
+ *     sidebar is already on screen, so there is no back button - the panel just
  *     shows the open list.
  *   • Mobile (< lg): as a full page reached from the master list, with a
  *     back-arrow to `/lists`.
  *
  * Reuses `ListBody` for the items + add-input + per-item delete confirm so any
  * change to that interaction lands everywhere. The list is read from the same
- * `useListsWithItems()` query the master uses — the cached array gives instant
+ * `useListsWithItems()` query the master uses - the cached array gives instant
  * render on selection, and realtime keeps it fresh.
  */
 function ListDetailPage() {
@@ -74,7 +74,7 @@ function ListDetailPage() {
 
   // Remember the open list so a later bare `/lists` visit (on desktop) re-opens
   // it instead of always falling back to the first. Writing on mobile too is
-  // harmless — only the desktop index resolver reads it back.
+  // harmless - only the desktop index resolver reads it back.
   const foundId = list?.id;
   useEffect(() => {
     if (foundId) writeLastOpenedListId(foundId);
@@ -87,7 +87,7 @@ function ListDetailPage() {
   // Loading / not-found render minimal chrome. The back button only exists on
   // mobile; on desktop the sidebar is the way back. Once `list` is non-null we
   // drop into the inner component, which can safely call hooks (`useSmartSort`)
-  // that need a real list — keeping hook order stable across states.
+  // that need a real list - keeping hook order stable across states.
   if (listsQuery.isLoading) {
     return (
       <div className="animate-fade-in">
@@ -176,7 +176,7 @@ function ListDetailLoaded({
         // "Dupliraj sa stavkama": clone this list's items into the new one.
         // The list itself already exists at this point, so a copy failure
         // only toasts (via the hook's onError) instead of holding the form
-        // open — a retry would create a second duplicate list.
+        // open - a retry would create a second duplicate list.
         if (formMode === "duplicate" && payload.copyItems) {
           await copyListItems
             .mutateAsync({ items: list.list_items, targetListId: created.id })
@@ -360,7 +360,7 @@ function ListHeader({
       </div>
 
       {/* Top-level smart-sort toggle. Only rendered when the categoriser
-          flagged the list as a shopping list — non-shopping lists never see
+          flagged the list as a shopping list - non-shopping lists never see
           the affordance. Active state colours the icon and tints the
           background so the on/off state is obvious at a glance. */}
       {smartSort.isShopping ? (
@@ -407,7 +407,7 @@ function ListHeader({
             <DocumentDuplicateIcon className="h-4 w-4" />
             Dupliraj listu
           </DropdownMenuItem>
-          {/* Export entries — disabled on empty lists (the file would be empty). */}
+          {/* Export entries - disabled on empty lists (the file would be empty). */}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => exportListAsMarkdown(list)}

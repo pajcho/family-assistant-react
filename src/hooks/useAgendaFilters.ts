@@ -8,7 +8,7 @@ import {
 } from "@/utils/agendaFilters";
 
 /**
- * Holds the dashboard's type + person filter selection. State only — the
+ * Holds the dashboard's type + person filter selection. State only - the
  * matching logic is the pure helpers in `utils/agendaFilters`, applied by each
  * tab to its `useAgenda` items. Lifted to the dashboard route so the selection
  * is shared across the Danas and Uskoro tabs.

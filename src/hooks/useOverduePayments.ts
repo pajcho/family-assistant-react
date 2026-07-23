@@ -8,7 +8,7 @@ import { useToday } from "@/hooks/useToday";
 import { effectivePaymentDueDate, isPaymentOverdue } from "@/utils/payment";
 
 /**
- * Overdue payments as agenda rows — unpaid, unpaused payments whose live
+ * Overdue payments as agenda rows - unpaid, unpaused payments whose live
  * occurrence's effective due date already slipped before today. One row per
  * payment (the current live occurrence), oldest first.
  *
@@ -44,7 +44,7 @@ export function useOverduePayments(): UseOverduePaymentsResult {
         personIds: byPayment.get(payment.id) ?? [],
       });
     }
-    // Oldest overdue first — longest-outstanding at the top.
+    // Oldest overdue first - longest-outstanding at the top.
     out.sort((a, b) => a.date.localeCompare(b.date));
     return out;
   }, [paymentsQuery.data, byPayment, overridesByKey, today]);

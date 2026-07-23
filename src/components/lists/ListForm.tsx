@@ -27,7 +27,7 @@ export type ListFormPayload = {
  * Which intent the form serves. We can't infer "duplicate" from the
  * presence of `list` (a duplicate is pre-filled *from* an existing list
  * yet still creates a brand-new row), so the caller states it explicitly.
- * It only drives the submit-button label and dialog title — the actual
+ * It only drives the submit-button label and dialog title - the actual
  * create-vs-update decision lives in the page that owns the mutation.
  */
 export type ListFormMode = "create" | "edit" | "duplicate";
@@ -47,13 +47,13 @@ type FormState = {
   /** Stored as string for the controlled <select>; serialised at submit. */
   autoDelete: string;
   description: string;
-  /** "Kopiraj i stavke" — only shown (and submitted) in duplicate mode. */
+  /** "Kopiraj i stavke" - only shown (and submitted) in duplicate mode. */
   copyItems: boolean;
 };
 
 /**
  * Retention options offered in the form. Keep this matched with the
- * <option> values below — the empty string represents NULL (never).
+ * <option> values below - the empty string represents NULL (never).
  */
 const AUTO_DELETE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "Nikad" },
@@ -114,7 +114,7 @@ export function ListForm({
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <Label htmlFor="list-name">Naziv liste *</Label>
-        {/* No `autoFocus` here — on iOS the keyboard pops up the
+        {/* No `autoFocus` here - on iOS the keyboard pops up the
             instant the drawer slides in, before the user has even
             seen the form. They tap the field themselves when they
             want to type. Matches BirthdayForm / EventForm. */}
@@ -185,7 +185,7 @@ export function ListForm({
           ))}
         </select>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Korisno za duge liste poput šopinga — završene stavke same nestaju.
+          Korisno za duge liste poput šopinga - završene stavke same nestaju.
         </p>
       </div>
 
@@ -207,7 +207,7 @@ export function ListForm({
             </label>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Stavke se kopiraju kao nezavršene — kao sveža lista iz šablona.
+            Stavke se kopiraju kao nezavršene - kao sveža lista iz šablona.
           </p>
         </div>
       ) : null}

@@ -16,12 +16,12 @@ export function isEventEnded(event: Event): boolean {
   return now >= endDateTime;
 }
 
-/** Format event time for display: "Ceo dan" | "HH:mm" | "do HH:mm" | "HH:mm – HH:mm". */
+/** Format event time for display: "Ceo dan" | "HH:mm" | "do HH:mm" | "HH:mm - HH:mm". */
 export function formatEventTimeRange(event: Event): string {
   const hasStart = event.start_time?.trim();
   const hasEnd = event.end_time?.trim();
   if (!hasStart && !hasEnd) return "Ceo dan";
   if (hasStart && !hasEnd) return formatTime(event.start_time!);
   if (!hasStart && hasEnd) return `do ${formatTime(event.end_time!)}`;
-  return `${formatTime(event.start_time!)} – ${formatTime(event.end_time!)}`;
+  return `${formatTime(event.start_time!)} - ${formatTime(event.end_time!)}`;
 }
