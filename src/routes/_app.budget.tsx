@@ -1,13 +1,20 @@
 import { lazy, Suspense, useMemo, useState } from "react";
+import type { ComponentType } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BanknotesIcon,
+  CheckIcon,
   ChevronRightIcon,
   LockClosedIcon,
+  QrCodeIcon,
   ReceiptPercentIcon,
+  SwatchIcon,
+  WalletIcon,
 } from "@heroicons/react/24/outline";
 
+import { Button } from "@/components/ui/button";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
+import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
   AppliedFilterChips,
@@ -42,7 +49,7 @@ import {
   useUpdateExpense,
   type ExpenseSearchHit,
 } from "@/hooks/useExpenses";
-import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import { useCreateExpenseCategory, useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useIncomes } from "@/hooks/useIncomes";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { hasPaymentHistory, usePaymentsList, useUpdatePayment } from "@/hooks/usePayments";
@@ -71,6 +78,19 @@ type CategoryBreakdown = {
   total: number;
   count: number;
 };
+
+/**
+ * One-tap starter set offered while the family has no categories (a new
+ * family starts with zero). Icons/colors come from the standard pickers, so
+ * everything stays editable in "Uredi kategorije" afterwards.
+ */
+const SUGGESTED_CATEGORIES: ReadonlyArray<{ name: string; icon: string; color: string }> = [
+  { name: "Hrana", icon: "cart", color: "#22c55e" },
+  { name: "Računi", icon: "bolt", color: "#f59e0b" },
+  { name: "Prevoz", icon: "truck", color: "#3b82f6" },
+  { name: "Deca", icon: "heart", color: "#ec4899" },
+  { name: "Ostalo", icon: "tag", color: "#6b7280" },
+];
 
 /** Expense-source facet for the budget filter sheet. */
 const SOURCE_OPTIONS = [
@@ -328,6 +348,14 @@ function BudgetPage() {
     return 1.08 * Math.max(maxCategoryTotal, maxLimit);
   }, [breakdown, limitByCategory, maxCategoryTotal]);
 
+  // The xl two-column layout's left column (breakdown + insights) can be
+  // entirely empty in a month without categorized data - the timeline then
+  // spans both tracks instead of floating right next to a blank column.
+  const insightsEmpty =
+    breakdown.length === 0 &&
+    !(fixedVar.fixed > 0 && fixedVar.variable > 0) &&
+    topMerchants.length === 0;
+
   const openAdd = () => {
     setEditing(null);
     setFormError(null);
@@ -337,6 +365,32 @@ function BudgetPage() {
   const openScan = () => {
     setScanMounted(true);
     setScanOpen(true);
+  };
+
+  // ---- First-use onboarding -------------------------------------------------
+  // "New family" proxy: no expense rows in this OR the previous month. Incomes
+  // and categories are deliberately NOT part of the signal - completing those
+  // steps must not dismiss the starter card mid-onboarding; it retires with
+  // the first recorded expense.
+  const isFirstUse = !isLoading && expenses.length === 0 && prevExpenses.length === 0;
+
+  // One-tap suggested category set - offered while the family has none (in the
+  // starter checklist and as a standalone prompt); gone after the first
+  // category exists, however it was created.
+  const createCategory = useCreateExpenseCategory();
+  const [seedingCategories, setSeedingCategories] = useState(false);
+  const seedCategories = async () => {
+    if (seedingCategories || categories.length > 0) return;
+    setSeedingCategories(true);
+    try {
+      // Sequential on purpose: the insert appends after the current max
+      // sort_order, so parallel inserts would race to the same slot.
+      for (const c of SUGGESTED_CATEGORIES) await createCategory.mutateAsync(c);
+    } catch {
+      /* hook toasts; the button stays for a retry */
+    } finally {
+      setSeedingCategories(false);
+    }
   };
 
   const openEdit = (expense: Expense) => {
@@ -601,7 +655,7 @@ function BudgetPage() {
             </div>
           ) : null}
         </div>
-      ) : !searchActive ? (
+      ) : !searchActive && !isFirstUse ? (
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
@@ -645,9 +699,78 @@ function BudgetPage() {
 
       {!searchActive && isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
 
+      {/* First use: a 3-step starter instead of the "0 RSD" card, the empty
+          Troškovi column and a six-zero trend. Retires with the first expense. */}
+      {!searchActive && isFirstUse ? (
+        <EmptyState
+          className="mt-4"
+          icon={WalletIcon}
+          tone="emerald"
+          title="Postavi porodični budžet"
+          description="Tri koraka i svaki dinar ima svoje mesto."
+        >
+          <div className="mx-auto mt-4 max-w-md divide-y divide-gray-100 text-left dark:divide-gray-700/60">
+            <BudgetStarterStep
+              icon={BanknotesIcon}
+              label="Dodaj primanja"
+              description="Plate i redovni prilivi - osnova mesečnog pregleda."
+              done={incomes.length > 0}
+              onClick={() => setIncomesOpen(true)}
+            />
+            <BudgetStarterStep
+              icon={QrCodeIcon}
+              label="Skeniraj račun ili unesi trošak"
+              description={'QR sa fiskalnog računa uvozi stavke sam; ručni unos je u „Dodaj".'}
+              done={false}
+              onClick={openScan}
+            />
+            <BudgetStarterStep
+              icon={SwatchIcon}
+              label={seedingCategories ? "Ubacujem kategorije…" : "Ubaci predložene kategorije"}
+              description="Hrana, Računi, Prevoz, Deca, Ostalo - kasnije ih menjaš po želji."
+              done={categories.length > 0}
+              busy={seedingCategories}
+              onClick={() => {
+                void seedCategories();
+              }}
+            />
+          </div>
+          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+            Pregled potrošnje i trend se pojavljuju posle prvog troška.
+          </p>
+        </EmptyState>
+      ) : null}
+
+      {/* Established family without categories (they are opt-in): the same
+          one-tap set as a slim prompt. Disappears with the first category. */}
+      {!searchActive && !isLoading && !isFirstUse && categories.length === 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Još nemaš kategorije troškova
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Predloženi set: Hrana, Računi, Prevoz, Deca, Ostalo.
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={seedingCategories}
+            onClick={() => {
+              void seedCategories();
+            }}
+          >
+            {seedingCategories ? "Ubacujem…" : "Ubaci predloženi set"}
+          </Button>
+        </div>
+      ) : null}
+
       {/* Breakdown + insights left, day-by-day timeline right (xl); a single
-          column below that, in the same order. */}
-      {!searchActive ? (
+          column below that, in the same order. When the whole left column is
+          empty (no breakdown/insights yet), the timeline takes the full width
+          instead of floating right next to a blank column. */}
+      {!searchActive && !isFirstUse ? (
         <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
           <div>
             {breakdown.length > 0 ? (
@@ -790,7 +913,7 @@ function BudgetPage() {
             ) : null}
           </div>
 
-          <div>
+          <div className={insightsEmpty ? "xl:col-span-2" : undefined}>
             {/* Troškovi kao timeline po danu */}
             {!isLoading ? (
               <section className="mt-6">
@@ -811,7 +934,7 @@ function BudgetPage() {
         </div>
       ) : null}
 
-      {!searchActive ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
+      {!searchActive && !isFirstUse ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
 
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} month={month} />
 
@@ -1043,5 +1166,64 @@ function BudgetSearchResults({
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * One row of the first-use starter checklist: icon tile, label + hint, and
+ * either a chevron (todo) or a green check (done, disabled). The dashed-circle
+ * "todo" affordance matches the planned "Prvi koraci" card on Danas.
+ */
+function BudgetStarterStep({
+  icon: Icon,
+  label,
+  description,
+  done,
+  busy = false,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  description: string;
+  done: boolean;
+  busy?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={done || busy}
+      className="flex w-full items-center gap-3 py-3 text-left transition-colors enabled:hover:bg-gray-50 disabled:cursor-default dark:enabled:hover:bg-gray-700/40"
+    >
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-full",
+          done ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-gray-100 dark:bg-gray-700",
+        )}
+      >
+        {done ? (
+          <CheckIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
+        ) : (
+          <Icon className="size-5 text-gray-600 dark:text-gray-300" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block text-sm font-medium",
+            done
+              ? "text-gray-400 line-through dark:text-gray-500"
+              : "text-gray-900 dark:text-gray-100",
+          )}
+        >
+          {label}
+        </span>
+        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+      </span>
+      {!done ? (
+        <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+      ) : null}
+    </button>
   );
 }
