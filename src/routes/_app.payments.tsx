@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, EyeIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
   AppliedFilterChips,
@@ -421,6 +422,9 @@ function PaymentsPage() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editingHasHistory, setEditingHasHistory] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Starter-chip prefill ("+ Kirija" on the empty state) - seeds the add
+  // form's name via the dialog's reseed effect.
+  const [addInitialName, setAddInitialName] = useState<string | null>(null);
 
   // Detail popups - the live occurrence gets the full manage dialog; paid /
   // skipped / upcoming rows get the read-only occurrence dialog.
@@ -619,6 +623,15 @@ function PaymentsPage() {
     setEditingPayment(null);
     setEditingHasHistory(false);
     setFormError(null);
+    setAddInitialName(null);
+    setDialogOpen(true);
+  };
+
+  const openAddWithName = (name: string) => {
+    setEditingPayment(null);
+    setEditingHasHistory(false);
+    setFormError(null);
+    setAddInitialName(name);
     setDialogOpen(true);
   };
 
@@ -659,6 +672,7 @@ function PaymentsPage() {
       setEditingPayment(null);
       setEditingHasHistory(false);
       setFormError(null);
+      setAddInitialName(null);
     }
   };
 
@@ -789,9 +803,22 @@ function PaymentsPage() {
       {isLoading ? <PaymentListSkeleton className="mt-6" /> : null}
 
       {showEmpty ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          {emptyListMessage}
-        </div>
+        payments.length === 0 && history.length === 0 ? (
+          <EmptyState
+            className="mt-6"
+            icon={BanknotesIcon}
+            tone="amber"
+            title="Sva porodična plaćanja na jednom mestu"
+            description="Kirija, struja, vrtić... Dodaj plaćanje i stiže podsetnik pre roka."
+            action={{ label: "Dodaj plaćanje", onClick: openAdd }}
+            examples={["Kirija", "Struja", "Internet", "Vrtić"].map((name) => ({
+              label: name,
+              onClick: () => openAddWithName(name),
+            }))}
+          />
+        ) : (
+          <EmptyState className="mt-6" variant="filter" description={emptyListMessage} />
+        )
       ) : null}
 
       {!isLoading && pagedList.length > 0 ? (
@@ -854,6 +881,7 @@ function PaymentsPage() {
         open={dialogOpen}
         onOpenChange={handleDialogOpenChange}
         payment={editingPayment}
+        initialName={addInitialName ?? undefined}
         initialPersonIds={editingPayment ? (byPayment.get(editingPayment.id) ?? []) : []}
         hasHistory={editingHasHistory}
         error={formError}

@@ -18,6 +18,8 @@ export type ListFormDialogProps = {
    * from a list while still creating a new one.
    */
   mode?: ListFormMode;
+  /** Create mode only - pre-fills the name (starter-chip "+ Šoping"). */
+  initialName?: string;
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: ListFormPayload) => void;
@@ -28,6 +30,7 @@ export function ListFormDialog({
   onOpenChange,
   list,
   mode,
+  initialName,
   error,
   saving,
   onSubmit,
@@ -54,6 +57,7 @@ export function ListFormDialog({
         <ListForm
           list={list}
           mode={resolvedMode}
+          initialName={initialName}
           saving={saving}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}

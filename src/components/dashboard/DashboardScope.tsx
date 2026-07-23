@@ -211,7 +211,13 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            {familyName ? `Porodica ${familyName}` : "Kontrolna tabla"}
+            {/* Skip the "Porodica" prefix when the name already carries it
+                ("Porodica Perić" would otherwise render doubled). */}
+            {familyName
+              ? /porodica/i.test(familyName)
+                ? familyName
+                : `Porodica ${familyName}`
+              : "Kontrolna tabla"}
           </h1>
           <p className="mt-1 text-gray-600 dark:text-gray-400">
             {scope === "danas"

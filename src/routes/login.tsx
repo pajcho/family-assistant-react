@@ -50,7 +50,7 @@ function LoginPage() {
       <Card className="w-full max-w-md max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:py-0 max-md:shadow-none">
         <CardHeader className="max-md:px-0">
           <CardTitle>Prijava</CardTitle>
-          <CardDescription>Unesite email i lozinku za pristup.</CardDescription>
+          <CardDescription>Unesi email i lozinku za pristup.</CardDescription>
         </CardHeader>
         <CardContent className="max-md:px-0">
           <form className="space-y-4" onSubmit={onSubmit}>

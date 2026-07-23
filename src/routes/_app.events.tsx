@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { CalendarIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 
-import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
@@ -20,6 +20,7 @@ import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { EventTimelineRow } from "@/components/events/EventTimelineRow";
 import type { EventFormPayload } from "@/components/events/EventForm";
+import type { EventFormDefaults } from "@/components/events/EventForm";
 import { useCreateEvent, useEventsList, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useToday } from "@/hooks/useToday";
@@ -56,6 +57,9 @@ function EventsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Starter-chip prefill ("+ Roditeljski" on the empty state) - seeds the add
+  // form's name via the dialog's existing `defaults` reseed mechanism.
+  const [addDefaults, setAddDefaults] = useState<EventFormDefaults | null>(null);
 
   const eventsQuery = useEventsList();
   const { byEvent } = useEventParticipants();
@@ -151,9 +155,18 @@ function EventsPage() {
     [memberApplied, showCompleted],
   );
 
+  // No-arg (safe as a bare onClick handler); the chip variant seeds a name.
   const openAdd = () => {
     setEditingEvent(null);
     setErrorMessage(null);
+    setAddDefaults(null);
+    setDialogOpen(true);
+  };
+
+  const openAddWithName = (name: string) => {
+    setEditingEvent(null);
+    setErrorMessage(null);
+    setAddDefaults({ name });
     setDialogOpen(true);
   };
 
@@ -186,6 +199,7 @@ function EventsPage() {
     if (!open) {
       setEditingEvent(null);
       setErrorMessage(null);
+      setAddDefaults(null);
     }
   };
 
@@ -227,19 +241,37 @@ function EventsPage() {
 
       {showEmpty ? (
         events.length === 0 ? (
-          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800">
-            <p className="text-gray-500 dark:text-gray-400">Nema događaja za prikaz.</p>
-            <Button onClick={openAdd} className="mt-4">
-              <PlusIcon className="mr-2 h-5 w-5" />
-              Dodaj događaj
-            </Button>
-          </div>
+          <EmptyState
+            className="mt-6"
+            icon={CalendarIcon}
+            tone="blue"
+            title="Roditeljski, pregledi, proslave..."
+            description="Jednokratni termini za celu porodicu - sa učesnicima i podsetnikom pre početka."
+            action={{ label: "Dodaj događaj", onClick: openAdd }}
+            examples={["Roditeljski", "Pregled kod lekara", "Proslava"].map((name) => ({
+              label: name,
+              onClick: () => openAddWithName(name),
+            }))}
+          />
         ) : (
-          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            {searchActive
-              ? "Nema događaja koji odgovaraju pretrazi."
-              : "Nema događaja za izabrane filtere."}
-          </div>
+          <EmptyState
+            className="mt-6"
+            variant="filter"
+            description={
+              searchActive
+                ? "Nema događaja koji odgovaraju pretrazi."
+                : "Nema događaja za izabrane filtere."
+            }
+            secondaryAction={{
+              label: searchActive ? "Obriši pretragu" : "Očisti filtere",
+              onClick: searchActive
+                ? () => setSearchTerm("")
+                : () => {
+                    resetFilters();
+                    setSelectedMonth(ALL_MONTHS);
+                  },
+            }}
+          />
         )
       ) : null}
 
@@ -329,6 +361,7 @@ function EventsPage() {
         open={dialogOpen}
         onOpenChange={handleDialogOpenChange}
         event={editingEvent}
+        defaults={addDefaults ?? undefined}
         initialPersonIds={editingPersonIds}
         error={errorMessage}
         saving={createEvent.isPending || updateEvent.isPending}

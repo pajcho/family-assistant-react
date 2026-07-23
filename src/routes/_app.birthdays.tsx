@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { CakeIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import type { Birthday, Event } from "@/types/database";
-import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
@@ -261,19 +261,33 @@ function BirthdaysPage() {
       {isLoading ? (
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
       ) : (birthdays ?? []).length === 0 ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-gray-500 dark:text-gray-400">Nema unetih rođendana.</p>
-          <Button onClick={openAdd} className="mt-4">
-            <PlusIcon className="mr-2 h-5 w-5" />
-            Dodaj rođendan
-          </Button>
-        </div>
+        <EmptyState
+          className="mt-6"
+          icon={CakeIcon}
+          tone="emerald"
+          title="Nijedan rođendan te više neće iznenaditi"
+          description="Upiši datume jednom - godišnjice se računaju same, uz podsetnik na vreme."
+          action={{ label: "Dodaj rođendan", onClick: openAdd }}
+        />
       ) : filteredBirthdays.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          {searchActive
-            ? "Nema rođendana koji odgovaraju pretrazi."
-            : "Nema rođendana za izabrane filtere."}
-        </div>
+        <EmptyState
+          className="mt-6"
+          variant="filter"
+          description={
+            searchActive
+              ? "Nema rođendana koji odgovaraju pretrazi."
+              : "Nema rođendana za izabrane filtere."
+          }
+          secondaryAction={{
+            label: searchActive ? "Obriši pretragu" : "Prikaži sve",
+            onClick: searchActive
+              ? () => setSearchTerm("")
+              : () => {
+                  setSelectedMonth(ALL_MONTHS);
+                  setHidePassed(false);
+                },
+          }}
+        />
       ) : (
         <div className="mt-6 space-y-6">
           {birthdayGroups.map(([month, list]) => (

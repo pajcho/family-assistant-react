@@ -4,6 +4,7 @@ import { ChevronRightIcon, LockClosedIcon, ReceiptPercentIcon } from "@heroicons
 
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
+import { EmptyState } from "@/components/common/EmptyState";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
@@ -150,9 +151,12 @@ export function BudgetTimeline({
 
   if (dayGroups.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-        Nema troškova za ovaj mesec. Dodaj prvi trošak.
-      </div>
+      <EmptyState
+        variant="filter"
+        description={
+          'Nema troškova za ovaj mesec. Probaj drugi mesec ili dodaj trošak preko „Dodaj".'
+        }
+      />
     );
   }
 
