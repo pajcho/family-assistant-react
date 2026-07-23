@@ -13,6 +13,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { UserAvatar } from "@/components/layout/UserAvatar";
 import { FamilyTab } from "@/components/family/FamilyTab";
 import { CalendarTab } from "@/components/calendar/CalendarTab";
+import { PasswordCard } from "@/components/settings/PasswordCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import {
@@ -115,6 +116,7 @@ function SettingsPage() {
         </TabsList>
         <TabsContent value="profile">
           <ProfileCard />
+          <PasswordCard />
         </TabsContent>
         <TabsContent value="family">
           <FamilyTab />
