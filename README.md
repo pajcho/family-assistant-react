@@ -90,9 +90,7 @@ pokretanju iznova pravi demo porodicu. Screenshotovi iznad su snimljeni nad njom
 ## Dokumentacija
 
 - [AGENTS.md](AGENTS.md) - pravila za AI agente koji rade na repozitorijumu
-  (pre svega: nikad dugačka crtica)
-- [MIGRATION_PLAN.md](MIGRATION_PLAN.md) - plan prepisivanja sa Nuxt 3 na Vite + React
-- [IMPROVEMENT_PLAN.md](IMPROVEMENT_PLAN.md) - plan unapređenja nastao iz pregleda cele aplikacije
+  (pre svega: nikad dugačka crtica, pa konvencije oko jezika i labela dugmadi)
 
 ## Deploy
 
@@ -110,7 +108,6 @@ supabase functions deploy <ime-funkcije>
 
 ## Status
 
-Aplikacija je u svakodnevnoj upotrebi. Migracija sa Nuxt-a je gotova, a od tada su
-isporučeni događaji i plaćanja, agenda sa kalendarskim prikazima, budžet sa fiskalnim
-QR skenerom, više valuta i redizajn formi za brzi unos. Sledi dalje UX poliranje -
-detalji u [IMPROVEMENT_PLAN.md](IMPROVEMENT_PLAN.md).
+Aplikacija je u svakodnevnoj upotrebi. Migracija sa Nuxt-a je odavno gotova, a od tada
+su isporučeni događaji i plaćanja, agenda sa kalendarskim prikazima, budžet sa fiskalnim
+QR skenerom, više valuta i redizajn formi za brzi unos. Sledi dalje UX poliranje.

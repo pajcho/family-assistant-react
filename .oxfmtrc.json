@@ -4,7 +4,6 @@
     "dist/",
     "src/routeTree.gen.ts",
     "pnpm-lock.yaml",
-    "MIGRATION_PLAN.md",
     ".nuxt-screens/",
     "supabase/functions/**/__fixtures__/"
   ]
