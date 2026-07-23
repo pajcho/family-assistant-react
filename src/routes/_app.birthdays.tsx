@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CakeIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { CakeIcon, EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import type { Birthday, Event } from "@/types/database";
 import { AddButton } from "@/components/common/AddButton";
@@ -8,7 +8,6 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
-import { SparklesIcon } from "@heroicons/react/24/outline";
 import { BirthdayDetailDialog } from "@/components/birthdays/BirthdayDetailDialog";
 import { BirthdayDisplayLine } from "@/components/birthdays/BirthdayDisplayLine";
 import {

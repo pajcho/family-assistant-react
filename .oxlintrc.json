@@ -16,7 +16,17 @@
     // autoFocus is deliberate UX here (first field in dialogs / date popovers).
     "jsx-a11y/no-autofocus": "off",
     // role="dialog" is intentional; switching to <dialog> would change behaviour.
-    "jsx-a11y/prefer-tag-over-role": "off"
+    "jsx-a11y/prefer-tag-over-role": "off",
+    // react-hooks/exhaustive-deps already comes in via "correctness", but
+    // rules-of-hooks sits in "pedantic" - and a conditionally called hook is
+    // a hard bug, not a style nit. The repo is clean under it.
+    "react/rules-of-hooks": "error",
+    // Circular imports still resolve under Vite but blow up as `undefined` at
+    // module-init time, which surfaces as a blank screen rather than an error.
+    "import/no-cycle": "error",
+    // Two imports of the same module (usually one `import type` next to one
+    // value import) - merge them.
+    "import/no-duplicates": "error"
   },
   "overrides": [
     {

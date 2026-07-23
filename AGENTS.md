@@ -61,6 +61,8 @@ znakove da bi uopšte objasnio koji su zabranjeni.
   (domenska otkazivanja), `Zatvori` (zatvori prikaz bez izmena), `Nazad` (korak nazad u
   pod-prikazu).
 - Lint/format je Oxc: `pnpm check` = `oxfmt --check` + `oxlint --deny-warnings` +
-  provera crtica. CI (`.github/workflows/deploy.yml`) pokreće samo `pnpm build`, pa
-  `pnpm check` i `pnpm test` moraju da prođu lokalno pre PR-a.
+  provera crtica. Na svakom PR-u to isto vrti i CI (`.github/workflows/ci.yml`), zajedno
+  sa `pnpm test` i `pnpm build` (build je ujedno i typecheck - `vite build` generiše
+  `src/routeTree.gen.ts`, koji je git-ignorisan, pa `tsc -b` bez njega ne prolazi).
+  Svejedno pokreni `pnpm check` i `pnpm test` lokalno pre nego što otvoriš PR.
 - Nikad ne commit-uj direktno na `main` - uvek grana pa PR (squash-merge).
