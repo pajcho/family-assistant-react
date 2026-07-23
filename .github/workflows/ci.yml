@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per branch / PR - a new push supersedes the run still in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, testovi, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - id: install
+        run: pnpm install --frozen-lockfile
+
+      # Every check below runs even when an earlier one failed, so a PR shows
+      # all of its problems in one run instead of one per push. They are
+      # skipped only when the install itself broke, since everything would
+      # fail for the same uninteresting reason.
+      #
+      # The first three are what `pnpm check` runs locally, kept as separate
+      # steps here so the failing one is obvious from the job summary.
+      - name: Format (oxfmt)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm exec oxfmt --check
+
+      - name: Lint (oxlint)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        # `-f github` turns every finding into an inline annotation on the diff.
+        run: pnpm exec oxlint --deny-warnings -f github
+
+      - name: Duge crtice
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run check:dashes
+
+      - name: Testovi (vitest)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        # Vitest adds its own github-actions reporter when GITHUB_ACTIONS is
+        # set, so failures land as annotations without any extra flag.
+        run: pnpm test
+
+      # This is also the typecheck: `pnpm build` is `vite build && tsc -b`, and
+      # the Vite step is what generates the git-ignored `src/routeTree.gen.ts`
+      # that `tsc -b` needs - running `tsc` alone on a fresh checkout would
+      # fail on the missing module. Same command deploy.yml runs, so a red
+      # build here means the deploy would have failed right after the merge.
+      #
+      # No VITE_SUPABASE_* here on purpose: they are only inlined into the
+      # bundle, nothing reads them at build time, and PRs from a fork would
+      # not get the secrets anyway.
+      - name: Build + typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm build

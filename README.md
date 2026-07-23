@@ -1,5 +1,6 @@
 # Porodični asistent
 
+[![CI](https://github.com/pajcho/family-assistant-react/actions/workflows/ci.yml/badge.svg)](https://github.com/pajcho/family-assistant-react/actions/workflows/ci.yml)
 [![Deploy](https://github.com/pajcho/family-assistant-react/actions/workflows/deploy.yml/badge.svg)](https://github.com/pajcho/family-assistant-react/actions/workflows/deploy.yml)
 
 **Porodični asistent** je mobile-first PWA za vođenje porodičnog dana na jednom mestu:
