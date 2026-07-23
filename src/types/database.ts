@@ -34,6 +34,11 @@ export interface Profile {
    */
   is_admin: boolean;
   /**
+   * When the user dismissed the "Prvi koraci" onboarding card on Danas
+   * ("Sakrij"). NULL = never dismissed. Per-user so it syncs across devices.
+   */
+  onboarding_hidden_at: string | null;
+  /**
    * True iff this profile's `id` matches a row in `auth.users` - i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional

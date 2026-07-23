@@ -5,6 +5,7 @@ import { AddMenu } from "@/components/dashboard/AddMenu";
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
 import { AgendaTodayTab } from "@/components/dashboard/AgendaTodayTab";
 import { AgendaUpcomingTab } from "@/components/dashboard/AgendaUpcomingTab";
+import { FirstStepsCard } from "@/components/dashboard/FirstStepsCard";
 import { ViewToggle } from "@/components/dashboard/ViewToggle";
 import { ActivityAddDialog } from "@/components/activities/ActivityAddDialog";
 import { ExpenseQuickAddFlow } from "@/components/budget/ExpenseQuickAddFlow";
@@ -21,6 +22,7 @@ import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { hasPaymentHistory, useCreatePayment, useUpdatePayment } from "@/hooks/usePayments";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
 import { type AgendaPage, useAgendaView } from "@/hooks/useAgendaView";
+import { useFirstSteps } from "@/hooks/useFirstSteps";
 import { useProfile } from "@/hooks/useProfile";
 import type { Birthday, Event, Payment } from "@/types/database";
 
@@ -41,6 +43,10 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
 
   const filters = useAgendaFilters();
   const view = useAgendaView(scope);
+  // "Prvi koraci" onboarding - the card renders on Danas only, but the hook
+  // lives here so the same `visible` signal can soften the day's empty copy.
+  // Its queries are the shared caches (events/activities/payments/members).
+  const firstSteps = useFirstSteps();
 
   // Participant maps - only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
@@ -243,6 +249,14 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
         <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
       ) : (
         <div className="mt-6 space-y-6">
+          {scope === "danas" && firstSteps.visible ? (
+            <FirstStepsCard
+              firstSteps={firstSteps}
+              onAddEvent={openAddEvent}
+              onAddPayment={openAddPayment}
+            />
+          ) : null}
+
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <AgendaFilters
@@ -261,6 +275,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             <AgendaTodayTab
               view={view.view}
               filter={filters.filter}
+              onboardingActive={firstSteps.visible}
               onEditEvent={openEditEvent}
               onEditPayment={(payment) => {
                 void openEditPayment(payment);
