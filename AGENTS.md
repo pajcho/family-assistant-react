@@ -36,6 +36,12 @@ projekat, bez izuzetka.
 koji skenira sve git-tracked fajlove i pada ako naiđe na bilo koji od gornjih znakova.
 Pokreni ga pre commit-a.
 
+Skripta gleda `git ls-files`, pa **ne vidi fajlove koji još nisu dodati u git**. Ako
+proveravaš novi fajl, prvo `git add` pa onda `pnpm check` - inače prolazi lažno.
+
+Ovaj fajl (`AGENTS.md`) je jedini izuzet iz provere, jer mora da prikaže zabranjene
+znakove da bi uopšte objasnio koji su zabranjeni.
+
 ### Dva svesna izuzetka
 
 1. Ceo folder `supabase/migrations/` se preskače. To su već primenjene, istorijske
