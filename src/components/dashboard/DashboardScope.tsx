@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 import { AddMenu } from "@/components/dashboard/AddMenu";
@@ -47,6 +47,17 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
   // lives here so the same `visible` signal can soften the day's empty copy.
   // Its queries are the shared caches (events/activities/payments/members).
   const firstSteps = useFirstSteps();
+
+  // Wave the 👋 only on the moment of dismissal (visible → dismissed in this
+  // session), not on every visit while hidden - the little wave answers
+  // "where did the card go?" right when the user hid it. The ref starts at
+  // the CURRENT state, so returning to the page waves nothing.
+  const [waveHand, setWaveHand] = useState(false);
+  const prevDismissedRef = useRef(firstSteps.dismissed);
+  useEffect(() => {
+    if (firstSteps.dismissed && !prevDismissedRef.current) setWaveHand(true);
+    prevDismissedRef.current = firstSteps.dismissed;
+  }, [firstSteps.dismissed]);
 
   // Participant maps - only needed to prefill the edit forms.
   const { byEvent: eventParticipantsByEvent } = useEventParticipants();
@@ -237,7 +248,13 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
                 title="Prikaži Prve korake"
                 className="flex size-8 shrink-0 items-center justify-center rounded-full text-base transition-colors hover:bg-gray-200/70 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700"
               >
-                👋
+                {/* The wave rotates just the emoji, not the hover circle. */}
+                <span
+                  className={waveHand ? "animate-wave inline-block" : "inline-block"}
+                  onAnimationEnd={() => setWaveHand(false)}
+                >
+                  👋
+                </span>
               </button>
             ) : null}
           </div>
