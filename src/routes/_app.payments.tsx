@@ -702,7 +702,7 @@ function PaymentsPage() {
     : null;
 
   return (
-    <div className="animate-fade-in mx-auto w-full max-w-3xl pb-24 lg:pb-8">
+    <div className="animate-fade-in pb-24 lg:pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Plaćanja</h1>
         <AddButton label="Dodaj plaćanje" onClick={openAdd} />

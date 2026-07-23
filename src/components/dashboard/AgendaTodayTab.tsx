@@ -13,7 +13,6 @@ import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import type { AgendaView } from "@/hooks/useAgendaView";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
-import { useProfile } from "@/hooks/useProfile";
 import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { type AgendaFilter, filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
@@ -56,8 +55,6 @@ export function AgendaTodayTab({
   const tomorrow = format(addDays(todayDate, 1), "yyyy-MM-dd");
   const { items: allItems, isLoading } = useAgenda({ from: today, to: today });
   const overdue = useOverduePayments();
-  const { profile } = useProfile();
-  const firstName = profile?.first_name?.trim() || null;
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
   const items = useMemo(() => filterAgendaItems(allItems, filter), [allItems, filter]);
@@ -87,7 +84,7 @@ export function AgendaTodayTab({
             variant="overlay"
             icon={SunIcon}
             tone="amber"
-            title={`Uživaj u danu${firstName ? `, ${firstName}` : ""}.`}
+            title="Uživaj u danu."
             description="Nemaš ništa zakazano za danas - sve što dodaš pojaviće se ovde."
           >
             <div className="mt-3">
@@ -136,7 +133,7 @@ export function AgendaTodayTab({
             <UskoroCta />
           </div>
         ) : (
-          <TodayEmptyState firstName={firstName} onboardingActive={onboardingActive} />
+          <TodayEmptyState onboardingActive={onboardingActive} />
         )}
       </section>
       {dialogs}
@@ -162,18 +159,14 @@ function UskoroCta() {
 }
 
 /**
- * Nothing scheduled and nothing overdue - a warm, personalized all-clear.
+ * Nothing scheduled and nothing overdue - a warm all-clear. Deliberately
+ * WITHOUT the user's first name: Serbian vocative declension would demand
+ * "Miloše", not "Miloš", and getting it wrong reads worse than omitting it.
  * While the "Prvi koraci" card is up, the copy stays matter-of-fact: telling
  * a brand-new family to "predahni" from a calendar they haven't filled yet
  * reads as tone-deaf; the warm version returns once they're set up.
  */
-function TodayEmptyState({
-  firstName,
-  onboardingActive,
-}: {
-  firstName: string | null;
-  onboardingActive: boolean;
-}) {
+function TodayEmptyState({ onboardingActive }: { onboardingActive: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/15">
@@ -191,9 +184,7 @@ function TodayEmptyState({
           </>
         ) : (
           <>
-            <p className="text-base font-semibold text-gray-900 dark:text-white">
-              Uživaj u danu{firstName ? `, ${firstName}` : ""}.
-            </p>
+            <p className="text-base font-semibold text-gray-900 dark:text-white">Uživaj u danu.</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Nemaš ništa zakazano za danas, slobodno predahni.
             </p>

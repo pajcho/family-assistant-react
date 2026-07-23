@@ -33,9 +33,15 @@ export type FirstStep = {
 export type UseFirstStepsResult = {
   /** Render the card? False while loading, after "Sakrij" and when all done. */
   visible: boolean;
+  /**
+   * Dismissed via "Sakrij" while steps remain - the header shows the small
+   * 👋 re-open affordance so the checklist is never permanently lost.
+   */
+  dismissed: boolean;
   steps: FirstStep[];
   doneCount: number;
   hide: () => void;
+  unhide: () => void;
   hiding: boolean;
 };
 
@@ -49,11 +55,11 @@ export function useFirstSteps(): UseFirstStepsResult {
   const queryClient = useQueryClient();
 
   const hideMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (hidden: boolean) => {
       if (!user) throw new Error("Niste prijavljeni");
       const { error } = await supabase
         .from("profiles")
-        .update({ onboarding_hidden_at: new Date().toISOString() })
+        .update({ onboarding_hidden_at: hidden ? new Date().toISOString() : null })
         .eq("id", user.id);
       if (error) throw error;
     },
@@ -61,7 +67,7 @@ export function useFirstSteps(): UseFirstStepsResult {
       void queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
     },
     onError: () => {
-      toast.error("Greška pri sakrivanju - probaj ponovo.");
+      toast.error("Greška pri čuvanju - probaj ponovo.");
     },
   });
 
@@ -91,13 +97,17 @@ export function useFirstSteps(): UseFirstStepsResult {
   ];
   const doneCount = steps.filter((s) => s.done).length;
 
-  const visible = !loading && !profile.onboarding_hidden_at && doneCount < steps.length;
+  const allDone = doneCount === steps.length;
+  const visible = !loading && !profile.onboarding_hidden_at && !allDone;
+  const dismissed = !loading && !!profile.onboarding_hidden_at && !allDone;
 
   return {
     visible,
+    dismissed,
     steps,
     doneCount,
-    hide: () => hideMutation.mutate(),
+    hide: () => hideMutation.mutate(true),
+    unhide: () => hideMutation.mutate(false),
     hiding: hideMutation.isPending,
   };
 }

@@ -486,7 +486,7 @@ function BudgetPage() {
   };
 
   return (
-    <div className="animate-fade-in mx-auto w-full max-w-5xl pb-8">
+    <div className="animate-fade-in pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Budžet</h1>
         {/* One entry point for money data (skeniraj / trošak / prihod);
