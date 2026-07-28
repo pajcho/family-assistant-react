@@ -40,6 +40,18 @@ const TIME_GUTTER_CLASS =
 /** Match the dim treatment used for ended events on the /events page. */
 const PAST_ROW_CLASS = "opacity-50";
 
+/**
+ * The row's leading time column. Time-less rows (payments outside
+ * "Prekoračeno", birthdays) would otherwise open with 6rem of blank gutter -
+ * on a phone that's a quarter of the row spent on nothing, so below `sm` the
+ * empty gutter isn't rendered at all and the row starts hard left with the
+ * full width for its details. From `sm` up the column stays, so rows keep
+ * lining up where there's room to spare.
+ */
+function TimeGutter({ label }: { label?: string }) {
+  return <span className={cn(TIME_GUTTER_CLASS, !label && "hidden sm:block")}>{label ?? ""}</span>;
+}
+
 export function AgendaItemRow({
   item,
   onClick,
@@ -136,9 +148,7 @@ function ActivityRow({
   return (
     <li>
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <span className={TIME_GUTTER_CLASS}>
-          {block.startTime}-{block.endTime}
-        </span>
+        <TimeGutter label={`${block.startTime}-${block.endTime}`} />
         <span
           className="size-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: color }}
@@ -173,7 +183,7 @@ function EventRow({
   return (
     <li>
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <span className={TIME_GUTTER_CLASS}>{timeLabel}</span>
+        <TimeGutter label={timeLabel} />
         <CalendarIcon className="size-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
         <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{event.name}</span>
@@ -208,7 +218,7 @@ function PaymentRow({
 }) {
   const content = (
     <>
-      <span className={TIME_GUTTER_CLASS}>{dateLabel ?? ""}</span>
+      <TimeGutter label={dateLabel} />
       <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
       <span className="min-w-0 truncate">
         <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>
@@ -268,7 +278,7 @@ function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () =>
   return (
     <li>
       <button type="button" onClick={onClick} className={ROW_CLASS}>
-        <span className={TIME_GUTTER_CLASS}>{/* no time */}</span>
+        <TimeGutter />
         <CakeIcon className="size-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
         <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900 dark:text-gray-100">{birthday.name}</span>
@@ -307,7 +317,7 @@ function ExternalEventRow({
   return (
     <li>
       <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <span className={TIME_GUTTER_CLASS}>{timeLabel}</span>
+        <TimeGutter label={timeLabel} />
         <GlobeAltIcon
           className="size-3.5 shrink-0 text-sky-500 dark:text-sky-400"
           style={event.color ? { color: event.color } : undefined}

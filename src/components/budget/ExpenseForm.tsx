@@ -219,10 +219,12 @@ export function ExpenseForm({
   onAutoFocusedRef.current = onAutoFocusedAmount;
   useEffect(() => {
     if (!wantAutoFocusRef.current) return;
+    let focused: HTMLInputElement | null = null;
     const timer = window.setTimeout(() => {
       const input = amountRef.current;
       if (!input) return;
       input.focus({ preventScroll: true });
+      focused = input;
       for (let node = input.parentElement; node; node = node.parentElement) {
         if (node.scrollHeight > node.clientHeight) {
           node.scrollTop = 0;
@@ -231,7 +233,14 @@ export function ExpenseForm({
       }
       onAutoFocusedRef.current?.();
     }, 500);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      // Hand focus back before the field disappears with the closing sheet.
+      // A focused element that's simply removed fires no focusout, so
+      // `useIsKeyboardOpen` would keep reading "keyboard up" and the mobile
+      // bottom nav would stay unmounted after the dialog is gone.
+      if (focused && document.activeElement === focused) focused.blur();
+    };
   }, []);
 
   const isEdit = !!expense?.id;
