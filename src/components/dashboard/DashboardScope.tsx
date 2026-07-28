@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 
 import { AddMenu } from "@/components/dashboard/AddMenu";
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
@@ -9,6 +8,7 @@ import { FirstStepsCard } from "@/components/dashboard/FirstStepsCard";
 import { ViewToggle } from "@/components/dashboard/ViewToggle";
 import { ActivityAddDialog } from "@/components/activities/ActivityAddDialog";
 import { ExpenseQuickAddFlow } from "@/components/budget/ExpenseQuickAddFlow";
+import { ListQuickAddFlow } from "@/components/lists/ListQuickAddFlow";
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -34,12 +34,12 @@ import type { Birthday, Event, Payment } from "@/types/database";
  * add/edit FORM dialogs the agenda routes "Izmeni" back into via `onEdit*`.
  *
  * Filters live per page (the hook is called here, so each route instance has its
- * own selection); the list↔calendar choice persists in localStorage. Lists live
- * on /lists; activity edit deep-links to /activities (add is in the Dodaj menu).
+ * own selection); the list↔calendar choice persists in localStorage. Every add
+ * flow (lists included) opens in place; only activity EDIT deep-links away, to
+ * /activities.
  */
 export function DashboardScope({ scope }: { scope: AgendaPage }) {
   const { familyId, familyName } = useProfile();
-  const navigate = useNavigate();
 
   const filters = useAgendaFilters();
   const view = useAgendaView(scope);
@@ -91,6 +91,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
   // deep-links to /activities.
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
 
   /* --- Add openers ------------------------------------------------------- */
 
@@ -271,9 +272,7 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
             onAddPayment={openAddPayment}
             onAddBirthday={openAddBirthday}
             onAddExpense={() => setExpenseDialogOpen(true)}
-            // Lists live on /lists - deep-link there with the create dialog
-            // already open (`?new=1`, consumed by ListMaster).
-            onAddList={() => void navigate({ to: "/lists", search: { new: true } })}
+            onAddList={() => setListDialogOpen(true)}
           />
         ) : null}
       </div>
@@ -371,6 +370,8 @@ export function DashboardScope({ scope }: { scope: AgendaPage }) {
       <ActivityAddDialog open={activityDialogOpen} onOpenChange={setActivityDialogOpen} />
 
       <ExpenseQuickAddFlow open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen} />
+
+      <ListQuickAddFlow open={listDialogOpen} onOpenChange={setListDialogOpen} />
     </div>
   );
 }

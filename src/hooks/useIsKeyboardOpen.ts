@@ -1,4 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+const THRESHOLD_PX = 150;
+
+const isTextEntry = (el: Element | null): boolean => {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "TEXTAREA") return true;
+  if (tag === "INPUT") {
+    // Skip pure-button inputs (checkbox, radio, button, submit…)
+    // which don't open the keyboard.
+    const type = (el as HTMLInputElement).type;
+    const skip = new Set([
+      "button",
+      "submit",
+      "reset",
+      "checkbox",
+      "radio",
+      "range",
+      "file",
+      "color",
+    ]);
+    return !skip.has(type);
+  }
+  return (el as HTMLElement).isContentEditable === true;
+};
 
 /**
  * Returns true while a software keyboard (or any equivalent input
@@ -29,39 +54,15 @@ import { useEffect, useState } from "react";
 export function useIsKeyboardOpen(): boolean {
   const [open, setOpen] = useState(false);
 
+  const compute = useCallback(() => {
+    const vv = window.visualViewport;
+    const viewportSays = vv ? window.innerHeight - vv.height > THRESHOLD_PX : false;
+    const focusSays = isTextEntry(document.activeElement);
+    setOpen(viewportSays || focusSays);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const THRESHOLD_PX = 150;
-
-    const isTextEntry = (el: Element | null): boolean => {
-      if (!el) return false;
-      const tag = el.tagName;
-      if (tag === "TEXTAREA") return true;
-      if (tag === "INPUT") {
-        // Skip pure-button inputs (checkbox, radio, button, submit…)
-        // which don't open the keyboard.
-        const type = (el as HTMLInputElement).type;
-        const skip = new Set([
-          "button",
-          "submit",
-          "reset",
-          "checkbox",
-          "radio",
-          "range",
-          "file",
-          "color",
-        ]);
-        return !skip.has(type);
-      }
-      return (el as HTMLElement).isContentEditable === true;
-    };
-
-    const compute = () => {
-      const vv = window.visualViewport;
-      const viewportSays = vv ? window.innerHeight - vv.height > THRESHOLD_PX : false;
-      const focusSays = isTextEntry(document.activeElement);
-      setOpen(viewportSays || focusSays);
-    };
 
     compute();
     window.visualViewport?.addEventListener("resize", compute);
@@ -74,7 +75,19 @@ export function useIsKeyboardOpen(): boolean {
       document.removeEventListener("focusin", compute);
       document.removeEventListener("focusout", compute);
     };
-  }, []);
+  }, [compute]);
+
+  // Safety net for the one case the events above can't cover: a focused
+  // input that's REMOVED from the DOM (a closing dialog unmounting its
+  // form) fires no focusout in Chromium/WebKit, so signal 2 would latch on
+  // and the bottom nav would stay gone until the user next touched a field.
+  // Re-check on a slow tick while we believe the keyboard is up; the moment
+  // it reads closed the interval stops, so this costs nothing at rest.
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setInterval(compute, 400);
+    return () => window.clearInterval(id);
+  }, [open, compute]);
 
   return open;
 }
