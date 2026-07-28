@@ -1,5 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The rows below carry no participants, but the import alone would pull in
+// `useFamilyMembers` → the Supabase client, which throws without env vars.
+vi.mock("@/components/common/MemberBadges", () => ({
+  MemberBadges: () => null,
+}));
 
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
