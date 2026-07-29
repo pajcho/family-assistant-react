@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Activity } from "@/types/database";
@@ -48,36 +47,11 @@ async function fetchActivities(familyId: string): Promise<Activity[]> {
 
 export function useActivities() {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  // Unique per hook invocation so the page + `useWeekActivities` can each
-  // subscribe without colliding on the same Supabase channel name.
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["activities", familyId],
     queryFn: () => fetchActivities(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`activities-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "activities",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["activities", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

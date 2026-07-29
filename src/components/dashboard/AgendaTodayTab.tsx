@@ -144,8 +144,8 @@ export function AgendaTodayTab({
 /**
  * "See what's next" link shown when today is clear. The Danas scope only loads
  * today (`from === to === today`), so tomorrow's count isn't available without
- * a second `useAgenda` - which must never be mounted twice (double realtime
- * subscription) - hence a plain CTA without the count.
+ * a second `useAgenda`, which would duplicate the whole query fan-out for one
+ * number - hence a plain CTA without the count.
  */
 function UskoroCta() {
   return (

@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,7 +7,7 @@ import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Per-occurrence overrides on activity_schedule rules. The hook surface
- * mirrors the other activity hooks - list query with realtime + a single
+ * mirrors the other activity hooks - a plain list query + a single
  * `upsert` mutation that the action menu uses for both "create override"
  * and "change existing override". The UNIQUE(schedule_id, date) constraint
  * means there is only ever one override per occurrence; replacing it
@@ -43,34 +42,11 @@ async function fetchOverrides(familyId: string): Promise<ActivityOverride[]> {
 
 export function useActivityOverrides() {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["activity_overrides", familyId],
     queryFn: () => fetchOverrides(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`activity-overrides-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "activity_overrides",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["activity_overrides", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

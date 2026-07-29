@@ -1,5 +1,4 @@
-import { useEffect, useId } from "react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type { ExternalCalendarEvent } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -9,11 +8,9 @@ import { useProfile } from "@/hooks/useProfile";
  * Read-only list of mirrored Google events for a `[from, to]` window, keyed on
  * `local_date`. RLS decides visibility (family-shared events to the whole
  * family, private ones only to the connecting member), so we don't filter by
- * family here. A realtime subscription invalidates the query when the gcal-sync
- * worker upserts changes, so an open agenda refreshes itself.
- *
- * Unique channel name per hook instance (useId) so it never collides with
- * another subscriber on the same table - mirrors useEventsList.
+ * family here. The shared family broadcast channel (`useFamilyChannel`)
+ * invalidates this query when the gcal-sync worker upserts changes, so an open
+ * agenda refreshes itself.
  */
 
 interface ExternalEventFilters {
@@ -40,10 +37,7 @@ async function fetchExternalEvents(
 
 export function useExternalEventsList(filters: ExternalEventFilters = {}) {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
   const { from, to } = filters;
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["external_calendar_events", familyId, { from, to }],
     queryFn: () => fetchExternalEvents({ from, to }),
@@ -54,21 +48,6 @@ export function useExternalEventsList(filters: ExternalEventFilters = {}) {
     // collapse the list, jumping the scroll to the top.
     placeholderData: keepPreviousData,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`external-events-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "external_calendar_events" },
-        () => queryClient.invalidateQueries({ queryKey: ["external_calendar_events", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

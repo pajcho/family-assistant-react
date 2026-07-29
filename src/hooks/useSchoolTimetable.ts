@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { SchoolTimetableEntry, TimetableVariant } from "@/types/database";
@@ -34,34 +33,11 @@ async function fetchTimetable(familyId: string): Promise<SchoolTimetableEntry[]>
 
 export function useSchoolTimetable() {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["school_timetable", familyId],
     queryFn: () => fetchTimetable(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`school-timetable-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "school_timetable_entries",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["school_timetable", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Birthday } from "@/types/database";
@@ -7,10 +6,11 @@ import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Birthdays data hooks - direct port of `composables/useBirthdays.ts` from
- * the sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
+ * the sibling Nuxt app, backed by TanStack Query. Live updates arrive on the
+ * shared family broadcast channel (see `useFamilyChannel`), not from here.
  *
  * Surface:
- *   - `useBirthdaysList()`     - list query + realtime subscription
+ *   - `useBirthdaysList()`     - list query
  *   - `useCreateBirthday()`    - insert mutation
  *   - `useUpdateBirthday()`    - update mutation
  *   - `useDeleteBirthday()`    - delete mutation
@@ -41,16 +41,9 @@ async function fetchBirthdays(familyId: string): Promise<Birthday[]> {
   return (data as Birthday[]) ?? [];
 }
 
-/**
- * Read-only birthdays query sharing `useBirthdaysList`'s cache key but WITHOUT
- * the realtime channel. The channel topic is fixed per family (no useId), so a
- * second simultaneous subscription - e.g. the payment link picker while the
- * birthdays page is open - would collide. Secondary surfaces use this one; the
- * shared query key keeps the data in sync with the page's subscription and
- * with mutation invalidations.
- */
-export function useBirthdaysData() {
+export function useBirthdaysList() {
   const { familyId } = useProfile();
+
   return useQuery({
     queryKey: ["birthdays", familyId],
     queryFn: () => fetchBirthdays(familyId as string),
@@ -58,38 +51,16 @@ export function useBirthdaysData() {
   });
 }
 
-export function useBirthdaysList() {
-  const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ["birthdays", familyId],
-    queryFn: () => fetchBirthdays(familyId as string),
-    enabled: !!familyId,
-  });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`birthdays-${familyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "birthdays",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["birthdays", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient]);
-
-  return query;
-}
+/**
+ * Alias for the secondary surfaces (payment link picker, birthday pickers).
+ *
+ * This used to be a separate, deliberately subscription-free copy: the
+ * birthdays channel topic had no `useId()` suffix, so a second mount while the
+ * birthdays page was open collided on the same topic. RP-2 moved realtime to
+ * one family-wide channel, so there is nothing left to collide with and the two
+ * are now the same query.
+ */
+export const useBirthdaysData = useBirthdaysList;
 
 export function useCreateBirthday() {
   const { familyId } = useProfile();

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,11 +8,11 @@ import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Household income hooks (Faza 4) - the recurring salaries the monthly-cycle
- * view sums against spend. TanStack Query + Supabase Realtime, same shape as the
- * other entity hooks.
+ * view sums against spend. TanStack Query, same shape as the other entity
+ * hooks.
  *
  * Surface:
- *   - `useIncomes()`         - list query (active first) + realtime + total
+ *   - `useIncomes()`         - list query (active first) + total
  *   - `useCreateIncome()`    - insert
  *   - `useUpdateIncome()`    - edit (name / amount / day / person / active)
  *   - `useDeleteIncome()`    - delete
@@ -51,36 +51,11 @@ export interface UseIncomesResult {
 
 export function useIncomes(): UseIncomesResult {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["incomes", familyId],
     queryFn: () => fetchIncomes(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`incomes-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "incomes",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["incomes", familyId] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const incomes = useMemo(() => query.data ?? [], [query.data]);
   const totalActive = useMemo(

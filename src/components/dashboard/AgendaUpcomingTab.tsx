@@ -7,8 +7,10 @@ import type { AgendaFilter } from "@/utils/agendaFilters";
 /**
  * "Uskoro" tab - a thin switch between the day-grouped LIST and the weekly
  * Mon-Sun CALENDAR, driven by the per-page view toggle. Rendering exactly one of
- * them (never both) keeps a single `useAgenda` mounted - two would double-
- * subscribe the shared realtime channels and crash.
+ * them (never both) keeps a single `useAgenda` mounted. Two used to double-
+ * subscribe the shared realtime channels and crash; since RP-2 moved realtime
+ * to one family-wide channel it is merely a duplicated fan-out of queries, but
+ * there is still no reason to mount both.
  */
 export type AgendaUpcomingTabProps = {
   view: AgendaView;

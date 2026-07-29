@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -38,34 +38,11 @@ export interface UsePaymentOverridesResult {
 
 export function usePaymentOverrides(): UsePaymentOverridesResult {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["payment_overrides", familyId],
     queryFn: () => fetchPaymentOverrides(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`payment-overrides-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payment_overrides",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["payment_overrides", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const overrides = useMemo(() => query.data ?? [], [query.data]);
 

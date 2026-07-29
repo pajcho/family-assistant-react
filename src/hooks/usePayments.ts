@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Payment, PaymentHistory, RecurrencePeriod } from "@/types/database";
@@ -16,10 +15,10 @@ import {
 
 /**
  * Payments data hooks - direct port of `composables/usePayments.ts` from the
- * sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
+ * sibling Nuxt app, backed by TanStack Query.
  *
  * Surface:
- *   - `usePaymentsList({ hidePaid? })`               - list query + realtime
+ *   - `usePaymentsList({ hidePaid? })`               - list query
  *   - `usePaymentHistory({ monthFilter? })`          - family-wide history query
  *   - `usePaymentHistoryByPaymentId(paymentId)`      - per-payment history query
  *   - `useCreatePayment()`                           - insert mutation
@@ -35,10 +34,9 @@ import {
  * mirrors the Vue source line-for-line. Do not paraphrase - getting it wrong
  * desyncs the DB.
  *
- * Realtime: a single channel subscribes to BOTH `payments` and `payment_history`
- * postgres_changes filtered by `family_id`. Any change invalidates both query
- * trees so the per-payment history query (keyed by paymentId alone) refreshes
- * via partial-key matching.
+ * Realtime: `useFamilyChannel` maps BOTH `payments` and `payment_history`
+ * changes onto both query trees, so the per-payment history query (keyed by
+ * paymentId alone) refreshes via partial-key matching.
  */
 
 export interface PaymentListFilters {
@@ -186,55 +184,6 @@ export async function getLastHistoryEntry(paymentId: string): Promise<PaymentHis
   return data as PaymentHistory;
 }
 
-/**
- * Subscribes to realtime changes on BOTH `payments` and `payment_history`
- * tables. Invalidates the family-scoped query trees on every event so both
- * the list and history queries (including the per-payment history keyed by
- * `paymentId` alone) refresh via partial-key matching.
- */
-function usePaymentsRealtime(familyId: string | null): void {
-  const queryClient = useQueryClient();
-  // Unique per hook invocation so multiple consumers of `usePaymentsList`
-  // (dashboard widgets + page) don't collide on the same channel name.
-  const channelKey = useId();
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`payments-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payments",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["payments", familyId] });
-          void queryClient.invalidateQueries({ queryKey: ["payment_history"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payment_history",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["payments", familyId] });
-          void queryClient.invalidateQueries({ queryKey: ["payment_history"] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
-}
-
 export function usePaymentsList(filters: PaymentListFilters = {}) {
   const { familyId } = useProfile();
   const hidePaid = filters.hidePaid ?? false;
@@ -244,8 +193,6 @@ export function usePaymentsList(filters: PaymentListFilters = {}) {
     queryFn: () => fetchPayments(familyId as string, hidePaid),
     enabled: !!familyId,
   });
-
-  usePaymentsRealtime(familyId);
 
   return query;
 }
