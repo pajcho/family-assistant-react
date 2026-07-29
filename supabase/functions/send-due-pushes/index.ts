@@ -11,7 +11,8 @@
 //   5. one delete for subscriptions the push services reported as gone
 //
 // That is a fixed ~14 queries per tick no matter how many families exist. The
-// pre-RP-1 shape was N+1 per user per item (see SCALING_PLAN.md, RP-1).
+// shape before this rewrite was N+1 per user per item: 512 PostgREST requests
+// per tick at 40 users, growing linearly with the number of families.
 //
 // Idempotency is unchanged and still enforced by Postgres: `notification_log`
 // has UNIQUE(user_id, kind, ref_id), and the claim upsert runs with
