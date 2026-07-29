@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * The app's single realtime subscription (RP-2 in SCALING_PLAN.md).
+ * The app's single realtime subscription.
  *
  * Every family-scoped table has an AFTER trigger
  * (`public.broadcast_family_change`, see

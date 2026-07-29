@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 #
-# RP-4 iz SCALING_PLAN.md: izmeri koliko SQL upita kosta jedan tick
-# `send-due-pushes` funkcije.
+# Izmeri koliko SQL upita kosta jedan tick `send-due-pushes` funkcije.
+#
+# Funkcija se vrti svakog minuta preko pg_cron, pa je njen trosak stalan i
+# nezavisan od toga da li ista treba poslati. Ovo je alat kojim se to meri pre
+# i posle izmene - polazna slika je bila 512 PostgREST zahteva po ticku na 40
+# korisnika, posle prelaska na bulk upite 12.
 #
 # Radi nad LOKALNIM Supabase stack-om (`supabase start`) i cita brojeve iz
 # `pg_stat_statements`. Isti pristup radi i na produkciji, samo se promene
