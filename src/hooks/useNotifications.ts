@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { vapidPublicKeyToUint8Array } from "@/lib/pwa-config";
+import { usePushSubscriptionRows } from "@/hooks/usePushSubscriptions";
 
 /**
  * Wraps the Web Notifications + Push API into a hook with React-friendly
@@ -12,6 +13,15 @@ import { vapidPublicKeyToUint8Array } from "@/lib/pwa-config";
  * If the server upsert fails we tear the browser subscription back down
  * - better to leave the device unsubscribed than to have the browser
  * think we're subscribed while the server has no record.
+ *
+ * **`isSubscribed` needs BOTH halves.** A `PushSubscription` belongs to the
+ * service worker + origin, not to an account: it survives sign-out, so after
+ * user B signs in on a browser where user A switched notifications on, the
+ * browser still hands back A's subscription. Reading only that reported
+ * "enabled" to B while every push still went to A - B got nothing of their
+ * own, and A's family's reminders landed on a device B was using. So a device
+ * counts as subscribed only when the browser has a subscription AND the
+ * `push_subscriptions` row for that endpoint belongs to the signed-in user.
  *
  * iOS gotchas:
  *   • Permission can only be requested *inside an installed PWA* -
@@ -31,10 +41,20 @@ export interface NotificationsState {
   supported: boolean;
   /** Browser permission for `Notification` */
   permission: NotificationPermission;
-  /** True once the current SW registration has an active push subscription */
+  /**
+   * True when this browser has a push subscription AND its server row belongs
+   * to the signed-in user. False for a subscription left behind by whoever was
+   * signed in before, or one revoked from another device's session list.
+   */
   isSubscribed: boolean;
-  /** The active subscription serialised for transport. Null when not subscribed. */
+  /**
+   * This browser's subscription, whoever it belongs to. Serialised for
+   * transport; null when the browser has none. Use `isSubscribed` to decide
+   * what to show - this one only identifies the device.
+   */
   subscription: SerialisedPushSubscription | null;
+  /** True until both halves of `isSubscribed` have been read at least once. */
+  checking: boolean;
   /** True while a subscribe/unsubscribe call is in flight */
   pending: boolean;
   /** Last error from subscribe/unsubscribe - exposed so the UI can surface it */
@@ -76,8 +96,12 @@ export function useNotifications(): UseNotifications {
     supported ? Notification.permission : "denied",
   );
   const [subscription, setSubscription] = useState<SerialisedPushSubscription | null>(null);
+  const [deviceChecked, setDeviceChecked] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The server half: every row that belongs to the signed-in user.
+  const { subscriptions: myRows, isLoading: rowsLoading, refresh } = usePushSubscriptionRows();
 
   // Read the existing subscription on mount so refreshing the settings
   // page reflects an already-subscribed device.
@@ -89,13 +113,25 @@ export function useNotifications(): UseNotifications {
       const existing = await reg.pushManager.getSubscription();
       if (cancelled) return;
       setSubscription(existing ? serialiseSubscription(existing) : null);
+      setDeviceChecked(true);
     })().catch((e: unknown) => {
-      if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      if (cancelled) return;
+      setError(e instanceof Error ? e.message : String(e));
+      setDeviceChecked(true);
     });
     return () => {
       cancelled = true;
     };
   }, [supported]);
+
+  const isMine = useCallback(
+    (endpoint: string): boolean => myRows.some((row) => row.endpoint === endpoint),
+    [myRows],
+  );
+  const isSubscribed = subscription !== null && isMine(subscription.endpoint);
+  // Rendering the toggle before both halves are in would flash the wrong
+  // label - and the wrong label here is the whole bug.
+  const checking = supported && (!deviceChecked || rowsLoading);
 
   const subscribe = useCallback(async () => {
     if (!supported) {
@@ -112,13 +148,22 @@ export function useNotifications(): UseNotifications {
         return;
       }
       const reg = await navigator.serviceWorker.ready;
-      const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: vapidPublicKeyToUint8Array(),
-        }));
+      let sub = await reg.pushManager.getSubscription();
+
+      // A subscription left behind by another account can't be re-pointed at
+      // this one: `subscribe-push` upserts on `endpoint`, and the UPDATE arm
+      // of that upsert is rejected by RLS because the existing row isn't ours
+      // ("new row violates row-level security policy (USING expression)").
+      // Recycle it into a fresh endpoint instead - the old one starts
+      // answering 410, and send-due-pushes sweeps the stale row away.
+      if (sub && !isMine(sub.endpoint)) {
+        await sub.unsubscribe().catch(() => {});
+        sub = null;
+      }
+      sub ??= await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidPublicKeyToUint8Array(),
+      });
       const serialised = serialiseSubscription(sub);
 
       // Persist the subscription to Supabase. If this fails we tear down
@@ -136,12 +181,16 @@ export function useNotifications(): UseNotifications {
         return;
       }
       setSubscription(serialised);
+      // The row this just created is what "Aktivne sesije" lists, and nothing
+      // else would refetch it - push_subscriptions is user-scoped, so it has
+      // no family_id and never rides the family broadcast channel.
+      await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setPending(false);
     }
-  }, [supported]);
+  }, [supported, isMine, refresh]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;
@@ -160,12 +209,13 @@ export function useNotifications(): UseNotifications {
         await existing.unsubscribe();
       }
       setSubscription(null);
+      await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setPending(false);
     }
-  }, [supported]);
+  }, [supported, refresh]);
 
   const sendLocalTest = useCallback(async () => {
     if (!supported) return;
@@ -180,8 +230,9 @@ export function useNotifications(): UseNotifications {
   return {
     supported,
     permission,
-    isSubscribed: !!subscription,
+    isSubscribed,
     subscription,
+    checking,
     pending,
     error,
     subscribe,

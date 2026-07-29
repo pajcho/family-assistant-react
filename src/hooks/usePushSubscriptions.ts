@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { PushSubscriptionRow } from "@/types/database";
@@ -12,13 +12,10 @@ import { useAuth } from "@/hooks/useAuth";
  *
  * Revoking a row removes it from `push_subscriptions`. That stops the
  * cron job from sending pushes to that endpoint, but it does NOT tear
- * down the SW subscription on the remote device - that device's
- * `useNotifications` will still report `isSubscribed = true` until the
- * user re-opens the app there (at which point the server row is missing
- * and re-subscribing will re-create it). That's intentional: we can't
- * reach across devices, and the worst case is "device thinks it's
- * subscribed but gets no pushes" which the user can fix by toggling
- * notifications on that device.
+ * down the SW subscription on the remote device - we can't reach across
+ * devices. That device's `useNotifications` reports "not subscribed" the
+ * next time the app opens there (this list is half of how it decides), so
+ * the user just switches notifications back on to re-create the row.
  *
  * For the row representing THE CURRENT device (matched by endpoint),
  * the caller should route the revoke through `useNotifications.unsubscribe`
@@ -35,7 +32,16 @@ async function fetchSubscriptions(userId: string): Promise<PushSubscriptionRow[]
   return (data as PushSubscriptionRow[]) ?? [];
 }
 
-export function usePushSubscriptions() {
+/**
+ * Just the list, without the revoke mutation.
+ *
+ * `useNotifications` needs these rows to tell "this browser has a push
+ * subscription" (a device-level fact) from "…and it belongs to the account
+ * that is signed in right now" (a server-side fact). Splitting the query out
+ * keeps that read free of the mutation + toast machinery below, and both hooks
+ * share one cache entry.
+ */
+export function usePushSubscriptionRows() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
@@ -46,6 +52,26 @@ export function usePushSubscriptions() {
     enabled: !!userId,
     staleTime: 30_000,
   });
+
+  // Stable identity so callers can list it in a useCallback dependency array
+  // without rebuilding their handlers on every render.
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["push_subscriptions", userId] }),
+    [queryClient, userId],
+  );
+
+  return {
+    subscriptions: query.data ?? [],
+    isLoading: query.isLoading,
+    refresh,
+  };
+}
+
+export function usePushSubscriptions() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+  const rows = usePushSubscriptionRows();
 
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -62,11 +88,9 @@ export function usePushSubscriptions() {
   });
 
   return {
-    subscriptions: query.data ?? [],
-    isLoading: query.isLoading,
+    ...rows,
     remove: removeMutation.mutateAsync,
     isRemoving: removeMutation.isPending,
-    refresh: () => queryClient.invalidateQueries({ queryKey: ["push_subscriptions", userId] }),
   };
 }
 
