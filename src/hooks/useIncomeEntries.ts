@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -13,7 +13,7 @@ import { useProfile } from "@/hooks/useProfile";
  * source today never rewrites a past month's income.
  *
  * Surface:
- *   - `useIncomeEntries(month)`   - receipts for one "YYYY-MM" + realtime
+ *   - `useIncomeEntries(month)`   - receipts for one "YYYY-MM"
  *   - `useConfirmIncome()`        - confirm a recurring source for a month
  *                                   (upsert, one row per source per month)
  *   - `useAddOneTimeIncome()`     - record a one-off (bonus etc.)
@@ -42,35 +42,11 @@ export interface UseIncomeEntriesResult {
 
 export function useIncomeEntries(month: string): UseIncomeEntriesResult {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["income_entries", familyId, month],
     queryFn: () => fetchIncomeEntries(familyId as string, month),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`income-entries-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "income_entries",
-          filter: `family_id=eq.${familyId}`,
-        },
-        // Partial key → refreshes every month's cache at once.
-        () => void queryClient.invalidateQueries({ queryKey: ["income_entries", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const entries = useMemo(() => query.data ?? [], [query.data]);
   const total = useMemo(() => entries.reduce((sum, e) => sum + e.amount, 0), [entries]);

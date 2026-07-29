@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -12,8 +11,9 @@ import { useProfile } from "@/hooks/useProfile";
  * Lists data hooks - replaces the old `useExpenses.ts`.
  *
  * One screen renders many lists, so we fetch lists + their items in a
- * single nested select. Realtime subscriptions watch both tables and
- * invalidate the combined query on any change.
+ * single nested select. Changes to either `lists` or `list_items` invalidate
+ * the combined query through the shared family broadcast channel
+ * (`useFamilyChannel`).
  *
  * Scope semantics:
  *   - `family` - visible to everyone in the user's family
@@ -87,54 +87,12 @@ async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
 
 export function useListsWithItems() {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-
-  // Unique per hook instance. The master-detail layout mounts this hook in
-  // several components at once (the sidebar + the open list's detail, plus the
-  // dashboard card), and a *shared* channel topic makes Supabase throw
-  // "cannot add `postgres_changes` callbacks after `subscribe()`" when the
-  // second instance subscribes to the same topic. A per-instance topic gives
-  // each mount its own channel - they all just invalidate the same query, which
-  // React Query dedupes - and also avoids the same collision during the brief
-  // overlap when navigating between two screens that both read lists.
-  const instanceId = useId();
 
   const query = useQuery({
     queryKey: ["lists", familyId],
     queryFn: () => fetchListsWithItems(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
-    const channel = supabase
-      .channel(`lists-${familyId}-${instanceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "lists",
-          filter: `family_id=eq.${familyId}`,
-        },
-        invalidate,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "list_items",
-          filter: `family_id=eq.${familyId}`,
-        },
-        invalidate,
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, instanceId]);
 
   return query;
 }

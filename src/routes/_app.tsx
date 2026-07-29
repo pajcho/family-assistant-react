@@ -3,6 +3,7 @@ import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
 import { AppNav } from "@/components/layout/AppNav";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useAuth } from "@/hooks/useAuth";
+import { useFamilyChannel } from "@/hooks/useFamilyChannel";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useVisibilityRefetch } from "@/hooks/useVisibilityRefetch";
 import { cn } from "@/lib/cn";
@@ -34,6 +35,11 @@ function AppLayout() {
   // resumes from a suspend (realtime channels rejoin on their own, but events
   // fired while suspended are lost), plus a pull-to-refresh gesture below.
   useVisibilityRefetch();
+
+  // The app's only realtime subscription: one broadcast channel per family,
+  // dispatching to the query keys the data hooks read. Mounted here so it lives
+  // exactly once for the whole authenticated tree.
+  useFamilyChannel();
 
   // SW update toast lives in __root.tsx (covers login too). The iOS install
   // banner lives on the login route - once you're signed in you've already

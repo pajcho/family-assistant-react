@@ -1,4 +1,3 @@
-import { useEffect, useId } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Event } from "@/types/database";
@@ -8,10 +7,11 @@ import { replaceEventParticipants } from "@/hooks/useEventParticipants";
 
 /**
  * Events data hooks - direct port of `composables/useEvents.ts` from the
- * sibling Nuxt app, backed by TanStack Query + Supabase Realtime.
+ * sibling Nuxt app, backed by TanStack Query. Live updates arrive on the shared
+ * family broadcast channel (see `useFamilyChannel`).
  *
  * Surface:
- *   - `useEventsList({ from?, to? })`  - list query + realtime subscription
+ *   - `useEventsList({ from?, to? })`  - list query
  *   - `useCreateEvent()`               - insert mutation
  *   - `useUpdateEvent()`               - update mutation
  *   - `useDeleteEvent()`               - delete mutation
@@ -93,12 +93,7 @@ async function fetchEvents(familyId: string, filters: EventListFilters): Promise
 
 export function useEventsList(filters: EventListFilters = {}) {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
   const { from, to } = filters;
-  // Unique per hook invocation so the page + dashboard widget can each
-  // subscribe without colliding on the same Supabase channel name.
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["events", familyId, { from, to }],
     queryFn: () => fetchEvents(familyId as string, { from, to }),
@@ -110,26 +105,6 @@ export function useEventsList(filters: EventListFilters = {}) {
     // page height and snapping the scroll back to the top.
     placeholderData: keepPreviousData,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`events-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "events",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["events", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   return query;
 }

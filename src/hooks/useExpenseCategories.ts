@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,10 +8,10 @@ import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Expense-category hooks (Faza 3/4) - the family's spend buckets, backed by
- * TanStack Query + Supabase Realtime. Same shape as the other entity hooks.
+ * TanStack Query. Same shape as the other entity hooks.
  *
  * Surface:
- *   - `useExpenseCategories()`      - list query (sorted) + realtime + `byId`
+ *   - `useExpenseCategories()`      - list query (sorted) + `byId`
  *   - `useCreateExpenseCategory()`  - insert (appends after the last sort_order)
  *   - `useUpdateExpenseCategory()`  - rename / color / icon / limit / sort
  *   - `useDeleteExpenseCategory()`  - delete (expenses.category_id SET NULL in DB)
@@ -49,36 +49,11 @@ export interface UseExpenseCategoriesResult {
 
 export function useExpenseCategories(): UseExpenseCategoriesResult {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["expense_categories", familyId],
     queryFn: () => fetchExpenseCategories(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`expense_categories-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "expense_categories",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["expense_categories", familyId] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const categories = useMemo(() => query.data ?? [], [query.data]);
   const byId = useMemo(() => {

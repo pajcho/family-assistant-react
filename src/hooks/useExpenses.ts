@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,22 +8,21 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
- * Expenses ledger hooks (Faza 3/4) - backed by TanStack Query + Supabase
- * Realtime. The list query is scoped to a date range so the Budget page fetches
- * one month (or a wider window for the trend chart) at a time.
+ * Expenses ledger hooks (Faza 3/4) - backed by TanStack Query. The list query
+ * is scoped to a date range so the Budget page fetches one month (or a wider
+ * window for the trend chart) at a time.
  *
  * Surface:
- *   - `useExpenses({ from, to })`   - range query + realtime invalidation
+ *   - `useExpenses({ from, to })`   - range query
  *   - `useCreateExpense()`          - insert a manual expense
  *   - `useUpdateExpense()`          - edit a manual expense
  *   - `useDeleteExpense()`          - delete a manual expense
  *
  * Auto rows (`source='payment'`) are written/removed by a DB trigger, never by
  * these mutations - the UI keeps them read-only. Realtime is what surfaces a
- * trigger-inserted row on the Budget page the moment a payment is marked paid.
- *
- * The realtime channel topic carries a per-hook `useId()` so several instances
- * (e.g. the month view + the 6-month trend) can subscribe without colliding.
+ * trigger-inserted row on the Budget page the moment a payment is marked paid,
+ * and it arrives on the shared family broadcast channel (`useFamilyChannel`)
+ * rather than from a subscription in this file.
  */
 
 export interface ExpenseRange {
@@ -79,37 +78,11 @@ async function fetchExpenses(familyId: string, range: ExpenseRange): Promise<Exp
 
 export function useExpenses(range: ExpenseRange) {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["expenses", familyId, range.from, range.to],
     queryFn: () => fetchExpenses(familyId as string, range),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`expenses-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "expenses",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => {
-          // Partial key: refresh every mounted range (month view + trend).
-          void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const expenses = useMemo(() => query.data ?? [], [query.data]);
   return { ...query, expenses };

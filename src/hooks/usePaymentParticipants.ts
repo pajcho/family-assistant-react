@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import type { PaymentParticipant } from "@/types/database";
 import { supabase } from "@/lib/supabase";
@@ -30,34 +30,11 @@ export interface UsePaymentParticipantsResult {
 
 export function usePaymentParticipants(): UsePaymentParticipantsResult {
   const { familyId } = useProfile();
-  const queryClient = useQueryClient();
-  const channelKey = useId();
-
   const query = useQuery({
     queryKey: ["payment_participants", familyId],
     queryFn: () => fetchPaymentParticipants(familyId as string),
     enabled: !!familyId,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`payment-participants-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payment_participants",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["payment_participants", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const participants = useMemo(() => query.data ?? [], [query.data]);
 

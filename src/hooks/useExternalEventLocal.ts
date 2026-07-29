@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -12,7 +12,8 @@ import { useProfile } from "@/hooks/useProfile";
  * member + a push reminder - keyed by the stable `ical_uid` so it survives
  * re-syncs. Read as a `byUid` map (the whole family's set is small) and written
  * with `setLocal` (a partial upsert: pass only the field you're changing). The
- * client writes directly via RLS; realtime keeps other members in sync.
+ * client writes directly via RLS; the shared family broadcast channel
+ * (`useFamilyChannel`) keeps other members in sync.
  */
 
 async function fetchLocal(familyId: string): Promise<ExternalEventLocal[]> {
@@ -36,7 +37,6 @@ export function useExternalEventLocal() {
   const { familyId } = useProfile();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const channelKey = useId();
   const queryKey = ["external_event_local", familyId];
 
   const query = useQuery({
@@ -45,26 +45,6 @@ export function useExternalEventLocal() {
     enabled: !!familyId,
     staleTime: 30_000,
   });
-
-  useEffect(() => {
-    if (!familyId) return;
-    const channel = supabase
-      .channel(`external-local-${familyId}-${channelKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "external_event_local",
-          filter: `family_id=eq.${familyId}`,
-        },
-        () => queryClient.invalidateQueries({ queryKey: ["external_event_local", familyId] }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [familyId, queryClient, channelKey]);
 
   const byUid = useMemo(() => {
     const map = new Map<string, ExternalEventLocal>();
