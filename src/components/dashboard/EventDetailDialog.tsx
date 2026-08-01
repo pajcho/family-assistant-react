@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { CalendarDaysIcon, CalendarIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import {
+  BanknotesIcon,
+  CalendarDaysIcon,
+  CalendarIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,6 +15,11 @@ import {
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import {
+  LinkedMoneyChooser,
+  LinkedMoneyFlow,
+  type LinkedMoneyRequest,
+} from "@/components/common/LinkedMoneyFlow";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   EventDateTimeFields,
@@ -44,7 +54,7 @@ export type EventDetailDialogProps = {
   onEdit: (event: Event) => void;
 };
 
-type View = "detail" | "reschedule" | "cancel";
+type View = "detail" | "reschedule" | "cancel" | "money";
 
 export function EventDetailDialog({
   open,
@@ -59,6 +69,9 @@ export function EventDetailDialog({
   const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
   const [reason, setReason] = useState("");
   const [rescheduleReason, setRescheduleReason] = useState("");
+  // Money-add survives the dialog: picking an option closes it (the parent
+  // nulls `event`), but the flow below stays mounted with the captured link.
+  const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
 
   // Reseed the inline editors when the selected event changes underneath.
   useEffect(() => {
@@ -124,185 +137,210 @@ export function EventDetailDialog({
       ? "Pomeri događaj"
       : view === "cancel"
         ? "Otkaži događaj"
-        : "Detalji događaja";
+        : view === "money"
+          ? "Dodaj uz događaj"
+          : "Detalji događaja";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent>
-        <SheetStackHeader title={title} onBack={atRoot ? undefined : pop} />
+    <>
+      <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
+        <ResponsiveDialogContent>
+          <SheetStackHeader title={title} onBack={atRoot ? undefined : pop} />
 
-        {event ? (
-          view === "reschedule" ? (
-            <div className="space-y-4">
-              <EventDateTimeFields
-                value={dtValue}
-                onChange={setDtValue}
-                idPrefix="detail-reschedule"
+          {event ? (
+            view === "money" ? (
+              <LinkedMoneyChooser
+                onPick={(kind) => {
+                  onOpenChange(false);
+                  setMoneyRequest({ kind, link: { kind: "event", id: event.id } });
+                }}
               />
-              <div className="space-y-2">
-                <Label htmlFor="detail-reschedule-reason">Razlog (opciono)</Label>
-                <Textarea
-                  id="detail-reschedule-reason"
-                  value={rescheduleReason}
-                  onChange={(e) => setRescheduleReason(e.target.value)}
-                  placeholder="npr. termin pomeren zbog vremena"
-                  rows={2}
+            ) : view === "reschedule" ? (
+              <div className="space-y-4">
+                <EventDateTimeFields
+                  value={dtValue}
+                  onChange={setDtValue}
+                  idPrefix="detail-reschedule"
                 />
-              </div>
-            </div>
-          ) : view === "cancel" ? (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
-                kalendaru.
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="detail-cancel-reason">Razlog (opciono)</Label>
-                <Textarea
-                  id="detail-cancel-reason"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="npr. otkazano zbog kiše"
-                  rows={3}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                  <CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {event.name}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDate(event.date)}
-                  </p>
+                <div className="space-y-2">
+                  <Label htmlFor="detail-reschedule-reason">Razlog (opciono)</Label>
+                  <Textarea
+                    id="detail-reschedule-reason"
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="npr. termin pomeren zbog vremena"
+                    rows={2}
+                  />
                 </div>
               </div>
-
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-gray-400">Vreme:</dt>
-                    <dd className="font-medium text-gray-900 dark:text-gray-100">
-                      {formatEventTimeRange(event)}
-                    </dd>
+            ) : view === "cancel" ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
+                  kalendaru.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="detail-cancel-reason">Razlog (opciono)</Label>
+                  <Textarea
+                    id="detail-cancel-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="npr. otkazano zbog kiše"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
-                  {personIds.length > 0 ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Za:</dt>
-                      <dd>
-                        <MemberBadges personIds={personIds} />
-                      </dd>
-                    </div>
-                  ) : null}
-                  {event.description ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Opis:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {event.description}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {event.notes ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Napomene:</dt>
-                      <dd className="text-right font-medium text-amber-700 dark:text-amber-400">
-                        {event.notes}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {event.reschedule_reason ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Razlog pomeranja:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {event.reschedule_reason}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {event.canceled_at && event.cancel_reason ? (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-gray-500 dark:text-gray-400">Razlog otkazivanja:</dt>
-                      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {event.cancel_reason}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </div>
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {event.name}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {formatDate(event.date)}
+                    </p>
+                  </div>
+                </div>
 
-              {/* Linked payments - the event side of the payment link. Renders
+                <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500 dark:text-gray-400">Vreme:</dt>
+                      <dd className="font-medium text-gray-900 dark:text-gray-100">
+                        {formatEventTimeRange(event)}
+                      </dd>
+                    </div>
+                    {personIds.length > 0 ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Za:</dt>
+                        <dd>
+                          <MemberBadges personIds={personIds} />
+                        </dd>
+                      </div>
+                    ) : null}
+                    {event.description ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Opis:</dt>
+                        <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+                          {event.description}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {event.notes ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Napomene:</dt>
+                        <dd className="text-right font-medium text-amber-700 dark:text-amber-400">
+                          {event.notes}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {event.reschedule_reason ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Razlog pomeranja:</dt>
+                        <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+                          {event.reschedule_reason}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {event.canceled_at && event.cancel_reason ? (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-gray-500 dark:text-gray-400">Razlog otkazivanja:</dt>
+                        <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
+                          {event.cancel_reason}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
+
+                {/* Linked payments - the event side of the payment link. Renders
                   nothing (and only fetches while an event is selected) when
                   the event has none. */}
-              <EventPaymentsSection eventId={event.id} />
-            </div>
-          )
-        ) : null}
+                <EventPaymentsSection eventId={event.id} />
 
-        {view === "reschedule" ? (
-          <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={pop} disabled={saving}>
-              Nazad
-            </Button>
-            <Button
-              onClick={() => {
-                void handleRescheduleSave();
-              }}
-              disabled={saving || !dtValue.date}
-            >
-              Sačuvaj
-            </Button>
-          </ResponsiveDialogFooter>
-        ) : view === "cancel" ? (
-          <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={pop} disabled={saving}>
-              Nazad
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                void handleCancelConfirm();
-              }}
-              disabled={saving}
-            >
-              Otkaži događaj
-            </Button>
-          </ResponsiveDialogFooter>
-        ) : (
-          <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex justify-center gap-2 sm:justify-start">
-              <Button variant="ghost" size="sm" onClick={openReschedule}>
-                <CalendarDaysIcon className="mr-1 h-4 w-4" />
-                Pomeri
+                {/* Quick money-add pre-linked to this event (payment / expense /
+                  scanned receipt) - the "money" sub-view. */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => push("money")}
+                >
+                  <BanknotesIcon className="size-4" />
+                  Dodaj plaćanje ili trošak
+                </Button>
+              </div>
+            )
+          ) : null}
+
+          {view === "money" ? null : view === "reschedule" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={saving}>
+                Nazad
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                className="text-red-600 hover:text-red-700 dark:text-red-400"
-                onClick={openCancel}
+                onClick={() => {
+                  void handleRescheduleSave();
+                }}
+                disabled={saving || !dtValue.date}
               >
-                <XCircleIcon className="mr-1 h-4 w-4" />
-                Otkaži
+                Sačuvaj
               </Button>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            </ResponsiveDialogFooter>
+          ) : view === "cancel" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={saving}>
+                Nazad
+              </Button>
               <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => onOpenChange(false)}
+                variant="destructive"
+                onClick={() => {
+                  void handleCancelConfirm();
+                }}
+                disabled={saving}
               >
-                Zatvori
+                Otkaži događaj
               </Button>
-              <Button className="w-full sm:w-auto" onClick={handleEdit}>
-                Izmeni
-              </Button>
-            </div>
-          </ResponsiveDialogFooter>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+            </ResponsiveDialogFooter>
+          ) : (
+            <ResponsiveDialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex justify-center gap-2 sm:justify-start">
+                <Button variant="ghost" size="sm" onClick={openReschedule}>
+                  <CalendarDaysIcon className="mr-1 h-4 w-4" />
+                  Pomeri
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 dark:text-red-400"
+                  onClick={openCancel}
+                >
+                  <XCircleIcon className="mr-1 h-4 w-4" />
+                  Otkaži
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Zatvori
+                </Button>
+                <Button className="w-full sm:w-auto" onClick={handleEdit}>
+                  Izmeni
+                </Button>
+              </div>
+            </ResponsiveDialogFooter>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
+      <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+    </>
   );
 }

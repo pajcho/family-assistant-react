@@ -25,6 +25,24 @@ export type PaymentLinkValue = {
   id: string;
 };
 
+/**
+ * Stable string form of a link ("activity:<uuid>") - form dialogs key their
+ * reseed effects on this instead of the object, so an inline-constructed
+ * `initialLink` prop can't retrigger the reseed every render and wipe what
+ * the user already typed.
+ */
+export function paymentLinkSeed(link: PaymentLinkValue | null | undefined): string {
+  return link ? `${link.kind}:${link.id}` : "";
+}
+
+/** Inverse of `paymentLinkSeed`; empty string maps back to null. */
+export function parsePaymentLinkSeed(seed: string): PaymentLinkValue | null {
+  if (!seed) return null;
+  const idx = seed.indexOf(":");
+  if (idx <= 0) return null;
+  return { kind: seed.slice(0, idx) as PaymentLinkKind, id: seed.slice(idx + 1) };
+}
+
 export type PaymentLinkFieldProps = {
   value: PaymentLinkValue | null;
   onChange: (value: PaymentLinkValue | null) => void;
@@ -36,9 +54,21 @@ export type PaymentLinkFieldProps = {
    * dismissible per suggestion. Omit to disable (edit mode).
    */
   suggestFromName?: string;
+  /**
+   * Which link kinds are offered. Defaults to all three; the EXPENSE forms
+   * pass ["activity", "event"] since `expenses` has no birthday link.
+   */
+  kinds?: ReadonlyArray<PaymentLinkKind>;
+  /**
+   * Mobile sheet contexts: when set, the trigger opens the hosting dialog's
+   * full-sheet picker sub-view (see PaymentLinkPickerSheet) instead of the
+   * inline popover - a popover + software keyboard pushes the whole app
+   * off-screen there. Desktop forms omit it and keep the combobox.
+   */
+  onOpenPicker?: () => void;
 };
 
-type LinkOption = {
+export type LinkOption = {
   kind: PaymentLinkKind;
   id: string;
   name: string;
@@ -55,27 +85,15 @@ type LinkOption = {
 const EVENT_LOOKBACK_MONTHS = 3;
 
 /**
- * Jira-style issue-link combobox for the payment form ("Poveži sa"): one field
- * that is both a dropdown and an autocomplete. Closed it renders as an
- * input-shaped trigger showing the linked entity (type icon + name, with a ×
- * to unlink) or a placeholder; open it's a text input over the merged option
- * list - ALL activities (they're few) plus events from the last
- * {@link EVENT_LOOKBACK_MONTHS} months onward, both filtered client-side and
- * grouped "Aktivnosti" / "Događaji". Arrow keys move, Enter links, Escape
- * closes. Built on the existing Popover + Input primitives - no combobox
- * dependency.
- *
- * A linked event OLDER than the lookback window isn't in the options, so the
- * closed-state label falls back to `usePaymentLinkTarget` (by-id fetch).
+ * The pickable link targets, merged and ordered: ALL activities (they're few),
+ * events from the last {@link EVENT_LOOKBACK_MONTHS} months onward (canceled
+ * ones dropped - linking to something that isn't happening is never the
+ * intent), then birthdays soonest-first. Shared by the desktop combobox and
+ * the mobile picker sheet.
  */
-export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLinkFieldProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-  // `${kind}-${id}` of the dismissed suggestion - per suggestion, so a
-  // different match can still surface later while this one stays gone.
-  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
-
+export function usePaymentLinkOptions(
+  kinds: ReadonlyArray<PaymentLinkKind> = ["activity", "event", "birthday"],
+): LinkOption[] {
   const today = useToday();
   const activitiesQuery = useActivities();
   const activityParticipantsQuery = useActivityParticipants();
@@ -94,42 +112,78 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     return m;
   }, [activityParticipantsQuery.data]);
 
-  const options = useMemo<LinkOption[]>(() => {
-    const activities = (activitiesQuery.data ?? []).map(
-      (a): LinkOption => ({
-        kind: "activity",
-        id: a.id,
-        name: a.name,
-        personIds: byActivity.get(a.id) ?? [],
-      }),
-    );
-    // Canceled events drop out - linking a payment to something that isn't
-    // happening is never the intent (an existing link still displays fine).
-    const events = (eventsQuery.data ?? [])
-      .filter((e) => !e.canceled_at)
-      .map(
-        (e): LinkOption => ({
-          kind: "event",
-          id: e.id,
-          name: e.name,
-          date: e.date,
-          personIds: byEvent.get(e.id) ?? [],
-        }),
-      );
-    // Birthdays (poklon tracking) - soonest upcoming first, next date shown.
-    const birthdays = [...(birthdaysQuery.data ?? [])]
-      .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
-      .map(
-        (b): LinkOption => ({
-          kind: "birthday",
-          id: b.id,
-          name: b.name,
-          date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
-          personIds: [],
-        }),
-      );
+  const kindsKey = kinds.join(",");
+  return useMemo<LinkOption[]>(() => {
+    const wanted = new Set(kindsKey.split(","));
+    const activities = wanted.has("activity")
+      ? (activitiesQuery.data ?? []).map(
+          (a): LinkOption => ({
+            kind: "activity",
+            id: a.id,
+            name: a.name,
+            personIds: byActivity.get(a.id) ?? [],
+          }),
+        )
+      : [];
+    const events = wanted.has("event")
+      ? (eventsQuery.data ?? [])
+          .filter((e) => !e.canceled_at)
+          .map(
+            (e): LinkOption => ({
+              kind: "event",
+              id: e.id,
+              name: e.name,
+              date: e.date,
+              personIds: byEvent.get(e.id) ?? [],
+            }),
+          )
+      : [];
+    const birthdays = wanted.has("birthday")
+      ? [...(birthdaysQuery.data ?? [])]
+          .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
+          .map(
+            (b): LinkOption => ({
+              kind: "birthday",
+              id: b.id,
+              name: b.name,
+              date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
+              personIds: [],
+            }),
+          )
+      : [];
     return [...activities, ...events, ...birthdays];
-  }, [activitiesQuery.data, eventsQuery.data, birthdaysQuery.data, byActivity, byEvent]);
+  }, [kindsKey, activitiesQuery.data, eventsQuery.data, birthdaysQuery.data, byActivity, byEvent]);
+}
+
+/**
+ * Jira-style issue-link combobox for the payment form ("Poveži sa"): one field
+ * that is both a dropdown and an autocomplete. Closed it renders as an
+ * input-shaped trigger showing the linked entity (type icon + name, with a ×
+ * to unlink) or a placeholder; open it's a text input over the merged option
+ * list - ALL activities (they're few) plus events from the last
+ * {@link EVENT_LOOKBACK_MONTHS} months onward, both filtered client-side and
+ * grouped "Aktivnosti" / "Događaji". Arrow keys move, Enter links, Escape
+ * closes. Built on the existing Popover + Input primitives - no combobox
+ * dependency.
+ *
+ * A linked event OLDER than the lookback window isn't in the options, so the
+ * closed-state label falls back to `usePaymentLinkTarget` (by-id fetch).
+ */
+export function PaymentLinkField({
+  value,
+  onChange,
+  suggestFromName,
+  kinds,
+  onOpenPicker,
+}: PaymentLinkFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  // `${kind}-${id}` of the dismissed suggestion - per suggestion, so a
+  // different match can still surface later while this one stays gone.
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
+
+  const options = usePaymentLinkOptions(kinds);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -245,82 +299,94 @@ export function PaymentLinkField({ value, onChange, suggestFromName }: PaymentLi
     );
   };
 
+  const triggerLabel = selected ? (
+    <>
+      <PaymentLinkIcon kind={selected.kind} className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-left text-gray-900 dark:text-gray-100">
+        {selected.name}
+      </span>
+    </>
+  ) : (
+    <span className="flex-1 truncate text-left text-muted-foreground">
+      Aktivnost, događaj ili rođendan…
+    </span>
+  );
+  const triggerClassName = cn(
+    "flex h-9 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30",
+    "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+  );
+
   return (
     <div className="space-y-2">
       <Label htmlFor="payment-link">Poveži sa (opciono)</Label>
       <div className="relative">
-        {/* `modal` - required for touch scrolling of the option list when the
-            popover opens inside a dialog/drawer: the dialog's scroll-lock
-            otherwise swallows touchmove on the portaled popover content. */}
-        <Popover open={open} onOpenChange={handleOpenChange} modal>
-          <PopoverTrigger asChild>
-            <button
-              id="payment-link"
-              type="button"
-              className={cn(
-                "flex h-9 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-transparent pr-9 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm dark:bg-input/30",
-                "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-              )}
-            >
-              {selected ? (
-                <>
-                  <PaymentLinkIcon kind={selected.kind} className="size-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-left text-gray-900 dark:text-gray-100">
-                    {selected.name}
-                  </span>
-                </>
-              ) : (
-                <span className="flex-1 truncate text-left text-muted-foreground">
-                  Aktivnost, događaj ili rođendan…
-                </span>
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-(--radix-popover-trigger-width) p-2" align="start">
-            <Input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setActiveIndex(0);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Pretraži…"
-              aria-label="Pretraži aktivnosti i događaje"
-            />
-            <div className="mt-2 max-h-56 space-y-2 overflow-y-auto overscroll-contain">
-              {filtered.length === 0 ? (
-                <p className="px-2 py-1.5 text-sm text-muted-foreground">Nema rezultata.</p>
-              ) : (
-                <>
-                  {activityOptions.length > 0 ? (
-                    <div>
-                      <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Aktivnosti
-                      </p>
-                      <ul>{activityOptions.map(renderOption)}</ul>
-                    </div>
-                  ) : null}
-                  {eventOptions.length > 0 ? (
-                    <div>
-                      <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Događaji
-                      </p>
-                      <ul>{eventOptions.map(renderOption)}</ul>
-                    </div>
-                  ) : null}
-                  {birthdayOptions.length > 0 ? (
-                    <div>
-                      <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Rođendani
-                      </p>
-                      <ul>{birthdayOptions.map(renderOption)}</ul>
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        {onOpenPicker ? (
+          // Sheet context: the trigger delegates to the hosting dialog's
+          // full-sheet picker sub-view - no popover, no keyboard fight.
+          <button
+            id="payment-link"
+            type="button"
+            onClick={onOpenPicker}
+            className={triggerClassName}
+          >
+            {triggerLabel}
+          </button>
+        ) : (
+          /* `modal` - required for touch scrolling of the option list when the
+             popover opens inside a dialog/drawer: the dialog's scroll-lock
+             otherwise swallows touchmove on the portaled popover content. */
+          <Popover open={open} onOpenChange={handleOpenChange} modal>
+            <PopoverTrigger asChild>
+              <button id="payment-link" type="button" className={triggerClassName}>
+                {triggerLabel}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-(--radix-popover-trigger-width) p-2" align="start">
+              <Input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActiveIndex(0);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Pretraži…"
+                aria-label="Pretraži aktivnosti i događaje"
+              />
+              <div className="mt-2 max-h-56 space-y-2 overflow-y-auto overscroll-contain">
+                {filtered.length === 0 ? (
+                  <p className="px-2 py-1.5 text-sm text-muted-foreground">Nema rezultata.</p>
+                ) : (
+                  <>
+                    {activityOptions.length > 0 ? (
+                      <div>
+                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                          Aktivnosti
+                        </p>
+                        <ul>{activityOptions.map(renderOption)}</ul>
+                      </div>
+                    ) : null}
+                    {eventOptions.length > 0 ? (
+                      <div>
+                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                          Događaji
+                        </p>
+                        <ul>{eventOptions.map(renderOption)}</ul>
+                      </div>
+                    ) : null}
+                    {birthdayOptions.length > 0 ? (
+                      <div>
+                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                          Rođendani
+                        </p>
+                        <ul>{birthdayOptions.map(renderOption)}</ul>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         {value ? (
           <button
             type="button"

@@ -1,5 +1,11 @@
-import { useEffect } from "react";
-import { CakeIcon, ChevronRightIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useEffect, useMemo, useState } from "react";
+import {
+  BanknotesIcon,
+  CakeIcon,
+  ChevronRightIcon,
+  SparklesIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +20,10 @@ import {
   SheetActionsMobileTrigger,
   type SheetAction,
 } from "@/components/common/SheetActions";
+import { LinkedMoneyFlow, type LinkedMoneyRequest } from "@/components/common/LinkedMoneyFlow";
+import { LinkedPaymentsList } from "@/components/payments/LinkedPaymentsList";
 import { useDeleteBirthday } from "@/hooks/useBirthdays";
+import { usePaymentsList } from "@/hooks/usePayments";
 import type { Birthday, Event } from "@/types/database";
 import { currentAge, daysUntilBirthday } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
@@ -69,6 +78,16 @@ export function BirthdayDetailDialog({
     useSheetStack<View>(open, onOpenChange, "detail");
   const deleteMutation = useDeleteBirthday();
   const saving = deleteMutation.isPending;
+  const paymentsQuery = usePaymentsList();
+  // Money-add survives the dialog: the flow below stays mounted with the
+  // captured link after this dialog closes underneath it.
+  const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
+
+  // Poklon tracking - payments linked to this birthday.
+  const linkedPayments = useMemo(
+    () => (birthday ? (paymentsQuery.data ?? []).filter((p) => p.birthday_id === birthday.id) : []),
+    [paymentsQuery.data, birthday],
+  );
 
   // Back to the root view whenever the subject birthday changes underneath.
   useEffect(() => {
@@ -94,10 +113,22 @@ export function BirthdayDetailDialog({
   const actionItems: SheetAction[] = birthday
     ? [
         {
+          // Payments are the only money entry that can link a birthday
+          // (expenses have no birthday column), so no chooser - straight in.
+          key: "money",
+          label: "Dodaj plaćanje za poklon",
+          icon: BanknotesIcon,
+          onSelect: () =>
+            delegate(() =>
+              setMoneyRequest({ kind: "payment", link: { kind: "birthday", id: birthday.id } }),
+            ),
+        },
+        {
           key: "delete",
           label: "Obriši rođendan",
           icon: TrashIcon,
           destructive: true,
+          separatorBefore: true,
           onSelect: () => push("delete"),
         },
       ]
@@ -110,138 +141,152 @@ export function BirthdayDetailDialog({
     view === "actions" ? "Opcije" : view === "delete" ? "Obriši rođendan" : "Detalji rođendana";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent>
-        <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
-        {birthday ? (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-pink-100 dark:bg-pink-900/50">
-                <CakeIcon className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+    <>
+      <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
+        <ResponsiveDialogContent>
+          <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
+          {birthday ? (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-pink-100 dark:bg-pink-900/50">
+                  <CakeIcon className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {birthday.name}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Rođendan · {formatDate(birthday.birth_date)}
+                  </p>
+                </div>
+                {view === "detail" ? (
+                  <SheetActionsMobileTrigger
+                    items={actionItems}
+                    disabled={saving}
+                    onOpenActions={() => push("actions")}
+                  />
+                ) : null}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {birthday.name}
-                </p>
+
+              {view === "actions" ? (
+                <SheetActionList items={actionItems} disabled={saving} />
+              ) : view === "delete" ? (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Rođendan · {formatDate(birthday.birth_date)}
+                  Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
+                  opozvati.
                 </p>
-              </div>
-              {view === "detail" ? (
-                <SheetActionsMobileTrigger
-                  items={actionItems}
-                  disabled={saving}
-                  onOpenActions={() => push("actions")}
-                />
-              ) : null}
-            </div>
-
-            {view === "actions" ? (
-              <SheetActionList items={actionItems} disabled={saving} />
-            ) : view === "delete" ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
-                opozvati.
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      days <= 1
-                        ? "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {daysLabel(days)}
-                  </span>
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                    {ageLabel(nextAge)}
-                  </span>
-                </div>
-
-                <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
-                  {birthday.description ? (
-                    <div className="flex items-baseline justify-between gap-3 py-2.5">
-                      <span className="shrink-0 text-gray-500 dark:text-gray-400">Opis</span>
-                      <span className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {birthday.description}
-                      </span>
-                    </div>
-                  ) : null}
-                  {celebration ? (
-                    <button
-                      type="button"
-                      onClick={() => delegate(() => onOpenCelebration(celebration))}
-                      className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:text-pink-400"
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        days <= 1
+                          ? "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
                     >
-                      <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
-                      <span className="min-w-0 flex-1 truncate text-left">
-                        {celebration.name} · {formatDate(celebration.date)}
-                      </span>
-                      <ChevronRightIcon className="ml-auto size-4 shrink-0 text-gray-400 dark:text-gray-500" />
-                    </button>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
+                      {daysLabel(days)}
+                    </span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                      {ageLabel(nextAge)}
+                    </span>
+                  </div>
 
-        {view === "actions" ? (
-          <ResponsiveDialogFooter>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={pop} disabled={saving}>
-              Nazad
-            </Button>
-          </ResponsiveDialogFooter>
-        ) : view === "delete" ? (
-          <ResponsiveDialogFooter>
-            <Button variant="outline" onClick={pop} disabled={saving}>
-              Nazad
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                void handleDelete();
-              }}
-              disabled={saving}
-            >
-              Obriši
-            </Button>
-          </ResponsiveDialogFooter>
-        ) : (
-          <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
-            <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
-            {birthday && !celebration ? (
-              <>
+                  <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
+                    {birthday.description ? (
+                      <div className="flex items-baseline justify-between gap-3 py-2.5">
+                        <span className="shrink-0 text-gray-500 dark:text-gray-400">Opis</span>
+                        <span className="text-right font-medium text-gray-900 dark:text-gray-100">
+                          {birthday.description}
+                        </span>
+                      </div>
+                    ) : null}
+                    {celebration ? (
+                      <button
+                        type="button"
+                        onClick={() => delegate(() => onOpenCelebration(celebration))}
+                        className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:text-pink-400"
+                      >
+                        <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
+                        <span className="min-w-0 flex-1 truncate text-left">
+                          {celebration.name} · {formatDate(celebration.date)}
+                        </span>
+                        <ChevronRightIcon className="ml-auto size-4 shrink-0 text-gray-400 dark:text-gray-500" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {/* Poklon tracking: payments linked to this birthday (renders
+                    nothing without any) - adding one lives under Opcije →
+                    Dodaj plaćanje za poklon. */}
+                  <LinkedPaymentsList payments={linkedPayments} />
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {view === "actions" ? (
+            <ResponsiveDialogFooter>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={pop}
+                disabled={saving}
+              >
+                Nazad
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : view === "delete" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={saving}>
+                Nazad
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleDelete();
+                }}
+                disabled={saving}
+              >
+                Obriši
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : (
+            <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
+              <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
+              {birthday && !celebration ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                    onClick={() => delegate(() => onEdit(birthday))}
+                  >
+                    Izmeni
+                  </Button>
+                  {/* Contextual primary: the one thing a family does with an
+                    upcoming birthday that has no plan yet. */}
+                  <Button
+                    className="flex-[1.4] sm:flex-none"
+                    onClick={() => delegate(() => onOrganize(birthday))}
+                  >
+                    <CakeIcon className="size-4" />
+                    Organizuj proslavu
+                  </Button>
+                </>
+              ) : birthday ? (
                 <Button
-                  variant="outline"
                   className="flex-1 sm:flex-none"
                   onClick={() => delegate(() => onEdit(birthday))}
                 >
                   Izmeni
                 </Button>
-                {/* Contextual primary: the one thing a family does with an
-                    upcoming birthday that has no plan yet. */}
-                <Button
-                  className="flex-[1.4] sm:flex-none"
-                  onClick={() => delegate(() => onOrganize(birthday))}
-                >
-                  <CakeIcon className="size-4" />
-                  Organizuj proslavu
-                </Button>
-              </>
-            ) : birthday ? (
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => delegate(() => onEdit(birthday))}
-              >
-                Izmeni
-              </Button>
-            ) : null}
-          </ResponsiveDialogFooter>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+              ) : null}
+            </ResponsiveDialogFooter>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
+      <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+    </>
   );
 }

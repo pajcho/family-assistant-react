@@ -3,6 +3,7 @@ import type { ComponentType, FormEvent, SVGProps } from "react";
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
+  BanknotesIcon,
   ClockIcon,
   PencilSquareIcon,
   XCircleIcon,
@@ -16,6 +17,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimePicker } from "@/components/ui/time-picker";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import {
+  LinkedMoneyChooser,
+  LinkedMoneyFlow,
+  type LinkedMoneyKind,
+  type LinkedMoneyRequest,
+} from "@/components/common/LinkedMoneyFlow";
+import { ActivityPaymentsSection } from "@/components/activities/ActivityPaymentsSection";
 import { cn } from "@/lib/cn";
 import type { Activity, Profile } from "@/types/database";
 import { fallbackColorForProfile, type ResolvedActivityBlock } from "@/utils/activity";
@@ -25,13 +33,22 @@ import { useDeleteActivityOverride, useUpsertActivityOverride } from "@/hooks/us
 
 /**
  * Per-occurrence action menu opened by clicking a block in WeekGrid.
- * Four actions:
+ * The actions:
  *
  *   • Izmeni aktivnost      → close + delegate to parent's edit-activity dialog
  *   • Otkaži ovaj termin    → switch to inline cancel form (OPTIONAL reason),
  *                             upsert override { action: 'cancel', note } on confirm
  *   • Pomeri vreme…         → switch to inline reschedule form, upsert on save
  *   • Vrati u redovan termin → delete the existing override (rescheduled or canceled)
+ *   • Dodaj plaćanje ili trošak → "money" sub-view (payment / expense / receipt
+ *                             scan, each pre-linked to the activity) - picking
+ *                             one closes the sheet and hands over to
+ *                             `ActivityMoneyFlow`, mounted OUTSIDE the sheet so
+ *                             the form survives the sheet closing.
+ *
+ * Below the actions, the payments already linked to this activity are listed
+ * (`ActivityPaymentsSection` - same box as in the edit dialog, with the
+ * per-month attendance breakdown).
  *
  * The dialog stays open while submitting so toast errors surface inline;
  * `onOpenChange(false)` is only called on a successful action or cancel.
@@ -45,23 +62,46 @@ export type BlockActionDialogProps = {
   onEditActivity: (activity: Activity) => void;
 };
 
-export function BlockActionDialog({
+export function BlockActionDialog(props: BlockActionDialogProps) {
+  // Money-add survives the sheet: picking an option closes the sheet (the
+  // parent nulls `block`), but this wrapper stays mounted and keeps the
+  // requested form dialog open until it's saved or dismissed.
+  const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
+
+  return (
+    <>
+      <BlockActionSheet
+        {...props}
+        onAddMoney={(kind, activity) => {
+          props.onOpenChange(false);
+          setMoneyRequest({ kind, link: { kind: "activity", id: activity.id } });
+        }}
+      />
+      <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+    </>
+  );
+}
+
+function BlockActionSheet({
   open,
   onOpenChange,
   block,
   activity,
   person,
   onEditActivity,
-}: BlockActionDialogProps) {
+  onAddMoney,
+}: BlockActionDialogProps & {
+  onAddMoney: (kind: LinkedMoneyKind, activity: Activity) => void;
+}) {
   const upsertOverride = useUpsertActivityOverride();
   const deleteOverride = useDeleteActivityOverride();
 
   // The action list is the root view; the inline cancel / reschedule forms
-  // are sub-views on the sheet stack ("←" back header, dismissal returns to
-  // the list). Reset when the dialog opens for a new block so stale state
-  // from the previous occurrence doesn't carry over.
+  // and the money-add chooser are sub-views on the sheet stack ("←" back
+  // header, dismissal returns to the list). Reset when the dialog opens for a
+  // new block so stale state from the previous occurrence doesn't carry over.
   const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<
-    "actions" | "cancel" | "reschedule"
+    "actions" | "cancel" | "reschedule" | "money"
   >(open, onOpenChange, "actions");
   useEffect(() => {
     reset();
@@ -129,24 +169,30 @@ export function BlockActionDialog({
               ? "Otkaži termin"
               : view === "reschedule"
                 ? "Pomeri termin"
-                : (activity?.name ?? "Aktivnost")
+                : view === "money"
+                  ? "Dodaj uz aktivnost"
+                  : (activity?.name ?? "Aktivnost")
           }
           onBack={atRoot ? undefined : pop}
         />
 
-        {/* Subtitle: person + occurrence date + current state (if overridden) */}
-        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <span
-            className="inline-block size-2.5 rounded-full"
-            style={{ backgroundColor: color }}
-            aria-hidden="true"
-          />
-          <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
-          <span>·</span>
-          <span>{dateLabel}</span>
-        </div>
+        {/* Subtitle: person + occurrence date + current state (if overridden).
+            The money chooser is activity-level, so the occurrence context
+            (subtitle + time banner) stays out of it. */}
+        {view !== "money" ? (
+          <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <span
+              className="inline-block size-2.5 rounded-full"
+              style={{ backgroundColor: color }}
+              aria-hidden="true"
+            />
+            <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
+            <span>·</span>
+            <span>{dateLabel}</span>
+          </div>
+        ) : null}
 
-        {hasOverride ? (
+        {view === "money" ? null : hasOverride ? (
           <OverrideBanner
             action={overrideAction!}
             originalDate={originalDate}
@@ -171,22 +217,34 @@ export function BlockActionDialog({
         )}
 
         {view === "actions" ? (
-          <ActionList
-            isCanceled={isCanceled}
-            isRescheduled={isRescheduled}
-            saving={upsertOverride.isPending || deleteOverride.isPending}
-            onEdit={handleEdit}
-            onCancel={() => push("cancel")}
-            onReschedule={() => push("reschedule")}
-            onRestore={() => void handleRestore()}
-          />
+          <>
+            <ActionList
+              isCanceled={isCanceled}
+              isRescheduled={isRescheduled}
+              saving={upsertOverride.isPending || deleteOverride.isPending}
+              onEdit={handleEdit}
+              onCancel={() => push("cancel")}
+              onReschedule={() => push("reschedule")}
+              onRestore={() => void handleRestore()}
+              onAddMoney={activity ? () => push("money") : undefined}
+            />
+            {/* Payments already linked to this activity (with the per-month
+                attendance breakdown) - renders nothing while there are none. */}
+            {activity ? (
+              <div className="mt-4">
+                <ActivityPaymentsSection activity={activity} />
+              </div>
+            ) : null}
+          </>
+        ) : view === "money" && activity ? (
+          <LinkedMoneyChooser onPick={(kind) => onAddMoney(kind, activity)} />
         ) : view === "cancel" ? (
           <CancelForm
             saving={upsertOverride.isPending}
             onBack={pop}
             onConfirm={(note) => void handleCancel(note)}
           />
-        ) : (
+        ) : view === "reschedule" ? (
           <RescheduleForm
             block={block}
             originalDate={originalDate}
@@ -211,7 +269,7 @@ export function BlockActionDialog({
               }
             }}
           />
-        )}
+        ) : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
@@ -229,6 +287,8 @@ interface ActionListProps {
   onCancel: () => void;
   onReschedule: () => void;
   onRestore: () => void;
+  /** Opens the money-add chooser; absent when the activity isn't loaded. */
+  onAddMoney?: () => void;
 }
 
 function ActionList({
@@ -239,6 +299,7 @@ function ActionList({
   onCancel,
   onReschedule,
   onRestore,
+  onAddMoney,
 }: ActionListProps) {
   const hasOverride = isCanceled || isRescheduled;
 
@@ -273,6 +334,15 @@ function ActionList({
           onClick={onRestore}
           disabled={saving}
           tone="muted"
+        />
+      ) : null}
+      {onAddMoney ? (
+        <ActionRow
+          icon={BanknotesIcon}
+          label="Dodaj plaćanje ili trošak"
+          description="Poveži plaćanje, trošak ili skeniran račun sa aktivnošću"
+          onClick={onAddMoney}
+          disabled={saving}
         />
       ) : null}
     </div>

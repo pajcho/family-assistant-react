@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import {
   AdjustmentsHorizontalIcon,
@@ -58,6 +57,12 @@ export type ExpenseFormState = {
 
 /** Mobile sub-views the form's picker rows can open - see ExpenseFormDialog. */
 export type ExpenseFormViewKind = "category" | "details";
+
+/**
+ * Expenses link only to activities/events - `expenses` has no birthday column
+ * (payments cover the poklon case), so the link pickers must not offer them.
+ */
+export const EXPENSE_LINK_KINDS = ["activity", "event"] as const;
 
 function initialLink(expense: Expense | null | undefined): PaymentLinkValue | null {
   if (expense?.activity_id) return { kind: "activity", id: expense.activity_id };
@@ -163,19 +168,12 @@ export type ExpenseFormProps = {
    * while adding.
    */
   onRequestDelete?: () => void;
-  /**
-   * Autofocus the amount once per dialog open - the dialog gates it so a
-   * return from a sub-view (which remounts the form) doesn't re-pop the
-   * keyboard mid-entry.
-   */
-  autoFocusAmount?: boolean;
-  onAutoFocusedAmount?: () => void;
 };
 
 /**
  * Quick-add (and edit) form for an expense, optimised for a ~5-second entry:
- * a big autofocused amount field with the numeric keypad, then a tappable grid
- * of category chips, then "Dodaj".
+ * a big amount field with the numeric keypad (no autofocus - the member picks
+ * where to start), then a tappable grid of category chips, then "Dodaj".
  *
  * Mobile (<sm) - the "Brzi unos" layout: Iznos, Kategorija grid and Datum
  * (danas + Juče/Prekjuče chips) stay inline; Za koga, Beleška and Poveži sa
@@ -195,8 +193,6 @@ export function ExpenseForm({
   onScanReceipt,
   onOpenView,
   onRequestDelete,
-  autoFocusAmount = true,
-  onAutoFocusedAmount,
 }: ExpenseFormProps) {
   const isDesktop = useIsDesktop();
   const { categories } = useExpenseCategories();
@@ -204,44 +200,6 @@ export function ExpenseForm({
   // Offers the family's enabled currencies + this expense's own (so rows in a
   // since-disabled currency still edit cleanly).
   const currencies = useCurrencyOptions(expense?.currency);
-
-  // NOT the `autoFocus` attribute: that focuses while the vaul drawer is
-  // still animating in, so iOS "reveals" the field against mid-flight
-  // geometry and leaves the sheet's inner container over-scrolled (amount
-  // field ends up above the fold, and dragging to fix it dismisses the
-  // drawer). Focus only after the enter animation settles, without letting
-  // the browser scroll, then pin the sheet's scroll container to its top.
-  const amountRef = useRef<HTMLInputElement>(null);
-  // Mount-time decision + latest callback kept in refs so the once-per-mount
-  // effect below needs no deps.
-  const wantAutoFocusRef = useRef(autoFocusAmount);
-  const onAutoFocusedRef = useRef(onAutoFocusedAmount);
-  onAutoFocusedRef.current = onAutoFocusedAmount;
-  useEffect(() => {
-    if (!wantAutoFocusRef.current) return;
-    let focused: HTMLInputElement | null = null;
-    const timer = window.setTimeout(() => {
-      const input = amountRef.current;
-      if (!input) return;
-      input.focus({ preventScroll: true });
-      focused = input;
-      for (let node = input.parentElement; node; node = node.parentElement) {
-        if (node.scrollHeight > node.clientHeight) {
-          node.scrollTop = 0;
-          break;
-        }
-      }
-      onAutoFocusedRef.current?.();
-    }, 500);
-    return () => {
-      window.clearTimeout(timer);
-      // Hand focus back before the field disappears with the closing sheet.
-      // A focused element that's simply removed fires no focusout, so
-      // `useIsKeyboardOpen` would keep reading "keyboard up" and the mobile
-      // bottom nav would stay unmounted after the dialog is gone.
-      if (focused && document.activeElement === focused) focused.blur();
-    };
-  }, []);
 
   const isEdit = !!expense?.id;
 
@@ -288,7 +246,6 @@ export function ExpenseForm({
       <div className="relative">
         <Input
           id="expense-amount"
-          ref={amountRef}
           value={form.amount}
           onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
           inputMode="decimal"
@@ -419,9 +376,9 @@ export function ExpenseForm({
       {/* Scan a fiscal receipt instead of typing (add mode only). */}
       {scanButton}
 
-      {/* Amount - the star of the quick-add. Big, autofocused, numeric keypad.
-          RSD stays the default; picking EUR reveals the NBS-rate row (what gets
-          STORED as `amount` is always the converted RSD). */}
+      {/* Amount - the star of the quick-add. Big, numeric keypad. RSD stays
+          the default; picking EUR reveals the NBS-rate row (what gets STORED
+          as `amount` is always the converted RSD). */}
       {amountField}
 
       {/* Category - tappable grid of colored chips. */}
@@ -456,7 +413,11 @@ export function ExpenseForm({
       </div>
 
       {/* Optional link to an activity / event (reuses the payments combobox). */}
-      <PaymentLinkField value={form.link} onChange={(link) => setForm((s) => ({ ...s, link }))} />
+      <PaymentLinkField
+        value={form.link}
+        onChange={(link) => setForm((s) => ({ ...s, link }))}
+        kinds={EXPENSE_LINK_KINDS}
+      />
 
       <div className="flex items-center justify-between gap-2 pt-2">
         {onRequestDelete ? (

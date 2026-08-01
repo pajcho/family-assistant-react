@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useExpenses";
 import { isSufReceiptUrl, type ParsedReceipt, useReceiptImport } from "@/hooks/useReceiptImport";
 import { useProfile } from "@/hooks/useProfile";
+import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { ReceiptCamera } from "./ReceiptCamera";
 import { ReceiptPreview, type ReceiptSavePayload } from "./ReceiptPreview";
 import { decodeQrFromFile } from "./receiptQr";
@@ -40,12 +41,18 @@ export type ReceiptScanDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Jump the budget view to a YYYY-MM (the duplicate "show it" action). */
   onJumpToMonth?: (yyyymm: string) => void;
+  /**
+   * Pre-link the saved expense to an activity/event (the scan started from
+   * that context, e.g. "Skeniraj račun" in an activity detail).
+   */
+  link?: PaymentLinkValue | null;
 };
 
 export default function ReceiptScanDialog({
   open,
   onOpenChange,
   onJumpToMonth,
+  link,
 }: ReceiptScanDialogProps) {
   const { familyId } = useProfile();
   const importReceipt = useReceiptImport();
@@ -166,6 +173,8 @@ export default function ReceiptScanDialog({
         category_id: payload.category_id,
         person_id: payload.person_id,
         note: payload.note,
+        activity_id: link?.kind === "activity" ? link.id : null,
+        event_id: link?.kind === "event" ? link.id : null,
         items: receipt.items,
       },
       {

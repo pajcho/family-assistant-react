@@ -190,6 +190,9 @@ export type SaveReceiptExpenseInput = {
   category_id: string | null;
   person_id: string | null;
   note: string | null;
+  /** Optional activity/event link (scan started from that context) - XOR. */
+  activity_id?: string | null;
+  event_id?: string | null;
   items: ParsedReceiptItem[];
 };
 
@@ -227,6 +230,8 @@ export function useSaveReceiptExpense() {
           source: "receipt",
           merchant: input.merchant ?? null,
           receipt_url: input.receipt_url,
+          activity_id: input.activity_id ?? null,
+          event_id: input.event_id ?? null,
         })
         .select()
         .single();
