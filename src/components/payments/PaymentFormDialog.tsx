@@ -24,6 +24,7 @@ import {
   parsePaymentLinkSeed,
   type PaymentLinkValue,
 } from "@/components/payments/PaymentLinkField";
+import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import type { Payment } from "@/types/database";
 import { useToday } from "@/hooks/useToday";
 
@@ -51,7 +52,8 @@ export type PaymentFormDialogProps = {
   onSubmit: (payload: PaymentFormPayload) => void;
 };
 
-type View = { kind: "form" | PaymentFormViewKind };
+// "link" is one level deeper than the other sub-views: Više detalja → Poveži sa.
+type View = { kind: "form" | PaymentFormViewKind | "link" };
 
 /**
  * The "Brzi unos" shell around PaymentForm.
@@ -196,10 +198,24 @@ export function PaymentFormDialog({
               }}
             />
           </>
+        ) : view.kind === "link" ? (
+          <>
+            <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
+            <PaymentLinkPickerSheet
+              value={form.link}
+              onChange={(link) => setForm((s) => ({ ...s, link }))}
+              onDone={stack.pop}
+            />
+          </>
         ) : (
           <>
             <SheetStackHeader title="Detalji" onBack={stack.pop} />
-            <PaymentDetailsSheet form={form} setForm={setForm} isEdit={!!payment?.id} />
+            <PaymentDetailsSheet
+              form={form}
+              setForm={setForm}
+              isEdit={!!payment?.id}
+              onOpenLink={() => stack.push({ kind: "link" })}
+            />
           </>
         )}
       </ResponsiveDialogContent>

@@ -23,7 +23,9 @@ import {
   parsePaymentLinkSeed,
   type PaymentLinkValue,
 } from "@/components/payments/PaymentLinkField";
+import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import {
+  EXPENSE_LINK_KINDS,
   ExpenseForm,
   ExpensePersonSelect,
   initialExpenseFormState,
@@ -54,7 +56,8 @@ export type ExpenseFormDialogProps = {
   deleting?: boolean;
 };
 
-type View = { kind: "form" | ExpenseFormViewKind | "delete" };
+// "link" is one level deeper than the other sub-views: Detalji → Poveži sa.
+type View = { kind: "form" | ExpenseFormViewKind | "delete" | "link" };
 
 /**
  * The "Brzi unos" shell around <ExpenseForm> - same architecture as
@@ -217,6 +220,16 @@ export function ExpenseFormDialog({
               </Button>
             </ResponsiveDialogFooter>
           </>
+        ) : view.kind === "link" ? (
+          <>
+            <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
+            <PaymentLinkPickerSheet
+              value={form.link}
+              onChange={(link) => setForm((s) => ({ ...s, link }))}
+              onDone={stack.pop}
+              kinds={EXPENSE_LINK_KINDS}
+            />
+          </>
         ) : (
           <>
             <SheetStackHeader title="Detalji" onBack={stack.pop} />
@@ -237,6 +250,9 @@ export function ExpenseFormDialog({
               <PaymentLinkField
                 value={form.link}
                 onChange={(link) => setForm((s) => ({ ...s, link }))}
+                kinds={EXPENSE_LINK_KINDS}
+                // Mobile-only sub-view: full-sheet picker instead of a popover.
+                onOpenPicker={() => stack.push({ kind: "link" })}
               />
             </div>
           </>

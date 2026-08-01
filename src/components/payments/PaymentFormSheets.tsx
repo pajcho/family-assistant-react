@@ -136,7 +136,12 @@ export function PaymentTipSheet({
  * Više detalja: the rarely-used optional fields (Opis, Za koga, Poveži sa,
  * Podsetnik). Set values surface back on the picker row as a summary.
  */
-export function PaymentDetailsSheet({ form, setForm, isEdit }: SheetProps & { isEdit: boolean }) {
+export function PaymentDetailsSheet({
+  form,
+  setForm,
+  isEdit,
+  onOpenLink,
+}: SheetProps & { isEdit: boolean; onOpenLink: () => void }) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -159,6 +164,9 @@ export function PaymentDetailsSheet({ form, setForm, isEdit }: SheetProps & { is
         // Only suggest while ADDING - an edited payment's name matching its
         // own (or another) entity is noise, not a signal.
         suggestFromName={isEdit ? undefined : form.name}
+        // This sheet is mobile-only: the picker opens as a sub-view of the
+        // same dialog instead of a popover the keyboard would shove around.
+        onOpenPicker={onOpenLink}
       />
       <div className="space-y-2">
         <Label htmlFor="payment-reminder">Podsetnik</Label>

@@ -6,8 +6,6 @@ import {
   BanknotesIcon,
   ClockIcon,
   PencilSquareIcon,
-  QrCodeIcon,
-  WalletIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { format, parseISO } from "date-fns";
@@ -20,10 +18,11 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
-  ActivityMoneyFlow,
-  type ActivityMoneyKind,
-  type ActivityMoneyRequest,
-} from "@/components/activities/ActivityMoneyFlow";
+  LinkedMoneyChooser,
+  LinkedMoneyFlow,
+  type LinkedMoneyKind,
+  type LinkedMoneyRequest,
+} from "@/components/common/LinkedMoneyFlow";
 import { ActivityPaymentsSection } from "@/components/activities/ActivityPaymentsSection";
 import { cn } from "@/lib/cn";
 import type { Activity, Profile } from "@/types/database";
@@ -67,7 +66,7 @@ export function BlockActionDialog(props: BlockActionDialogProps) {
   // Money-add survives the sheet: picking an option closes the sheet (the
   // parent nulls `block`), but this wrapper stays mounted and keeps the
   // requested form dialog open until it's saved or dismissed.
-  const [moneyRequest, setMoneyRequest] = useState<ActivityMoneyRequest | null>(null);
+  const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
 
   return (
     <>
@@ -75,10 +74,10 @@ export function BlockActionDialog(props: BlockActionDialogProps) {
         {...props}
         onAddMoney={(kind, activity) => {
           props.onOpenChange(false);
-          setMoneyRequest({ kind, activity });
+          setMoneyRequest({ kind, link: { kind: "activity", id: activity.id } });
         }}
       />
-      <ActivityMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+      <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
     </>
   );
 }
@@ -92,7 +91,7 @@ function BlockActionSheet({
   onEditActivity,
   onAddMoney,
 }: BlockActionDialogProps & {
-  onAddMoney: (kind: ActivityMoneyKind, activity: Activity) => void;
+  onAddMoney: (kind: LinkedMoneyKind, activity: Activity) => void;
 }) {
   const upsertOverride = useUpsertActivityOverride();
   const deleteOverride = useDeleteActivityOverride();
@@ -238,7 +237,7 @@ function BlockActionSheet({
             ) : null}
           </>
         ) : view === "money" && activity ? (
-          <MoneyAddList activity={activity} onPick={onAddMoney} />
+          <LinkedMoneyChooser onPick={(kind) => onAddMoney(kind, activity)} />
         ) : view === "cancel" ? (
           <CancelForm
             saving={upsertOverride.isPending}
@@ -346,42 +345,6 @@ function ActionList({
           disabled={saving}
         />
       ) : null}
-    </div>
-  );
-}
-
-/**
- * The "money" sub-view: pick what to add for this activity. Each option closes
- * the sheet and opens the matching form pre-linked to the activity (see
- * `ActivityMoneyFlow`).
- */
-function MoneyAddList({
-  activity,
-  onPick,
-}: {
-  activity: Activity;
-  onPick: (kind: ActivityMoneyKind, activity: Activity) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <ActionRow
-        icon={BanknotesIcon}
-        label="Novo plaćanje"
-        description="Jednokratno ili mesečno - članarina, oprema…"
-        onClick={() => onPick("payment", activity)}
-      />
-      <ActionRow
-        icon={WalletIcon}
-        label="Novi trošak"
-        description="Upiši već potrošeno pravo u budžet"
-        onClick={() => onPick("expense", activity)}
-      />
-      <ActionRow
-        icon={QrCodeIcon}
-        label="Skeniraj račun"
-        description="Uvezi fiskalni račun preko QR koda"
-        onClick={() => onPick("scan", activity)}
-      />
     </div>
   );
 }

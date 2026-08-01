@@ -58,6 +58,12 @@ export type ExpenseFormState = {
 /** Mobile sub-views the form's picker rows can open - see ExpenseFormDialog. */
 export type ExpenseFormViewKind = "category" | "details";
 
+/**
+ * Expenses link only to activities/events - `expenses` has no birthday column
+ * (payments cover the poklon case), so the link pickers must not offer them.
+ */
+export const EXPENSE_LINK_KINDS = ["activity", "event"] as const;
+
 function initialLink(expense: Expense | null | undefined): PaymentLinkValue | null {
   if (expense?.activity_id) return { kind: "activity", id: expense.activity_id };
   if (expense?.event_id) return { kind: "event", id: expense.event_id };
@@ -407,7 +413,11 @@ export function ExpenseForm({
       </div>
 
       {/* Optional link to an activity / event (reuses the payments combobox). */}
-      <PaymentLinkField value={form.link} onChange={(link) => setForm((s) => ({ ...s, link }))} />
+      <PaymentLinkField
+        value={form.link}
+        onChange={(link) => setForm((s) => ({ ...s, link }))}
+        kinds={EXPENSE_LINK_KINDS}
+      />
 
       <div className="flex items-center justify-between gap-2 pt-2">
         {onRequestDelete ? (
