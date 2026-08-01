@@ -19,6 +19,11 @@ import {
   type PaymentFormViewKind,
 } from "@/components/payments/PaymentForm";
 import { PaymentDetailsSheet, PaymentTipSheet } from "@/components/payments/PaymentFormSheets";
+import {
+  paymentLinkSeed,
+  parsePaymentLinkSeed,
+  type PaymentLinkValue,
+} from "@/components/payments/PaymentLinkField";
 import type { Payment } from "@/types/database";
 import { useToday } from "@/hooks/useToday";
 
@@ -31,6 +36,11 @@ export type PaymentFormDialogProps = {
    * state). Ignored while editing.
    */
   initialName?: string;
+  /**
+   * Add mode only - pre-links the payment ("Dodaj plaćanje" from an activity
+   * detail). Ignored while editing.
+   */
+  initialLink?: PaymentLinkValue | null;
   /** Assignees of the payment being edited; empty/omitted when adding. */
   initialPersonIds?: string[];
   /** When the payment already has history, recurrence type radios get disabled. */
@@ -64,6 +74,7 @@ export function PaymentFormDialog({
   onOpenChange,
   payment,
   initialName,
+  initialLink,
   initialPersonIds,
   hasHistory,
   error,
@@ -73,9 +84,11 @@ export function PaymentFormDialog({
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
   const seedName = payment ? undefined : initialName;
+  const seedLink = payment ? null : (initialLink ?? null);
   const [form, setForm] = useState<PaymentFormState>(() => ({
     ...initialPaymentFormState(payment, initialPersonIds ?? [], today.str),
     ...(seedName ? { name: seedName } : null),
+    ...(seedLink ? { link: seedLink } : null),
   }));
   const ca = useCurrencyAmount(payment, form.due_date);
   const { reset: resetCurrency } = ca;
@@ -84,6 +97,8 @@ export function PaymentFormDialog({
   // Serialized so the effect reseeds when the assignees finish loading
   // without firing on every render from a fresh array reference.
   const personSeed = (initialPersonIds ?? []).join(",");
+  // Same trick for the link - callers build `initialLink` inline.
+  const linkSeed = paymentLinkSeed(seedLink);
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
   const todayRef = useRef(today.str);
   todayRef.current = today.str;
@@ -92,6 +107,7 @@ export function PaymentFormDialog({
   // every open - and while open, whenever the edited entity itself changes.
   useEffect(() => {
     if (!open) return;
+    const link = parsePaymentLinkSeed(linkSeed);
     setForm({
       ...initialPaymentFormState(
         payment,
@@ -99,10 +115,11 @@ export function PaymentFormDialog({
         todayRef.current,
       ),
       ...(payment ? null : initialName ? { name: initialName } : null),
+      ...(payment || !link ? null : { link }),
     });
     resetCurrency(payment?.currency, payment?.exchange_rate);
     resetStack();
-  }, [open, payment, initialName, personSeed, resetCurrency, resetStack]);
+  }, [open, payment, initialName, personSeed, linkSeed, resetCurrency, resetStack]);
 
   const title = payment ? "Izmeni plaćanje" : "Dodaj plaćanje";
   const view = stack.view;

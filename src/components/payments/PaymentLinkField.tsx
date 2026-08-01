@@ -25,6 +25,24 @@ export type PaymentLinkValue = {
   id: string;
 };
 
+/**
+ * Stable string form of a link ("activity:<uuid>") - form dialogs key their
+ * reseed effects on this instead of the object, so an inline-constructed
+ * `initialLink` prop can't retrigger the reseed every render and wipe what
+ * the user already typed.
+ */
+export function paymentLinkSeed(link: PaymentLinkValue | null | undefined): string {
+  return link ? `${link.kind}:${link.id}` : "";
+}
+
+/** Inverse of `paymentLinkSeed`; empty string maps back to null. */
+export function parsePaymentLinkSeed(seed: string): PaymentLinkValue | null {
+  if (!seed) return null;
+  const idx = seed.indexOf(":");
+  if (idx <= 0) return null;
+  return { kind: seed.slice(0, idx) as PaymentLinkKind, id: seed.slice(idx + 1) };
+}
+
 export type PaymentLinkFieldProps = {
   value: PaymentLinkValue | null;
   onChange: (value: PaymentLinkValue | null) => void;

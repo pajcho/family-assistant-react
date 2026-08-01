@@ -17,7 +17,12 @@ import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack"
 import { Amount } from "@/components/common/Amount";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
-import { PaymentLinkField } from "@/components/payments/PaymentLinkField";
+import {
+  PaymentLinkField,
+  paymentLinkSeed,
+  parsePaymentLinkSeed,
+  type PaymentLinkValue,
+} from "@/components/payments/PaymentLinkField";
 import {
   ExpenseForm,
   ExpensePersonSelect,
@@ -34,6 +39,11 @@ export type ExpenseFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Present when editing; null when adding. */
   expense?: Expense | null;
+  /**
+   * Add mode only - pre-links the expense ("Dodaj trošak" from an activity
+   * detail). Ignored while editing.
+   */
+  initialLink?: PaymentLinkValue | null;
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
@@ -58,6 +68,7 @@ export function ExpenseFormDialog({
   open,
   onOpenChange,
   expense,
+  initialLink,
   error,
   saving,
   onSubmit,
@@ -67,28 +78,32 @@ export function ExpenseFormDialog({
 }: ExpenseFormDialogProps) {
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
-  const [form, setForm] = useState<ExpenseFormState>(() =>
-    initialExpenseFormState(expense, today.str),
-  );
+  const seedLink = expense ? null : (initialLink ?? null);
+  const [form, setForm] = useState<ExpenseFormState>(() => ({
+    ...initialExpenseFormState(expense, today.str),
+    ...(seedLink ? { link: seedLink } : null),
+  }));
   const ca = useCurrencyAmount(expense, form.spent_on);
   const { reset: resetCurrency } = ca;
   const { reset: resetStack } = stack;
 
+  // Serialized so an inline-constructed `initialLink` can't retrigger the
+  // reseed below on every render and wipe a form mid-typing.
+  const linkSeed = paymentLinkSeed(seedLink);
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
   const todayRef = useRef(today.str);
   todayRef.current = today.str;
-  // Amount autofocus fires once per OPEN, not once per form mount - a return
-  // from the Detalji sub-view remounts the form and must not re-pop the
-  // keyboard.
-  const focusedOnceRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
-    focusedOnceRef.current = false;
-    setForm(initialExpenseFormState(expense, todayRef.current));
+    const link = parsePaymentLinkSeed(linkSeed);
+    setForm({
+      ...initialExpenseFormState(expense, todayRef.current),
+      ...(expense || !link ? null : { link }),
+    });
     resetCurrency(expense?.currency, expense?.exchange_rate);
     resetStack();
-  }, [open, expense, resetCurrency, resetStack]);
+  }, [open, expense, linkSeed, resetCurrency, resetStack]);
 
   const isEdit = !!expense?.id;
   const view = stack.view;
@@ -172,12 +187,6 @@ export function ExpenseFormDialog({
               onScanReceipt={onScanReceipt}
               onOpenView={(kind) => stack.push({ kind })}
               onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
-              // Editing opens on the existing values - don't yank focus (and the
-              // keyboard) onto the amount; that's a quick-ADD affordance only.
-              autoFocusAmount={!isEdit && !focusedOnceRef.current}
-              onAutoFocusedAmount={() => {
-                focusedOnceRef.current = true;
-              }}
             />
           </>
         ) : view.kind === "category" ? (
