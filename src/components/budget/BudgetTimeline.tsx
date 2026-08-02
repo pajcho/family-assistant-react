@@ -15,7 +15,8 @@ import { useToday } from "@/hooks/useToday";
 /**
  * The month's expenses ("troškovi") as a day-grouped timeline - the same
  * "Uskoro"/payments day grouping applied to the ledger (reuses
- * `AgendaDateHeader`). Every row opens a modal on tap: manual → the edit form
+ * `AgendaDateHeader`), but ordered newest day first (matching
+ * CategoryDetailSheet). Every row opens a modal on tap: manual → the edit form
  * (with delete inside it), receipt → the receipt detail, payment-sourced
  * ("iz plaćanja") → the underlying payment's detail popup. Events and
  * birthdays are intentionally NOT here - they don't cost anything, and any
@@ -146,7 +147,10 @@ export function BudgetTimeline({
       if (bucket) bucket.push(e);
       else byDay.set(e.spent_on, [e]);
     }
-    return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    // Newest day first - a ledger is read "what did we just spend", unlike
+    // the forward-looking agenda lists. Within a day the query's
+    // `created_at DESC` keeps the most recently entered row on top.
+    return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [expenses]);
 
   if (dayGroups.length === 0) {
