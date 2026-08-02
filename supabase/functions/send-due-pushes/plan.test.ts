@@ -317,7 +317,7 @@ describe("event reminders", () => {
     remind_minutes_before: 30,
   };
 
-  it("fires once per family member at start minus offset", () => {
+  it("fires once per subscribed family member at start minus offset", () => {
     const claims = planDispatch(
       input({
         // 15:30 UTC = 17:30 Belgrade = 18:00 minus 30 min
@@ -348,16 +348,19 @@ describe("event reminders", () => {
     ]);
   });
 
-  it("claims the slot even for a member without a push subscription", () => {
+  it("never claims a slot for a member without a push subscription", () => {
+    // Kid profiles have no auth.users row, so a claim for them trips the
+    // notification_log user_id FK - and the batched claim upsert then voids
+    // the whole tick. They must be filtered out before the claim.
     const claims = planDispatch(
       input({
         now: at("2026-07-29T15:30:00Z"),
-        profiles: [profile(PARENT)],
+        profiles: [profile(PARENT), profile(KID)],
+        subs: [sub(PARENT)],
         events: [event],
       }),
     );
-    expect(claims).toHaveLength(1);
-    expect(claims[0].subs).toEqual([]);
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
   });
 
   it("falls back to Europe/Belgrade when the member has no preferences row", () => {
@@ -482,6 +485,18 @@ describe("payment reminders", () => {
 
     expect(bodyFor(0, "2026-07-29")).toBe("Dospeva danas: 12.500 RSD.");
     expect(bodyFor(1, "2026-07-30")).toBe("Dospeva sutra: 12.500 RSD.");
+  });
+
+  it("never claims a slot for a member without a push subscription", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        profiles: [profile(PARENT), profile(KID)],
+        subs: [sub(PARENT)],
+        payments: [payment],
+      }),
+    );
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
   });
 
   it("skips payments without a reminder offset", () => {
@@ -756,5 +771,18 @@ describe("external reminders", () => {
     );
     expect(claims).toHaveLength(1);
     expect(claims[0].push?.title).toBe("Google događaj");
+  });
+
+  it("never claims a slot for a member without a push subscription", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:45:00Z"),
+        profiles: [profile(PARENT), profile(KID)],
+        subs: [sub(PARENT)],
+        externalLocals: [local],
+        externalEvents: [mirrored],
+      }),
+    );
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
   });
 });
