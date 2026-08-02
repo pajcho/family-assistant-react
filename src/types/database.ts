@@ -39,6 +39,13 @@ export interface Profile {
    */
   onboarding_hidden_at: string | null;
   /**
+   * Personalized bottom-nav: section keys for the free slots after the fixed
+   * "Danas" (see `navSections.ts`). NULL = never customized (default layout);
+   * `[]` = deliberately minimal bar. Read through `normalizeNavSlots` - raw
+   * values are not trusted. Per-user so the bar follows them across devices.
+   */
+  nav_slots: string[] | null;
+  /**
    * True iff this profile's `id` matches a row in `auth.users` - i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional

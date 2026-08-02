@@ -99,6 +99,46 @@ export function useProfile() {
 }
 
 /**
+ * Persist the personalized bottom-nav slots (see `navSections.ts`) on the
+ * current user's profile. Applied live from the "Uredi traku" editor, so the
+ * cache is updated optimistically and there is no success toast - the bar
+ * itself is the feedback. Errors roll back and toast.
+ */
+export function useUpdateNavSlots() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (slots: string[]): Promise<void> => {
+      if (!userId) throw new Error("Niste prijavljeni");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ nav_slots: slots })
+        .eq("id", userId);
+      if (error) throw new Error(error.message);
+    },
+    onMutate: async (slots) => {
+      await queryClient.cancelQueries({ queryKey: ["profile", userId] });
+      const previous = queryClient.getQueryData<ProfileWithFamily | null>(["profile", userId]);
+      queryClient.setQueryData<ProfileWithFamily | null>(["profile", userId], (old) =>
+        old ? { ...old, profile: { ...old.profile, nav_slots: slots } } : old,
+      );
+      return { previous };
+    },
+    onError: (e, _slots, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(["profile", userId], context.previous);
+      }
+      toast.error(e instanceof Error ? e.message : "Greška pri čuvanju rasporeda");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+    },
+  });
+}
+
+/**
  * Rename the current user's family. Admin-only at the DB level (the
  * "Admins can update own family" RLS policy) - the UI only exposes it on the
  * Porodica tab, which is itself admin-gated. Invalidates the profile cache so
