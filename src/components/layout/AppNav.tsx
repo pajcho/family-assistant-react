@@ -54,7 +54,8 @@ import { getDisplayName } from "@/utils/identity";
  * Desktop (>= lg): top sticky header with logo + the full inline nav + the
  * account dropdown (theme / settings / logout). No bottom bar.
  *
- * Mobile + tablet (< lg): top header is logo + the account dropdown.
+ * Mobile + tablet (< lg): top header is logo + search + the avatar, which
+ * navigates to the full-screen /profile page (no dropdown on touch).
  * Navigation lives in a fixed bottom tab bar - "Danas" is always the first
  * slot, the next three are the user's own picks (`profiles.nav_slots`,
  * normalized through {@link normalizeNavSlots}), and the fifth is "Meni".
@@ -146,6 +147,8 @@ function AppMenu() {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const { mode, setMode } = useTheme();
+  const matchRoute = useMatchRoute();
+  const onProfile = !!matchRoute({ to: "/profile" });
 
   const handleLogout = async () => {
     await signOut();
@@ -160,6 +163,54 @@ function AppMenu() {
   const displayName = getDisplayName(identity);
 
   return (
+    <>
+      {/* Below lg the avatar navigates to the full-screen /profile page -
+          a dropdown is cramped on touch, and the page has room for the
+          theme picker + settings links. Ring marks "you are here". */}
+      <Link
+        to="/profile"
+        aria-label="Profil"
+        className={cn(
+          "flex size-9 items-center justify-center rounded-full transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none active:scale-[0.98] lg:hidden dark:hover:bg-gray-800",
+          onProfile &&
+            "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-800",
+        )}
+      >
+        <UserAvatar {...identity} className="h-8 w-8" />
+      </Link>
+      <div className="hidden lg:block">
+        <AppDropdownMenu
+          identity={identity}
+          displayName={displayName}
+          email={user?.email ?? null}
+          mode={mode}
+          setMode={setMode}
+          onLogout={handleLogout}
+        />
+      </div>
+    </>
+  );
+}
+
+interface AppDropdownMenuProps {
+  identity: { firstName: string | null; lastName: string | null; email: string | null };
+  displayName: string;
+  email: string | null;
+  mode: ThemeMode;
+  setMode: (next: ThemeMode) => void;
+  onLogout: () => Promise<void>;
+}
+
+/** Desktop (lg+) account dropdown: identity, theme pill, settings, logout. */
+function AppDropdownMenu({
+  identity,
+  displayName,
+  email,
+  mode,
+  setMode,
+  onLogout,
+}: AppDropdownMenuProps) {
+  return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -167,15 +218,12 @@ function AppMenu() {
           aria-label="Korisnički meni"
           // Avatar doubles as the dropdown trigger - visually distinct from
           // a hamburger so the affordance reads as "your account / menu".
-          // The chevron is the explicit "this opens a dropdown" hint and
-          // sits next to the name on wider viewports where there's room.
+          // The chevron is the explicit "this opens a dropdown" hint.
           className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full pr-1.5 pl-0.5 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
         >
           <UserAvatar {...identity} className="h-8 w-8" />
-          <span className="hidden max-w-[12rem] truncate text-sm font-medium lg:inline">
-            {displayName}
-          </span>
-          <ChevronDownIcon className="hidden h-4 w-4 text-gray-500 lg:inline dark:text-gray-400" />
+          <span className="max-w-[12rem] truncate text-sm font-medium">{displayName}</span>
+          <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-64">
@@ -185,8 +233,8 @@ function AppMenu() {
             <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
               {displayName}
             </div>
-            {user?.email && displayName !== user.email ? (
-              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+            {email && displayName !== email ? (
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{email}</div>
             ) : null}
           </div>
         </div>
@@ -208,7 +256,7 @@ function AppMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
-            void handleLogout();
+            void onLogout();
           }}
           className="cursor-pointer"
         >
