@@ -275,20 +275,37 @@ async function claimAndSend(
     if (!firstByKey.has(key)) firstByKey.set(key, c);
   }
 
-  const { data: inserted, error } = await supabase
+  const upsertOpts = { onConflict: "user_id,kind,ref_id", ignoreDuplicates: true };
+  const rows = [...firstByKey.values()].map((c) => ({
+    user_id: c.userId,
+    kind: c.kind,
+    ref_id: c.refId,
+  }));
+
+  let { data: inserted, error } = await supabase
     .from("notification_log")
-    .upsert(
-      [...firstByKey.values()].map((c) => ({
-        user_id: c.userId,
-        kind: c.kind,
-        ref_id: c.refId,
-      })),
-      { onConflict: "user_id,kind,ref_id", ignoreDuplicates: true },
-    )
+    .upsert(rows, upsertOpts)
     .select("user_id, kind, ref_id");
 
+  // The batched claim is all-or-nothing: one row Postgres rejects voids every
+  // push of the tick (it did, in prod - kid profiles have no auth.users row
+  // behind notification_log's user_id FK). plan.ts no longer plans such rows,
+  // but if a bad one slips through again, re-claim row by row so it only
+  // costs itself, not the whole minute.
+  const claimErrors = new Map<string, string>();
   if (error) {
-    return claims.map((c) => ({ ...c.result, error: error.message }));
+    inserted = [];
+    for (const row of rows) {
+      const { data: one, error: rowError } = await supabase
+        .from("notification_log")
+        .upsert(row, upsertOpts)
+        .select("user_id, kind, ref_id");
+      if (rowError) {
+        claimErrors.set(claimKey(row.user_id, row.kind, row.ref_id), rowError.message);
+      } else if (one) {
+        inserted.push(...one);
+      }
+    }
   }
 
   // RETURNING on an ON CONFLICT DO NOTHING insert only yields the rows that
@@ -304,6 +321,11 @@ async function claimAndSend(
 
   await runWithConcurrency(claims, SEND_CONCURRENCY, async (claim, i) => {
     const key = claimKey(claim.userId, claim.kind, claim.refId);
+    const claimError = claimErrors.get(key);
+    if (claimError) {
+      results[i] = { ...claim.result, error: claimError };
+      return;
+    }
     if (!granted.has(key) || firstByKey.get(key) !== claim) {
       results[i] = { ...claim.result, status: "already_sent" };
       return;

@@ -12,10 +12,14 @@
 // Five dispatch paths, in the order their results are reported:
 //
 //   1. digests            - per user, at their configured morning/evening time
-//   2. event reminders    - per event, to the whole family
+//   2. event reminders    - per event, to subscribed family members
 //   3. payment reminders  - per unpaid payment, at each recipient's morning time
 //   4. activity reminders - per weekly-schedule occurrence, per participant
 //   5. external reminders - per mirrored Google event occurrence
+//
+// Paths 2-5 fan out per family member but only to members with a push
+// subscription (see `claimableSubs` for why that filter must happen before
+// the claim).
 //
 // Idempotency is unchanged: every planned push carries a
 // (user_id, kind, ref_id) key that `notification_log` protects with a UNIQUE
@@ -274,6 +278,25 @@ function buildIndex(input: DispatchInput): Index {
   };
 }
 
+/**
+ * Subscriptions for a family member who may take a `notification_log` claim,
+ * or null when the member must be skipped BEFORE the claim.
+ *
+ * Skipping sub-less members up front is load-bearing, not an optimisation:
+ * kid profiles exist in `profiles` without an `auth.users` row, and
+ * `notification_log.user_id` references `auth.users`, so a claim for them is
+ * rejected - and because `index.ts` claims the whole tick in one batched
+ * upsert, that single bad row used to void every push of the minute.
+ * Subscription holders are always safe: `push_subscriptions.user_id` carries
+ * the same FK, so a sub proves the auth user exists. Digests don't need this
+ * guard - their recipients come from `notification_preferences`, which is
+ * FK'd to `auth.users` too.
+ */
+function claimableSubs(idx: Index, memberId: string): PushSubRow[] | null {
+  const subs = idx.subsByUser.get(memberId);
+  return subs !== undefined && subs.length > 0 ? subs : null;
+}
+
 // ---------------------------------------------------------------------------
 // 1. Digests
 // ---------------------------------------------------------------------------
@@ -375,6 +398,8 @@ function planEventReminders(input: DispatchInput, idx: Index): PlannedClaim[] {
 
     const fire = eventLocalFireTime(ev.date, ev.start_time, ev.remind_minutes_before);
     for (const member of members) {
+      const subs = claimableSubs(idx, member.id);
+      if (!subs) continue; // no push -> not a recipient (see claimableSubs)
       const tz = idx.tzByUser.get(member.id) ?? FAMILY_TZ_DEFAULT;
       if (localDateISO(tz, input.now) !== fire.date || localTime(tz, input.now) !== fire.time) {
         continue;
@@ -392,7 +417,7 @@ function planEventReminders(input: DispatchInput, idx: Index): PlannedClaim[] {
           tag: `event-reminder-${ev.id}`,
         },
         emptyStatus: null,
-        subs: idx.subsByUser.get(member.id) ?? [],
+        subs,
       });
     }
   }
@@ -415,6 +440,8 @@ function planPaymentReminders(input: DispatchInput, idx: Index): PlannedClaim[] 
     const refId = `${pay.id}:${pay.due_date}`;
 
     for (const member of members) {
+      const subs = claimableSubs(idx, member.id);
+      if (!subs) continue; // no push -> not a recipient (see claimableSubs)
       // morning_time + timezone live on notification_preferences; a user who
       // never opened settings falls back to the table defaults.
       const pref = idx.prefsByUser.get(member.id);
@@ -437,7 +464,7 @@ function planPaymentReminders(input: DispatchInput, idx: Index): PlannedClaim[] 
           tag: `payment-reminder-${pay.id}-${pay.due_date}`,
         },
         emptyStatus: null,
-        subs: idx.subsByUser.get(member.id) ?? [],
+        subs,
       });
     }
   }
@@ -607,8 +634,8 @@ function planActivityOccurrence(
   const out: PlannedClaim[] = [];
 
   for (const recipient of idx.profilesByFamily.get(activity.family_id) ?? []) {
-    const subs = idx.subsByUser.get(recipient.id);
-    if (!subs || subs.length === 0) continue; // no push -> not a recipient
+    const subs = claimableSubs(idx, recipient.id);
+    if (!subs) continue; // no push -> not a recipient (see claimableSubs)
 
     const recipientTz = idx.tzByUser.get(recipient.id) ?? FAMILY_TZ_DEFAULT;
     if (
@@ -713,6 +740,8 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
     const refId = `${ev.ical_uid}:${ev.local_date}`;
 
     for (const member of members) {
+      const subs = claimableSubs(idx, member.id);
+      if (!subs) continue; // no push -> not a recipient (see claimableSubs)
       const tz = idx.tzByUser.get(member.id) ?? FAMILY_TZ_DEFAULT;
       if (localDateISO(tz, input.now) !== fire.date || localTime(tz, input.now) !== fire.time) {
         continue;
@@ -730,7 +759,7 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
           tag: `external-reminder-${refId}`,
         },
         emptyStatus: null,
-        subs: idx.subsByUser.get(member.id) ?? [],
+        subs,
       });
     }
   }
