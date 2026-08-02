@@ -1,8 +1,17 @@
+import { format } from "date-fns";
+
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
 import { formatDate } from "@/utils/date";
-import { formatEventTimeRange, isEventEnded } from "@/utils/event";
+import {
+  eventDurationLabel,
+  formatEventDateRange,
+  formatEventTimeRange,
+  isEventEnded,
+  isEventOngoing,
+  isMultiDayEvent,
+} from "@/utils/event";
 
 /**
  * Compact tappable row in the /events timeline - the PaymentTimelineRow
@@ -25,6 +34,8 @@ export function EventTimelineRow({
   const isCanceled = !!event.canceled_at;
   const isEnded = !isCanceled && isEventEnded(event);
   const dimmed = isCanceled || isEnded;
+  const isMulti = isMultiDayEvent(event);
+  const ongoing = !dimmed && isEventOngoing(event, format(new Date(), "yyyy-MM-dd"));
   const chip = isCanceled
     ? {
         label: "Otkazano",
@@ -35,9 +46,27 @@ export function EventTimelineRow({
           label: "Završeno",
           className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
         }
-      : null;
+      : ongoing
+        ? {
+            label: "U toku",
+            className:
+              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+          }
+        : null;
 
-  const meta = [showDate ? formatDate(event.date) : null, event.description?.trim() || null]
+  // Multi-day rows swap the right-hand time for the span length ("3 dana"),
+  // so the schedule moves into the meta line: the full dated time range when
+  // timed (it carries its own short dates), otherwise the date range.
+  const timeRange = formatEventTimeRange(event);
+  const multiMeta = isMulti
+    ? timeRange === "Ceo dan"
+      ? formatEventDateRange(event)
+      : timeRange
+    : null;
+  const meta = [
+    isMulti ? multiMeta : showDate ? formatDate(event.date) : null,
+    event.description?.trim() || null,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -60,7 +89,7 @@ export function EventTimelineRow({
           {event.name}
         </span>
         <span className="shrink-0 text-sm tabular-nums text-gray-500 dark:text-gray-400">
-          {formatEventTimeRange(event)}
+          {isMulti ? eventDurationLabel(event) : timeRange}
         </span>
       </span>
       {meta || personIds.length > 0 || chip ? (

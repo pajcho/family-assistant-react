@@ -25,7 +25,12 @@ import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useToday } from "@/hooks/useToday";
 import type { Event } from "@/types/database";
 import { addDays } from "@/utils/date";
-import { isEventEnded } from "@/utils/event";
+import { eventLastDay, isEventEnded } from "@/utils/event";
+
+/** Month filter that also catches multi-day spans crossing into the month. */
+function eventTouchesMonth(event: Event, month: string): boolean {
+  return event.date.slice(0, 7) <= month && month <= eventLastDay(event).slice(0, 7);
+}
 
 export const Route = createFileRoute("/_app/events")({
   component: EventsPage,
@@ -88,7 +93,7 @@ function EventsPage() {
           (e.notes ?? "").toLowerCase().includes(q)
         );
       }
-      if (selectedMonth !== ALL_MONTHS && !e.date.startsWith(selectedMonth)) return false;
+      if (selectedMonth !== ALL_MONTHS && !eventTouchesMonth(e, selectedMonth)) return false;
       if (hideCompleted && isEventEnded(e)) return false;
       return true;
     });
@@ -126,7 +131,7 @@ function EventsPage() {
         const personIds = byEvent.get(e.id) ?? [];
         if (!personIds.some((id) => selectedPersonIds.has(id))) return false;
       }
-      if (selectedMonth !== ALL_MONTHS && !e.date.startsWith(selectedMonth)) return false;
+      if (selectedMonth !== ALL_MONTHS && !eventTouchesMonth(e, selectedMonth)) return false;
       return isEventEnded(e);
     }).length;
   }, [events, searchActive, hideCompleted, selectedMonth, selectedPersonIds, byEvent]);

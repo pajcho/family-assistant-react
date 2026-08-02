@@ -23,6 +23,10 @@ export type DateQuickPickProps = {
   placeholder?: string;
   /** Chip direction: `future` (default, due dates) or `past` (spent-on). */
   mode?: "future" | "past";
+  /** Replace the built-in chips (e.g. duration presets for a span's end date). */
+  chips?: Array<{ label: string; iso: string }>;
+  /** Passed to the DatePicker - e.g. an end date can't precede its start. */
+  minDate?: string | null;
 };
 
 export function DateQuickPick({
@@ -32,11 +36,14 @@ export function DateQuickPick({
   onChange,
   placeholder,
   mode = "future",
+  chips: chipsOverride,
+  minDate,
 }: DateQuickPickProps) {
   const today = useToday();
   const firstOfNext = startOfMonth(addMonths(today.date, 1));
-  const chips: Array<{ label: string; iso: string }> =
-    mode === "past"
+  const chips: Array<{ label: string; iso: string }> = chipsOverride
+    ? chipsOverride
+    : mode === "past"
       ? [
           { label: "Danas", iso: today.str },
           { label: "Juče", iso: format(addDays(today.date, -1), "yyyy-MM-dd") },
@@ -52,7 +59,13 @@ export function DateQuickPick({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <DatePicker id={id} value={value} onChange={onChange} placeholder={placeholder} />
+      <DatePicker
+        id={id}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        minDate={minDate}
+      />
       <div className="flex flex-wrap gap-1.5">
         {chips.map((chip) => {
           const selected = value === chip.iso;

@@ -25,6 +25,8 @@ export type DatePickerProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  /** Disable selecting dates BEFORE this ISO date (the boundary itself stays selectable). */
+  minDate?: string | null;
   /** Disable selecting dates AFTER this ISO date (the boundary itself stays selectable). */
   maxDate?: string | null;
   /** Visually mark this ISO date on the calendar (e.g. the next recurring occurrence). */
@@ -47,11 +49,13 @@ export function DatePicker({
   id,
   className,
   disabled,
+  minDate,
   maxDate,
   markedDate,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => parseStateDate(value), [value]);
+  const minParsed = useMemo(() => parseStateDate(minDate ?? null), [minDate]);
   const maxParsed = useMemo(() => parseStateDate(maxDate ?? null), [maxDate]);
   const markedParsed = useMemo(() => parseStateDate(markedDate ?? null), [markedDate]);
   const displayText = selected ? format(selected, DISPLAY_FORMAT) : "";
@@ -111,7 +115,14 @@ export function DatePicker({
             formatters={{
               formatMonthDropdown: (date) => format(date, "LLL", { locale: srLocale }),
             }}
-            disabled={maxParsed ? { after: maxParsed } : undefined}
+            disabled={
+              minParsed || maxParsed
+                ? [
+                    ...(minParsed ? [{ before: minParsed }] : []),
+                    ...(maxParsed ? [{ after: maxParsed }] : []),
+                  ]
+                : undefined
+            }
             modifiers={markedParsed ? { nextDue: markedParsed } : undefined}
             modifiersClassNames={{
               nextDue:

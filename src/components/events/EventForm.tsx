@@ -1,5 +1,6 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -14,12 +15,16 @@ import { PickerRow } from "@/components/common/PickerRow";
 import { SwitchRow } from "@/components/common/SwitchRow";
 import type { Event } from "@/types/database";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useToday } from "@/hooks/useToday";
+import { addDays, daysBetween, parseDate } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 
 export type EventFormPayload = {
   name: string;
   description: string | null;
   date: string;
+  /** Inclusive last day for multi-day events; null = single-day. */
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
@@ -41,6 +46,9 @@ export type EventFormState = {
   name: string;
   description: string;
   date: string | null;
+  /** "Više dana" toggle; when on, `end_date` is the inclusive last day. */
+  multiDay: boolean;
+  end_date: string | null;
   allDay: boolean;
   start_time: string | null;
   end_time: string | null;
@@ -66,6 +74,8 @@ export function initialEventFormState(
     name: event?.name ?? defaults?.name ?? "",
     description: event?.description ?? defaults?.description ?? "",
     date: event?.date ?? defaults?.date ?? today,
+    multiDay: !!event?.end_date,
+    end_date: event?.end_date ?? null,
     // New events default to "not all day" (matching the Vue form);
     // existing events derive allDay from whether both times are null.
     allDay: event ? event.start_time == null && event.end_time == null : false,
@@ -111,16 +121,24 @@ export function EventForm({
 }: EventFormProps) {
   const isDesktop = useIsDesktop();
   const { members } = useFamilyMembers();
+  const today = useToday();
 
   const isEdit = !!event?.id;
 
+  // Multi-day span must end after it starts; the message renders inline and
+  // submit no-ops until it's fixed (the picker's minDate makes it hard to
+  // reach - only clearing the field gets here).
+  const endDateInvalid =
+    form.multiDay && (!form.end_date || !form.date || form.end_date <= form.date);
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.date) return;
+    if (!form.name.trim() || !form.date || endDateInvalid) return;
     const startTime = (form.start_time ?? "").trim();
     const endTime = (form.end_time ?? "").trim();
     const resolvedStart = form.allDay ? null : startTime || null;
     const resolvedEnd = form.allDay ? null : endTime || null;
+    const resolvedEndDate = form.multiDay ? form.end_date : null;
     // A full-form edit that shifts the date/time is itself a "move", so any
     // reschedule reason left over from an earlier "Pomeri" no longer matches
     // the new date - drop it (mirrors how the Pomeri dialogs overwrite it).
@@ -128,12 +146,14 @@ export function EventForm({
     const scheduleChanged =
       !!event &&
       (form.date !== event.date ||
+        resolvedEndDate !== (event.end_date ?? null) ||
         resolvedStart !== (event.start_time ?? null) ||
         resolvedEnd !== (event.end_time ?? null));
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim() || null,
       date: form.date,
+      end_date: resolvedEndDate,
       start_time: resolvedStart,
       end_time: resolvedEnd,
       notes: form.notes.trim() || null,
@@ -146,10 +166,64 @@ export function EventForm({
     });
   };
 
+  // Start-date change keeps a multi-day span's LENGTH: moving the first day
+  // drags the last day along (same rule as the "Pomeri" reschedule).
+  const handleDateChange = (value: string | null) => {
+    setForm((s) => {
+      if (!s.multiDay || !s.end_date || !s.date || !value) return { ...s, date: value };
+      const span = Math.max(1, daysBetween(parseDate(s.date), parseDate(s.end_date)));
+      return { ...s, date: value, end_date: format(addDays(parseDate(value), span), "yyyy-MM-dd") };
+    });
+  };
+
+  // Toggling on seeds a valid end (kept from an earlier toggle when still
+  // after the start, else start + 1). Toggling off keeps it in state so a
+  // round-trip restores it; the payload drops it while the switch is off.
+  const handleMultiDayToggle = (multiDay: boolean) => {
+    setForm((s) => {
+      if (!multiDay) return { ...s, multiDay };
+      const base = s.date ?? today.str;
+      const end =
+        s.end_date && s.end_date > base
+          ? s.end_date
+          : format(addDays(parseDate(base), 1), "yyyy-MM-dd");
+      return { ...s, multiDay, end_date: end };
+    });
+  };
+
+  // Duration chips for the end date - "3 dana" picks span start + 2.
+  const spanBase = form.date ?? today.str;
+  const durationChips = [2, 3, 5, 7].map((days) => ({
+    label: `${days} dana`,
+    iso: format(addDays(parseDate(spanBase), days - 1), "yyyy-MM-dd"),
+  }));
+  const endMinDate = form.date ? format(addDays(parseDate(form.date), 1), "yyyy-MM-dd") : null;
+
+  const endDateField = form.multiDay ? (
+    <div className="space-y-1">
+      <DateQuickPick
+        id="end_date"
+        label="Poslednji dan *"
+        value={form.end_date}
+        onChange={(value) => setForm((s) => ({ ...s, end_date: value }))}
+        placeholder="Izaberi datum"
+        minDate={endMinDate}
+        chips={durationChips}
+      />
+      {endDateInvalid ? (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          Izaberi poslednji dan (posle prvog).
+        </p>
+      ) : null}
+    </div>
+  ) : null;
+
   const timeGrid = !form.allDay ? (
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label htmlFor="start_time">Početak (opciono)</Label>
+        <Label htmlFor="start_time">
+          {form.multiDay ? "Početak (prvi dan)" : "Početak (opciono)"}
+        </Label>
         <TimePicker
           id="start_time"
           value={form.start_time}
@@ -158,7 +232,9 @@ export function EventForm({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="end_time">Završetak (opciono)</Label>
+        <Label htmlFor="end_time">
+          {form.multiDay ? "Završetak (poslednji dan)" : "Završetak (opciono)"}
+        </Label>
         <TimePicker
           id="end_time"
           value={form.end_time}
@@ -230,14 +306,25 @@ export function EventForm({
         </div>
         <DateQuickPick
           id="date"
-          label="Datum *"
+          label={form.multiDay ? "Prvi dan *" : "Datum *"}
           value={form.date}
-          onChange={(value) => setForm((s) => ({ ...s, date: value }))}
+          onChange={handleDateChange}
           placeholder="Izaberi datum"
         />
         <SwitchRow
+          title="Više dana"
+          description="Konferencija, odmor, put - traje do poslednjeg dana."
+          checked={form.multiDay}
+          onChange={handleMultiDayToggle}
+        />
+        {endDateField}
+        <SwitchRow
           title="Ceo dan"
-          description="Bez početka i završetka - događaj važi ceo dan."
+          description={
+            form.multiDay
+              ? "Bez vremena početka i završetka - važe celi dani."
+              : "Bez početka i završetka - događaj važi ceo dan."
+          }
           checked={form.allDay}
           onChange={(allDay) => setForm((s) => ({ ...s, allDay }))}
         />
@@ -281,14 +368,27 @@ export function EventForm({
         onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
       />
       <div className="space-y-2">
-        <Label htmlFor="date">Datum *</Label>
+        <Label htmlFor="date">{form.multiDay ? "Prvi dan *" : "Datum *"}</Label>
         <DatePicker
           id="date"
           value={form.date}
-          onChange={(value) => setForm((s) => ({ ...s, date: value }))}
+          onChange={handleDateChange}
           placeholder="Izaberi datum"
         />
       </div>
+      <div className="flex items-center gap-2">
+        <input
+          id="multi_day"
+          type="checkbox"
+          checked={form.multiDay}
+          onChange={(e) => handleMultiDayToggle(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
+        />
+        <Label htmlFor="multi_day" className="cursor-pointer font-normal">
+          Više dana
+        </Label>
+      </div>
+      {endDateField}
       <div className="flex items-center gap-2">
         <input
           id="all_day"

@@ -62,6 +62,15 @@ export interface Event {
   name: string;
   description: string | null;
   date: string;
+  /**
+   * Inclusive LAST day of a multi-day event (konferencija, odmor, ekskurzija);
+   * NULL = single-day. When set it is strictly after `date` (DB CHECK). Times
+   * apply to the span edges - `start_time` starts the first day, `end_time`
+   * ends the last day; both NULL = whole days. The agenda expands the span
+   * into per-day slices client-side (`eventDaySlices`), mirroring how the
+   * gcal sync expands multi-day Google events into one row per day.
+   */
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   notes: string | null;

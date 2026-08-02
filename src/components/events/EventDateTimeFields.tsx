@@ -2,6 +2,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { TimePicker } from "@/components/ui/time-picker";
 import type { Event } from "@/types/database";
+import { formatDate } from "@/utils/date";
+import { eventDurationLabel, isMultiDayEvent, shiftedEventEndDate } from "@/utils/event";
 
 /**
  * The date + time portion of an event, shared by the create/edit form's
@@ -37,6 +39,23 @@ export function dateTimeValueToColumns(value: EventDateTimeValue): {
     start_time: value.allDay ? null : start || null,
     end_time: value.allDay ? null : (value.end_time ?? "").trim() || null,
   };
+}
+
+/**
+ * Under the reschedule fields of a multi-day event: the whole span moves and
+ * keeps its length (see `shiftedEventEndDate`), so spell out where it will
+ * now end. Renders nothing for single-day events. Shared by both event
+ * detail dialogs' "Pomeri" views.
+ */
+export function RescheduleSpanNote({ event, newDate }: { event: Event; newDate: string | null }) {
+  if (!isMultiDayEvent(event)) return null;
+  const newEnd = newDate ? shiftedEventEndDate(event, newDate) : null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Višednevni događaj ({eventDurationLabel(event)}) - pomera se ceo period
+      {newEnd ? `, novi poslednji dan: ${formatDate(newEnd)}` : ""}.
+    </p>
+  );
 }
 
 export type EventDateTimeFieldsProps = {
