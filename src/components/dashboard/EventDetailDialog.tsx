@@ -23,6 +23,7 @@ import {
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   EventDateTimeFields,
+  RescheduleSpanNote,
   type EventDateTimeValue,
   dateTimeValueToColumns,
   eventToDateTimeValue,
@@ -30,8 +31,13 @@ import {
 import { EventPaymentsSection } from "@/components/events/EventPaymentsSection";
 import type { Event } from "@/types/database";
 import { useUpdateEvent } from "@/hooks/useEvents";
-import { formatDate } from "@/utils/date";
-import { formatEventTimeRange } from "@/utils/event";
+import {
+  eventDurationLabel,
+  formatEventDateRange,
+  formatEventTimeRange,
+  isMultiDayEvent,
+  shiftedEventEndDate,
+} from "@/utils/event";
 
 /**
  * Shared event detail popup opened from the agenda tabs (via
@@ -118,11 +124,14 @@ export function EventDetailDialog({
 
   const handleRescheduleSave = async () => {
     if (!event || !dtValue.date) return;
+    const columns = dateTimeValueToColumns(dtValue);
     try {
       await updateEvent.mutateAsync({
         id: event.id,
         payload: {
-          ...dateTimeValueToColumns(dtValue),
+          ...columns,
+          // A multi-day span moves as a whole - the new end keeps the length.
+          end_date: shiftedEventEndDate(event, columns.date),
           reschedule_reason: rescheduleReason.trim() || null,
         },
       });
@@ -162,6 +171,7 @@ export function EventDetailDialog({
                   onChange={setDtValue}
                   idPrefix="detail-reschedule"
                 />
+                <RescheduleSpanNote event={event} newDate={dtValue.date} />
                 <div className="space-y-2">
                   <Label htmlFor="detail-reschedule-reason">Razlog (opciono)</Label>
                   <Textarea
@@ -201,13 +211,21 @@ export function EventDetailDialog({
                       {event.name}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {formatDate(event.date)}
+                      {formatEventDateRange(event)}
                     </p>
                   </div>
                 </div>
 
                 <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                   <dl className="space-y-2 text-sm">
+                    {isMultiDayEvent(event) ? (
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500 dark:text-gray-400">Trajanje:</dt>
+                        <dd className="font-medium text-gray-900 dark:text-gray-100">
+                          {eventDurationLabel(event)}
+                        </dd>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between">
                       <dt className="text-gray-500 dark:text-gray-400">Vreme:</dt>
                       <dd className="font-medium text-gray-900 dark:text-gray-100">

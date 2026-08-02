@@ -10,6 +10,7 @@ import type {
 } from "@/types/database";
 import { normalizeTime, resolveBlocksInRange, type ResolvedActivityBlock } from "@/utils/activity";
 import { expandBirthdayOccurrences } from "@/utils/birthday";
+import { eventDaySlices } from "@/utils/event";
 import { expandPaymentOccurrences } from "@/utils/payment";
 import { useActivities } from "@/hooks/useActivities";
 import { useActivityOverrides } from "@/hooks/useActivityOverrides";
@@ -61,6 +62,18 @@ export type AgendaItem =
       sortKey: number;
       event: Event;
       isAllDay: boolean;
+      /**
+       * THIS day's slice of the event (normalized HH:mm) - for a multi-day
+       * span only the first day carries `startTime` and only the last day
+       * `endTime`, so continuation days land in the all-day row. Single-day
+       * events carry their times verbatim. Renderers must read these, not
+       * `event.start_time`/`event.end_time`.
+       */
+      startTime: string | null;
+      endTime: string | null;
+      /** 1-based day position within the span - `1/1` for single-day events. */
+      dayIndex: number;
+      totalDays: number;
       personIds: string[];
     }
   | {
@@ -93,7 +106,8 @@ export function agendaItemKey(item: AgendaItem): string {
     case "activity":
       return `activity-${item.block.scheduleId}-${item.block.date}-${item.block.personId}`;
     case "event":
-      return `event-${item.event.id}`;
+      // Date suffix: a multi-day event expands into one item per covered day.
+      return `event-${item.event.id}-${item.date}`;
     case "payment":
       return `payment-${item.payment.id}-${item.occurrenceDate}`;
     case "birthday":
@@ -175,17 +189,26 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
     }
 
     // ── Events ──────────────────────────────────────────────────────────
+    // Multi-day events expand into one item per covered day (clamped to the
+    // window), the same way the gcal sync expands Google events into per-day
+    // rows: day 1 timed (when it has a start), the rest all-day continuations.
     for (const event of eventsQuery.data ?? []) {
       if (event.canceled_at) continue;
-      const startTime = event.start_time ? normalizeTime(event.start_time) : null;
-      out.push({
-        kind: "event",
-        date: event.date,
-        sortKey: startTime ? timeToMin(startTime) : ALL_DAY_SORT_KEY,
-        event,
-        isAllDay: !startTime,
-        personIds: byEvent.get(event.id) ?? [],
-      });
+      for (const slice of eventDaySlices(event, from, to)) {
+        const startTime = slice.startTime ? normalizeTime(slice.startTime) : null;
+        out.push({
+          kind: "event",
+          date: slice.date,
+          sortKey: startTime ? timeToMin(startTime) : ALL_DAY_SORT_KEY,
+          event,
+          isAllDay: !startTime,
+          startTime,
+          endTime: slice.endTime ? normalizeTime(slice.endTime) : null,
+          dayIndex: slice.dayIndex,
+          totalDays: slice.totalDays,
+          personIds: byEvent.get(event.id) ?? [],
+        });
+      }
     }
 
     // ── External (Google) events ────────────────────────────────────────

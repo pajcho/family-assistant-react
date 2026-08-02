@@ -29,6 +29,8 @@ export type CreateEventInput = {
   name: string;
   description?: string | null;
   date: string;
+  /** Inclusive last day for multi-day events; null/omitted = single-day. */
+  end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   notes?: string | null;
@@ -45,6 +47,7 @@ export type UpdateEventInput = Partial<
     | "name"
     | "description"
     | "date"
+    | "end_date"
     | "start_time"
     | "end_time"
     | "notes"
@@ -84,7 +87,12 @@ async function fetchEvents(familyId: string, filters: EventListFilters): Promise
     .eq("family_id", familyId)
     .order("date", { ascending: true })
     .order("start_time", { ascending: true });
-  if (filters.from) q = q.gte("date", filters.from);
+  // Span-overlap window: an event belongs to [from, to] when its whole span
+  // [date, end_date ?? date] intersects it - date <= to AND last day >= from.
+  // Since end_date > date whenever set, "last day >= from" is exactly
+  // "date >= from OR end_date >= from", which PostgREST can express directly
+  // (COALESCE isn't available in filters).
+  if (filters.from) q = q.or(`date.gte.${filters.from},end_date.gte.${filters.from}`);
   if (filters.to) q = q.lte("date", filters.to);
   const { data, error } = await q;
   if (error) return [];

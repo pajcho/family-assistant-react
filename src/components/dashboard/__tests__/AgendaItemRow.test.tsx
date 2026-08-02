@@ -27,6 +27,7 @@ const event: Event = {
   name: "Ročište",
   description: null,
   date: "2026-07-28",
+  end_date: null,
   start_time: "11:00",
   end_time: null,
   notes: null,
@@ -82,6 +83,10 @@ const eventItem: AgendaItem = {
   sortKey: 0,
   event,
   isAllDay: false,
+  startTime: "11:00",
+  endTime: null,
+  dayIndex: 1,
+  totalDays: 1,
   personIds: [],
 };
 
@@ -128,5 +133,89 @@ describe("AgendaItemRow time gutter", () => {
     const gutter = gutterOf(screen.getByRole("button"));
     expect(gutter).toHaveTextContent("19. jul");
     expect(gutter.className).not.toContain("hidden");
+  });
+});
+
+describe("AgendaItemRow multi-day event slices", () => {
+  const multiEvent: Event = {
+    ...event,
+    id: "e2",
+    name: "Odmor",
+    date: "2026-07-27",
+    end_date: "2026-07-29",
+    start_time: "09:00",
+    end_time: "15:00",
+  };
+  const sliceBase = {
+    kind: "event" as const,
+    event: multiEvent,
+    sortKey: 0,
+    personIds: [] as string[],
+  };
+
+  it("labels the first day 'od HH:mm' with its span position", () => {
+    render(
+      <ul>
+        <AgendaItemRow
+          item={{
+            ...sliceBase,
+            date: "2026-07-27",
+            isAllDay: false,
+            startTime: "09:00",
+            endTime: null,
+            dayIndex: 1,
+            totalDays: 3,
+          }}
+          onClick={() => {}}
+        />
+      </ul>,
+    );
+    const row = screen.getByRole("button");
+    expect(gutterOf(row)).toHaveTextContent("od 09:00");
+    expect(row).toHaveTextContent("Dan 1/3");
+  });
+
+  it("labels middle days 'ceo dan'", () => {
+    render(
+      <ul>
+        <AgendaItemRow
+          item={{
+            ...sliceBase,
+            date: "2026-07-28",
+            isAllDay: true,
+            startTime: null,
+            endTime: null,
+            dayIndex: 2,
+            totalDays: 3,
+          }}
+          onClick={() => {}}
+        />
+      </ul>,
+    );
+    const row = screen.getByRole("button");
+    expect(gutterOf(row)).toHaveTextContent("ceo dan");
+    expect(row).toHaveTextContent("Dan 2/3");
+  });
+
+  it("labels the last day 'do HH:mm'", () => {
+    render(
+      <ul>
+        <AgendaItemRow
+          item={{
+            ...sliceBase,
+            date: "2026-07-29",
+            isAllDay: true,
+            startTime: null,
+            endTime: "15:00",
+            dayIndex: 3,
+            totalDays: 3,
+          }}
+          onClick={() => {}}
+        />
+      </ul>,
+    );
+    const row = screen.getByRole("button");
+    expect(gutterOf(row)).toHaveTextContent("do 15:00");
+    expect(row).toHaveTextContent("Dan 3/3");
   });
 });

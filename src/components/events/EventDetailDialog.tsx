@@ -7,6 +7,7 @@ import {
   TrashIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ import {
 } from "@/components/common/SheetActions";
 import {
   EventDateTimeFields,
+  RescheduleSpanNote,
   type EventDateTimeValue,
   dateTimeValueToColumns,
   eventToDateTimeValue,
@@ -39,8 +41,15 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { useDeleteEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
-import { formatDate } from "@/utils/date";
-import { formatEventTimeRange, isEventEnded } from "@/utils/event";
+import {
+  eventDurationLabel,
+  formatEventDateRange,
+  formatEventTimeRange,
+  isEventEnded,
+  isEventOngoing,
+  isMultiDayEvent,
+  shiftedEventEndDate,
+} from "@/utils/event";
 
 /**
  * Detail popup for one event on the /events page - the payments-sheet
@@ -114,11 +123,14 @@ export function EventDetailDialog({
 
   const handleRescheduleSave = async () => {
     if (!event || !dtValue.date) return;
+    const columns = dateTimeValueToColumns(dtValue);
     try {
       await updateEvent.mutateAsync({
         id: event.id,
         payload: {
-          ...dateTimeValueToColumns(dtValue),
+          ...columns,
+          // A multi-day span moves as a whole - the new end keeps the length.
+          end_date: shiftedEventEndDate(event, columns.date),
           reschedule_reason: rescheduleReason.trim() || null,
         },
       });
@@ -212,11 +224,22 @@ export function EventDetailDialog({
         label: "Završeno",
         className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
       });
+    } else if (isEventOngoing(event, format(new Date(), "yyyy-MM-dd"))) {
+      statusBadges.push({
+        label: "U toku",
+        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+      });
     }
     statusBadges.push({
-      label: formatDate(event.date),
+      label: formatEventDateRange(event),
       className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
     });
+    if (isMultiDayEvent(event)) {
+      statusBadges.push({
+        label: eventDurationLabel(event),
+        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+      });
+    }
   }
 
   const title =
@@ -281,6 +304,7 @@ export function EventDetailDialog({
                     onChange={setDtValue}
                     idPrefix="event-detail-reschedule"
                   />
+                  <RescheduleSpanNote event={event} newDate={dtValue.date} />
                   <div className="space-y-2">
                     <Label htmlFor="event-detail-reschedule-reason">Razlog (opciono)</Label>
                     <Textarea

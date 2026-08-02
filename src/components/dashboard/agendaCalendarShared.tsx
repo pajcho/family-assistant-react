@@ -57,11 +57,15 @@ export function timedRange(item: AgendaItem): { startTime: string; endTime: stri
   if (item.kind === "activity") {
     return { startTime: item.block.startTime, endTime: item.block.endTime };
   }
-  if (
-    (item.kind === "event" || item.kind === "external") &&
-    !item.isAllDay &&
-    item.event.start_time
-  ) {
+  if (item.kind === "event" && !item.isAllDay && item.startTime) {
+    // Per-day slice times (a multi-day span keeps its end time on the LAST
+    // day, so day 1 is open-ended here and gets the synthetic hour).
+    return {
+      startTime: item.startTime,
+      endTime: item.endTime ?? minutesToTime(timeToMinutes(item.startTime) + DEFAULT_EVENT_MINUTES),
+    };
+  }
+  if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
     const startTime = normalizeTime(item.event.start_time);
     const endTime = item.event.end_time
       ? normalizeTime(item.event.end_time)
@@ -375,6 +379,35 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
   }
 
   // All-day event.
+  if (item.kind === "event") {
+    // Multi-day continuations annotate their place in the span: the last day
+    // shows when it wraps up ("do 15:00"), the rest their position ("2/5").
+    const suffix = item.endTime
+      ? `do ${item.endTime}`
+      : item.totalDays > 1
+        ? `${item.dayIndex}/${item.totalDays}`
+        : null;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
+      >
+        <CalendarIcon className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+          {item.event.name}
+        </span>
+        {suffix ? (
+          <span className="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
+            {suffix}
+          </span>
+        ) : null}
+        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+      </button>
+    );
+  }
+
+  // Unreachable in practice (activities are never all-day) - minimal fallback.
   return (
     <button
       type="button"
@@ -382,12 +415,6 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
       className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
     >
       <CalendarIcon className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-      <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
-        {item.kind === "event" ? item.event.name : ""}
-      </span>
-      {item.kind === "event" && item.personIds.length > 0 ? (
-        <MemberBadges personIds={item.personIds} size="xs" />
-      ) : null}
     </button>
   );
 }

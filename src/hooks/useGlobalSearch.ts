@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 import { formatAmount } from "@/utils/format";
 import { formatDate } from "@/utils/date";
+import { formatEventDateRange } from "@/utils/event";
 
 /**
  * Family-scoped global search (the ⌘K dialog) - parallel `ilike` name/title
@@ -57,7 +58,7 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
       .limit(MAX_PER_GROUP),
     supabase
       .from("events")
-      .select("id,name,date")
+      .select("id,name,date,end_date")
       .eq("family_id", familyId)
       .ilike("name", pattern)
       .order("date", { ascending: false })
@@ -105,7 +106,13 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
     results.push({ kind: "activity", id: row.id, title: row.name, subtitle: null });
   }
   for (const row of events.data ?? []) {
-    results.push({ kind: "event", id: row.id, title: row.name, subtitle: formatDate(row.date) });
+    results.push({
+      kind: "event",
+      id: row.id,
+      title: row.name,
+      // Multi-day events surface their whole span ("05.08. - 07.08.2026").
+      subtitle: formatEventDateRange(row),
+    });
   }
   for (const row of payments.data ?? []) {
     results.push({

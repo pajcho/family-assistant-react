@@ -5,14 +5,7 @@ import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
-import type {
-  Activity,
-  Birthday,
-  Event,
-  ExternalCalendarEvent,
-  Payment,
-  Profile,
-} from "@/types/database";
+import type { Activity, Birthday, ExternalCalendarEvent, Payment, Profile } from "@/types/database";
 import {
   fallbackColorForProfile,
   normalizeTime,
@@ -74,14 +67,7 @@ export function AgendaItemRow({
         />
       );
     case "event":
-      return (
-        <EventRow
-          event={item.event}
-          isAllDay={item.isAllDay}
-          personIds={item.personIds}
-          onClick={onClick}
-        />
-      );
+      return <EventRow item={item} onClick={onClick} />;
     case "payment":
       // A payment occurrence that ISN'T the series' live one (keyed on
       // payment.due_date) is a future repetition ("nadolazeće") - only the Uskoro
@@ -165,19 +151,26 @@ function ActivityRow({
 }
 
 function EventRow({
-  event,
-  isAllDay,
-  personIds,
+  item,
   onClick,
 }: {
-  event: Event;
-  isAllDay: boolean;
-  personIds: string[];
+  item: Extract<AgendaItem, { kind: "event" }>;
   onClick: () => void;
 }) {
-  const startTime = event.start_time ? normalizeTime(event.start_time) : null;
-  const endTime = event.end_time ? normalizeTime(event.end_time) : null;
-  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}-${endTime}` : (startTime ?? "");
+  const { event, personIds } = item;
+  // Per-day slice times: a multi-day span shows "od 09:00" on its first day,
+  // "ceo dan" through the middle and "do 15:00" on its last (mirrors how the
+  // expanded Google events read); single-day rows keep the old labels.
+  const isMulti = item.totalDays > 1;
+  const timeLabel = item.startTime
+    ? item.endTime
+      ? `${item.startTime}-${item.endTime}`
+      : isMulti
+        ? `od ${item.startTime}`
+        : item.startTime
+    : item.endTime
+      ? `do ${item.endTime}`
+      : "ceo dan";
   const isPast = isEventEnded(event);
 
   return (
@@ -194,6 +187,11 @@ function EventRow({
             </>
           ) : null}
         </span>
+        {isMulti ? (
+          <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-blue-700 uppercase dark:bg-blue-500/15 dark:text-blue-300">
+            Dan {item.dayIndex}/{item.totalDays}
+          </span>
+        ) : null}
         {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
       </button>
     </li>
