@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AdjustmentsHorizontalIcon,
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
+  ChevronRightIcon,
   ListBulletIcon,
+  ScissorsIcon,
   TagIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -23,9 +25,21 @@ import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
 import { ExpensePersonSelect } from "@/components/budget/ExpenseForm";
 import { PickerRow } from "@/components/common/PickerRow";
+import {
+  ReceiptItemsSelect,
+  sumLineTotals,
+  type SelectableReceiptLine,
+} from "@/components/budget/receipt/ReceiptItemsSelect";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
-import { useDeleteExpense, useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
+import {
+  ClaimConflictError,
+  useDeleteExpense,
+  useExpenseItems,
+  useReceiptContext,
+  useSplitReceiptExpense,
+  useUpdateExpense,
+} from "@/hooks/useExpenses";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense, ReceiptItem } from "@/types/database";
 import { serbianPlural, stavkeLabel } from "@/utils/plural";
@@ -39,6 +53,12 @@ import { cn } from "@/lib/cn";
  * but category / person / note are editable - the same "recategorize an
  * automatic row" affordance payments get.
  *
+ * Split support: when this expense's lines are complete (they sum to its
+ * amount), "Podeli račun" opens a sub-view where some lines move onto a NEW
+ * expense - amounts adjust on both sides, ledger total unchanged. When the
+ * receipt has several expenses (or unclaimed lines), a "Deo računa" block
+ * shows the whole-receipt picture with a jump to the sibling parts.
+ *
  * Mirrors the "Brzi unos" expense form: on mobile the editable bits collapse
  * into picker rows (Kategorija / Stavke / Više detalja) that open sub-views on
  * the sheet stack; on desktop everything stays inline. The delete confirm is
@@ -51,9 +71,15 @@ export type ReceiptExpenseDialogProps = {
   expense: Expense | null;
   /** Hide the delete affordance (read-only contexts). Defaults to true. */
   allowDelete?: boolean;
+  /**
+   * Swap the dialog to another expense of the same receipt (the sibling jump
+   * in "Deo računa"). Hosts that can't re-target the dialog omit it - the
+   * sibling rows then render non-interactive.
+   */
+  onOpenExpense?: (expense: Expense) => void;
 };
 
-type View = "detail" | "category" | "details" | "items" | "delete";
+type View = "detail" | "category" | "details" | "items" | "split" | "delete";
 
 function formatDate(spentOn: string): string {
   const [y, m, d] = spentOn.split("-");
@@ -138,6 +164,7 @@ export function ReceiptExpenseDialog({
   onOpenChange,
   expense,
   allowDelete = true,
+  onOpenExpense,
 }: ReceiptExpenseDialogProps) {
   const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
     useSheetStack<View>(open, onOpenChange, "detail");
@@ -147,13 +174,22 @@ export function ReceiptExpenseDialog({
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const refreshItems = useReceiptRefresh();
+  const splitExpense = useSplitReceiptExpense();
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
+  // Whole-receipt picture (all lines + sibling expenses) - powers "Deo
+  // računa" and the split guardrails. Lazy like the items.
+  const { context: receiptContext } = useReceiptContext(
+    open && expense ? expense.receipt_id : null,
+  );
 
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [refreshInfo, setRefreshInfo] = useState<string | null>(null);
+  const [splitSelected, setSplitSelected] = useState<ReadonlySet<number>>(new Set());
+  const [splitCategoryId, setSplitCategoryId] = useState<string | null>(null);
+  const [splitError, setSplitError] = useState<string | null>(null);
   // Local echo of the server-claimed receipt_checked_at: the expense prop is a
   // snapshot from the list, so a refresh attempt in THIS dialog won't update it
   // until the invalidated query lands - the local claim bridges that gap.
@@ -169,6 +205,9 @@ export function ReceiptExpenseDialog({
       setNote(expense.note ?? "");
       setError(null);
       setRefreshInfo(null);
+      setSplitSelected(new Set());
+      setSplitCategoryId(null);
+      setSplitError(null);
       setLocalClaimAt(null);
       setNow(Date.now());
     }
@@ -232,6 +271,62 @@ export function ReceiptExpenseDialog({
     }
   };
 
+  // --- Split ("Podeli račun") ---
+  // Only when carving by lines keeps the ledger exact: at least two lines,
+  // and their totals sum to precisely this expense's amount.
+  const splitLines: SelectableReceiptLine[] = useMemo(
+    () =>
+      items.map((it) => ({ idx: it.idx, name: it.name, quantity: it.quantity, total: it.total })),
+    [items],
+  );
+  const splitEligible = useMemo(() => {
+    if (!expense?.receipt_id || items.length < 2) return false;
+    const cents = items.reduce((sum, it) => sum + Math.round(it.total * 100), 0);
+    return cents === Math.round(expense.amount * 100);
+  }, [expense, items]);
+  const splitSum = useMemo(
+    () => sumLineTotals(splitLines, splitSelected),
+    [splitLines, splitSelected],
+  );
+  const splitValid = splitSelected.size > 0 && splitSelected.size < splitLines.length;
+
+  const handleSplit = () => {
+    if (!expense || !splitValid) return;
+    setSplitError(null);
+    splitExpense.mutate(
+      {
+        expenseId: expense.id,
+        claimIdxs: [...splitSelected].sort((a, b) => a - b),
+        category_id: splitCategoryId,
+        person_id: null,
+        note: null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Račun je podeljen na dva troška");
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          setSplitError(
+            err instanceof ClaimConflictError
+              ? err.message
+              : err.message || "Greška pri deljenju računa.",
+          );
+        },
+      },
+    );
+  };
+
+  // --- "Deo računa" (whole-receipt picture) ---
+  const siblings = useMemo(
+    () => (receiptContext?.expenses ?? []).filter((e) => e.id !== expense?.id),
+    [receiptContext, expense],
+  );
+  const totalLineCount = receiptContext?.lines.length ?? 0;
+  const showPartInfo =
+    !!receiptContext &&
+    (siblings.length > 0 || (totalLineCount > 0 && items.length < totalLineCount));
+
   const handleDelete = async () => {
     if (!expense) return;
     try {
@@ -265,6 +360,74 @@ export function ReceiptExpenseDialog({
       onRefresh={handleRefreshItems}
     />
   );
+
+  // "This is one part of a bigger receipt": the whole-receipt line + the
+  // sibling parts (tappable when the host can re-target the dialog) + any
+  // still-unclaimed remainder.
+  const freeLineCount = receiptContext
+    ? receiptContext.lines.filter((l) => !l.expense_id).length
+    : 0;
+  const partInfoBlock =
+    showPartInfo && receiptContext ? (
+      <div className="space-y-2 rounded-xl bg-violet-50/60 p-3 dark:bg-violet-900/10">
+        <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+          Deo računa · {items.length} od {totalLineCount} {stavkeLabel(totalLineCount)} · ceo račun{" "}
+          <Amount value={receiptContext.receipt.total_amount} />
+        </p>
+        {siblings.length > 0 ? (
+          <ul className="space-y-1">
+            {siblings.map((sibling) => {
+              const category = sibling.category_id
+                ? categories.find((c) => c.id === sibling.category_id)
+                : null;
+              const Icon = categoryIcon(category?.icon);
+              const color = category?.color ?? "#9ca3af";
+              const inner = (
+                <>
+                  <span
+                    className="flex size-6 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${color}22` }}
+                  >
+                    <Icon className="size-3.5" style={{ color }} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-left text-gray-700 dark:text-gray-200">
+                    {category?.name ?? "Bez kategorije"}
+                    {sibling.note?.trim() ? ` · ${sibling.note.trim()}` : ""}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
+                    <Amount value={sibling.amount} />
+                  </span>
+                </>
+              );
+              return (
+                <li key={sibling.id}>
+                  {onOpenExpense ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-sm transition-colors hover:bg-violet-100/60 dark:hover:bg-violet-900/20"
+                      onClick={() => onOpenExpense(sibling)}
+                    >
+                      {inner}
+                      <ChevronRightIcon className="size-3.5 shrink-0 text-gray-400" />
+                    </button>
+                  ) : (
+                    <div className="flex w-full items-center gap-2 px-1.5 py-1 text-sm">
+                      {inner}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {freeLineCount > 0 ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {freeLineCount} {stavkeLabel(freeLineCount)} sa računa još nije dodato - skeniraj račun
+            ponovo da ih dodaš.
+          </p>
+        ) : null}
+      </div>
+    ) : null;
 
   const detailParts: string[] = [];
   if (personName) detailParts.push(personName);
@@ -317,7 +480,9 @@ export function ReceiptExpenseDialog({
           ? "Detalji"
           : view === "items"
             ? "Stavke"
-            : expense?.merchant || "Račun";
+            : view === "split"
+              ? "Podeli račun"
+              : expense?.merchant || "Račun";
 
   return (
     <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
@@ -353,6 +518,65 @@ export function ReceiptExpenseDialog({
               pop();
             }}
           />
+        ) : view === "split" ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Izaberi stavke koje prelaze na novi trošak. Iznosi se preračunavaju sami - zbir oba
+              dela ostaje tačno ceo račun.
+            </p>
+            <ReceiptItemsSelect
+              lines={splitLines}
+              selected={splitSelected}
+              onToggle={(idx) => {
+                setSplitSelected((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(idx)) next.delete(idx);
+                  else next.add(idx);
+                  return next;
+                });
+              }}
+              onSetAll={(select) => {
+                // "All" would empty the original - cap at all-but-one.
+                setSplitSelected(
+                  select ? new Set(splitLines.slice(0, -1).map((l) => l.idx)) : new Set(),
+                );
+              }}
+              disabled={splitExpense.isPending}
+            />
+            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">
+                  Novi trošak ({splitSelected.size} {stavkeLabel(splitSelected.size)})
+                </span>
+                <span className="font-medium tabular-nums">
+                  <Amount value={splitSum} />
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Ostaje na ovom trošku</span>
+                <span className="font-medium tabular-nums">
+                  <Amount value={(expense ? expense.amount : 0) - splitSum} />
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Kategorija novog troška</Label>
+              <CategoryGridPicker value={splitCategoryId} onChange={setSplitCategoryId} />
+            </div>
+            {splitError ? (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                {splitError}
+              </div>
+            ) : null}
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={splitExpense.isPending}>
+                Nazad
+              </Button>
+              <Button onClick={handleSplit} disabled={!splitValid || splitExpense.isPending}>
+                {splitExpense.isPending ? "Delim…" : "Podeli"}
+              </Button>
+            </ResponsiveDialogFooter>
+          </div>
         ) : view === "items" ? (
           itemsInline
         ) : view === "details" ? (
@@ -401,7 +625,19 @@ export function ReceiptExpenseDialog({
                 <div className="space-y-2">
                   <Label>Stavke</Label>
                   {itemsInline}
+                  {splitEligible ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => push("split")}
+                    >
+                      <ScissorsIcon className="size-4" />
+                      Podeli račun
+                    </Button>
+                  ) : null}
                 </div>
+                {partInfoBlock}
                 <ExpensePersonSelect value={personId} onChange={setPersonId} />
                 <div className="space-y-2">
                   <Label htmlFor="receipt-detail-note-d">Beleška</Label>
@@ -483,6 +719,14 @@ export function ReceiptExpenseDialog({
                   icon={<ListBulletIcon className="size-4" />}
                   onClick={() => push("items")}
                 />
+                {splitEligible ? (
+                  <PickerRow
+                    title="Podeli račun"
+                    summary="Deo stavki kao poseban trošak"
+                    icon={<ScissorsIcon className="size-4" />}
+                    onClick={() => push("split")}
+                  />
+                ) : null}
                 <PickerRow
                   title="Više detalja"
                   summary={detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška"}
@@ -490,6 +734,7 @@ export function ReceiptExpenseDialog({
                   count={detailCount}
                   onClick={() => push("details")}
                 />
+                {partInfoBlock}
                 {error ? (
                   <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
                     {error}

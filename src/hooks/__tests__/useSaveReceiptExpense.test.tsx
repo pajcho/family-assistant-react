@@ -23,7 +23,12 @@ vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ familyId: "fam-1" }),
 }));
 
-import { DuplicateReceiptError, useSaveReceiptExpense } from "@/hooks/useExpenses";
+import {
+  ClaimConflictError,
+  DuplicateReceiptError,
+  useSaveReceiptExpense,
+  useSplitReceiptExpense,
+} from "@/hooks/useExpenses";
 import type { SaveReceiptExpenseInput } from "@/hooks/useExpenses";
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -86,7 +91,30 @@ describe("useSaveReceiptExpense", () => {
         { idx: 0, name: "Mleko 1l", quantity: 2, unit_price: 199.99, total: 399.98 },
         { idx: 1, name: "Hleb", quantity: null, unit_price: null, total: 89.99 },
       ],
+      p_claim_idxs: null,
     });
+  });
+
+  it("passes an explicit line claim through as p_claim_idxs", async () => {
+    mocks.rpc.mockResolvedValue({ data: { status: "saved", expense_id: "exp-2" }, error: null });
+
+    const { result } = renderHook(() => useSaveReceiptExpense(), { wrapper });
+    await result.current.mutateAsync({ ...input, claim_idxs: [1] });
+
+    const payload = (mocks.rpc.mock.calls[0] as unknown[])[1] as { p_claim_idxs: number[] };
+    expect(payload.p_claim_idxs).toEqual([1]);
+  });
+
+  it("maps a lost claim race (PT409) to ClaimConflictError", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "PT409", message: "Neko je u međuvremenu dodao deo ovih stavki." },
+    });
+
+    const { result } = renderHook(() => useSaveReceiptExpense(), { wrapper });
+    await expect(
+      result.current.mutateAsync({ ...input, claim_idxs: [0, 1] }),
+    ).rejects.toBeInstanceOf(ClaimConflictError);
   });
 
   it("throws DuplicateReceiptError on the RPC's 'duplicate' status", async () => {
@@ -111,5 +139,49 @@ describe("useSaveReceiptExpense", () => {
 
     const { result } = renderHook(() => useSaveReceiptExpense(), { wrapper });
     await expect(result.current.mutateAsync(input)).rejects.toThrow("boom");
+  });
+});
+
+describe("useSplitReceiptExpense", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps the input onto the split RPC payload and resolves with the new expense id", async () => {
+    mocks.rpc.mockResolvedValue({ data: { status: "saved", expense_id: "exp-new" }, error: null });
+
+    const { result } = renderHook(() => useSplitReceiptExpense(), { wrapper });
+    const res = await result.current.mutateAsync({
+      expenseId: "exp-1",
+      claimIdxs: [2, 0],
+      category_id: "cat-2",
+      person_id: null,
+      note: null,
+    });
+
+    expect(res).toEqual({ expenseId: "exp-new" });
+    expect(mocks.rpc).toHaveBeenCalledWith("split_receipt_expense", {
+      p_expense_id: "exp-1",
+      p_claim_idxs: [2, 0],
+      p_new_expense: { category_id: "cat-2", person_id: null, note: null },
+    });
+  });
+
+  it("maps PT409 to ClaimConflictError", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "PT409", message: "Neko je u međuvremenu izmenio ovaj račun." },
+    });
+
+    const { result } = renderHook(() => useSplitReceiptExpense(), { wrapper });
+    await expect(
+      result.current.mutateAsync({
+        expenseId: "exp-1",
+        claimIdxs: [0],
+        category_id: null,
+        person_id: null,
+        note: null,
+      }),
+    ).rejects.toBeInstanceOf(ClaimConflictError);
   });
 });

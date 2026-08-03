@@ -12,7 +12,7 @@ import type { ParsedReceipt } from "@/hooks/useReceiptImport";
  * sheet-stack wiring (the thing under test) runs for real on the mobile path.
  */
 
-const { fakeReceipt } = vi.hoisted(() => ({
+const { fakeReceipt, saveMutate } = vi.hoisted(() => ({
   fakeReceipt: {
     merchant: "Maxi",
     companyName: null,
@@ -20,10 +20,19 @@ const { fakeReceipt } = vi.hoisted(() => ({
     pib: null,
     issuedAt: "2026-08-01T12:00:00+02:00",
     totalAmount: 1234,
-    items: [{ name: "Mleko 1l", quantity: 1, unitPrice: 1234, total: 1234 }],
+    // Two lines summing EXACTLY to totalAmount - per-line selection is on.
+    items: [
+      { name: "Mleko 1l", quantity: 1, unitPrice: 234, total: 234 },
+      { name: "Hleb", quantity: 1, unitPrice: 1000, total: 1000 },
+    ],
     warnings: [],
     receiptUrl: "https://suf.purs.gov.rs/v/?vl=test",
   } as ParsedReceipt,
+  saveMutate: vi.fn<
+    (input: unknown, callbacks?: { onSuccess?: (res: { expenseId: string }) => void }) => void
+  >((_input, callbacks) => {
+    callbacks?.onSuccess?.({ expenseId: "exp-1" });
+  }),
 }));
 
 vi.mock("@/components/ui/responsive-dialog", () => ({
@@ -75,8 +84,11 @@ vi.mock("@/hooks/useReceiptImport", () => ({
 
 vi.mock("@/hooks/useExpenses", () => ({
   DuplicateReceiptError: class extends Error {},
+  ClaimConflictError: class extends Error {},
   fetchExpenseByReceiptUrl: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
-  useSaveReceiptExpense: () => ({ mutate: vi.fn<() => void>(), isPending: false }),
+  // Fast path finds nothing stored - the flow proceeds to the (mocked) import.
+  fetchReceiptByUrl: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
+  useSaveReceiptExpense: () => ({ mutate: saveMutate, isPending: false }),
   useMerchantCategory: () => ({ data: null }),
 }));
 
@@ -156,5 +168,39 @@ describe("ReceiptScanDialog", () => {
       expect(screen.getByRole("status", { name: "owner-open" })).toHaveTextContent("false"),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("saving a subset claims only the checked lines and offers the remainder (chain)", async () => {
+    await scanToPreview();
+
+    // Uncheck "Hleb" in the Stavke sub-view, then pop back to the preview.
+    fireEvent.click(screen.getByRole("button", { name: /^Stavke/ }));
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(2);
+    fireEvent.click(checkboxes[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Prevuci za zatvaranje" }));
+    await waitFor(() => expect(screen.getByText("Pregled računa")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Sačuvaj trošak" }));
+
+    // The save carried the subset claim + its sum as the amount.
+    const input = saveMutate.mock.calls[0]?.[0] as { amount: number; claim_idxs: number[] };
+    expect(input.claim_idxs).toEqual([0]);
+    expect(input.amount).toBe(234);
+
+    // The chain step offers the leftover line as a new expense; continuing
+    // returns to the preview with the remainder preselected.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dodaj ostatak kao novi trošak" }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Dodaj ostatak kao novi trošak" }));
+    await waitFor(() => expect(screen.getByText("Preostale stavke")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Sačuvaj trošak" }));
+    const second = saveMutate.mock.calls[1]?.[0] as { amount: number; claim_idxs: number[] };
+    expect(second.claim_idxs).toEqual([1]);
+    expect(second.amount).toBe(1000);
   });
 });

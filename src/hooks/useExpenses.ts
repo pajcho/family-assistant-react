@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { Expense, ReceiptItem } from "@/types/database";
+import type { Expense, Receipt, ReceiptItem } from "@/types/database";
 import type { ParsedReceiptItem } from "@/hooks/useReceiptImport";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
@@ -229,6 +229,77 @@ export class DuplicateReceiptError extends Error {
   }
 }
 
+/**
+ * Thrown when a claim RPC loses a race (SQLSTATE PT409): the lines this save
+ * or split targeted were claimed by someone else meanwhile. The transaction
+ * rolled back - the UI should re-fetch the claims and let the user retry.
+ */
+export class ClaimConflictError extends Error {
+  constructor(message?: string) {
+    super(message || "Neko je u međuvremenu izmenio ovaj račun.");
+    this.name = "ClaimConflictError";
+  }
+}
+
+/** A receipt row + its lines (idx-sorted) + every expense claimed from it. */
+export type ReceiptWithClaims = {
+  receipt: Receipt;
+  lines: ReceiptItem[];
+  expenses: Expense[];
+};
+
+type ReceiptEmbedRow = Receipt & { receipt_items: ReceiptItem[]; expenses: Expense[] };
+
+function shapeReceiptEmbed(row: ReceiptEmbedRow): ReceiptWithClaims {
+  const { receipt_items: lines, expenses, ...receipt } = row;
+  return {
+    receipt: receipt as Receipt,
+    lines: [...(lines ?? [])].sort((a, b) => a.idx - b.idx),
+    expenses: [...(expenses ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+  };
+}
+
+/**
+ * The scan fast path: a receipt we already stored needs NO Edge call (no PURS
+ * fetch, no rate-limit spend) - the preview renders straight from the DB,
+ * with already-claimed lines disabled. Null when this family never stored it.
+ */
+export async function fetchReceiptByUrl(receiptUrl: string): Promise<ReceiptWithClaims | null> {
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("*, receipt_items(*), expenses(*)")
+    .eq("receipt_url", receiptUrl)
+    .maybeSingle();
+  if (error || !data) return null;
+  return shapeReceiptEmbed(data as ReceiptEmbedRow);
+}
+
+async function fetchReceiptById(receiptId: string): Promise<ReceiptWithClaims | null> {
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("*, receipt_items(*), expenses(*)")
+    .eq("id", receiptId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return shapeReceiptEmbed(data as ReceiptEmbedRow);
+}
+
+/**
+ * Receipt context for an expense detail: the receipt's own facts, ALL its
+ * lines and its sibling expenses - powers "Deo računa · 3 od 12 stavki",
+ * the sibling jump and the split affordance. Enabled only while a detail
+ * for a linked expense is open.
+ */
+export function useReceiptContext(receiptId: string | null) {
+  const query = useQuery({
+    queryKey: ["receipt-context", receiptId],
+    queryFn: () => fetchReceiptById(receiptId as string),
+    enabled: !!receiptId,
+    staleTime: 30_000,
+  });
+  return { ...query, context: query.data ?? null };
+}
+
 export type SaveReceiptExpenseInput = {
   /** The expense's amount - equals `total_amount` until splitting lands. */
   amount: number;
@@ -247,6 +318,12 @@ export type SaveReceiptExpenseInput = {
   activity_id?: string | null;
   event_id?: string | null;
   items: ParsedReceiptItem[];
+  /**
+   * Line idx values THIS expense claims. Omit/null = claim every free line
+   * (whole-receipt save). The RPC rejects a lost claim race with PT409,
+   * surfaced as {@link ClaimConflictError}.
+   */
+  claim_idxs?: number[] | null;
 };
 
 export type SaveReceiptExpenseResult = {
@@ -296,6 +373,7 @@ export function useSaveReceiptExpense() {
           unit_price: it.unitPrice,
           total: it.total,
         })),
+        p_claim_idxs: input.claim_idxs ?? null,
       });
 
       if (error) {
@@ -303,6 +381,9 @@ export function useSaveReceiptExpense() {
         // violation instead of the RPC's own 'duplicate' arm.
         if ((error as { code?: string }).code === "23505") {
           throw new DuplicateReceiptError(input.receipt_url);
+        }
+        if ((error as { code?: string }).code === "PT409") {
+          throw new ClaimConflictError(error.message);
         }
         throw new Error(error.message);
       }
@@ -322,8 +403,66 @@ export function useSaveReceiptExpense() {
       // The saved category becomes this merchant's remembered default, so the
       // cached lookup (staleTime 60s) must not serve the pre-save answer.
       void queryClient.invalidateQueries({ queryKey: ["merchant-category", familyId] });
+      // Claims changed: any open receipt context / partial preview is stale.
+      void queryClient.invalidateQueries({ queryKey: ["receipt-context"] });
+      void queryClient.invalidateQueries({ queryKey: ["expense-item-counts"] });
     },
     // Errors (incl. DuplicateReceiptError) are handled inline by the scan dialog.
+  });
+}
+
+export type SplitReceiptExpenseInput = {
+  /** The receipt expense to carve lines out of. */
+  expenseId: string;
+  /** Line idx values that MOVE to the new expense. */
+  claimIdxs: number[];
+  category_id: string | null;
+  person_id: string | null;
+  note: string | null;
+};
+
+/**
+ * Splits an already-saved receipt expense via the `split_receipt_expense`
+ * RPC: the selected lines move onto a NEW expense (its amount = their sum),
+ * the original's amount shrinks by the same sum - one transaction, ledger
+ * total unchanged. PT409 (a parallel edit won) surfaces as
+ * {@link ClaimConflictError}.
+ */
+export function useSplitReceiptExpense() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: SplitReceiptExpenseInput): Promise<SaveReceiptExpenseResult> => {
+      const { data, error } = await supabase.rpc("split_receipt_expense", {
+        p_expense_id: input.expenseId,
+        p_claim_idxs: input.claimIdxs,
+        p_new_expense: {
+          category_id: input.category_id ?? null,
+          person_id: input.person_id ?? null,
+          note: input.note ?? null,
+        },
+      });
+      if (error) {
+        if ((error as { code?: string }).code === "PT409") {
+          throw new ClaimConflictError(error.message);
+        }
+        throw new Error(error.message);
+      }
+      const result = data as { status?: string; expense_id?: string } | null;
+      if (result?.status !== "saved" || !result.expense_id) {
+        throw new Error("Greška pri deljenju računa.");
+      }
+      return { expenseId: result.expense_id };
+    },
+    onSuccess: (res, input) => {
+      void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
+      // Both sides' line sets changed, and so did the shared receipt context.
+      void queryClient.invalidateQueries({ queryKey: ["receipt_items", input.expenseId] });
+      void queryClient.invalidateQueries({ queryKey: ["receipt_items", res.expenseId] });
+      void queryClient.invalidateQueries({ queryKey: ["receipt-context"] });
+      void queryClient.invalidateQueries({ queryKey: ["expense-item-counts"] });
+    },
   });
 }
 

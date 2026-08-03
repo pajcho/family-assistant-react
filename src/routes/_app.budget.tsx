@@ -1017,6 +1017,7 @@ function BudgetPage() {
           if (!open) setReceiptDetail(null);
         }}
         expense={receiptDetail}
+        onOpenExpense={setReceiptDetail}
       />
 
       <PaymentDetailDialog

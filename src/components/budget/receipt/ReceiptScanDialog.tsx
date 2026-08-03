@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowUpTrayIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
@@ -14,16 +14,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSheetStack } from "@/components/common/SheetStack";
 import {
+  ClaimConflictError,
   DuplicateReceiptError,
   fetchExpenseByReceiptUrl,
+  fetchReceiptByUrl,
   useMerchantCategory,
   useSaveReceiptExpense,
+  type ReceiptWithClaims,
 } from "@/hooks/useExpenses";
 import { isSufReceiptUrl, type ParsedReceipt, useReceiptImport } from "@/hooks/useReceiptImport";
 import { useProfile } from "@/hooks/useProfile";
+import type { Receipt } from "@/types/database";
 import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
+import { Amount } from "@/components/common/Amount";
+import { stavkeLabel } from "@/utils/plural";
 import { ReceiptCamera } from "./ReceiptCamera";
 import { ReceiptPreview, type ReceiptPreviewView } from "./ReceiptPreview";
+import { sumLineTotals, type SelectableReceiptLine } from "./ReceiptItemsSelect";
 import { decodeQrFromFile } from "./receiptQr";
 
 /**
@@ -31,18 +38,27 @@ import { decodeQrFromFile } from "./receiptQr";
  * dynamic-import chunk (see the budget page) so the camera + zxing-wasm never
  * enter the main bundle. State machine:
  *
- *   capture ──decode──▶ loading ──ok──▶ preview ──save──▶ (close)
- *      ▲                   │                 │
- *      └──── error ────────┘                 └── duplicate ──▶ jump to month
+ *   capture ──decode──▶ loading ──ok──▶ preview ──save──▶ chain ──▶ (close)
+ *      ▲                   │                │               │
+ *      └──── error ────────┘                │               └─"Dodaj ostatak"─▶ preview
+ *                                           └── duplicate ──▶ jump to month
+ *
+ * Splitting: when the receipt's lines are complete, the preview lets the user
+ * UNCHECK lines - the expense saves with just the checked ones (amount = their
+ * sum) and the `chain` step offers the remainder as a new expense right away.
+ * A re-scan of a partially-claimed receipt takes the FAST PATH: the preview
+ * renders from the stored receipt (claimed lines disabled, no Edge call, no
+ * rate-limit spend) and only the free lines are selectable.
  *
  * The preview's sub-views (Kategorija / Stavke / Detalji) live on THIS
  * dialog's sheet stack (see `useSheetStack`), and the preview's field values
- * live in this component: dismissing a sub-view (swipe-down, tap outside)
- * returns to the preview instead of throwing away the parsed receipt, and the
- * stack's mobile close→reopen hop can't drop what the user already picked.
+ * AND line selection live in this component: dismissing a sub-view
+ * (swipe-down, tap outside) returns to the preview instead of throwing away
+ * the parsed receipt, and the stack's mobile close→reopen hop can't drop what
+ * the user already picked.
  */
 
-type Mode = "capture" | "loading" | "preview" | "duplicate";
+type Mode = "capture" | "loading" | "preview" | "duplicate" | "chain";
 
 export type ReceiptScanDialogProps = {
   open: boolean;
@@ -56,6 +72,34 @@ export type ReceiptScanDialogProps = {
   link?: PaymentLinkValue | null;
 };
 
+/** Preview facts for a receipt we already have in the DB (fast path). */
+function parsedFromStored(receipt: Receipt): ParsedReceipt {
+  return {
+    merchant: receipt.merchant,
+    companyName: receipt.company_name,
+    storeName: receipt.store_name,
+    pib: receipt.pib,
+    issuedAt: receipt.issued_on,
+    totalAmount: receipt.total_amount,
+    items: [],
+    warnings: [],
+    receiptUrl: receipt.receipt_url,
+  };
+}
+
+/** DB lines + their claimants → the preview's selectable-line shape. */
+function linesFromStored(known: ReceiptWithClaims): SelectableReceiptLine[] {
+  const categoryByExpense = new Map(known.expenses.map((e) => [e.id, e.category_id]));
+  return known.lines.map((line) => ({
+    idx: line.idx,
+    name: line.name,
+    quantity: line.quantity,
+    total: line.total,
+    claimed: !!line.expense_id,
+    claimedCategoryId: line.expense_id ? (categoryByExpense.get(line.expense_id) ?? null) : null,
+  }));
+}
+
 export default function ReceiptScanDialog({
   open,
   onOpenChange,
@@ -68,6 +112,12 @@ export default function ReceiptScanDialog({
 
   const [mode, setMode] = useState<Mode>("capture");
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
+  const [lines, setLines] = useState<SelectableReceiptLine[]>([]);
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  // Preview built from the stored receipt (fast path / chain): the save RPC
+  // must not re-send lines it already has.
+  const [dbSourced, setDbSourced] = useState(false);
+  const [chainInfo, setChainInfo] = useState<{ count: number; sum: number } | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pasteValue, setPasteValue] = useState("");
@@ -91,7 +141,9 @@ export default function ReceiptScanDialog({
   const categoryTouched = useRef(false);
   const merchantCategory = useMerchantCategory(receipt?.merchant ?? null);
 
-  // Preselect the remembered category once, unless the user already picked one.
+  // Preselect the remembered category once, unless the user already picked one
+  // (or the flow decided against it - partial adds and chain remainders start
+  // blank on purpose: the leftover part is usually a DIFFERENT category).
   useEffect(() => {
     if (categoryTouched.current) return;
     if (merchantCategory.data) setCategoryId(merchantCategory.data);
@@ -103,6 +155,10 @@ export default function ReceiptScanDialog({
     if (!open) {
       setMode("capture");
       setReceipt(null);
+      setLines([]);
+      setSelected(new Set());
+      setDbSourced(false);
+      setChainInfo(null);
       setCaptureError(null);
       setSaveError(null);
       setPasteValue("");
@@ -123,46 +179,96 @@ export default function ReceiptScanDialog({
     if (mode !== "preview") reset();
   }, [mode, reset]);
 
+  // Per-line selection is on only when the lines are complete AND consistent
+  // (they sum exactly to the receipt total) - the invariant that makes the
+  // parts always add up to the receipt with no rounding drift.
+  const selectable = useMemo(() => {
+    if (!receipt || lines.length === 0) return false;
+    const totalCents = lines.reduce((sum, line) => sum + Math.round(line.total * 100), 0);
+    return totalCents === Math.round(receipt.totalAmount * 100);
+  }, [receipt, lines]);
+
+  const selectedSum = useMemo(() => sumLineTotals(lines, selected), [lines, selected]);
+  const partial = useMemo(() => lines.some((line) => line.claimed), [lines]);
+
+  const openPreview = (
+    parsed: ParsedReceipt,
+    newLines: SelectableReceiptLine[],
+    fromDb: boolean,
+  ) => {
+    // Compute eligibility against the incoming values (state lands next render).
+    const totalCents = newLines.reduce((sum, line) => sum + Math.round(line.total * 100), 0);
+    const eligible = newLines.length > 0 && totalCents === Math.round(parsed.totalAmount * 100);
+    const hasClaims = newLines.some((line) => line.claimed);
+    if (hasClaims) categoryTouched.current = true;
+    setReceipt(parsed);
+    setLines(newLines);
+    setSelected(new Set(eligible ? newLines.filter((l) => !l.claimed).map((l) => l.idx) : []));
+    setDbSourced(fromDb);
+    setSaveError(null);
+    setMode("preview");
+  };
+
   const runImport = async (url: string) => {
     setCaptureError(null);
     setMode("loading");
-    // Duplicate pre-check straight against the DB (RLS read) BEFORE invoking
-    // the Edge Function: a re-scan of an already-imported receipt shows the
-    // "već dodat" dialog instantly and never spends an Edge call. The
-    // post-parse check below stays as the backstop (races, failed pre-check).
+    // FAST PATH straight from the DB (RLS read), before spending an Edge call:
+    // a receipt we already stored renders its preview from receipt_items -
+    // free lines selectable, claimed ones disabled. Fully claimed → the
+    // "već dodat" dialog. The save RPC stays the backstop for races.
     if (familyId) {
       try {
-        const existing = await fetchExpenseByReceiptUrl(familyId, url);
-        if (existing) {
-          setDuplicateMonth(existing.spent_on.slice(0, 7));
-          setMode("duplicate");
-          return;
+        const known = await fetchReceiptByUrl(url);
+        if (known) {
+          const free = known.lines.filter((line) => !line.expense_id);
+          const hasClaims = free.length < known.lines.length || known.expenses.length > 0;
+          const storedCents = known.lines.reduce(
+            (sum, line) => sum + Math.round(line.total * 100),
+            0,
+          );
+          const sumOk = storedCents === Math.round(known.receipt.total_amount * 100);
+
+          if (hasClaims && free.length > 0 && sumOk) {
+            openPreview(parsedFromStored(known.receipt), linesFromStored(known), true);
+            return;
+          }
+          if (hasClaims) {
+            setDuplicateMonth(known.expenses[0]?.spent_on.slice(0, 7) ?? null);
+            setMode("duplicate");
+            return;
+          }
+          if (known.lines.length > 0) {
+            // Orphan (its expenses were deleted): re-claimable as-is, no Edge call.
+            openPreview(parsedFromStored(known.receipt), linesFromStored(known), true);
+            return;
+          }
+          // Orphan without lines - fall through to a fresh parse (better data).
+        } else {
+          // Straggler guard: an expense saved by a pre-receipts client holds
+          // this URL without a receipts row.
+          const existing = await fetchExpenseByReceiptUrl(familyId, url);
+          if (existing) {
+            setDuplicateMonth(existing.spent_on.slice(0, 7));
+            setMode("duplicate");
+            return;
+          }
         }
       } catch {
-        // Pre-check failed - proceed with the normal import path.
+        // Fast path failed - proceed with the normal import path.
       }
     }
     importReceipt.mutate(url, {
-      onSuccess: async (data) => {
-        // Recognize an already-imported receipt right after parsing - before the
-        // preview - so the user sees "Račun je već dodat" immediately instead of
-        // only after tapping Save. Keyed on the SUF receipt_url (unique index).
-        // The save-time unique-violation handler below stays as a backstop
-        // (covers a race, or a null familyId / failed pre-check here).
-        if (familyId) {
-          try {
-            const existing = await fetchExpenseByReceiptUrl(familyId, data.receiptUrl);
-            if (existing) {
-              setDuplicateMonth(existing.spent_on.slice(0, 7));
-              setMode("duplicate");
-              return;
-            }
-          } catch {
-            // Pre-check failed - fall through to the preview; the DB index still guards.
-          }
-        }
-        setReceipt(data);
-        setMode("preview");
+      onSuccess: (data) => {
+        openPreview(
+          data,
+          data.items.map((it, idx) => ({
+            idx,
+            name: it.name,
+            quantity: it.quantity,
+            total: it.total,
+          })),
+          false,
+        );
       },
       onError: (err: Error) => {
         setCaptureError(err.message || "Nismo mogli da učitamo račun.");
@@ -200,12 +306,37 @@ export default function ReceiptScanDialog({
     }
   };
 
+  // A lost claim race rolled the save back: re-read the claims so the preview
+  // shows who took what, and drop the stolen lines from the selection.
+  const refreshClaims = async () => {
+    if (!receipt) return;
+    try {
+      const known = await fetchReceiptByUrl(receipt.receiptUrl);
+      if (!known) return;
+      const fresh = linesFromStored(known);
+      setLines(fresh);
+      setSelected(
+        (prev) =>
+          new Set([...prev].filter((idx) => fresh.some((l) => l.idx === idx && !l.claimed))),
+      );
+      setDbSourced(true);
+      if (fresh.length > 0 && fresh.every((l) => l.claimed)) {
+        setDuplicateMonth(known.expenses[0]?.spent_on.slice(0, 7) ?? null);
+        setMode("duplicate");
+      }
+    } catch {
+      // Keep the stale view; the save RPC still guards the retry.
+    }
+  };
+
   const handleSave = () => {
     if (!receipt) return;
     setSaveError(null);
+    const claimIdxs = selectable ? [...selected].sort((a, b) => a - b) : null;
+    const amount = selectable ? Math.round(selectedSum * 100) / 100 : receipt.totalAmount;
     saveReceipt.mutate(
       {
-        amount: receipt.totalAmount,
+        amount,
         spent_on: receipt.issuedAt.slice(0, 10),
         merchant: receipt.merchant,
         receipt_url: receipt.receiptUrl,
@@ -218,12 +349,34 @@ export default function ReceiptScanDialog({
         note: note.trim() || null,
         activity_id: link?.kind === "activity" ? link.id : null,
         event_id: link?.kind === "event" ? link.id : null,
-        items: receipt.items,
+        // The RPC already stores this receipt's lines on the fast path.
+        items: dbSourced ? [] : receipt.items,
+        claim_idxs: claimIdxs,
       },
       {
         onSuccess: () => {
-          toast.success("Račun je sačuvan");
-          onOpenChange(false);
+          toast.success("Trošak je sačuvan");
+          const remaining = selectable
+            ? lines.filter((l) => !l.claimed && !selected.has(l.idx))
+            : [];
+          if (remaining.length === 0) {
+            onOpenChange(false);
+            return;
+          }
+          // Offer the leftover lines as a new expense right away - the user
+          // is holding the receipt NOW. Mark the just-saved lines as claimed
+          // by the category they went under.
+          setLines((prev) =>
+            prev.map((l) =>
+              selected.has(l.idx) ? { ...l, claimed: true, claimedCategoryId: categoryId } : l,
+            ),
+          );
+          setChainInfo({
+            count: remaining.length,
+            sum: sumLineTotals(remaining, new Set(remaining.map((r) => r.idx))),
+          });
+          setDbSourced(true);
+          setMode("chain");
         },
         onError: async (err: Error) => {
           if (err instanceof DuplicateReceiptError) {
@@ -236,10 +389,29 @@ export default function ReceiptScanDialog({
             setMode("duplicate");
             return;
           }
+          if (err instanceof ClaimConflictError) {
+            await refreshClaims();
+            setSaveError(err.message);
+            return;
+          }
           setSaveError(err.message || "Greška pri čuvanju računa.");
         },
       },
     );
+  };
+
+  // "Dodaj ostatak kao novi trošak": same receipt, remaining free lines
+  // preselected, fresh category/person/note (the remainder is a different
+  // bucket by definition - that's why it's being split).
+  const handleChainContinue = () => {
+    setSelected(new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)));
+    setCategoryId(null);
+    categoryTouched.current = true;
+    setPersonId(null);
+    setNote("");
+    setSaveError(null);
+    setChainInfo(null);
+    setMode("preview");
   };
 
   const title =
@@ -247,7 +419,9 @@ export default function ReceiptScanDialog({
       ? "Pregled računa"
       : mode === "duplicate"
         ? "Račun je već dodat"
-        : "Skeniraj račun";
+        : mode === "chain"
+          ? "Sačuvano"
+          : "Skeniraj račun";
 
   return (
     <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
@@ -355,6 +529,24 @@ export default function ReceiptScanDialog({
         {mode === "preview" && receipt ? (
           <ReceiptPreview
             receipt={receipt}
+            lines={lines}
+            selectable={selectable}
+            selected={selected}
+            onToggleLine={(idx) => {
+              setSelected((prev) => {
+                const next = new Set(prev);
+                if (next.has(idx)) next.delete(idx);
+                else next.add(idx);
+                return next;
+              });
+            }}
+            onSetAllLines={(select) => {
+              setSelected(
+                select ? new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)) : new Set(),
+              );
+            }}
+            selectedSum={selectedSum}
+            partial={partial}
             saving={saveReceipt.isPending}
             error={saveError}
             view={view}
@@ -372,6 +564,24 @@ export default function ReceiptScanDialog({
             onCancel={() => onOpenChange(false)}
             onSave={handleSave}
           />
+        ) : null}
+
+        {mode === "chain" && chainInfo ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Trošak je sačuvan. Na računu je preostalo još {chainInfo.count}{" "}
+              {stavkeLabel(chainInfo.count)} (<Amount value={chainInfo.sum} />) - želiš li da ih
+              dodaš kao poseban trošak, npr. u drugoj kategoriji?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Završi
+              </Button>
+              <Button type="button" onClick={handleChainContinue}>
+                Dodaj ostatak kao novi trošak
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {mode === "duplicate" ? (
