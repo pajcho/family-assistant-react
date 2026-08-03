@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { AdjustmentsHorizontalIcon, ListBulletIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
 import { ExpensePersonSelect } from "@/components/budget/ExpenseForm";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
-import { useMerchantCategory } from "@/hooks/useExpenses";
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { Amount } from "@/components/common/Amount";
 import { stavkeLabel } from "@/utils/plural";
@@ -24,25 +22,33 @@ import { stavkeLabel } from "@/utils/plural";
  *
  * Mobile collapses the editable bits into picker rows (Kategorija / Stavke /
  * Više detalja) that swap the sheet to a sub-view with a "←" header; desktop
- * shows everything inline. Self-contained: it owns its own view stack, header
- * and footer, so the host dialog renders no header for this mode.
+ * shows everything inline. Fully CONTROLLED: the hosting `ReceiptScanDialog`
+ * owns both the sub-view (its sheet stack routes drawer dismissals back to
+ * this main view instead of closing the flow) and the field values (the
+ * stack's mobile close→reopen hop remounts this component - local state would
+ * lose what the user picked).
  */
 
-export type ReceiptSavePayload = {
-  category_id: string | null;
-  person_id: string | null;
-  note: string | null;
-};
+export type ReceiptPreviewView = "main" | "category" | "details" | "items";
 
 export type ReceiptPreviewProps = {
   receipt: ParsedReceipt;
   saving: boolean;
   error: string | null;
+  view: ReceiptPreviewView;
+  /** Mobile picker rows push a sub-view onto the host dialog's sheet stack. */
+  onOpenView: (view: Exclude<ReceiptPreviewView, "main">) => void;
+  /** "←" in a sub-view header - pops back to the main view. */
+  onBack: () => void;
+  categoryId: string | null;
+  onCategoryChange: (id: string | null) => void;
+  personId: string | null;
+  onPersonChange: (id: string | null) => void;
+  note: string;
+  onNoteChange: (note: string) => void;
   onCancel: () => void;
-  onSave: (payload: ReceiptSavePayload) => void;
+  onSave: () => void;
 };
-
-type View = "main" | "category" | "details" | "items";
 
 /** "2026-01-13T…" → "13.01.2026." */
 function formatReceiptDate(issuedAt: string): string {
@@ -52,30 +58,27 @@ function formatReceiptDate(issuedAt: string): string {
   return `${day}.${m}.${y}.`;
 }
 
-export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: ReceiptPreviewProps) {
+export function ReceiptPreview({
+  receipt,
+  saving,
+  error,
+  view,
+  onOpenView,
+  onBack,
+  categoryId,
+  onCategoryChange,
+  personId,
+  onPersonChange,
+  note,
+  onNoteChange,
+  onCancel,
+  onSave,
+}: ReceiptPreviewProps) {
   const isDesktop = useIsDesktop();
   const { categories } = useExpenseCategories();
-  const merchantCategory = useMerchantCategory(receipt.merchant);
-
-  const [view, setView] = useState<View>("main");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [personId, setPersonId] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const categoryTouched = useRef(false);
-
-  // Preselect the remembered category once, unless the user already picked one.
-  useEffect(() => {
-    if (categoryTouched.current) return;
-    if (merchantCategory.data) setCategoryId(merchantCategory.data);
-  }, [merchantCategory.data]);
 
   const hasItems = receipt.items.length > 0;
   const selectedCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
-
-  const setCategory = (id: string | null) => {
-    categoryTouched.current = true;
-    setCategoryId(id);
-  };
 
   const amountHero = (
     <div className="text-center">
@@ -129,7 +132,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
       <Input
         id="receipt-note"
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e) => onNoteChange(e.target.value)}
         placeholder="npr. nedeljna kupovina"
       />
     </div>
@@ -139,12 +142,12 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
   if (view === "category") {
     return (
       <>
-        <SheetStackHeader title="Kategorija" onBack={() => setView("main")} />
+        <SheetStackHeader title="Kategorija" onBack={onBack} />
         <CategoryGridPicker
           value={categoryId}
           onChange={(id) => {
-            setCategory(id);
-            setView("main");
+            onCategoryChange(id);
+            onBack();
           }}
         />
       </>
@@ -153,7 +156,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
   if (view === "items") {
     return (
       <>
-        <SheetStackHeader title="Stavke" onBack={() => setView("main")} />
+        <SheetStackHeader title="Stavke" onBack={onBack} />
         {itemsList}
       </>
     );
@@ -161,9 +164,9 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
   if (view === "details") {
     return (
       <>
-        <SheetStackHeader title="Detalji" onBack={() => setView("main")} />
+        <SheetStackHeader title="Detalji" onBack={onBack} />
         <div className="space-y-4">
-          <ExpensePersonSelect value={personId} onChange={setPersonId} />
+          <ExpensePersonSelect value={personId} onChange={onPersonChange} />
           {noteField}
         </div>
       </>
@@ -176,13 +179,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
       <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
         Odustani
       </Button>
-      <Button
-        type="button"
-        disabled={saving}
-        onClick={() =>
-          onSave({ category_id: categoryId, person_id: personId, note: note.trim() || null })
-        }
-      >
+      <Button type="button" disabled={saving} onClick={onSave}>
         {saving ? "Čuvam…" : "Sačuvaj trošak"}
       </Button>
     </div>
@@ -206,14 +203,14 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
           {amountHero}
           <div className="space-y-2">
             <Label>Kategorija</Label>
-            <CategoryGridPicker value={categoryId} onChange={setCategory} />
+            <CategoryGridPicker value={categoryId} onChange={onCategoryChange} />
           </div>
           <div className="space-y-2">
             <Label>Stavke</Label>
             {itemsList}
           </div>
           {warningsBlock}
-          <ExpensePersonSelect value={personId} onChange={setPersonId} />
+          <ExpensePersonSelect value={personId} onChange={onPersonChange} />
           {noteField}
           {errorBlock}
           {footer}
@@ -237,7 +234,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
                   <TagIcon className="size-4" />
                 )
               }
-              onClick={() => setView("category")}
+              onClick={() => onOpenView("category")}
             />
             <PickerRow
               title="Stavke"
@@ -248,7 +245,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
               }
               icon={<ListBulletIcon className="size-4" />}
               disabled={!hasItems}
-              onClick={() => setView("items")}
+              onClick={() => onOpenView("items")}
             />
             <PickerRow
               title="Više detalja"
@@ -259,7 +256,7 @@ export function ReceiptPreview({ receipt, saving, error, onCancel, onSave }: Rec
               }
               icon={<AdjustmentsHorizontalIcon className="size-4" />}
               count={(personId ? 1 : 0) + (note.trim() ? 1 : 0)}
-              onClick={() => setView("details")}
+              onClick={() => onOpenView("details")}
             />
           </div>
           {errorBlock}
