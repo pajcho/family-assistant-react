@@ -36,6 +36,7 @@ function ExpenseRow({
   expense,
   categoriesById,
   itemCounts,
+  isReceiptPart,
   onOpenReceipt,
   onEditManual,
   onOpenPayment,
@@ -43,6 +44,8 @@ function ExpenseRow({
   expense: Expense;
   categoriesById: ReadonlyMap<string, ExpenseCategory>;
   itemCounts: Record<string, number> | undefined;
+  /** True when other expenses in this month share the same receipt. */
+  isReceiptPart: boolean;
   onOpenReceipt: (expense: Expense) => void;
   onEditManual: (expense: Expense) => void;
   onOpenPayment: (expense: Expense) => void;
@@ -80,7 +83,7 @@ function ExpenseRow({
           ) : isReceipt ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
               <ReceiptPercentIcon className="size-2.5" />
-              račun
+              {isReceiptPart ? "deo računa" : "račun"}
             </span>
           ) : null}
           {isReceipt && itemCount > 0 ? (
@@ -140,6 +143,17 @@ export function BudgetTimeline({
   const { str: today, date: todayDate } = useToday();
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
 
+  // Receipts represented by MORE than one expense this month - their rows say
+  // "deo računa" instead of "račun". Split parts share the receipt's date, so
+  // the whole picture is always inside one month's list.
+  const multiPartReceiptIds = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of expenses) {
+      if (e.receipt_id) counts.set(e.receipt_id, (counts.get(e.receipt_id) ?? 0) + 1);
+    }
+    return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([id]) => id));
+  }, [expenses]);
+
   const dayGroups = useMemo(() => {
     const byDay = new Map<string, Expense[]>();
     for (const e of expenses) {
@@ -176,6 +190,7 @@ export function BudgetTimeline({
                 expense={expense}
                 categoriesById={categoriesById}
                 itemCounts={itemCounts}
+                isReceiptPart={!!expense.receipt_id && multiPartReceiptIds.has(expense.receipt_id)}
                 onOpenReceipt={onOpenReceipt}
                 onEditManual={onEditManual}
                 onOpenPayment={onOpenPayment}
