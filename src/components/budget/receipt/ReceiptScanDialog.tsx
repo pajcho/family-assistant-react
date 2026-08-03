@@ -209,6 +209,10 @@ export default function ReceiptScanDialog({
         spent_on: receipt.issuedAt.slice(0, 10),
         merchant: receipt.merchant,
         receipt_url: receipt.receiptUrl,
+        total_amount: receipt.totalAmount,
+        pib: receipt.pib,
+        company_name: receipt.companyName,
+        store_name: receipt.storeName,
         category_id: categoryId,
         person_id: personId,
         note: note.trim() || null,
@@ -217,10 +221,8 @@ export default function ReceiptScanDialog({
         items: receipt.items,
       },
       {
-        onSuccess: (res) => {
-          // On a partial item-save failure the hook already warns; don't stack
-          // a contradictory success toast on top of it.
-          if (res.itemsSaved) toast.success("Račun je sačuvan");
+        onSuccess: () => {
+          toast.success("Račun je sačuvan");
           onOpenChange(false);
         },
         onError: async (err: Error) => {

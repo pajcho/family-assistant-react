@@ -27,7 +27,7 @@ import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useDeleteExpense, useExpenseItems, useUpdateExpense } from "@/hooks/useExpenses";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
-import type { Expense, ExpenseItem } from "@/types/database";
+import type { Expense, ReceiptItem } from "@/types/database";
 import { serbianPlural, stavkeLabel } from "@/utils/plural";
 import { getDisplayName } from "@/utils/identity";
 import { Amount } from "@/components/common/Amount";
@@ -73,7 +73,7 @@ function ItemsList({
   refreshInfo,
   onRefresh,
 }: {
-  items: ExpenseItem[];
+  items: ReceiptItem[];
   itemsLoading: boolean;
   receiptUrl: string | null;
   refreshDisabled: boolean;

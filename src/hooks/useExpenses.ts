@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { Expense, ExpenseItem } from "@/types/database";
+import type { Expense, ReceiptItem } from "@/types/database";
 import type { ParsedReceiptItem } from "@/hooks/useReceiptImport";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
@@ -214,11 +214,12 @@ export function useDeleteExpense() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Receipt import (Faza 5) - save a scanned receipt as a source='receipt' expense
-// (+ its line items), lazy item loading for detail, and merchant→category memory.
+// Receipt import (Faza 5, receipts model) - save a scanned receipt through the
+// `save_receipt_expense` RPC (receipt row + expense + claimed lines, one
+// transaction), lazy line loading for detail, and merchant→category memory.
 // ───────────────────────────────────────────────────────────────────────────
 
-/** Thrown when the receipt_url unique index rejects a re-scan of the same receipt. */
+/** Thrown when the receipt (globally-unique receipt_url) is already added. */
 export class DuplicateReceiptError extends Error {
   receiptUrl: string;
   constructor(receiptUrl: string) {
@@ -229,10 +230,16 @@ export class DuplicateReceiptError extends Error {
 }
 
 export type SaveReceiptExpenseInput = {
+  /** The expense's amount - equals `total_amount` until splitting lands. */
   amount: number;
   spent_on: string;
   merchant: string | null;
   receipt_url: string;
+  /** The receipt's own total (kept on the receipts row). */
+  total_amount: number;
+  pib?: string | null;
+  company_name?: string | null;
+  store_name?: string | null;
   category_id: string | null;
   person_id: string | null;
   note: string | null;
@@ -243,17 +250,17 @@ export type SaveReceiptExpenseInput = {
 };
 
 export type SaveReceiptExpenseResult = {
-  expense: Expense;
-  /** false when the expense saved but its line items didn't (kept, not orphaned). */
-  itemsSaved: boolean;
+  expenseId: string;
 };
 
 /**
- * Saves a scanned receipt through the normal expenses insert path (source=
- * 'receipt'), then inserts its line items. A unique violation on `receipt_url`
- * throws DuplicateReceiptError so the UI can offer to jump to the existing one.
- * Item insertion is best-effort: if it fails, the expense is KEPT and we flag
- * `itemsSaved=false` (a warning toast) rather than orphan-failing the import.
+ * Saves a scanned receipt atomically via the `save_receipt_expense` RPC:
+ * receipts row (insert, or re-use of an orphan whose expense was deleted),
+ * the source='receipt' expense, and its claimed receipt_items - all or
+ * nothing, so a partial "expense without lines" save can no longer happen.
+ * Throws DuplicateReceiptError on the RPC's 'duplicate' status (receipt
+ * already claimed, concurrent save, or another family's receipt) so the UI
+ * can offer to jump to the existing one.
  */
 export function useSaveReceiptExpense() {
   const { familyId } = useProfile();
@@ -263,59 +270,58 @@ export function useSaveReceiptExpense() {
     mutationFn: async (input: SaveReceiptExpenseInput): Promise<SaveReceiptExpenseResult> => {
       if (!familyId) throw new Error("Nema porodice");
 
-      const { data, error } = await supabase
-        .from("expenses")
-        .insert({
-          family_id: familyId,
+      const { data, error } = await supabase.rpc("save_receipt_expense", {
+        p_receipt: {
+          receipt_url: input.receipt_url,
+          merchant: input.merchant ?? null,
+          pib: input.pib ?? null,
+          company_name: input.company_name ?? null,
+          store_name: input.store_name ?? null,
+          total_amount: input.total_amount,
+          issued_on: input.spent_on,
+        },
+        p_expense: {
           amount: input.amount,
           spent_on: input.spent_on,
           category_id: input.category_id ?? null,
           person_id: input.person_id ?? null,
           note: input.note ?? null,
-          currency: "RSD",
-          source: "receipt",
-          merchant: input.merchant ?? null,
-          receipt_url: input.receipt_url,
           activity_id: input.activity_id ?? null,
           event_id: input.event_id ?? null,
-        })
-        .select()
-        .single();
+        },
+        p_items: input.items.map((it, idx) => ({
+          idx,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: it.unitPrice,
+          total: it.total,
+        })),
+      });
 
       if (error) {
+        // A raced concurrent insert can still surface as a raw unique
+        // violation instead of the RPC's own 'duplicate' arm.
         if ((error as { code?: string }).code === "23505") {
           throw new DuplicateReceiptError(input.receipt_url);
         }
         throw new Error(error.message);
       }
 
-      const expense = data as Expense;
-
-      let itemsSaved = true;
-      if (input.items.length > 0) {
-        const rows = input.items.map((it, idx) => ({
-          expense_id: expense.id,
-          family_id: familyId,
-          name: it.name,
-          quantity: it.quantity,
-          unit_price: it.unitPrice,
-          total: it.total,
-          sort_order: idx,
-        }));
-        const { error: itemsError } = await supabase.from("expense_items").insert(rows);
-        if (itemsError) itemsSaved = false;
+      const result = data as { status?: string; expense_id?: string } | null;
+      if (result?.status === "duplicate") {
+        throw new DuplicateReceiptError(input.receipt_url);
+      }
+      if (result?.status !== "saved" || !result.expense_id) {
+        throw new Error("Greška pri čuvanju računa.");
       }
 
-      return { expense, itemsSaved };
+      return { expenseId: result.expense_id };
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
       // The saved category becomes this merchant's remembered default, so the
       // cached lookup (staleTime 60s) must not serve the pre-save answer.
       void queryClient.invalidateQueries({ queryKey: ["merchant-category", familyId] });
-      if (!res.itemsSaved) {
-        toast.warning("Trošak je sačuvan, ali stavke nisu.");
-      }
     },
     // Errors (incl. DuplicateReceiptError) are handled inline by the scan dialog.
   });
@@ -356,9 +362,10 @@ async function searchExpenses(familyId: string, term: string): Promise<ExpenseSe
       .order("spent_on", { ascending: false })
       .limit(30),
     supabase
-      .from("expense_items")
+      .from("receipt_items")
       .select("expense_id,name")
       .eq("family_id", familyId)
+      .not("expense_id", "is", null)
       .ilike("name", pattern)
       .limit(200),
   ]);
@@ -408,24 +415,24 @@ export function useExpenseSearch(term: string) {
   return { hits, isSearching: enabled && query.isFetching, enabled };
 }
 
-async function fetchExpenseItems(expenseId: string): Promise<ExpenseItem[]> {
+async function fetchExpenseItems(expenseId: string): Promise<ReceiptItem[]> {
   const { data, error } = await supabase
-    .from("expense_items")
+    .from("receipt_items")
     .select("*")
     .eq("expense_id", expenseId)
-    .order("sort_order", { ascending: true });
+    .order("idx", { ascending: true });
   if (error) return [];
-  return (data as ExpenseItem[]) ?? [];
+  return (data as ReceiptItem[]) ?? [];
 }
 
 /**
- * Lazily loads a receipt expense's line items - enabled only when a detail view
- * for `expenseId` is open. Items are immutable and not realtime-published, so a
- * generous staleTime is fine.
+ * Lazily loads the receipt lines CLAIMED by one expense - enabled only when a
+ * detail view for `expenseId` is open. Lines are snapshots and not
+ * realtime-published, so a generous staleTime is fine.
  */
 export function useExpenseItems(expenseId: string | null) {
   const query = useQuery({
-    queryKey: ["expense_items", expenseId],
+    queryKey: ["receipt_items", expenseId],
     queryFn: () => fetchExpenseItems(expenseId as string),
     enabled: !!expenseId,
     staleTime: 5 * 60_000,
@@ -437,7 +444,7 @@ export function useExpenseItems(expenseId: string | null) {
 async function fetchReceiptItemCounts(expenseIds: string[]): Promise<Record<string, number>> {
   if (expenseIds.length === 0) return {};
   const { data, error } = await supabase
-    .from("expense_items")
+    .from("receipt_items")
     .select("expense_id")
     .in("expense_id", expenseIds);
   if (error || !data) return {};

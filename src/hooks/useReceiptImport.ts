@@ -85,9 +85,13 @@ export type ReceiptRefreshResult = { status: "added"; count: number } | { status
 
 /**
  * Re-fetches an already-imported receipt (journal was pending at import time)
- * and backfills its `expense_items` once the issuer syncs with PURS. The Edge
- * Function claims the per-receipt cooldown + global rate window server-side;
- * the items insert stays client-side under RLS, like the original import.
+ * and backfills its `receipt_items` once the issuer syncs with PURS, claiming
+ * every line for the refreshing expense (it owns the receipt's whole amount -
+ * that is the only way a 0-line receipt gets saved). The Edge Function claims
+ * the per-receipt cooldown + global rate window server-side; the claim RPC
+ * also self-heals a missing receipts row (straggler saved by an old client),
+ * so by the time the fetch returns the receipts row exists. The lines insert
+ * stays client-side under RLS, like the original import.
  */
 export function useReceiptRefresh() {
   const { familyId } = useProfile();
@@ -109,30 +113,41 @@ export function useReceiptRefresh() {
       if (!receipt) throw new Error("Nismo mogli da pročitamo račun.");
       if (receipt.journalPending || receipt.items.length === 0) return { status: "pending" };
 
+      // The expense prop can predate the heal (receipt_id null) - resolve the
+      // receipt row by URL, which the claim RPC guarantees exists by now.
+      const { data: receiptRow } = await supabase
+        .from("receipts")
+        .select("id")
+        .eq("receipt_url", expense.receipt_url)
+        .maybeSingle();
+      const receiptId = (receiptRow as { id: string } | null)?.id ?? expense.receipt_id;
+      if (!receiptId) throw new Error("Stavke su pročitane, ali nismo uspeli da ih sačuvamo.");
+
       // Another device may have backfilled while we fetched - never double-insert.
       const { data: existing } = await supabase
-        .from("expense_items")
+        .from("receipt_items")
         .select("id")
-        .eq("expense_id", expense.id)
+        .eq("receipt_id", receiptId)
         .limit(1);
       if (!existing || existing.length === 0) {
         const rows = receipt.items.map((it, idx) => ({
-          expense_id: expense.id,
+          receipt_id: receiptId,
           family_id: familyId,
+          idx,
           name: it.name,
           quantity: it.quantity,
           unit_price: it.unitPrice,
           total: it.total,
-          sort_order: idx,
+          expense_id: expense.id,
         }));
-        const { error: itemsError } = await supabase.from("expense_items").insert(rows);
+        const { error: itemsError } = await supabase.from("receipt_items").insert(rows);
         if (itemsError) throw new Error("Stavke su pročitane, ali nismo uspeli da ih sačuvamo.");
       }
       return { status: "added", count: receipt.items.length };
     },
     onSettled: (_res, _err, expense) => {
-      void queryClient.invalidateQueries({ queryKey: ["expense_items", expense.id] });
-      // The claimed receipt_checked_at lives on the expense row - refetch it so
+      void queryClient.invalidateQueries({ queryKey: ["receipt_items", expense.id] });
+      // The claimed cooldown is mirrored onto the expense row - refetch it so
       // a reopened detail renders the correct countdown.
       void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
     },

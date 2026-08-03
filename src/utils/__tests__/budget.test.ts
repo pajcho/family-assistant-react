@@ -67,6 +67,7 @@ function expense(over: Partial<Expense> = {}): Expense {
     event_id: null,
     merchant: null,
     receipt_url: null,
+    receipt_id: null,
     receipt_checked_at: null,
     created_at: "",
     updated_at: "",
