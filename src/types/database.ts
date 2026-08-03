@@ -316,20 +316,26 @@ export interface Expense {
   event_id: string | null;
   /** Store name parsed from a scanned receipt (source='receipt'); else null. */
   merchant: string | null;
-  /** suf.purs.gov.rs verification URL for a scanned receipt; else null. */
+  /** suf.purs.gov.rs verification URL for a scanned receipt; else null.
+   *  Kept alongside receipt_id (the "Otvori račun" link + duplicate-jump
+   *  lookup read it directly). */
   receipt_url: string | null;
-  /** Last "Osveži stavke" re-fetch claim (server-enforced cooldown); the
-   *  client renders the countdown from it. Null until the first refresh. */
+  /** The {@link Receipt} this expense was carved out of; null for non-receipt
+   *  rows (and for stragglers saved by pre-receipts clients, healed on their
+   *  first "Osveži stavke"). */
+  receipt_id: string | null;
+  /** Legacy mirror of receipts.checked_at (still written by the refresh claim
+   *  so deployed clients keep their countdown). Null until the first refresh. */
   receipt_checked_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 /**
- * One line of a scanned receipt, child of an `expenses` row (source='receipt').
- * `total` is authoritative (discount-safe); `quantity` / `unit_price` are
- * best-effort (nullable) since odd receipt layouts hide the price×qty split.
- * Immutable + not realtime-published - loaded lazily with the parent's detail.
+ * LEGACY receipt line (pre-receipts model) - superseded by {@link ReceiptItem}.
+ * The table is frozen: kept only so already-deployed PWA clients keep working
+ * until their service worker updates; new code never reads or writes it.
+ * Dropping it is a later cleanup migration.
  */
 export interface ExpenseItem {
   id: string;
@@ -340,6 +346,50 @@ export interface ExpenseItem {
   unit_price: number | null;
   total: number;
   sort_order: number;
+  created_at: string;
+}
+
+/**
+ * One scanned fiscal receipt (SUF/PURS). `receipt_url` is the globally-unique
+ * dedup key (the old expenses.receipt_url unique index moved here);
+ * `total_amount` / `issued_on` are the receipt's own facts, which an expense's
+ * amount/spent_on will diverge from once receipt-splitting lands. `checked_at`
+ * is the "Osveži stavke" cooldown claim (was expenses.receipt_checked_at).
+ * pib / company_name / store_name are parse extras (null on backfilled rows).
+ */
+export interface Receipt {
+  id: string;
+  family_id: string;
+  receipt_url: string;
+  merchant: string | null;
+  pib: string | null;
+  company_name: string | null;
+  store_name: string | null;
+  total_amount: number;
+  /** YYYY-MM-DD (Belgrade-local date of issue). */
+  issued_on: string;
+  checked_at: string | null;
+  created_at: string;
+}
+
+/**
+ * One line of a scanned receipt, child of a {@link Receipt}. `idx` is the
+ * line's position in the parsed journal - UNIQUE per receipt, so a line can
+ * never be stored (or claimed) twice. `expense_id` is the claim: which expense
+ * owns this line (NULL = unclaimed; deleting an expense releases its lines).
+ * `total` is authoritative (discount-safe); `quantity` / `unit_price` are
+ * best-effort (nullable). Not realtime-published - loaded lazily on detail.
+ */
+export interface ReceiptItem {
+  id: string;
+  receipt_id: string;
+  family_id: string;
+  idx: number;
+  name: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total: number;
+  expense_id: string | null;
   created_at: string;
 }
 
