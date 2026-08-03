@@ -10,7 +10,7 @@
 //   4. send whatever the claim granted
 //   5. one delete for subscriptions the push services reported as gone
 //
-// That is a fixed ~14 queries per tick no matter how many families exist. The
+// That is a fixed ~15 queries per tick no matter how many families exist. The
 // shape before this rewrite was N+1 per user per item: 512 PostgREST requests
 // per tick at 40 users, growing linearly with the number of families.
 //
@@ -130,9 +130,7 @@ interface DispatchContext {
 }
 
 /**
- * Every row any dispatch path could need, in two round-trip waves (the second
- * only exists because the mirrored-event read is keyed by the ical_uids the
- * first wave discovers).
+ * Every row any dispatch path could need, in one round trip.
  *
  * The date windows are deliberately wide: the exact fire minute is decided
  * per recipient timezone in `plan.ts`, and local dates span UTC-12..UTC+14.
@@ -157,6 +155,7 @@ async function loadDispatchContext(
     paymentsRes,
     birthdaysRes,
     localsRes,
+    externalRes,
     actsRes,
     schedRes,
     partsRes,
@@ -170,10 +169,17 @@ async function loadDispatchContext(
     supabase.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth"),
     // Unfiltered on remind_minutes_before: the digest counts every event on
     // its target date, the reminder path filters the same rows in memory.
+    //
+    // Span-overlap window, same filter `useEventsList` uses: an event belongs
+    // to [windowStart, windowEnd] when its whole span intersects it. Filtering
+    // on `date` alone hid an in-progress multi-day event from every digest
+    // after its first day. `end_date > date` whenever set, so "last day >=
+    // windowStart" is exactly "date >= windowStart OR end_date >= windowStart"
+    // (PostgREST filters can't call COALESCE).
     supabase
       .from("events")
-      .select("id, family_id, name, date, start_time, remind_minutes_before")
-      .gte("date", windowStart)
+      .select("id, family_id, name, date, end_date, start_time, remind_minutes_before, canceled_at")
+      .or(`date.gte.${windowStart},end_date.gte.${windowStart}`)
       .lte("date", eventWindowEnd),
     supabase
       .from("payments")
@@ -187,12 +193,25 @@ async function loadDispatchContext(
       .from("external_event_local")
       .select("family_id, ical_uid, remind_minutes_before")
       .not("remind_minutes_before", "is", null),
+    // Every mirrored event in the window, not just the ones carrying a
+    // reminder: the digest counts them too, all-day ones included. `visibility`
+    // and `owner_user_id` are what let plan.ts re-apply the RLS rule this
+    // service-role read bypasses.
+    supabase
+      .from("external_calendar_events")
+      .select("id, family_id, title, local_date, start_time, ical_uid, visibility, owner_user_id")
+      .gte("local_date", windowStart)
+      .lte("local_date", eventWindowEnd),
+    // Unfiltered on remind_minutes_before, like events: the digest counts
+    // every occurrence of an active activity, and the reminder path filters
+    // for an offset in memory. `is_paused` stays a query filter because a
+    // paused activity is invisible to both (it never reaches the agenda
+    // either).
     supabase
       .from("activities")
       .select(
         "id, family_id, name, active_from, active_to, is_paused, remind_minutes_before, created_at",
       )
-      .not("remind_minutes_before", "is", null)
       .eq("is_paused", false),
     supabase
       .from("activity_schedule")
@@ -210,12 +229,23 @@ async function loadDispatchContext(
       .select("person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating"),
   ]);
 
-  for (const res of [prefsRes, profilesRes, subsRes, eventsRes, paymentsRes, birthdaysRes]) {
+  // Everything the digest counts has to throw rather than degrade to []: a
+  // swallowed error would send a "nothing_to_send" digest and burn the day's
+  // claim, which is indistinguishable from the day genuinely being empty.
+  for (const res of [
+    prefsRes,
+    profilesRes,
+    subsRes,
+    eventsRes,
+    paymentsRes,
+    birthdaysRes,
+    externalRes,
+    actsRes,
+    schedRes,
+    partsRes,
+  ]) {
     if (res.error) throw new Error(res.error.message);
   }
-
-  const externalLocals = (localsRes.data ?? []) as ExternalLocalRow[];
-  const externalEvents = await loadExternalEvents(supabase, externalLocals, utcToday);
 
   return {
     prefs: (prefsRes.data ?? []) as PrefsRow[],
@@ -224,31 +254,14 @@ async function loadDispatchContext(
     events: (eventsRes.data ?? []) as EventRow[],
     payments: (paymentsRes.data ?? []) as PaymentRow[],
     birthdays: (birthdaysRes.data ?? []) as BirthdayRow[],
-    externalLocals,
-    externalEvents,
+    externalLocals: (localsRes.data ?? []) as ExternalLocalRow[],
+    externalEvents: (externalRes.data ?? []) as ExternalEventRow[],
     activities: (actsRes.data ?? []) as ActivityRow[],
     schedule: (schedRes.data ?? []) as ScheduleRuleRow[],
     participants: (partsRes.data ?? []) as ParticipantRow[],
     overrides: (ovRes.data ?? []) as ActivityOverrideRow[],
     anchors: (anchorsRes.data ?? []) as ShiftAnchorRow[],
   };
-}
-
-async function loadExternalEvents(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
-  locals: ExternalLocalRow[],
-  utcToday: string,
-): Promise<ExternalEventRow[]> {
-  if (locals.length === 0) return [];
-  const uids = [...new Set(locals.map((l) => l.ical_uid))];
-  const { data } = await supabase
-    .from("external_calendar_events")
-    .select("id, family_id, title, local_date, start_time, ical_uid")
-    .in("ical_uid", uids)
-    .not("start_time", "is", null)
-    .in("local_date", [addDays(utcToday, -1), utcToday, addDays(utcToday, 1)]);
-  return (data ?? []) as ExternalEventRow[];
 }
 
 // ---------------------------------------------------------------------------

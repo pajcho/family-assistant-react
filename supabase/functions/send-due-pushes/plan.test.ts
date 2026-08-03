@@ -56,6 +56,33 @@ function sub(user_id: string, id = `sub-${user_id}`): PushSubRow {
   return { id, user_id, endpoint: `https://push.test/${id}`, p256dh: "p", auth: "a" };
 }
 
+function event(over: Partial<EventRow> & { id: string }): EventRow {
+  return {
+    family_id: FAMILY,
+    name: "Sastanak",
+    date: "2026-07-29",
+    end_date: null,
+    start_time: "18:00:00",
+    remind_minutes_before: null,
+    canceled_at: null,
+    ...over,
+  };
+}
+
+/** Mirrored Google event - `family` visibility unless a case says otherwise. */
+function ext(over: Partial<ExternalEventRow> & { id: string }): ExternalEventRow {
+  return {
+    family_id: FAMILY,
+    title: "Zubar",
+    local_date: "2026-07-29",
+    start_time: "09:00:00",
+    ical_uid: "uid-1",
+    visibility: "family",
+    owner_user_id: null,
+    ...over,
+  };
+}
+
 function input(over: Partial<DispatchInput> & { now: Date }): DispatchInput {
   return {
     force: null,
@@ -119,16 +146,7 @@ describe("digests", () => {
   const base = {
     profiles: [profile(PARENT)],
     subs: [sub(PARENT)],
-    events: [
-      {
-        id: "ev-1",
-        family_id: FAMILY,
-        name: "Sastanak",
-        date: "2026-07-29",
-        start_time: "18:00:00",
-        remind_minutes_before: null,
-      } satisfies EventRow,
-    ],
+    events: [event({ id: "ev-1" })],
   };
 
   it("fires at the configured local minute and counts today's items", () => {
@@ -210,10 +228,7 @@ describe("digests", () => {
         prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
         profiles: [profile(PARENT)],
         subs: [sub(PARENT)],
-        events: [
-          base.events[0],
-          { ...base.events[0], id: "ev-2", name: "Drugi" } satisfies EventRow,
-        ],
+        events: [base.events[0], event({ id: "ev-2", name: "Drugi" })],
         payments: [
           {
             id: "pay-1",
@@ -235,6 +250,137 @@ describe("digests", () => {
       }),
     );
     expect(claims[0].push?.body).toBe("Danas: 2 događaja, 1 plaćanje, 1 rođendan.");
+  });
+
+  // The agenda lists five kinds of thing per day; a digest that counted only
+  // three stayed silent on days the user could see were busy.
+  it("counts a weekly activity even when it carries no reminder of its own", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT), profile(KID, FAMILY, "Lucija")],
+        subs: [sub(PARENT)],
+        // 2026-07-29 is a Wednesday -> Monday-first day_of_week 2.
+        activities: [
+          {
+            id: "act-1",
+            family_id: FAMILY,
+            name: "Bilijar",
+            active_from: null,
+            active_to: null,
+            is_paused: false,
+            remind_minutes_before: null,
+            created_at: "2026-01-01T00:00:00Z",
+          } satisfies ActivityRow,
+        ],
+        schedule: [
+          {
+            id: "rule-1",
+            activity_id: "act-1",
+            day_of_week: 2,
+            start_time: "20:00:00",
+            end_time: "21:00:00",
+            week_pattern: "every",
+            recurrence_interval_weeks: 1,
+          } satisfies ScheduleRuleRow,
+        ],
+        participants: [{ activity_id: "act-1", person_id: KID }],
+      }),
+    );
+    expect(claims.map(shape)).toEqual([
+      {
+        userId: PARENT,
+        kind: "morning_digest",
+        refId: "2026-07-29",
+        title: "Dobro jutro",
+        body: "Danas: 1 aktivnost.",
+        status: null,
+      },
+    ]);
+  });
+
+  it("counts a mirrored Google event, but only for someone allowed to see it", () => {
+    const shared = {
+      prefs: [
+        prefs({ user_id: PARENT, morning_enabled: true }),
+        prefs({ user_id: OTHER_PARENT, morning_enabled: true }),
+      ],
+      profiles: [profile(PARENT), profile(OTHER_PARENT)],
+      subs: [sub(PARENT), sub(OTHER_PARENT)],
+      now: at("2026-07-29T06:00:00Z"),
+    };
+
+    const family = planDispatch(
+      input({ ...shared, externalEvents: [ext({ id: "x-1", visibility: "family" })] }),
+    );
+    expect(family.map((c) => c.push?.body)).toEqual(["Danas: 1 događaj.", "Danas: 1 događaj."]);
+
+    // A private calendar belongs to its owner alone - the RLS rule this job
+    // bypasses, re-applied by hand.
+    const priv = planDispatch(
+      input({
+        ...shared,
+        externalEvents: [ext({ id: "x-1", visibility: "private", owner_user_id: PARENT })],
+      }),
+    );
+    expect(priv.map((c) => c.push?.body ?? c.emptyStatus)).toEqual([
+      "Danas: 1 događaj.",
+      "nothing_to_send",
+    ]);
+  });
+
+  it("counts an all-day mirrored event, which has no start time to fire on", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        externalEvents: [ext({ id: "x-1", start_time: null })],
+      }),
+    );
+    expect(claims[0].push?.body).toBe("Danas: 1 događaj.");
+  });
+
+  it("counts a multi-day event on every day of its span, not just the first", () => {
+    const vacation = event({
+      id: "ev-span",
+      name: "Odmor",
+      date: "2026-07-28",
+      end_date: "2026-07-30",
+      start_time: null,
+    });
+    const bodyOn = (iso: string) =>
+      planDispatch(
+        input({
+          now: at(iso),
+          prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+          profiles: [profile(PARENT)],
+          subs: [sub(PARENT)],
+          events: [vacation],
+        }),
+      )[0]?.push?.body;
+
+    // Continuation day: the span covers it even though it started earlier.
+    expect(bodyOn("2026-07-29T06:00:00Z")).toBe("Danas: 1 događaj.");
+    // Last day is still inside the inclusive span...
+    expect(bodyOn("2026-07-30T06:00:00Z")).toBe("Danas: 1 događaj.");
+    // ...and the day after it is not.
+    expect(bodyOn("2026-07-31T06:00:00Z")).toBeUndefined();
+  });
+
+  it("ignores a canceled event", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        events: [event({ id: "ev-1", canceled_at: "2026-07-28T10:00:00Z" })],
+      }),
+    );
+    expect(claims[0].emptyStatus).toBe("nothing_to_send");
   });
 
   it("still claims the slot when the day is empty", () => {
@@ -308,14 +454,7 @@ describe("digests", () => {
 // ---------------------------------------------------------------------------
 
 describe("event reminders", () => {
-  const event: EventRow = {
-    id: "ev-1",
-    family_id: FAMILY,
-    name: "Trening",
-    date: "2026-07-29",
-    start_time: "18:00:00",
-    remind_minutes_before: 30,
-  };
+  const reminderEvent = event({ id: "ev-1", name: "Trening", remind_minutes_before: 30 });
 
   it("fires once per subscribed family member at start minus offset", () => {
     const claims = planDispatch(
@@ -325,7 +464,7 @@ describe("event reminders", () => {
         prefs: [prefs({ user_id: PARENT }), prefs({ user_id: OTHER_PARENT })],
         profiles: [profile(PARENT), profile(OTHER_PARENT)],
         subs: [sub(PARENT), sub(OTHER_PARENT)],
-        events: [event],
+        events: [reminderEvent],
       }),
     );
     expect(claims.map(shape)).toEqual([
@@ -357,7 +496,7 @@ describe("event reminders", () => {
         now: at("2026-07-29T15:30:00Z"),
         profiles: [profile(PARENT), profile(KID)],
         subs: [sub(PARENT)],
-        events: [event],
+        events: [reminderEvent],
       }),
     );
     expect(claims.map((c) => c.userId)).toEqual([PARENT]);
@@ -369,7 +508,7 @@ describe("event reminders", () => {
         now: at("2026-07-29T15:30:00Z"),
         profiles: [profile(PARENT)],
         subs: [sub(PARENT)],
-        events: [event],
+        events: [reminderEvent],
       }),
     );
     expect(claims).toHaveLength(1);
@@ -383,7 +522,7 @@ describe("event reminders", () => {
       ],
       profiles: [profile(PARENT), profile(OTHER_PARENT)],
       subs: [sub(PARENT), sub(OTHER_PARENT)],
-      events: [event],
+      events: [reminderEvent],
     };
     expect(
       planDispatch(input({ now: at("2026-07-29T15:30:00Z"), ...shared })).map((c) => c.userId),
@@ -400,12 +539,33 @@ describe("event reminders", () => {
         profiles: [profile(PARENT)],
         subs: [sub(PARENT)],
         events: [
-          { ...event, id: "no-offset", remind_minutes_before: null },
-          { ...event, id: "all-day", start_time: null },
+          { ...reminderEvent, id: "no-offset", remind_minutes_before: null },
+          { ...reminderEvent, id: "all-day", start_time: null },
         ],
       }),
     );
     expect(claims).toHaveLength(0);
+  });
+
+  it("never fires for a canceled event", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        events: [{ ...reminderEvent, canceled_at: "2026-07-28T10:00:00Z" }],
+      }),
+    );
+    expect(claims).toHaveLength(0);
+  });
+
+  it("fires off the start day of a multi-day span, where start_time lives", () => {
+    const span = { ...reminderEvent, date: "2026-07-29", end_date: "2026-07-31" };
+    const shared = { profiles: [profile(PARENT)], subs: [sub(PARENT)], events: [span] };
+    // Day 1 at 17:30 local fires...
+    expect(planDispatch(input({ now: at("2026-07-29T15:30:00Z"), ...shared }))).toHaveLength(1);
+    // ...and the continuation days stay quiet at the same clock time.
+    expect(planDispatch(input({ now: at("2026-07-30T15:30:00Z"), ...shared }))).toHaveLength(0);
   });
 
   it("ignores events outside the reminder window even though the digest loaded them", () => {
@@ -416,7 +576,7 @@ describe("event reminders", () => {
         now: at("2026-07-29T15:30:00Z"),
         profiles: [profile(PARENT)],
         subs: [sub(PARENT)],
-        events: [{ ...event, id: "far", date: "2026-07-31" }],
+        events: [{ ...reminderEvent, id: "far", date: "2026-07-31" }],
       }),
     );
     expect(claims).toHaveLength(0);
@@ -724,14 +884,7 @@ describe("external reminders", () => {
     ical_uid: "uid-1",
     remind_minutes_before: 15,
   };
-  const mirrored: ExternalEventRow = {
-    id: "x-1",
-    family_id: FAMILY,
-    title: "Zubar",
-    local_date: "2026-07-29",
-    start_time: "09:00:00",
-    ical_uid: "uid-1",
-  };
+  const mirrored = ext({ id: "x-1" });
 
   it("keys the claim on ical_uid and local date, not the mirrored row id", () => {
     // 06:45 UTC = 08:45 Belgrade = 09:00 minus 15.
@@ -784,5 +937,33 @@ describe("external reminders", () => {
       }),
     );
     expect(claims.map((c) => c.userId)).toEqual([PARENT]);
+  });
+
+  it("keeps a private event's title away from the rest of the family", () => {
+    // The reminder offset lives on a family-scoped row, so without the
+    // visibility gate the owner's private calendar would push to everyone.
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:45:00Z"),
+        profiles: [profile(PARENT), profile(OTHER_PARENT)],
+        subs: [sub(PARENT), sub(OTHER_PARENT)],
+        externalLocals: [local],
+        externalEvents: [ext({ id: "x-1", visibility: "private", owner_user_id: PARENT })],
+      }),
+    );
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
+  });
+
+  it("never fires for an all-day mirrored event", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:45:00Z"),
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        externalLocals: [local],
+        externalEvents: [ext({ id: "x-1", start_time: null })],
+      }),
+    );
+    expect(claims).toHaveLength(0);
   });
 });
