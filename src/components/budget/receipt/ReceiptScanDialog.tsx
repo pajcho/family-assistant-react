@@ -12,16 +12,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSheetStack } from "@/components/common/SheetStack";
 import {
   DuplicateReceiptError,
   fetchExpenseByReceiptUrl,
+  useMerchantCategory,
   useSaveReceiptExpense,
 } from "@/hooks/useExpenses";
 import { isSufReceiptUrl, type ParsedReceipt, useReceiptImport } from "@/hooks/useReceiptImport";
 import { useProfile } from "@/hooks/useProfile";
 import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { ReceiptCamera } from "./ReceiptCamera";
-import { ReceiptPreview, type ReceiptSavePayload } from "./ReceiptPreview";
+import { ReceiptPreview, type ReceiptPreviewView } from "./ReceiptPreview";
 import { decodeQrFromFile } from "./receiptQr";
 
 /**
@@ -32,6 +34,12 @@ import { decodeQrFromFile } from "./receiptQr";
  *   capture ──decode──▶ loading ──ok──▶ preview ──save──▶ (close)
  *      ▲                   │                 │
  *      └──── error ────────┘                 └── duplicate ──▶ jump to month
+ *
+ * The preview's sub-views (Kategorija / Stavke / Detalji) live on THIS
+ * dialog's sheet stack (see `useSheetStack`), and the preview's field values
+ * live in this component: dismissing a sub-view (swipe-down, tap outside)
+ * returns to the preview instead of throwing away the parsed receipt, and the
+ * stack's mobile close→reopen hop can't drop what the user already picked.
  */
 
 type Mode = "capture" | "loading" | "preview" | "duplicate";
@@ -69,7 +77,28 @@ export default function ReceiptScanDialog({
   const [duplicateMonth, setDuplicateMonth] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // The preview's sub-views ride this dialog's sheet stack, so a drawer
+  // dismissal inside "Stavke"/"Kategorija"/"Detalji" pops back to the preview
+  // (the parsed receipt survives); only a dismissal at the root closes the flow.
+  const { view, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
+    useSheetStack<ReceiptPreviewView>(open, onOpenChange, "main");
+
+  // The preview's field values - owned here so the stack's mobile close→reopen
+  // hop (which remounts the sheet content) can't drop them.
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [personId, setPersonId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const categoryTouched = useRef(false);
+  const merchantCategory = useMerchantCategory(receipt?.merchant ?? null);
+
+  // Preselect the remembered category once, unless the user already picked one.
+  useEffect(() => {
+    if (categoryTouched.current) return;
+    if (merchantCategory.data) setCategoryId(merchantCategory.data);
+  }, [merchantCategory.data]);
+
   // Reset everything whenever the dialog closes so the next open starts fresh.
+  // (The sheet stack resets itself on close - see useSheetStack.)
   useEffect(() => {
     if (!open) {
       setMode("capture");
@@ -81,8 +110,18 @@ export default function ReceiptScanDialog({
       setUploadError(null);
       setUploadBusy(false);
       setDuplicateMonth(null);
+      setCategoryId(null);
+      setPersonId(null);
+      setNote("");
+      categoryTouched.current = false;
     }
   }, [open]);
+
+  // Leaving the preview (e.g. a save that hits the duplicate guard) discards
+  // any sub-view still on the stack - the next mode renders from the root.
+  useEffect(() => {
+    if (mode !== "preview") reset();
+  }, [mode, reset]);
 
   const runImport = async (url: string) => {
     setCaptureError(null);
@@ -161,7 +200,7 @@ export default function ReceiptScanDialog({
     }
   };
 
-  const handleSave = (payload: ReceiptSavePayload) => {
+  const handleSave = () => {
     if (!receipt) return;
     setSaveError(null);
     saveReceipt.mutate(
@@ -170,9 +209,9 @@ export default function ReceiptScanDialog({
         spent_on: receipt.issuedAt.slice(0, 10),
         merchant: receipt.merchant,
         receipt_url: receipt.receiptUrl,
-        category_id: payload.category_id,
-        person_id: payload.person_id,
-        note: payload.note,
+        category_id: categoryId,
+        person_id: personId,
+        note: note.trim() || null,
         activity_id: link?.kind === "activity" ? link.id : null,
         event_id: link?.kind === "event" ? link.id : null,
         items: receipt.items,
@@ -209,7 +248,7 @@ export default function ReceiptScanDialog({
         : "Skeniraj račun";
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         {/* Preview renders its own header (it drives its own sub-view stack);
             every other mode gets the plain dialog header here. */}
@@ -316,6 +355,18 @@ export default function ReceiptScanDialog({
             receipt={receipt}
             saving={saveReceipt.isPending}
             error={saveError}
+            view={view}
+            onOpenView={push}
+            onBack={pop}
+            categoryId={categoryId}
+            onCategoryChange={(id) => {
+              categoryTouched.current = true;
+              setCategoryId(id);
+            }}
+            personId={personId}
+            onPersonChange={setPersonId}
+            note={note}
+            onNoteChange={setNote}
             onCancel={() => onOpenChange(false)}
             onSave={handleSave}
           />

@@ -96,11 +96,13 @@ function ProfilePage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+      {/* Same card anatomy as the settings links above - the logout is a row
+          of the card, not a second frame floating on the page background. */}
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
+          className="flex w-full items-center justify-center gap-2 px-4 py-3.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none focus-visible:ring-inset dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <ArrowRightOnRectangleIcon className="size-5" />
           Odjavi se

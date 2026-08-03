@@ -4,6 +4,7 @@ import {
   BanknotesIcon,
   CalendarDaysIcon,
   CalendarIcon,
+  PencilSquareIcon,
   TrashIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
@@ -19,11 +20,15 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
-  SheetActionList,
-  SheetActionsMenu,
-  SheetActionsMobileTrigger,
-  type SheetAction,
-} from "@/components/common/SheetActions";
+  DetailActionList,
+  DetailActionRow,
+  DetailBadgeRow,
+  DetailHero,
+  DetailInfoRow,
+  DetailInfoRows,
+  DetailInfoText,
+  type DetailBadge,
+} from "@/components/common/DetailSheet";
 import {
   EventDateTimeFields,
   RescheduleSpanNote,
@@ -31,15 +36,15 @@ import {
   dateTimeValueToColumns,
   eventToDateTimeValue,
 } from "@/components/events/EventDateTimeFields";
-import { EventPaymentsSection } from "@/components/events/EventPaymentsSection";
+import { EventMoneySection } from "@/components/events/EventMoneySection";
 import {
   LinkedMoneyChooser,
   LinkedMoneyFlow,
   type LinkedMoneyRequest,
 } from "@/components/common/LinkedMoneyFlow";
+import { LinkedMoneyViewer, type LinkedMoneyTarget } from "@/components/payments/LinkedMoneyViewer";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { useDeleteEvent, useUpdateEvent } from "@/hooks/useEvents";
-import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
 import {
   eventDurationLabel,
@@ -52,16 +57,19 @@ import {
 } from "@/utils/event";
 
 /**
- * Detail popup for one event on the /events page - the payments-sheet
- * pattern: hero (icon + name + time), state as badges, info rows, footer with
- * "Izmeni" (+ "Vrati" as the contextual primary when canceled), everything
- * else behind the secondary actions menu (mobile: "Opcije" sub-view,
- * desktop: labeled footer dropdown).
+ * THE event detail popup - the same component (and the same action set) on
+ * the /events page and the Danas/Uskoro agenda. The shared detail-sheet
+ * layout: detalji on top (hero, state badges, info rows), every action below
+ * as a visible row - Izmeni, Pomeri, Otkaži (or the emphasized "Vrati" when
+ * canceled), Dodaj plaćanje ili trošak, Obriši - and the linked payments +
+ * expenses at the bottom, each row opening its own detail.
  *
- * Reschedule, cancel-with-reason and the delete confirm are sub-views on the
- * sheet stack (see `useSheetStack`) - same sheet, "←" back header, dismissal
- * returns one level up. Only the full edit form still closes the sheet and
- * delegates to the page's form dialog via `onEdit`.
+ * Reschedule, cancel-with-reason, the delete confirm and the money chooser
+ * are sub-views on the sheet stack (see `useSheetStack`) - same sheet, "←"
+ * back header, dismissal returns one level up. The money form and the linked
+ * money detail HIDE this sheet (not close) and return here when done. Only
+ * the full edit form closes the sheet and delegates to the page's form dialog
+ * via `onEdit`.
  */
 export type EventDetailDialogProps = {
   open: boolean;
@@ -71,7 +79,7 @@ export type EventDetailDialogProps = {
   onEdit: (event: Event) => void;
 };
 
-type View = "detail" | "actions" | "reschedule" | "cancel" | "delete" | "money";
+type View = "detail" | "reschedule" | "cancel" | "delete" | "money";
 
 export function EventDetailDialog({
   open,
@@ -88,9 +96,12 @@ export function EventDetailDialog({
   const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
   const [rescheduleReason, setRescheduleReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
-  // Money-add survives the dialog: picking an option closes it, the flow
-  // below stays mounted with the captured link until saved/dismissed.
+  // Money-add keeps this sheet mounted but HIDDEN while the pre-linked form is
+  // open; closing the form (saved or dismissed) brings the detail back with
+  // the fresh entry in the money boxes below.
   const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
+  // Ditto for viewing a linked payment/expense row.
+  const [moneyTarget, setMoneyTarget] = useState<LinkedMoneyTarget | null>(null);
 
   // Back to the root view whenever the subject event changes underneath.
   useEffect(() => {
@@ -180,39 +191,7 @@ export function EventDetailDialog({
     }
   };
 
-  const actionItems: SheetAction[] = [];
-  if (event && !isCanceled) {
-    actionItems.push({
-      key: "reschedule",
-      label: "Pomeri datum",
-      icon: CalendarDaysIcon,
-      onSelect: openReschedule,
-    });
-    actionItems.push({
-      key: "cancel",
-      label: "Otkaži događaj",
-      icon: XCircleIcon,
-      onSelect: openCancel,
-    });
-  }
-  if (event) {
-    actionItems.push({
-      key: "money",
-      label: "Dodaj plaćanje ili trošak",
-      icon: BanknotesIcon,
-      onSelect: () => push("money"),
-    });
-  }
-  actionItems.push({
-    key: "delete",
-    label: "Obriši događaj",
-    icon: TrashIcon,
-    destructive: true,
-    separatorBefore: actionItems.length > 0,
-    onSelect: () => push("delete"),
-  });
-
-  const statusBadges: { label: string; className: string }[] = [];
+  const statusBadges: DetailBadge[] = [];
   if (event) {
     if (isCanceled) {
       statusBadges.push({
@@ -243,57 +222,44 @@ export function EventDetailDialog({
   }
 
   const title =
-    view === "actions"
-      ? "Opcije"
-      : view === "reschedule"
-        ? "Pomeri događaj"
-        : view === "cancel"
-          ? "Otkaži događaj"
-          : view === "delete"
-            ? "Obriši događaj"
-            : view === "money"
-              ? "Dodaj uz događaj"
-              : "Detalji događaja";
+    view === "reschedule"
+      ? "Pomeri događaj"
+      : view === "cancel"
+        ? "Otkaži događaj"
+        : view === "delete"
+          ? "Obriši događaj"
+          : view === "money"
+            ? "Dodaj uz događaj"
+            : "Detalji događaja";
 
   return (
     <>
-      <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
+      <ResponsiveDialog
+        key={dialogKey}
+        open={dialogOpen && !moneyRequest && !moneyTarget}
+        onOpenChange={handleOpenChange}
+      >
         <ResponsiveDialogContent>
           <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
           {event ? (
             <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
-                  <CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      "truncate text-lg font-semibold text-gray-900 dark:text-gray-100",
-                      isCanceled && "text-gray-500 line-through dark:text-gray-500",
-                    )}
-                  >
-                    {event.name}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatEventTimeRange(event)}
-                  </p>
-                </div>
-                {view === "detail" ? (
-                  <SheetActionsMobileTrigger
-                    items={actionItems}
-                    disabled={saving}
-                    onOpenActions={() => push("actions")}
-                  />
-                ) : null}
-              </div>
+              <DetailHero
+                icon={CalendarIcon}
+                iconWrapClassName="bg-blue-100 dark:bg-blue-900/50"
+                iconClassName="text-blue-600 dark:text-blue-400"
+                title={event.name}
+                titleClassName={
+                  isCanceled ? "text-gray-500 line-through dark:text-gray-500" : undefined
+                }
+                subtitle={formatEventTimeRange(event)}
+              />
 
-              {view === "actions" ? (
-                <SheetActionList items={actionItems} disabled={saving} />
-              ) : view === "money" ? (
+              {view === "money" ? (
                 <LinkedMoneyChooser
                   onPick={(kind) => {
-                    onOpenChange(false);
+                    // Hide (don't close) the sheet under the pre-linked form -
+                    // it returns to the root view once the form is done.
+                    reset();
                     setMoneyRequest({ kind, link: { kind: "event", id: event.id } });
                   }}
                 />
@@ -340,71 +306,104 @@ export function EventDetailDialog({
                 </p>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {statusBadges.map((badge) => (
-                      <span
-                        key={badge.label}
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
-                      >
-                        {badge.label}
-                      </span>
-                    ))}
-                  </div>
+                  <DetailBadgeRow badges={statusBadges} />
 
-                  <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
-                    {personIds.length > 0 ? (
-                      <div className="flex items-center justify-between gap-3 py-2.5">
-                        <span className="text-gray-500 dark:text-gray-400">Za</span>
-                        <MemberBadges personIds={personIds} />
-                      </div>
-                    ) : null}
-                    {event.description ? (
-                      <div className="flex items-baseline justify-between gap-3 py-2.5">
-                        <span className="shrink-0 text-gray-500 dark:text-gray-400">Opis</span>
-                        <span className="text-right font-medium text-gray-900 dark:text-gray-100">
-                          {event.description}
-                        </span>
-                      </div>
-                    ) : null}
-                    {event.notes ? (
-                      <div className="flex items-baseline justify-between gap-3 py-2.5">
-                        <span className="shrink-0 text-gray-500 dark:text-gray-400">Napomena</span>
-                        <span className="text-right font-medium text-amber-700 dark:text-amber-400">
-                          {event.notes}
-                        </span>
-                      </div>
-                    ) : null}
-                    {isCanceled && event.cancel_reason ? (
-                      <div className="flex items-baseline justify-between gap-3 py-2.5">
-                        <span className="shrink-0 text-gray-500 dark:text-gray-400">
-                          Razlog otkazivanja
-                        </span>
-                        <span className="text-right font-medium text-gray-900 dark:text-gray-100">
-                          {event.cancel_reason}
-                        </span>
-                      </div>
-                    ) : null}
-                    {event.reschedule_reason ? (
-                      <div className="flex items-baseline justify-between gap-3 py-2.5">
-                        <span className="shrink-0 text-gray-500 dark:text-gray-400">
-                          Razlog pomeranja
-                        </span>
-                        <span className="text-right font-medium text-gray-900 dark:text-gray-100">
-                          {event.reschedule_reason}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
+                  {personIds.length > 0 ||
+                  event.description ||
+                  event.notes ||
+                  (isCanceled && event.cancel_reason) ||
+                  event.reschedule_reason ? (
+                    <DetailInfoRows>
+                      {personIds.length > 0 ? (
+                        <DetailInfoRow label="Za">
+                          <MemberBadges personIds={personIds} />
+                        </DetailInfoRow>
+                      ) : null}
+                      {event.description ? (
+                        <DetailInfoText label="Opis" value={event.description} />
+                      ) : null}
+                      {event.notes ? (
+                        <DetailInfoText
+                          label="Napomena"
+                          value={event.notes}
+                          valueClassName="text-amber-700 dark:text-amber-400"
+                        />
+                      ) : null}
+                      {isCanceled && event.cancel_reason ? (
+                        <DetailInfoText label="Razlog otkazivanja" value={event.cancel_reason} />
+                      ) : null}
+                      {event.reschedule_reason ? (
+                        <DetailInfoText label="Razlog pomeranja" value={event.reschedule_reason} />
+                      ) : null}
+                    </DetailInfoRows>
+                  ) : null}
 
-                  {/* Linked payments (renders nothing without any) - adding a
-                    pre-linked one lives under Opcije → Dodaj plaćanje ili trošak. */}
-                  <EventPaymentsSection eventId={event.id} />
+                  <DetailActionList>
+                    {/* The state-fixing primary opens the list (same slot as
+                        the payment sheet's "Označi kao plaćeno"). */}
+                    {isCanceled ? (
+                      <DetailActionRow
+                        icon={ArrowUturnLeftIcon}
+                        label="Vrati događaj"
+                        description="Poništava otkazivanje"
+                        onClick={() => {
+                          void handleRestore();
+                        }}
+                        disabled={saving}
+                        tone="primary"
+                      />
+                    ) : null}
+                    <DetailActionRow
+                      icon={PencilSquareIcon}
+                      label="Izmeni događaj"
+                      description="Naziv, datum, vreme, učesnici, opis…"
+                      onClick={handleEdit}
+                      disabled={saving}
+                    />
+                    {!isCanceled ? (
+                      <>
+                        <DetailActionRow
+                          icon={CalendarDaysIcon}
+                          label="Pomeri događaj"
+                          description="Novi datum ili vreme, uz razlog"
+                          onClick={openReschedule}
+                          disabled={saving}
+                        />
+                        <DetailActionRow
+                          icon={XCircleIcon}
+                          label="Otkaži događaj"
+                          description="Skida se sa rasporeda, ostaje u kalendaru"
+                          onClick={openCancel}
+                          disabled={saving}
+                        />
+                      </>
+                    ) : null}
+                    <DetailActionRow
+                      icon={BanknotesIcon}
+                      label="Dodaj plaćanje ili trošak"
+                      description="Plaćanje, trošak ili skeniran račun uz događaj"
+                      onClick={() => push("money")}
+                      disabled={saving}
+                    />
+                    <DetailActionRow
+                      icon={TrashIcon}
+                      label="Obriši događaj"
+                      description="Trajno uklanja događaj"
+                      onClick={() => push("delete")}
+                      disabled={saving}
+                      tone="destructive"
+                    />
+                  </DetailActionList>
+
+                  {/* Linked payments + expenses (render nothing without any);
+                      a row opens that entry's detail over this sheet. */}
+                  <EventMoneySection eventId={event.id} onSelect={setMoneyTarget} />
                 </>
               )}
             </div>
           ) : null}
 
-          {view === "actions" || view === "money" ? (
+          {view === "money" ? (
             <ResponsiveDialogFooter>
               <Button
                 variant="outline"
@@ -459,42 +458,12 @@ export function EventDetailDialog({
                 Obriši
               </Button>
             </ResponsiveDialogFooter>
-          ) : (
-            <ResponsiveDialogFooter className="flex-row items-center gap-2 sm:justify-end">
-              <SheetActionsMenu items={actionItems} disabled={saving} className="mr-auto" />
-              {isCanceled ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="flex-1 sm:flex-none"
-                    onClick={handleEdit}
-                    disabled={saving}
-                  >
-                    Izmeni
-                  </Button>
-                  {/* Contextual primary: un-cancel is the state-fixing action. */}
-                  <Button
-                    className="flex-[1.4] sm:flex-none"
-                    onClick={() => {
-                      void handleRestore();
-                    }}
-                    disabled={saving}
-                  >
-                    <ArrowUturnLeftIcon className="size-4" />
-                    Vrati događaj
-                  </Button>
-                </>
-              ) : (
-                <Button className="flex-1 sm:flex-none" onClick={handleEdit} disabled={saving}>
-                  Izmeni
-                </Button>
-              )}
-            </ResponsiveDialogFooter>
-          )}
+          ) : null}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
       <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+      <LinkedMoneyViewer target={moneyTarget} onClose={() => setMoneyTarget(null)} />
     </>
   );
 }

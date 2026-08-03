@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
-import type { Payment } from "@/types/database";
+import type { Expense, Payment } from "@/types/database";
 import { formatDate, isOverdue } from "@/utils/date";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
@@ -32,17 +33,73 @@ function PaymentStatusPill({ payment }: { payment: Payment }) {
 }
 
 /**
- * Read-only "Plaćanja" box listing the payments linked to one activity or
- * event - the reverse side of the payment link. Renders nothing when the list
- * is empty, so callers can mount it unconditionally. `children` slots extra
- * read-only content into the same box (the activity side appends its
- * per-month attendance breakdown there).
+ * One money row inside the linked boxes. With `onSelect` the row is a button
+ * (opens that entry's detail - see `LinkedMoneyViewer`) and grows a chevron;
+ * without it the row stays static text (form contexts).
+ */
+function MoneyRow({
+  title,
+  pill,
+  subtitle,
+  amount,
+  onSelect,
+  selectLabel,
+}: {
+  title: string;
+  pill?: ReactNode;
+  subtitle: string;
+  amount: ReactNode;
+  onSelect?: () => void;
+  selectLabel: string;
+}) {
+  const body = (
+    <>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+            {title}
+          </span>
+          {pill}
+        </div>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+      <span className="shrink-0 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {amount}
+      </span>
+    </>
+  );
+
+  if (!onSelect) {
+    return <div className="flex items-center justify-between gap-3">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={selectLabel}
+      className="-mx-1.5 flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
+    >
+      {body}
+      <ChevronRightIcon className="-ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500" />
+    </button>
+  );
+}
+
+/**
+ * "Plaćanja" box listing the payments linked to one activity, event or
+ * birthday - the reverse side of the payment link. Renders nothing when the
+ * list is empty, so callers can mount it unconditionally. With `onSelect` the
+ * rows open that payment's detail popup. `children` slots extra read-only
+ * content into the same box (the activity side appends its per-month
+ * attendance breakdown there).
  */
 export function LinkedPaymentsList({
   payments,
+  onSelect,
   children,
 }: {
   payments: ReadonlyArray<Payment>;
+  onSelect?: (payment: Payment) => void;
   children?: ReactNode;
 }) {
   if (payments.length === 0) return null;
@@ -52,31 +109,82 @@ export function LinkedPaymentsList({
       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Plaćanja</p>
       <ul className="space-y-2">
         {payments.map((payment) => (
-          <li key={payment.id} className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {payment.name}
-                </span>
-                <PaymentStatusPill payment={payment} />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Dospeva {formatDate(payment.due_date)} ·{" "}
-                {recurrenceLabel(payment.recurrence_period, payment.recurrence_interval)}
-              </p>
-            </div>
-            <span className="shrink-0 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
-              <Amount value={payment.amount} />
-              <AmountOriginal
-                amount={payment.original_amount}
-                currency={payment.currency}
-                className="block text-[10px] font-normal"
-              />
-            </span>
+          <li key={payment.id}>
+            <MoneyRow
+              title={payment.name}
+              pill={<PaymentStatusPill payment={payment} />}
+              subtitle={`Dospeva ${formatDate(payment.due_date)} · ${recurrenceLabel(
+                payment.recurrence_period,
+                payment.recurrence_interval,
+              )}`}
+              amount={
+                <>
+                  <Amount value={payment.amount} />
+                  <AmountOriginal
+                    amount={payment.original_amount}
+                    currency={payment.currency}
+                    className="block text-[10px] font-normal"
+                  />
+                </>
+              }
+              onSelect={onSelect ? () => onSelect(payment) : undefined}
+              selectLabel={`Detalji plaćanja ${payment.name}`}
+            />
           </li>
         ))}
       </ul>
       {children}
+    </div>
+  );
+}
+
+/** Display title for an expense row: merchant, else note, else a generic label. */
+export function expenseRowTitle(expense: Expense): string {
+  return expense.merchant?.trim() || expense.note?.trim() || "Trošak";
+}
+
+/**
+ * "Troškovi" box - manual + receipt expenses linked to one activity or event
+ * (see `useLinkedExpenses`; payment-sourced auto rows are excluded there).
+ * Same row anatomy as the payments box; with `onSelect` a row opens the
+ * expense's detail (receipt) or edit form (manual).
+ */
+export function LinkedExpensesList({
+  expenses,
+  onSelect,
+}: {
+  expenses: ReadonlyArray<Expense>;
+  onSelect?: (expense: Expense) => void;
+}) {
+  if (expenses.length === 0) return null;
+
+  return (
+    <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Troškovi</p>
+      <ul className="space-y-2">
+        {expenses.map((expense) => (
+          <li key={expense.id}>
+            <MoneyRow
+              title={expenseRowTitle(expense)}
+              subtitle={`${formatDate(expense.spent_on)}${
+                expense.source === "receipt" ? " · fiskalni račun" : ""
+              }`}
+              amount={
+                <>
+                  <Amount value={expense.amount} />
+                  <AmountOriginal
+                    amount={expense.original_amount}
+                    currency={expense.currency}
+                    className="block text-[10px] font-normal"
+                  />
+                </>
+              }
+              onSelect={onSelect ? () => onSelect(expense) : undefined}
+              selectLabel={`Detalji troška ${expenseRowTitle(expense)}`}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

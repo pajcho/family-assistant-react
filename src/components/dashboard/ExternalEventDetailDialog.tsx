@@ -1,16 +1,22 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { GlobeAltIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
+import { ArrowTopRightOnSquareIcon, GlobeAltIcon, MapPinIcon } from "@heroicons/react/24/outline";
 
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import {
+  DetailActionList,
+  DetailActionRow,
+  DetailHero,
+  DetailInfoRow,
+  DetailInfoRows,
+  DetailInfoText,
+} from "@/components/common/DetailSheet";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { useExternalEventLocal } from "@/hooks/useExternalEventLocal";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
@@ -21,10 +27,11 @@ import { getDisplayName } from "@/utils/identity";
 
 /**
  * Read-only detail popup for a mirrored Google event (opened from the agenda via
- * `useAgendaDetails`). Mirrored events are never editable in the app - the only
- * Google action is "Otvori u Google" / "Otvori email" (the source link). On top
- * we allow APP-LOCAL enrichment (kept in external_event_local, not pushed to
- * Google): assign to a family member + set a family push reminder.
+ * `useAgendaDetails`) - the shared detail-sheet layout (hero, info rows, action
+ * row). Mirrored events are never editable in the app - the only Google action
+ * is "Otvori u Google" / "Otvori email" (the source link). On top we allow
+ * APP-LOCAL enrichment (kept in external_event_local, not pushed to Google):
+ * assign to a family member + set a family push reminder.
  */
 export type ExternalEventDetailDialogProps = {
   open: boolean;
@@ -43,41 +50,6 @@ function timeRangeLabel(event: ExternalCalendarEvent): string {
  *  on mobile, maps.google.com on desktop. */
 function mapsSearchUrl(location: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-}
-
-function DetailRow({
-  label,
-  value,
-  href,
-  icon,
-}: {
-  label: string;
-  value: string;
-  /** When set, the value renders as a link opening in a new tab. */
-  href?: string;
-  /** Optional inline icon shown before the value (e.g. a map pin). */
-  icon?: ReactNode;
-}) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd className="text-right font-medium text-gray-900 dark:text-gray-100">
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
-          >
-            {icon}
-            <span className="underline underline-offset-2">{value}</span>
-          </a>
-        ) : (
-          value
-        )}
-      </dd>
-    </div>
-  );
 }
 
 function PersonAssignSelect({
@@ -144,45 +116,42 @@ export function ExternalEventDetailDialog({
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
+        <ResponsiveDialogHeader className="sr-only">
           <ResponsiveDialogTitle>Google događaj</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
         {event ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/50">
-                <GlobeAltIcon className="h-6 w-6 text-sky-600 dark:text-sky-400" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {event.title ?? "(bez naslova)"}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {formatDate(event.local_date)}
-                </p>
-              </div>
-            </div>
+            <DetailHero
+              icon={GlobeAltIcon}
+              iconWrapClassName="bg-sky-100 dark:bg-sky-900/50"
+              iconClassName="text-sky-600 dark:text-sky-400"
+              title={event.title ?? "(bez naslova)"}
+              subtitle={formatDate(event.local_date)}
+            />
 
-            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-              <dl className="space-y-2 text-sm">
-                <DetailRow label="Vreme:" value={timeRangeLabel(event)} />
-                {event.location ? (
-                  <DetailRow
-                    label="Lokacija:"
-                    value={event.location}
+            <DetailInfoRows>
+              <DetailInfoText label="Vreme" value={timeRangeLabel(event)} />
+              {event.location ? (
+                <DetailInfoRow label="Lokacija" align="baseline">
+                  <a
                     href={mapsSearchUrl(event.location)}
-                    icon={<MapPinIcon className="mr-0.5 inline size-3.5 align-[-2px]" />}
-                  />
-                ) : null}
-                {event.description && !isFromGmail ? (
-                  <DetailRow label="Opis:" value={event.description} />
-                ) : null}
-                {event.event_type === "fromGmail" ? (
-                  <DetailRow label="Izvor:" value="Automatski iz Gmaila" />
-                ) : null}
-              </dl>
-            </div>
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-right font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
+                  >
+                    <MapPinIcon className="mr-0.5 inline size-3.5 align-[-2px]" />
+                    <span className="underline underline-offset-2">{event.location}</span>
+                  </a>
+                </DetailInfoRow>
+              ) : null}
+              {event.description && !isFromGmail ? (
+                <DetailInfoText label="Opis" value={event.description} />
+              ) : null}
+              {event.event_type === "fromGmail" ? (
+                <DetailInfoText label="Izvor" value="Automatski iz Gmaila" />
+              ) : null}
+            </DetailInfoRows>
 
             {event.ical_uid ? (
               <div className="space-y-3">
@@ -213,22 +182,22 @@ export function ExternalEventDetailDialog({
               </div>
             ) : null}
 
+            {openHref ? (
+              <DetailActionList>
+                <DetailActionRow
+                  icon={ArrowTopRightOnSquareIcon}
+                  label={openLabel}
+                  description="Otvara izvor u novom prozoru"
+                  href={openHref}
+                />
+              </DetailActionList>
+            ) : null}
+
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Događaj iz tvog Google kalendara - samo za prikaz. Izmene radi u Google-u.
             </p>
           </div>
         ) : null}
-
-        <ResponsiveDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          {openHref ? (
-            <Button variant="outline" asChild>
-              <a href={openHref} target="_blank" rel="noopener noreferrer">
-                {openLabel}
-              </a>
-            </Button>
-          ) : null}
-          <Button onClick={() => onOpenChange(false)}>Zatvori</Button>
-        </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
