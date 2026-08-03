@@ -21,6 +21,12 @@
 // subscription (see `claimableSubs` for why that filter must happen before
 // the claim).
 //
+// The digest counts the same five things the app's agenda lists for a day
+// (events incl. multi-day spans, mirrored Google events, weekly activities,
+// due payments, birthdays) - see `planDigest`. Anything the agenda shows but
+// the digest ignores turns into a silent morning on a day the user can see is
+// busy, which is exactly how activities went unreported until 2026-08.
+//
 // Idempotency is unchanged: every planned push carries a
 // (user_id, kind, ref_id) key that `notification_log` protects with a UNIQUE
 // constraint. Planning only decides *what* to claim; the claim itself still
@@ -66,8 +72,12 @@ export interface EventRow {
   family_id: string;
   name: string;
   date: string;
+  /** Inclusive last day of the span; null for single-day events. */
+  end_date: string | null;
   start_time: string | null;
   remind_minutes_before: number | null;
+  /** Set when the event was called off - it stays visible in the UI but must not notify. */
+  canceled_at: string | null;
 }
 
 export interface PaymentRow {
@@ -97,8 +107,23 @@ export interface ExternalEventRow {
   family_id: string;
   title: string | null;
   local_date: string;
-  start_time: string;
+  /** Null for all-day events - those count in a digest but never fire a reminder. */
+  start_time: string | null;
   ical_uid: string;
+  /** 'family' = whole family, 'private' = owner only. Anything else: nobody. */
+  visibility: string;
+  owner_user_id: string | null;
+}
+
+/**
+ * Who may see a mirrored Google event. This job reads with the service role,
+ * which bypasses RLS, so the "Read mirrored calendar events" policy has to be
+ * re-applied by hand - otherwise a private calendar's event titles leak to the
+ * rest of the family through digests and reminder pushes.
+ */
+function externalVisibleTo(x: ExternalEventRow, userId: string): boolean {
+  if (x.visibility === "family") return true;
+  return x.visibility === "private" && x.owner_user_id === userId;
 }
 
 export interface ActivityRow {
@@ -108,7 +133,8 @@ export interface ActivityRow {
   active_from: string | null;
   active_to: string | null;
   is_paused: boolean;
-  remind_minutes_before: number;
+  /** Null = the activity still shows up in a digest, it just has no reminder. */
+  remind_minutes_before: number | null;
   created_at: string;
 }
 
@@ -235,9 +261,25 @@ interface Index {
   profileById: Map<string, ProfileRow>;
   profilesByFamily: Map<string, ProfileRow[]>;
   subsByUser: Map<string, PushSubRow[]>;
+  /** Keyed on every day an event covers, not just its start - see buildIndex. */
   eventsByFamilyDate: Map<string, EventRow[]>;
   paymentsByFamilyDate: Map<string, PaymentRow[]>;
   birthdaysByFamily: Map<string, BirthdayRow[]>;
+  externalByFamilyDate: Map<string, ExternalEventRow[]>;
+  activities: ActivityIndex;
+}
+
+/** Everything the weekly-activity resolver needs, prebuilt once per tick. */
+interface ActivityIndex {
+  activityById: Map<string, ActivityRow>;
+  ruleById: Map<string, ScheduleRuleRow>;
+  rulesByFamily: Map<string, ScheduleRuleRow[]>;
+  personsByActivity: Map<string, string[]>;
+  anchorByPerson: Map<string, ShiftAnchorRow>;
+  overrideByKey: Map<string, ActivityOverrideRow>;
+  /** Reschedules that land on a different date than the rule's own occurrence. */
+  movedHere: ActivityOverrideRow[];
+  familyIds: Set<string>;
 }
 
 function pushInto<T>(map: Map<string, T[]>, key: string, value: T): void {
@@ -257,14 +299,38 @@ function buildIndex(input: DispatchInput): Index {
   const subsByUser = new Map<string, PushSubRow[]>();
   for (const s of input.subs) pushInto(subsByUser, s.user_id, s);
 
+  // A multi-day event belongs to every day of its span, the same way
+  // `eventDaySlices` expands it for the agenda - indexing only `date` used to
+  // hide an ongoing event from every digest after its first day. The span is
+  // clamped to the tick's own window so a pathological end_date can't make
+  // this loop long.
+  const spanFrom = addDays(utcDateOf(input.now), -EVENT_WINDOW_DAYS_BEFORE);
+  const spanTo = addDays(utcDateOf(input.now), EVENT_WINDOW_DAYS_AFTER);
   const eventsByFamilyDate = new Map<string, EventRow[]>();
-  for (const e of input.events) pushInto(eventsByFamilyDate, `${e.family_id}|${e.date}`, e);
+  for (const e of input.events) {
+    // Canceled events stay in the table (the UI shows them struck through)
+    // but must not appear in a digest count or fire a reminder.
+    if (e.canceled_at) continue;
+    const last = eventLastDay(e);
+    for (
+      let day = e.date < spanFrom ? spanFrom : e.date;
+      day <= last && day <= spanTo;
+      day = addDays(day, 1)
+    ) {
+      pushInto(eventsByFamilyDate, `${e.family_id}|${day}`, e);
+    }
+  }
 
   const paymentsByFamilyDate = new Map<string, PaymentRow[]>();
   for (const p of input.payments) pushInto(paymentsByFamilyDate, `${p.family_id}|${p.due_date}`, p);
 
   const birthdaysByFamily = new Map<string, BirthdayRow[]>();
   for (const b of input.birthdays) pushInto(birthdaysByFamily, b.family_id, b);
+
+  const externalByFamilyDate = new Map<string, ExternalEventRow[]>();
+  for (const x of input.externalEvents) {
+    pushInto(externalByFamilyDate, `${x.family_id}|${x.local_date}`, x);
+  }
 
   return {
     prefsByUser,
@@ -275,7 +341,138 @@ function buildIndex(input: DispatchInput): Index {
     eventsByFamilyDate,
     paymentsByFamilyDate,
     birthdaysByFamily,
+    externalByFamilyDate,
+    activities: buildActivityIndex(input),
   };
+}
+
+/** Inclusive last day of an event's span - `date` itself when single-day. */
+export function eventLastDay(e: Pick<EventRow, "date" | "end_date">): string {
+  // Defensive `>` guard mirrors utils/event.ts: a bad row degrades to
+  // single-day rather than to an empty or backwards span.
+  return e.end_date && e.end_date > e.date ? e.end_date : e.date;
+}
+
+function buildActivityIndex(input: DispatchInput): ActivityIndex {
+  const activityById = new Map(input.activities.map((a) => [a.id, a]));
+  const ruleById = new Map(input.schedule.map((r) => [r.id, r]));
+  const anchorByPerson = new Map(input.anchors.map((a) => [a.person_id, a]));
+
+  const rulesByFamily = new Map<string, ScheduleRuleRow[]>();
+  const familyIds = new Set<string>();
+  for (const rule of input.schedule) {
+    const activity = activityById.get(rule.activity_id);
+    if (!activity) continue;
+    pushInto(rulesByFamily, activity.family_id, rule);
+    familyIds.add(activity.family_id);
+  }
+
+  const personsByActivity = new Map<string, string[]>();
+  for (const p of input.participants) pushInto(personsByActivity, p.activity_id, p.person_id);
+
+  const overrideByKey = new Map<string, ActivityOverrideRow>();
+  const movedHere: ActivityOverrideRow[] = [];
+  for (const o of input.overrides) {
+    overrideByKey.set(overrideKey(o.schedule_id, o.date, o.person_id), o);
+    if (o.action === "reschedule" && o.override_date && o.override_date !== o.date) {
+      movedHere.push(o);
+      const activity = activityById.get(ruleById.get(o.schedule_id)?.activity_id ?? "");
+      if (activity) familyIds.add(activity.family_id);
+    }
+  }
+
+  return {
+    activityById,
+    ruleById,
+    rulesByFamily,
+    personsByActivity,
+    anchorByPerson,
+    overrideByKey,
+    movedHere,
+    familyIds,
+  };
+}
+
+/**
+ * Every weekly-activity occurrence a family actually has on `date`, after
+ * overrides - one entry per (rule, participant), which is exactly one row on
+ * the app's agenda for that day.
+ *
+ * Shared by the digest (which counts them) and the reminder path (which fires
+ * on the ones carrying `remind_minutes_before`), so the two can never drift.
+ */
+export interface ActivityOccurrence {
+  activity: ActivityRow;
+  scheduleId: string;
+  personId: string;
+  date: string;
+  /** HH:MM after any same-day reschedule. */
+  startTime: string;
+}
+
+function resolveActivityOccurrences(
+  aidx: ActivityIndex,
+  familyId: string,
+  date: string,
+): ActivityOccurrence[] {
+  const out: ActivityOccurrence[] = [];
+
+  // Pass 1 - rules x participants on their own date.
+  for (const rule of aidx.rulesByFamily.get(familyId) ?? []) {
+    const activity = aidx.activityById.get(rule.activity_id);
+    if (!activity) continue;
+    const persons = aidx.personsByActivity.get(activity.id);
+    if (!persons || persons.length === 0) continue;
+
+    for (const personId of persons) {
+      if (!matchesRuleOnDate(activity, rule, aidx.anchorByPerson.get(personId), date)) continue;
+
+      const override = aidx.overrideByKey.get(overrideKey(rule.id, date, personId));
+      let startTime = rule.start_time.slice(0, 5);
+      if (override) {
+        if (override.action === "cancel") continue;
+        if (override.action === "reschedule") {
+          const movedAway = !!override.override_date && override.override_date !== date;
+          if (movedAway) continue; // shows up on its new day via pass 2
+          // Both times required before the swap counts, matching the frontend
+          // resolver - a half-written override falls back to the rule's times
+          // in the UI, so it has to here too.
+          if (override.override_start_time && override.override_end_time) {
+            startTime = override.override_start_time.slice(0, 5);
+          }
+        }
+      }
+
+      out.push({ activity, scheduleId: rule.id, personId, date, startTime });
+    }
+  }
+
+  // Pass 2 - occurrences moved onto `date` from another day.
+  for (const ov of aidx.movedHere) {
+    if (ov.override_date !== date) continue;
+    if (!ov.override_start_time || !ov.override_end_time) continue;
+
+    const rule = aidx.ruleById.get(ov.schedule_id);
+    if (!rule) continue;
+    const activity = aidx.activityById.get(rule.activity_id);
+    if (!activity || activity.family_id !== familyId) continue;
+    if (activity.active_from && date < activity.active_from) continue;
+    if (activity.active_to && date > activity.active_to) continue;
+    // Participant might have been removed from the activity after the
+    // override was set - same silent-skip semantic as the frontend resolver.
+    const persons = aidx.personsByActivity.get(activity.id);
+    if (!persons?.includes(ov.person_id)) continue;
+
+    out.push({
+      activity,
+      scheduleId: rule.id,
+      personId: ov.person_id,
+      date,
+      startTime: ov.override_start_time.slice(0, 5),
+    });
+  }
+
+  return out;
 }
 
 /**
@@ -352,19 +549,32 @@ function planDigest(
     return { ...base, push: null, emptyStatus: "no_family" };
   }
 
-  const events = idx.eventsByFamilyDate.get(`${familyId}|${targetDate}`) ?? [];
+  // The five sources here are exactly what the app's agenda shows for a day
+  // (see useAgenda) - a digest that counted fewer stayed silent on days the
+  // user could plainly see were busy.
+  const nativeEvents = idx.eventsByFamilyDate.get(`${familyId}|${targetDate}`) ?? [];
+  const mirrored = (idx.externalByFamilyDate.get(`${familyId}|${targetDate}`) ?? []).filter((x) =>
+    externalVisibleTo(x, pref.user_id),
+  );
+  // Mirrored Google events read as ordinary events to the user, so they share
+  // the "događaj" count rather than getting a category of their own.
+  const eventCount = nativeEvents.length + mirrored.length;
   const payments = idx.paymentsByFamilyDate.get(`${familyId}|${targetDate}`) ?? [];
   const birthdays = (idx.birthdaysByFamily.get(familyId) ?? []).filter((b) =>
     sameMonthDay(b.birth_date, targetDate),
   );
+  // One entry per (rule, participant) - the same granularity the agenda lists,
+  // so two kids at the same practice read as two items in both places.
+  const activityCount = resolveActivityOccurrences(idx.activities, familyId, targetDate).length;
 
-  if (events.length === 0 && payments.length === 0 && birthdays.length === 0) {
+  if (eventCount === 0 && payments.length === 0 && birthdays.length === 0 && activityCount === 0) {
     return { ...base, push: null, emptyStatus: "nothing_to_send" };
   }
 
   const counts: string[] = [];
-  if (events.length)
-    counts.push(`${events.length} ${plural(events.length, "događaj", "događaja")}`);
+  if (eventCount) counts.push(`${eventCount} ${plural(eventCount, "događaj", "događaja")}`);
+  if (activityCount)
+    counts.push(`${activityCount} ${plural(activityCount, "aktivnost", "aktivnosti")}`);
   if (payments.length)
     counts.push(`${payments.length} ${plural(payments.length, "plaćanje", "plaćanja")}`);
   if (birthdays.length)
@@ -390,7 +600,10 @@ function planEventReminders(input: DispatchInput, idx: Index): PlannedClaim[] {
 
   const out: PlannedClaim[] = [];
   for (const ev of input.events) {
+    if (ev.canceled_at) continue;
     if (ev.remind_minutes_before == null || ev.start_time == null) continue;
+    // Reminders fire off the start day only: on a multi-day span `start_time`
+    // belongs to the first day, and later days are all-day continuations.
     if (!reminderWindow.has(ev.date)) continue;
 
     const members = idx.profilesByFamily.get(ev.family_id) ?? [];
@@ -499,20 +712,10 @@ function formatAmount(amount: number): string {
 // slot.
 
 function planActivityReminders(input: DispatchInput, idx: Index): PlannedClaim[] {
-  if (input.activities.length === 0) return [];
+  const aidx = idx.activities;
+  if (aidx.familyIds.size === 0) return [];
 
-  const activityById = new Map(input.activities.map((a) => [a.id, a]));
-  const ruleById = new Map(input.schedule.map((r) => [r.id, r]));
-  const anchorByPerson = new Map(input.anchors.map((a) => [a.person_id, a]));
-
-  const overrideByKey = new Map<string, ActivityOverrideRow>();
-  for (const o of input.overrides) {
-    overrideByKey.set(overrideKey(o.schedule_id, o.date, o.person_id), o);
-  }
-  const personsByActivity = new Map<string, string[]>();
-  for (const p of input.participants) pushInto(personsByActivity, p.activity_id, p.person_id);
-
-  // Pick a "family timezone" for day-of-week / override lookups. Any auth
+  // Pick a "family timezone" for the day-of-week / override lookups. Any auth
   // user's tz works because we assume family members share a locale; falls
   // back to Belgrade so kid-only activities still resolve.
   const familyTz = (familyId: string): string => {
@@ -524,82 +727,27 @@ function planActivityReminders(input: DispatchInput, idx: Index): PlannedClaim[]
   };
 
   const out: PlannedClaim[] = [];
-
-  // Pass 1 - walk rules x participants against today in the family's clock.
-  for (const rule of input.schedule) {
-    const activity = activityById.get(rule.activity_id);
-    if (!activity) continue;
-    const persons = personsByActivity.get(activity.id);
-    if (!persons || persons.length === 0) continue;
-
-    const familyToday = localDateISO(familyTz(activity.family_id), input.now);
-
-    for (const personId of persons) {
-      if (!matchesRuleOnDate(activity, rule, anchorByPerson.get(personId), familyToday)) continue;
-
-      const override = overrideByKey.get(overrideKey(rule.id, familyToday, personId));
-      let effectiveStart = rule.start_time.slice(0, 5);
-      if (override) {
-        if (override.action === "cancel") continue;
-        if (override.action === "reschedule") {
-          const movedAway = !!override.override_date && override.override_date !== familyToday;
-          if (movedAway) continue; // fires on a different day; pass 2 handles it
-          if (override.override_start_time) {
-            effectiveStart = override.override_start_time.slice(0, 5);
-          }
-        }
-      }
-
+  for (const familyId of aidx.familyIds) {
+    const familyToday = localDateISO(familyTz(familyId), input.now);
+    for (const occ of resolveActivityOccurrences(aidx, familyId, familyToday)) {
+      // Activities without an offset still count towards a digest, they just
+      // have no reminder of their own.
+      const remindMinutes = occ.activity.remind_minutes_before;
+      if (remindMinutes == null) continue;
       out.push(
         ...planActivityOccurrence(
           input,
           idx,
-          activity,
-          personId,
-          rule.id,
-          familyToday,
-          effectiveStart,
+          occ.activity,
+          remindMinutes,
+          occ.personId,
+          occ.scheduleId,
+          occ.date,
+          occ.startTime,
         ),
       );
     }
   }
-
-  // Pass 2 - moved-here overrides whose new date is today in the family tz.
-  for (const ov of input.overrides) {
-    if (ov.action !== "reschedule") continue;
-    if (!ov.override_date) continue;
-    if (ov.override_date === ov.date) continue; // same-day handled in pass 1
-    if (!ov.override_start_time) continue;
-
-    const rule = ruleById.get(ov.schedule_id);
-    if (!rule) continue;
-    const activity = activityById.get(rule.activity_id);
-    if (!activity) continue;
-    if (!activity.remind_minutes_before) continue;
-
-    const familyToday = localDateISO(familyTz(activity.family_id), input.now);
-    if (ov.override_date !== familyToday) continue;
-
-    if (activity.active_from && ov.override_date < activity.active_from) continue;
-    if (activity.active_to && ov.override_date > activity.active_to) continue;
-    // Participant might have been removed from the activity after the override
-    // was set - same silent-skip-and-reactivate semantic.
-    const persons = personsByActivity.get(activity.id);
-    if (!persons?.includes(ov.person_id)) continue;
-
-    out.push(
-      ...planActivityOccurrence(
-        input,
-        idx,
-        activity,
-        ov.person_id,
-        rule.id,
-        ov.override_date,
-        ov.override_start_time.slice(0, 5),
-      ),
-    );
-  }
-
   return out;
 }
 
@@ -619,6 +767,8 @@ function planActivityOccurrence(
   input: DispatchInput,
   idx: Index,
   activity: ActivityRow,
+  /** Already narrowed to non-null by the caller - see planActivityReminders. */
+  remindMinutes: number,
   participantPersonId: string,
   scheduleId: string,
   occurrenceDate: string,
@@ -630,7 +780,7 @@ function planActivityOccurrence(
     ? [participant.first_name, participant.last_name].filter(Boolean).join(" ").trim()
     : "";
 
-  const fire = eventLocalFireTime(occurrenceDate, effectiveStart, activity.remind_minutes_before);
+  const fire = eventLocalFireTime(occurrenceDate, effectiveStart, remindMinutes);
   const out: PlannedClaim[] = [];
 
   for (const recipient of idx.profilesByFamily.get(activity.family_id) ?? []) {
@@ -656,7 +806,7 @@ function planActivityOccurrence(
       result: { user_id: recipient.id, kind: "activity_reminder", ref_id: refId },
       push: {
         title,
-        body: `Počinje za ${activity.remind_minutes_before} min (u ${effectiveStart}).`,
+        body: `Počinje za ${remindMinutes} min (u ${effectiveStart}).`,
         url: "/activities",
         tag: `activity-reminder-${refId}-${recipient.id}`,
       },
@@ -730,6 +880,9 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
 
   const out: PlannedClaim[] = [];
   for (const ev of input.externalEvents) {
+    // All-day mirrored events have no start: they count in a digest but there
+    // is no clock to fire a reminder against.
+    if (ev.start_time == null) continue;
     const remind = remindByKey.get(`${ev.family_id}|${ev.ical_uid}`);
     if (remind == null) continue;
 
@@ -740,6 +893,10 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
     const refId = `${ev.ical_uid}:${ev.local_date}`;
 
     for (const member of members) {
+      // The reminder offset lives on a family-scoped row, so without this the
+      // owner setting a reminder on a private calendar would push its title to
+      // everyone in the family.
+      if (!externalVisibleTo(ev, member.id)) continue;
       const subs = claimableSubs(idx, member.id);
       if (!subs) continue; // no push -> not a recipient (see claimableSubs)
       const tz = idx.tzByUser.get(member.id) ?? FAMILY_TZ_DEFAULT;
