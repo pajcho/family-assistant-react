@@ -15,7 +15,7 @@ import {
 } from "@/components/common/FilterSheet";
 import { MonthPicker } from "@/components/common/PeriodPicker";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
+import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
 import { PaymentOccurrenceDialog } from "@/components/payments/PaymentOccurrenceDialog";
@@ -901,7 +901,6 @@ function PaymentsPage() {
         onEdit={(p) => {
           void openEdit(p);
         }}
-        variant="manage"
       />
 
       <PaymentOccurrenceDialog

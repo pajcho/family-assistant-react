@@ -20,7 +20,7 @@ import {
   type ActivityFormState,
   type ActivityFormViewKind,
 } from "@/components/activities/ActivityForm";
-import { ActivityPaymentsSection } from "@/components/activities/ActivityPaymentsSection";
+import { ActivityMoneySection } from "@/components/activities/ActivityMoneySection";
 import type { Activity, ActivitySchedule, Profile } from "@/types/database";
 
 export type ActivityFormDialogProps = {
@@ -137,7 +137,7 @@ export function ActivityFormDialog({
               peopleWithShift={peopleWithShift}
               saving={saving}
               paymentsSection={
-                activity && open ? <ActivityPaymentsSection activity={activity} /> : undefined
+                activity && open ? <ActivityMoneySection activity={activity} /> : undefined
               }
               onSubmit={onSubmit}
               onCancel={() => onOpenChange(false)}

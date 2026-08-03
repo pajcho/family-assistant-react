@@ -88,6 +88,52 @@ export function useExpenses(range: ExpenseRange) {
   return { ...query, expenses };
 }
 
+export type LinkedExpenseRef = {
+  activityId?: string | null;
+  eventId?: string | null;
+};
+
+async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Promise<Expense[]> {
+  let query = supabase
+    .from("expenses")
+    .select("*")
+    .eq("family_id", familyId)
+    // Auto rows mirror a payment that the "Plaćanja" box already lists -
+    // showing them again would double every paid occurrence.
+    .neq("source", "payment")
+    .order("spent_on", { ascending: false })
+    .order("created_at", { ascending: false });
+  query = ref.activityId
+    ? query.eq("activity_id", ref.activityId)
+    : query.eq("event_id", ref.eventId as string);
+  const { data, error } = await query;
+  if (error) return [];
+  return (data as Expense[]) ?? [];
+}
+
+/**
+ * Manual + receipt expenses linked to one activity or event - the "Troškovi"
+ * box in the detail dialogs. Cross-month by design (the range query above is
+ * month-windowed). Keyed under ["expenses", familyId] so every expense
+ * mutation's invalidation refreshes this list too.
+ */
+export function useLinkedExpenses(ref: LinkedExpenseRef) {
+  const { familyId } = useProfile();
+  const query = useQuery({
+    queryKey: [
+      "expenses",
+      familyId,
+      "linked",
+      ref.activityId ? "activity" : "event",
+      ref.activityId ?? ref.eventId ?? "",
+    ],
+    queryFn: () => fetchLinkedExpenses(familyId as string, ref),
+    enabled: !!familyId && !!(ref.activityId || ref.eventId),
+  });
+  const expenses = useMemo(() => query.data ?? [], [query.data]);
+  return { ...query, expenses };
+}
+
 export function useCreateExpense() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();

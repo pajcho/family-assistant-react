@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ComponentType, FormEvent, SVGProps } from "react";
+import type { FormEvent } from "react";
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
@@ -17,14 +17,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimePicker } from "@/components/ui/time-picker";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { DetailActionList, DetailActionRow } from "@/components/common/DetailSheet";
 import {
   LinkedMoneyChooser,
   LinkedMoneyFlow,
   type LinkedMoneyKind,
   type LinkedMoneyRequest,
 } from "@/components/common/LinkedMoneyFlow";
-import { ActivityPaymentsSection } from "@/components/activities/ActivityPaymentsSection";
-import { cn } from "@/lib/cn";
+import { LinkedMoneyViewer, type LinkedMoneyTarget } from "@/components/payments/LinkedMoneyViewer";
+import { ActivityMoneySection } from "@/components/activities/ActivityMoneySection";
 import type { Activity, Profile } from "@/types/database";
 import { fallbackColorForProfile, type ResolvedActivityBlock } from "@/utils/activity";
 import { srLocale } from "@/utils/date";
@@ -42,13 +43,14 @@ import { useDeleteActivityOverride, useUpsertActivityOverride } from "@/hooks/us
  *   • Vrati u redovan termin → delete the existing override (rescheduled or canceled)
  *   • Dodaj plaćanje ili trošak → "money" sub-view (payment / expense / receipt
  *                             scan, each pre-linked to the activity) - picking
- *                             one closes the sheet and hands over to
- *                             `ActivityMoneyFlow`, mounted OUTSIDE the sheet so
- *                             the form survives the sheet closing.
+ *                             one HIDES the sheet under the pre-linked form
+ *                             (`LinkedMoneyFlow`, mounted OUTSIDE the sheet)
+ *                             and brings it back once the form is done.
  *
- * Below the actions, the payments already linked to this activity are listed
- * (`ActivityPaymentsSection` - same box as in the edit dialog, with the
- * per-month attendance breakdown).
+ * Below the actions, the payments + expenses already linked to this activity
+ * are listed (`ActivityMoneySection` - same boxes as in the edit dialog, with
+ * the per-month attendance breakdown); a row opens that entry's detail
+ * (`LinkedMoneyViewer`) over the hidden sheet.
  *
  * The dialog stays open while submitting so toast errors surface inline;
  * `onOpenChange(false)` is only called on a successful action or cancel.
@@ -63,21 +65,24 @@ export type BlockActionDialogProps = {
 };
 
 export function BlockActionDialog(props: BlockActionDialogProps) {
-  // Money-add survives the sheet: picking an option closes the sheet (the
-  // parent nulls `block`), but this wrapper stays mounted and keeps the
-  // requested form dialog open until it's saved or dismissed.
+  // The money form / detail keep the sheet mounted but HIDDEN (the parent's
+  // `block` stays set); closing them brings the sheet back with the money
+  // boxes refreshed.
   const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
+  const [moneyTarget, setMoneyTarget] = useState<LinkedMoneyTarget | null>(null);
 
   return (
     <>
       <BlockActionSheet
         {...props}
+        hidden={!!moneyRequest || !!moneyTarget}
         onAddMoney={(kind, activity) => {
-          props.onOpenChange(false);
           setMoneyRequest({ kind, link: { kind: "activity", id: activity.id } });
         }}
+        onSelectMoney={setMoneyTarget}
       />
       <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
+      <LinkedMoneyViewer target={moneyTarget} onClose={() => setMoneyTarget(null)} />
     </>
   );
 }
@@ -89,9 +94,15 @@ function BlockActionSheet({
   activity,
   person,
   onEditActivity,
+  hidden,
   onAddMoney,
+  onSelectMoney,
 }: BlockActionDialogProps & {
+  /** True while a money form/detail is on top - the sheet unmounts its overlay
+   *  without closing (the stack and the parent's `block` stay put). */
+  hidden: boolean;
   onAddMoney: (kind: LinkedMoneyKind, activity: Activity) => void;
+  onSelectMoney: (target: LinkedMoneyTarget) => void;
 }) {
   const upsertOverride = useUpsertActivityOverride();
   const deleteOverride = useDeleteActivityOverride();
@@ -161,7 +172,7 @@ function BlockActionSheet({
   };
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
+    <ResponsiveDialog key={dialogKey} open={dialogOpen && !hidden} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent>
         <SheetStackHeader
           title={
@@ -228,16 +239,24 @@ function BlockActionSheet({
               onRestore={() => void handleRestore()}
               onAddMoney={activity ? () => push("money") : undefined}
             />
-            {/* Payments already linked to this activity (with the per-month
-                attendance breakdown) - renders nothing while there are none. */}
+            {/* Payments + expenses already linked to this activity (with the
+                per-month attendance breakdown) - renders nothing while there
+                are none; a row opens that entry's detail. */}
             {activity ? (
-              <div className="mt-4">
-                <ActivityPaymentsSection activity={activity} />
+              <div className="mt-4 space-y-4">
+                <ActivityMoneySection activity={activity} onSelect={onSelectMoney} />
               </div>
             ) : null}
           </>
         ) : view === "money" && activity ? (
-          <LinkedMoneyChooser onPick={(kind) => onAddMoney(kind, activity)} />
+          <LinkedMoneyChooser
+            onPick={(kind) => {
+              // Hide (don't close) the sheet under the pre-linked form - it
+              // returns to the action list once the form is done.
+              reset();
+              onAddMoney(kind, activity);
+            }}
+          />
         ) : view === "cancel" ? (
           <CancelForm
             saving={upsertOverride.isPending}
@@ -304,22 +323,22 @@ function ActionList({
   const hasOverride = isCanceled || isRescheduled;
 
   return (
-    <div className="space-y-2">
-      <ActionRow
+    <DetailActionList>
+      <DetailActionRow
         icon={PencilSquareIcon}
         label="Izmeni aktivnost"
         description="Menja sve termine ove aktivnosti"
         onClick={onEdit}
         disabled={saving}
       />
-      <ActionRow
+      <DetailActionRow
         icon={XCircleIcon}
         label={isCanceled ? "Već je otkazan" : "Otkaži ovaj termin"}
         description="Samo ovaj jedan put - ostali ostaju"
         onClick={onCancel}
         disabled={saving || isCanceled}
       />
-      <ActionRow
+      <DetailActionRow
         icon={ClockIcon}
         label={isRescheduled ? "Promeni novo vreme" : "Pomeri vreme ovog termina…"}
         description="Samo za ovaj jedan put"
@@ -327,7 +346,7 @@ function ActionList({
         disabled={saving}
       />
       {hasOverride ? (
-        <ActionRow
+        <DetailActionRow
           icon={ArrowUturnLeftIcon}
           label="Vrati u redovan termin"
           description={isCanceled ? "Vrati otkazan termin u raspored" : "Vrati na originalno vreme"}
@@ -337,7 +356,7 @@ function ActionList({
         />
       ) : null}
       {onAddMoney ? (
-        <ActionRow
+        <DetailActionRow
           icon={BanknotesIcon}
           label="Dodaj plaćanje ili trošak"
           description="Poveži plaćanje, trošak ili skeniran račun sa aktivnošću"
@@ -345,42 +364,7 @@ function ActionList({
           disabled={saving}
         />
       ) : null}
-    </div>
-  );
-}
-
-interface ActionRowProps {
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  label: string;
-  description: string;
-  onClick: () => void;
-  disabled?: boolean;
-  tone?: "default" | "muted";
-}
-
-function ActionRow({ icon: Icon, label, description, onClick, disabled, tone }: ActionRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "flex w-full items-start gap-3 rounded-md border border-gray-200 px-3 py-2.5 text-left",
-        "transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50",
-        "dark:border-gray-700 dark:hover:bg-gray-800",
-      )}
-    >
-      <Icon
-        className={cn(
-          "mt-0.5 h-5 w-5 shrink-0",
-          tone === "muted" ? "text-gray-500" : "text-gray-700 dark:text-gray-200",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</div>
-        <div className="text-xs text-muted-foreground">{description}</div>
-      </div>
-    </button>
+    </DetailActionList>
   );
 }
 

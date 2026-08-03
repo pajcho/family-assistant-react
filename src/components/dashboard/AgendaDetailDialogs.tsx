@@ -2,10 +2,10 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { ActivityEditDialog } from "@/components/activities/ActivityEditDialog";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
-import { BirthdayDetailDialog } from "@/components/dashboard/BirthdayDetailDialog";
-import { EventDetailDialog } from "@/components/dashboard/EventDetailDialog";
+import { BirthdayDetailDialog } from "@/components/birthdays/BirthdayDetailDialog";
+import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { ExternalEventDetailDialog } from "@/components/dashboard/ExternalEventDetailDialog";
-import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
+import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { useActivities } from "@/hooks/useActivities";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
@@ -16,12 +16,13 @@ import type { ResolvedActivityBlock } from "@/utils/activity";
 
 /**
  * Shared detail-dialog plumbing for the agenda tabs. Owns the per-kind
- * selection state and renders the four detail popups once, so both the "Danas"
- * and "Uskoro" tabs route a row click to the same dialog set. Activity / event
- * / payment rows open the same popups the dedicated feature cards used; "Izmeni"
- * inside event/payment/birthday flows back to the dashboard's form dialogs via
- * `onEditEvent` / `onEditPayment` / `onEditBirthday`. Activity edit opens the full
- * form INLINE via the self-contained `ActivityEditDialog` (no /activities
+ * selection state and renders the detail popups once, so both the "Danas"
+ * and "Uskoro" tabs route a row click to the same dialog set. Event / payment
+ * / birthday rows open the SAME detail components as the feature pages
+ * (events/, payments/, birthdays/) - one look everywhere; "Izmeni" inside
+ * them flows back to the dashboard's form dialogs via `onEditEvent` /
+ * `onEditPayment` / `onEditBirthday`. Activity edit opens the full form
+ * INLINE via the self-contained `ActivityEditDialog` (no /activities
  * redirect) - its schedule/participants data is already warm from `useAgenda`.
  */
 export function useAgendaDetails({

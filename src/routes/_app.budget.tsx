@@ -34,7 +34,7 @@ import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
-import { PaymentDetailDialog } from "@/components/dashboard/PaymentDetailDialog";
+import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";

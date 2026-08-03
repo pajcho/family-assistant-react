@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CakeIcon, EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
-import type { Birthday, Event } from "@/types/database";
+import type { Birthday } from "@/types/database";
 import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
@@ -15,11 +15,8 @@ import {
   type BirthdayFormDialogProps,
 } from "@/components/birthdays/BirthdayFormDialog";
 import { type BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
-import { EventFormDialog } from "@/components/events/EventFormDialog";
-import type { EventFormPayload } from "@/components/events/EventForm";
 import { useBirthdaysList, useCreateBirthday, useUpdateBirthday } from "@/hooks/useBirthdays";
-import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
-import { useEventParticipants } from "@/hooks/useEventParticipants";
+import { useBirthdayCelebrations } from "@/hooks/useEvents";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 import { formatDate, srLocale } from "@/utils/date";
 
@@ -68,16 +65,9 @@ function BirthdaysPage() {
   const [editingBirthday, setEditingBirthday] = useState<Birthday | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // "Organizuj proslavu" - the event form opens prefilled with the person's
-  // next birthday; the created event carries `birthday_id` so the row can show
-  // the celebration chip. The same dialog re-opens an existing celebration.
-  const [organizingFor, setOrganizingFor] = useState<Birthday | null>(null);
-  const [editingCelebration, setEditingCelebration] = useState<Event | null>(null);
-  const [celebrationError, setCelebrationError] = useState<string | null>(null);
+  // Celebrations only feed the row chips here - organizing / editing one
+  // lives inside BirthdayDetailDialog (self-contained since the redesign).
   const { data: celebrationByBirthday } = useBirthdayCelebrations();
-  const { byEvent } = useEventParticipants();
-  const createEvent = useCreateEvent();
-  const updateEvent = useUpdateEvent();
 
   // Filter (month within this year / search / hide-passed), then sort. Search
   // matches name + description and ignores the other filters. Default sort is
@@ -167,32 +157,6 @@ function BirthdaysPage() {
     if (!next) {
       setFormError(null);
       setEditingBirthday(null);
-    }
-  };
-
-  const handleCelebrationSubmit = async (payload: EventFormPayload) => {
-    setCelebrationError(null);
-    try {
-      if (editingCelebration) {
-        await updateEvent.mutateAsync({ id: editingCelebration.id, payload });
-      } else if (organizingFor) {
-        await createEvent.mutateAsync({ ...payload, birthday_id: organizingFor.id });
-      }
-      setOrganizingFor(null);
-      setEditingCelebration(null);
-    } catch (err) {
-      const fallback = editingCelebration
-        ? "Greška pri izmeni proslave"
-        : "Greška pri kreiranju proslave";
-      setCelebrationError(err instanceof Error && err.message ? err.message : fallback);
-    }
-  };
-
-  const handleCelebrationOpenChange = (next: boolean) => {
-    if (!next) {
-      setOrganizingFor(null);
-      setEditingCelebration(null);
-      setCelebrationError(null);
     }
   };
 
@@ -336,20 +300,7 @@ function BirthdaysPage() {
           if (!open) setSelectedBirthday(null);
         }}
         birthday={selectedBirthday}
-        celebration={
-          selectedBirthday ? (celebrationByBirthday?.get(selectedBirthday.id) ?? null) : null
-        }
         onEdit={openEdit}
-        onOrganize={(birthday) => {
-          setCelebrationError(null);
-          setEditingCelebration(null);
-          setOrganizingFor(birthday);
-        }}
-        onOpenCelebration={(event) => {
-          setCelebrationError(null);
-          setOrganizingFor(null);
-          setEditingCelebration(event);
-        }}
       />
 
       <BirthdayFormDialog
@@ -359,27 +310,6 @@ function BirthdaysPage() {
         error={formError}
         saving={saving}
         onSubmit={handleSubmit}
-      />
-
-      <EventFormDialog
-        open={!!organizingFor || !!editingCelebration}
-        onOpenChange={handleCelebrationOpenChange}
-        event={editingCelebration}
-        initialPersonIds={editingCelebration ? (byEvent.get(editingCelebration.id) ?? []) : []}
-        defaults={
-          organizingFor
-            ? {
-                name: `Proslava - ${organizingFor.name}`,
-                date: format(nextBirthdayDate(organizingFor.birth_date), "yyyy-MM-dd"),
-              }
-            : undefined
-        }
-        title={organizingFor ? "Organizuj proslavu" : "Izmeni proslavu"}
-        error={celebrationError}
-        saving={createEvent.isPending || updateEvent.isPending}
-        onSubmit={(payload) => {
-          void handleCelebrationSubmit(payload);
-        }}
       />
     </div>
   );
