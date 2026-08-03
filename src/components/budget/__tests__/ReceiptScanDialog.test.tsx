@@ -12,17 +12,19 @@ import type { ParsedReceipt } from "@/hooks/useReceiptImport";
  * sheet-stack wiring (the thing under test) runs for real on the mobile path.
  */
 
-const fakeReceipt: ParsedReceipt = {
-  merchant: "Maxi",
-  companyName: null,
-  storeName: null,
-  pib: null,
-  issuedAt: "2026-08-01T12:00:00+02:00",
-  totalAmount: 1234,
-  items: [{ name: "Mleko 1l", quantity: 1, unitPrice: 1234, total: 1234 }],
-  warnings: [],
-  receiptUrl: "https://suf.purs.gov.rs/v/?vl=test",
-};
+const { fakeReceipt } = vi.hoisted(() => ({
+  fakeReceipt: {
+    merchant: "Maxi",
+    companyName: null,
+    storeName: null,
+    pib: null,
+    issuedAt: "2026-08-01T12:00:00+02:00",
+    totalAmount: 1234,
+    items: [{ name: "Mleko 1l", quantity: 1, unitPrice: 1234, total: 1234 }],
+    warnings: [],
+    receiptUrl: "https://suf.purs.gov.rs/v/?vl=test",
+  } as ParsedReceipt,
+}));
 
 vi.mock("@/components/ui/responsive-dialog", () => ({
   ResponsiveDialog: ({
@@ -55,8 +57,11 @@ vi.mock("@/components/ui/responsive-dialog", () => ({
   useIsDesktop: () => false,
 }));
 
-vi.mock("@/hooks/useReceiptImport", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/hooks/useReceiptImport")>()),
+// Fully self-contained (no importOriginal): the real module imports
+// @/lib/supabase, which throws at import time without VITE_SUPABASE_* env -
+// present locally via .env, absent in CI.
+vi.mock("@/hooks/useReceiptImport", () => ({
+  isSufReceiptUrl: (raw: string) => raw.trim().startsWith("https://suf.purs.gov.rs/v/"),
   useReceiptImport: () => ({
     mutate: (
       _url: string,
