@@ -48,7 +48,7 @@ function LoginPage() {
     <div className="relative flex h-[100dvh] flex-col overflow-y-auto bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(320px_220px_at_85%_-40px,var(--color-blue-100),transparent),radial-gradient(260px_200px_at_-60px_30%,var(--color-blue-100),transparent)] dark:bg-[radial-gradient(320px_220px_at_85%_-40px,var(--color-blue-950),transparent),radial-gradient(260px_200px_at_-60px_30%,var(--color-blue-950),transparent)]" />
       <IosInstallHint />
-      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
         <div className="flex size-[74px] items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_14px_30px_-12px_var(--color-blue-600)]">
           <UserGroupIcon className="size-9" />
         </div>
@@ -119,7 +119,7 @@ function LoginPage() {
         <p className="mt-auto pt-10 text-center text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
           Instaliraj kao aplikaciju: Podeli pa „Add to Home Screen".
         </p>
-      </div>
+      </main>
     </div>
   );
 }

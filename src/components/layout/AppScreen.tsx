@@ -56,7 +56,7 @@ export function AppScreen({
           <div className={contentClassName}>{header}</div>
         </div>
       ) : null}
-      <div
+      <main
         id={APP_SCROLL_ID}
         data-scroll-restoration-id={APP_SCROLL_RESTORATION_ID}
         className={cn(
@@ -67,7 +67,7 @@ export function AppScreen({
         )}
       >
         <div className={contentClassName}>{children}</div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import type { Birthday } from "@/types/database";
 import { EmptyState } from "@/components/common/EmptyState";
 import { IconButton } from "@/components/common/IconButton";
-import { SearchIconButton } from "@/components/common/ScreenActions";
 import { SectionHeading } from "@/components/common/SectionHeading";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { FilterBar } from "@/components/common/FilterBar";
@@ -172,7 +171,6 @@ function BirthdaysPage() {
         title="Rođendani"
         actions={
           <>
-            <SearchIconButton />
             <IconButton icon={PlusIcon} aria-label="Dodaj rođendan" onClick={openAdd} />
           </>
         }

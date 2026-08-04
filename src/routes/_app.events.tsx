@@ -6,7 +6,6 @@ import { format } from "date-fns";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { IconButton } from "@/components/common/IconButton";
-import { SearchIconButton } from "@/components/common/ScreenActions";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { FilterBar } from "@/components/common/FilterBar";
@@ -219,7 +218,6 @@ function EventsPage() {
         title="Događaji"
         actions={
           <>
-            <SearchIconButton />
             <IconButton icon={PlusIcon} aria-label="Dodaj događaj" onClick={openAdd} />
           </>
         }

@@ -25,7 +25,6 @@ import {
   ItemTitle,
 } from "@/components/common/ItemCard";
 import { Pill } from "@/components/common/Pill";
-import { SearchIconButton } from "@/components/common/ScreenActions";
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { previewLine } from "@/components/common/MarkdownText";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
@@ -268,7 +267,6 @@ export function ListMaster({ variant }: ListMasterProps) {
         title="Liste"
         actions={
           <>
-            <SearchIconButton />
             <IconButton icon={PlusIcon} aria-label="Dodaj listu" onClick={openAdd} />
           </>
         }
