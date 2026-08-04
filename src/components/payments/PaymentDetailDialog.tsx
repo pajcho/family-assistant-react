@@ -357,32 +357,32 @@ export function PaymentDetailDialog({
     if (cancelOverrideActive) {
       statusBadges.push({
         label: "Otkazano",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        className: "bg-neg-soft text-neg",
       });
     } else if (payment.is_paid) {
       statusBadges.push({
         label: payment.paid_date ? `Plaćeno ${formatDate(payment.paid_date)}` : "Plaćeno",
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        className: "bg-pos-soft text-pos",
       });
     } else if (payment.is_paused) {
       statusBadges.push({
         label: "Pauzirano",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        className: "bg-muted text-muted-foreground",
       });
     } else if (isOverdue(effectiveDue)) {
       statusBadges.push({
         label: "Prekoračeno",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        className: "bg-neg-soft text-neg",
       });
     }
     statusBadges.push({
       label: `${!payment.is_paid && isOverdue(effectiveDue) ? "Dospelo" : "Dospeva"} ${formatDate(effectiveDue)}`,
-      className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      className: "bg-muted text-muted-foreground",
     });
     if (override?.action === "reschedule") {
       statusBadges.push({
         label: `Pomereno sa ${formatDate(payment.due_date)}`,
-        className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+        className: "bg-info-soft text-info",
       });
     }
   }
@@ -408,8 +408,8 @@ export function PaymentDetailDialog({
             <div className="space-y-4">
               <DetailHero
                 icon={BanknotesIcon}
-                iconWrapClassName="bg-amber-100 dark:bg-amber-900/50"
-                iconClassName="text-amber-600 dark:text-amber-400"
+                iconWrapClassName="bg-warn-soft"
+                iconClassName="text-warn"
                 title={payment.name}
                 subtitle={paymentSubtitle(payment)}
               />
@@ -448,7 +448,7 @@ export function PaymentDetailDialog({
                 </div>
               ) : view === "cancel" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{cancelCopy?.message}</p>
+                  <p className="text-sm text-muted-foreground">{cancelCopy?.message}</p>
                   <div className="space-y-2">
                     <Label htmlFor="payment-detail-cancel-reason">Razlog (opciono)</Label>
                     <Textarea
@@ -462,7 +462,7 @@ export function PaymentDetailDialog({
                 </div>
               ) : view === "confirm-amount" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     {payment.is_variable_amount
                       ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
                       : `Potvrdi kurs za „${payment.name}" - podrazumevan je srednji kurs NBS na današnji dan.`}
@@ -484,7 +484,7 @@ export function PaymentDetailDialog({
                     ) : (
                       // Fixed foreign bill: the amount is contractual - only
                       // the rate gets confirmed. (Fixed RSD never lands here.)
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-medium text-foreground">
                         Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
                       </p>
                     )}
@@ -507,7 +507,7 @@ export function PaymentDetailDialog({
                   </div>
                 </div>
               ) : view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
                   opozvati.
                 </p>
@@ -524,7 +524,7 @@ export function PaymentDetailDialog({
                 <>
                   {/* The bill's hero: amount first, state as badges. */}
                   <div>
-                    <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                    <div className="text-3xl font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
                       <Amount value={payment.amount} />
                     </div>
                     {payment.currency !== "RSD" && payment.original_amount != null ? (
@@ -725,7 +725,7 @@ export function PaymentDetailDialog({
                 Nazad
               </Button>
               <Button
-                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
                 onClick={() => {
                   void handleConfirmAmount();
                 }}

@@ -1,29 +1,25 @@
-import { lazy, Suspense, useMemo, useState } from "react";
-import type { ComponentType } from "react";
+import { useMemo, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
 import {
   BanknotesIcon,
+  BuildingStorefrontIcon,
   CheckIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
+  ExclamationTriangleIcon,
   LockClosedIcon,
   QrCodeIcon,
   ReceiptPercentIcon,
   SwatchIcon,
+  UserGroupIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { EmptyState } from "@/components/common/EmptyState";
-import { FilterBar } from "@/components/common/FilterBar";
-import {
-  AppliedFilterChips,
-  FilterSection,
-  FilterSheet,
-  useMemberAppliedFilters,
-} from "@/components/common/FilterSheet";
-import { MonthPicker } from "@/components/common/PeriodPicker";
+import { FilterSection, FilterSheet } from "@/components/common/FilterSheet";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { ToggleChip } from "@/components/common/ToggleChip";
 import { useToday } from "@/hooks/useToday";
 import { BudgetAddMenu } from "@/components/budget/BudgetAddMenu";
 import { CategoryDetailSheet } from "@/components/budget/CategoryDetailSheet";
@@ -33,6 +29,15 @@ import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
+import {
+  ChipRow,
+  FilterChip,
+  GroupHeader,
+  GroupHeaderAction,
+  MoneyCard,
+  ProgressTrack,
+  StatusPill,
+} from "@/components/money/moneyUi";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
@@ -59,10 +64,6 @@ import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
-// Lazy chunk: the scanner pulls in the camera code + jsQR, so it must stay out
-// of the main bundle. Loaded on the first "Skeniraj račun".
-const ReceiptScanDialog = lazy(() => import("@/components/budget/receipt/ReceiptScanDialog"));
-
 const UNCATEGORIZED = "__none__";
 
 type CategoryBreakdown = {
@@ -87,22 +88,48 @@ const SUGGESTED_CATEGORIES: ReadonlyArray<{ name: string; icon: string; color: s
   { name: "Ostalo", icon: "tag", color: "#6b7280" },
 ];
 
-/** Expense-source facet for the budget filter sheet. */
+/** Expense-source facet, shown as chips on the Troškovi tab. */
 const SOURCE_OPTIONS = [
   { key: "manual", label: "Ručno" },
   { key: "receipt", label: "Račun" },
   { key: "payment", label: "Iz plaćanja" },
 ] as const;
 
-export function BudgetPage() {
-  const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
+export type BudgetView = "pregled" | "troskovi";
+
+export interface BudgetPageProps {
+  /** Which of Novac's two budget views to render. */
+  view: BudgetView;
+  /** "YYYY-MM" - owned by the Novac hub, shared with the payments view. */
+  month: string;
+  onMonthChange: (month: string) => void;
+  /** Hub-owned search term; while set it replaces the month sections. */
+  searchTerm: string;
+  /** Opens the hub's receipt scanner. */
+  onScanReceipt: () => void;
+}
+
+/**
+ * The Pregled and Troškovi views of Novac.
+ *
+ * Both live in one component because they read the same month of expenses and
+ * share the whole modal layer (expense form, receipt detail, the payment popup
+ * a "iz plaćanja" row opens). `view` only decides which sections render.
+ */
+export function BudgetPage({
+  view,
+  month,
+  onMonthChange,
+  searchTerm,
+  onScanReceipt,
+}: BudgetPageProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
   // Payment-sourced expense tapped → open that payment's detail popup.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  // Its "Izmeni" opens the payment edit form INLINE (no /payments redirect).
+  // Its "Izmeni" opens the payment edit form INLINE (no /novac?tab=placanja hop).
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentHasHistory, setPaymentHasHistory] = useState(false);
@@ -111,22 +138,17 @@ export function BudgetPage() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   // Category drill-down (tap on a "Po kategorijama" row).
   const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
-  // Filter sheet: person + expense source, both with the empty-set = "no
-  // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
-  // modules) - the cycle summary stays family-level.
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Filters: person + expense source, both with the empty-set = "no filter"
+  // convention. They narrow the VISIBLE lists (breakdown, timeline, modules) -
+  // the cycle summary stays family-level.
+  const [membersOpen, setMembersOpen] = useState(false);
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(() => new Set());
   // "Projekcija do kraja meseca" row - collapsed by default, tap to expand.
   const [projOpen, setProjOpen] = useState(false);
-  const [scanOpen, setScanOpen] = useState(false);
-  // Stays true after the first open so the lazy chunk loads once and the close
-  // animation can play; the dialog releases the camera whenever `open` is false.
-  const [scanMounted, setScanMounted] = useState(false);
 
   // Search (note/merchant + receipt line items) - spans ALL months, so while
   // active it replaces the month sections below.
-  const [searchTerm, setSearchTerm] = useState("");
   const search = useExpenseSearch(searchTerm);
   const searchActive = searchTerm.trim().length >= MIN_EXPENSE_SEARCH_CHARS;
 
@@ -181,20 +203,10 @@ export function BudgetPage() {
       return next;
     });
   };
-  const filterCount = selectedPersonIds.size + selectedSources.size;
   const resetFilters = () => {
     setSelectedPersonIds(new Set());
     setSelectedSources(new Set());
   };
-  const memberApplied = useMemberAppliedFilters(selectedPersonIds, togglePerson);
-  const appliedFilters = [
-    ...memberApplied,
-    ...SOURCE_OPTIONS.filter((o) => selectedSources.has(o.key)).map((o) => ({
-      key: `source-${o.key}`,
-      label: o.label,
-      onRemove: () => toggleSource(o.key),
-    })),
-  ];
 
   const cycle = useMemo(
     () =>
@@ -214,7 +226,7 @@ export function BudgetPage() {
   // Share of confirmed income already spent - fills the budget bar and picks its
   // color (green under 75%, amber 75-100%, red once over budget).
   const spentPct = cycle.confirmedIncome > 0 ? (cycle.totalSpent / cycle.confirmedIncome) * 100 : 0;
-  const budgetBarColor = spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#10b981";
+  const budgetBarClass = spentPct >= 100 ? "bg-neg" : spentPct >= 75 ? "bg-warn" : "bg-pos";
 
   // Safe-to-spend pace + month-over-month delta - current month only (pace
   // means nothing for history, and MoM compares "up to the same day").
@@ -343,23 +355,10 @@ export function BudgetPage() {
     return 1.08 * Math.max(maxCategoryTotal, maxLimit);
   }, [breakdown, limitByCategory, maxCategoryTotal]);
 
-  // The xl two-column layout's left column (breakdown + insights) can be
-  // entirely empty in a month without categorized data - the timeline then
-  // spans both tracks instead of floating right next to a blank column.
-  const insightsEmpty =
-    breakdown.length === 0 &&
-    !(fixedVar.fixed > 0 && fixedVar.variable > 0) &&
-    topMerchants.length === 0;
-
   const openAdd = () => {
     setEditing(null);
     setFormError(null);
     setAddOpen(true);
-  };
-
-  const openScan = () => {
-    setScanMounted(true);
-    setScanOpen(true);
   };
 
   // ---- First-use onboarding -------------------------------------------------
@@ -405,7 +404,7 @@ export function BudgetPage() {
     setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
   };
 
-  // "Izmeni" in that popup - full payment edit form, right here on /budget.
+  // "Izmeni" in that popup - full payment edit form, right here on Novac.
   const openEditPayment = async (payment: Payment) => {
     setEditingPayment(payment);
     setPaymentHasHistory(false);
@@ -480,31 +479,19 @@ export function BudgetPage() {
     }
   };
 
+  const isOverview = view === "pregled" && !searchActive;
+  const isExpenses = view === "troskovi" && !searchActive;
+
   return (
-    <div className="animate-fade-in pb-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Budžet</h1>
-        {/* One entry point for money data (skeniraj / trošak / prihod);
-            Prihodi and Kategorije management moved next to their data. */}
+    <div className="animate-fade-in">
+      {/* The bottom bar's "+" is the touch entry point; desktop keeps a real
+          button next to the data it adds to. */}
+      <div className="mb-2 hidden justify-end lg:flex">
         <BudgetAddMenu
-          onScanReceipt={openScan}
+          onScanReceipt={onScanReceipt}
           onAddExpense={openAdd}
           onAddIncome={() => setIncomesOpen(true)}
         />
-      </div>
-
-      {/* One-row toolbar - the shared FilterBar pattern. */}
-      <div className="mt-4 space-y-3">
-        <FilterBar
-          picker={<MonthPicker value={month} onChange={setMonth} />}
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Pretraži troškove i stavke…"
-          searchAriaLabel="Pretraži troškove"
-          filterCount={filterCount}
-          onOpenFilters={() => setFiltersOpen(true)}
-        />
-        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
       </div>
 
       {searchActive ? (
@@ -517,124 +504,106 @@ export function BudgetPage() {
         />
       ) : null}
 
+      {/* ---------------------------- Pregled ---------------------------- */}
+
       {/* Cycle header - when the family has incomes it shows the full cycle
           (Prihodi · Potrošeno · Preostalo + projection); otherwise just the
           month's spend, with a nudge to add incomes. */}
-      {!searchActive && cycle.hasIncome ? (
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      {isOverview && cycle.hasIncome ? (
+        <MoneyCard>
           {/* The three amounts stay on ONE baseline - nothing may push them
-              apart; extra context (pace, MoM) lives under the bar. */}
+              apart; extra context (pace, MoM) lives under each. */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            {/* flex-col + justify-start: buttons vertically CENTER their
-                content by default, so when the pill makes the middle column
-                taller this cell would sink below the other two. */}
+            {/* items-start: buttons vertically CENTER their content, so a
+                taller neighbour would otherwise sink this cell. */}
             <button
               type="button"
               onClick={() => setIncomesOpen(true)}
-              className="group flex flex-col items-center justify-start rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="group flex flex-col items-center justify-start rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              <span className="flex items-center justify-center gap-0.5 text-xs text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400">
+              <CycleLabel>
                 Prihodi
                 <ChevronRightIcon className="size-3" />
-              </span>
-              <span className="mt-0.5 block text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+              </CycleLabel>
+              <CycleAmount>
                 <Amount value={cycle.confirmedIncome} round />
-              </span>
+              </CycleAmount>
+              {pendingIncomeCount > 0 ? (
+                <CycleFoot>
+                  {pendingIncomeCount === 1 ? "1 za potvrdu" : `${pendingIncomeCount} za potvrdu`}
+                </CycleFoot>
+              ) : null}
             </button>
-            <div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Potrošeno</div>
-              <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            <div className="border-x border-border">
+              <CycleLabel>Potrošeno</CycleLabel>
+              <CycleAmount>
                 <Amount value={cycle.totalSpent} round />
-              </div>
-              {/* MoM sits centered UNDER the amount - the three values above
-                  stay on one baseline. */}
+              </CycleAmount>
               {momDelta ? (
                 <div className="mt-1 flex justify-center">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                      momDelta.pct > 0
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                        : momDelta.pct < 0
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-                    )}
-                    title="Potrošnja do današnjeg dana u odnosu na isti dan prošlog meseca"
+                  <StatusPill
+                    tone={momDelta.pct > 0 ? "warn" : momDelta.pct < 0 ? "pos" : "muted"}
+                    className="tabular-nums"
                   >
-                    {momDelta.pct > 0 ? "+" : ""}
-                    {momDelta.pct}% vs {momDelta.prevLabel}
-                  </span>
+                    <span title="Potrošnja do današnjeg dana u odnosu na isti dan prošlog meseca">
+                      {momDelta.pct > 0 ? "+" : ""}
+                      {momDelta.pct}% vs {momDelta.prevLabel}
+                    </span>
+                  </StatusPill>
                 </div>
               ) : null}
             </div>
             <div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Preostalo</div>
-              <div
-                className={cn(
-                  "mt-0.5 text-base font-semibold tabular-nums",
-                  cycle.remaining < 0
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-emerald-600 dark:text-emerald-400",
-                )}
-              >
+              <CycleLabel>Preostalo</CycleLabel>
+              <CycleAmount className={cycle.remaining < 0 ? "text-neg" : "text-pos"}>
                 <Amount value={cycle.remaining} round />
-              </div>
+              </CycleAmount>
+              {dailyPace != null ? (
+                <CycleFoot>
+                  ≈ <Amount value={dailyPace} round />
+                  /dan
+                </CycleFoot>
+              ) : null}
             </div>
           </div>
           {cycle.confirmedIncome > 0 ? (
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
-              <div
-                className="h-full rounded-full transition-[width]"
-                style={{
-                  width: `${Math.min(100, Math.max(spentPct, 2))}%`,
-                  backgroundColor: budgetBarColor,
-                }}
-              />
-            </div>
-          ) : null}
-          {/* Under the bar: daily pace (safe-to-spend). */}
-          {dailyPace != null ? (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              ≈{" "}
-              <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                <Amount value={dailyPace} round />
-              </span>
-              /dan do kraja meseca
-            </div>
+            <ProgressTrack
+              className="mt-3"
+              segments={[
+                {
+                  key: "spent",
+                  pct: Math.min(100, Math.max(spentPct, 2)),
+                  className: budgetBarClass,
+                },
+              ]}
+            />
           ) : null}
           {cycle.projectedUnpaid > 0 || cycle.expectedIncome > 0 ? (
-            <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700/60">
+            <div className="mt-3 border-t border-border pt-3">
               {/* Projection is ONE row; tap reveals what it folds in. */}
               <button
                 type="button"
                 onClick={() => setProjOpen((p) => !p)}
                 aria-expanded={projOpen}
-                className="flex w-full items-center justify-between gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="flex w-full items-center justify-between gap-2 rounded-sm text-[12.5px] font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Projekcija do kraja meseca
-                </span>
+                <span>Projekcija do kraja meseca</span>
                 <span className="flex items-center gap-1">
                   <span
                     className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      cycle.projectedRemaining < 0
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-gray-900 dark:text-gray-100",
+                      "text-sm font-extrabold tabular-nums",
+                      cycle.projectedRemaining < 0 ? "text-neg" : "text-foreground",
                     )}
                   >
                     <Amount value={cycle.projectedRemaining} round />
                   </span>
-                  <ChevronRightIcon
-                    className={cn(
-                      "size-4 text-gray-400 transition-transform dark:text-gray-500",
-                      projOpen && "rotate-90",
-                    )}
+                  <ChevronDownIcon
+                    className={cn("size-4 transition-transform", projOpen && "rotate-180")}
                   />
                 </span>
               </button>
               {projOpen ? (
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold text-muted-foreground">
                   {cycle.expectedIncome > 0 ? (
                     <span>
                       očekivani prihod +<Amount value={cycle.expectedIncome} round />
@@ -649,54 +618,50 @@ export function BudgetPage() {
               ) : null}
             </div>
           ) : null}
-        </div>
-      ) : !searchActive && !isFirstUse ? (
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Potrošeno ovog meseca</div>
-          <div className="mt-1 text-3xl font-semibold tabular-nums text-gray-900 dark:text-white">
+        </MoneyCard>
+      ) : isOverview && !isFirstUse ? (
+        <MoneyCard>
+          <CycleLabel>Potrošeno ovog meseca</CycleLabel>
+          <div className="mt-1 text-[30px] leading-none font-black tracking-[-0.03em] tabular-nums">
             <Amount value={cycle.totalSpent} round />
           </div>
           <button
             type="button"
             onClick={() => setIncomesOpen(true)}
-            className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+            className="mt-2.5 text-[13px] font-bold text-accent-deep hover:underline"
           >
             Dodaj prihode za mesečni pregled →
           </button>
-        </div>
+        </MoneyCard>
       ) : null}
 
       {/* Reminder to confirm this month's salaries (only for the current month). */}
-      {!searchActive && pendingIncomeCount > 0 ? (
+      {isOverview && pendingIncomeCount > 0 ? (
         <button
           type="button"
           onClick={() => setIncomesOpen(true)}
-          className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left transition-colors hover:bg-amber-100/70 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none dark:border-amber-800/50 dark:bg-amber-900/15 dark:hover:bg-amber-900/25"
+          className="mt-3 flex w-full items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-left text-[13.5px] font-bold text-warn transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]"
         >
-          <div className="flex min-w-0 items-center gap-2.5">
-            <BanknotesIcon className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                {pendingIncomeCount === 1
-                  ? "1 prihod za potvrdu"
-                  : `${pendingIncomeCount} prihoda za potvrdu`}
-              </div>
-              <div className="truncate text-xs text-amber-700 dark:text-amber-300/80">
-                Potvrdi da je plata legla i tačan iznos.
-              </div>
-            </div>
-          </div>
-          <span className="shrink-0 text-sm font-medium text-amber-700 dark:text-amber-300">
-            Potvrdi →
+          <ExclamationTriangleIcon className="size-[17px] shrink-0" />
+          <span className="min-w-0 flex-1">
+            {pendingIncomeCount === 1
+              ? "1 prihod za potvrdu - da li je plata legla?"
+              : `${pendingIncomeCount} prihoda za potvrdu - da li su plate legle?`}
+          </span>
+          <span className="flex shrink-0 items-center gap-1">
+            Potvrdi
+            <ChevronRightIcon className="size-3.5" />
           </span>
         </button>
       ) : null}
 
-      {!searchActive && isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
+      {isOverview && isLoading ? (
+        <p className="mt-6 text-sm font-semibold text-muted-foreground">Učitavanje…</p>
+      ) : null}
 
       {/* First use: a 3-step starter instead of the "0 RSD" card, the empty
           Troškovi column and a six-zero trend. Retires with the first expense. */}
-      {!searchActive && isFirstUse ? (
+      {isOverview && isFirstUse ? (
         <EmptyState
           className="mt-4"
           icon={WalletIcon}
@@ -704,7 +669,7 @@ export function BudgetPage() {
           title="Postavi porodični budžet"
           description="Tri koraka i svaki dinar ima svoje mesto."
         >
-          <div className="mx-auto mt-4 max-w-md divide-y divide-gray-100 text-left dark:divide-gray-700/60">
+          <div className="mx-auto mt-4 max-w-md divide-y divide-border text-left">
             <BudgetStarterStep
               icon={BanknotesIcon}
               label="Dodaj primanja"
@@ -717,7 +682,7 @@ export function BudgetPage() {
               label="Skeniraj račun ili unesi trošak"
               description={'QR sa fiskalnog računa uvozi stavke sam; ručni unos je u „Dodaj".'}
               done={false}
-              onClick={openScan}
+              onClick={onScanReceipt}
             />
             <BudgetStarterStep
               icon={SwatchIcon}
@@ -730,7 +695,7 @@ export function BudgetPage() {
               }}
             />
           </div>
-          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+          <p className="mt-4 text-xs font-semibold text-muted-foreground">
             Pregled potrošnje i trend se pojavljuju posle prvog troška.
           </p>
         </EmptyState>
@@ -738,13 +703,11 @@ export function BudgetPage() {
 
       {/* Established family without categories (they are opt-in): the same
           one-tap set as a slim prompt. Disappears with the first category. */}
-      {!searchActive && !isLoading && !isFirstUse && categories.length === 0 ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      {isOverview && !isLoading && !isFirstUse && categories.length === 0 ? (
+        <MoneyCard className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              Još nemaš kategorije troškova
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-sm font-bold">Još nemaš kategorije troškova</div>
+            <div className="text-xs font-semibold text-muted-foreground">
               Predloženi set: Hrana, Računi, Prevoz, Deca, Ostalo.
             </div>
           </div>
@@ -758,202 +721,228 @@ export function BudgetPage() {
           >
             {seedingCategories ? "Ubacujem…" : "Ubaci predloženi set"}
           </Button>
-        </div>
+        </MoneyCard>
       ) : null}
 
-      {/* Breakdown + insights left, day-by-day timeline right (xl); a single
-          column below that, in the same order. When the whole left column is
-          empty (no breakdown/insights yet), the timeline takes the full width
-          instead of floating right next to a blank column. */}
-      {!searchActive && !isFirstUse ? (
-        <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
-          <div>
-            {breakdown.length > 0 ? (
-              <section className="mt-6">
-                <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Po kategorijama
-                  </h2>
-                  {/* Category management lives next to the categories. */}
-                  <button
-                    type="button"
-                    onClick={() => setCategoriesOpen(true)}
-                    className="text-sm font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-                  >
-                    Uredi ›
-                  </button>
-                </div>
-                <ul className="space-y-1.5">
-                  {breakdown.map((row) => {
-                    const Icon = categoryIcon(row.icon);
-                    const limitInfo = limitByCategory.get(row.key);
-                    const limit = limitInfo?.limit ?? null;
-                    // One scale for every bar: length ∝ spend, tick = limit.
-                    const fillPct = barScaleMax > 0 ? (row.total / barScaleMax) * 100 : 0;
-                    const tickPct =
-                      limit != null && barScaleMax > 0 ? (limit / barScaleMax) * 100 : null;
-                    const overLimit = limit != null && row.total >= limit;
-                    const nearLimit = limit != null && !overLimit && row.total >= 0.8 * limit;
-                    const barColor = overLimit ? "#ef4444" : nearLimit ? "#f59e0b" : row.color;
-                    return (
-                      <li key={row.key}>
-                        <button
-                          type="button"
-                          onClick={() => setCategoryDetail(row)}
-                          className="-mx-1.5 block w-full rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/60"
-                        >
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <Icon className="size-4 shrink-0" style={{ color: row.color }} />
-                              <span className="truncate text-sm text-gray-800 dark:text-gray-200">
-                                {row.name}
-                              </span>
-                              <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                                · {row.count}
-                              </span>
-                            </div>
-                            <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
-                              <Amount value={row.total} />
-                              {limit != null ? (
-                                <span className="font-normal text-gray-400 dark:text-gray-500">
-                                  {" / "}
-                                  <Amount value={limit} />
-                                </span>
-                              ) : null}
-                              {overLimit && limit != null ? (
-                                <span className="ml-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
-                                  +<Amount value={row.total - limit} round />
-                                </span>
-                              ) : null}
+      {isOverview && !isFirstUse ? (
+        <>
+          {breakdown.length > 0 ? (
+            <section>
+              <GroupHeader
+                title="Po kategorijama"
+                action={
+                  <GroupHeaderAction onClick={() => setCategoriesOpen(true)}>
+                    Uredi
+                    <ChevronRightIcon className="size-3" />
+                  </GroupHeaderAction>
+                }
+              />
+              <MoneyCard className="px-3.5 py-1.5">
+                {breakdown.map((row) => {
+                  const Icon = categoryIcon(row.icon);
+                  const limitInfo = limitByCategory.get(row.key);
+                  const limit = limitInfo?.limit ?? null;
+                  // One scale for every bar: length ∝ spend, tick = limit.
+                  const fillPct = barScaleMax > 0 ? (row.total / barScaleMax) * 100 : 0;
+                  const tickPct =
+                    limit != null && barScaleMax > 0 ? (limit / barScaleMax) * 100 : null;
+                  const overLimit = limit != null && row.total >= limit;
+                  const nearLimit = limit != null && !overLimit && row.total >= 0.8 * limit;
+                  return (
+                    <button
+                      key={row.key}
+                      type="button"
+                      onClick={() => setCategoryDetail(row)}
+                      className="flex w-full items-center gap-[11px] border-b border-border py-[11px] text-left last:border-b-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      <span
+                        className="grid size-[34px] shrink-0 place-items-center rounded-[11px]"
+                        style={{ backgroundColor: `${row.color}1f`, color: row.color }}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2 text-[13.5px] font-bold">
+                          <span className="flex min-w-0 items-baseline gap-1.5">
+                            <span className="truncate">{row.name}</span>
+                            <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                              · {row.count}
                             </span>
-                          </div>
-                          <div className="relative h-2 rounded-full bg-gray-100 dark:bg-gray-700/60">
-                            <div
-                              className="absolute inset-y-0 left-0 rounded-full transition-[width]"
-                              style={{
-                                width: `${Math.max(fillPct, 2)}%`,
-                                backgroundColor: barColor,
-                              }}
-                            />
-                            {tickPct != null ? (
-                              <div
-                                className="absolute -inset-y-0.5 w-0.5 rounded-full bg-gray-700 dark:bg-gray-300"
-                                style={{ left: `${tickPct}%` }}
-                                aria-hidden="true"
-                              />
+                          </span>
+                          <span className="shrink-0 font-bold tabular-nums text-muted-foreground">
+                            <span className="font-extrabold text-foreground">
+                              <Amount value={row.total} />
+                            </span>
+                            {limit != null ? (
+                              <>
+                                {" / "}
+                                <Amount value={limit} />
+                              </>
                             ) : null}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
+                            {overLimit && limit != null ? (
+                              <span className="ml-1.5 font-extrabold text-neg">
+                                +<Amount value={row.total - limit} round />
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
+                        <span className="relative mt-1.5 block h-1.5 rounded-full bg-muted">
+                          <span
+                            className={cn(
+                              "absolute inset-y-0 left-0 rounded-full transition-[width]",
+                              overLimit ? "bg-neg" : nearLimit ? "bg-warn" : null,
+                            )}
+                            style={{
+                              width: `${Math.max(fillPct, 2)}%`,
+                              backgroundColor: overLimit || nearLimit ? undefined : row.color,
+                            }}
+                          />
+                          {tickPct != null ? (
+                            <span
+                              className="absolute -inset-y-0.5 w-0.5 rounded-full bg-foreground/70"
+                              style={{ left: `${tickPct}%` }}
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </MoneyCard>
+            </section>
+          ) : null}
 
-            {/* Fixed vs variable - auto rows from payments vs everything else. */}
-            {fixedVar.fixed > 0 && fixedVar.variable > 0 ? (
-              <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Fiksno vs varijabilno
-                </h2>
-                <div className="mt-3 flex h-2.5 overflow-hidden rounded-full">
-                  <div
-                    className="bg-blue-700 dark:bg-blue-500"
-                    style={{ width: `${(fixedVar.fixed / fixedVar.total) * 100}%` }}
-                  />
-                  <div className="flex-1 bg-blue-200 dark:bg-blue-900/70" />
-                </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          {/* Fixed vs variable - auto rows from payments vs everything else. */}
+          {fixedVar.fixed > 0 && fixedVar.variable > 0 ? (
+            <section>
+              <GroupHeader title="Fiksno vs varijabilno" />
+              <MoneyCard className="px-3.5 py-3.5">
+                <ProgressTrack
+                  segments={[
+                    {
+                      key: "fixed",
+                      pct: (fixedVar.fixed / fixedVar.total) * 100,
+                      className: "bg-accent",
+                    },
+                    {
+                      key: "variable",
+                      pct: (fixedVar.variable / fixedVar.total) * 100,
+                      className: "ml-0.5 bg-pos",
+                    },
+                  ]}
+                />
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px] font-semibold text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-blue-700 dark:bg-blue-500" />
+                    <span className="size-[7px] rounded-full bg-accent" />
                     Iz plaćanja{" "}
-                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <span className="font-extrabold tabular-nums text-foreground">
                       <Amount value={fixedVar.fixed} round />
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-blue-200 dark:bg-blue-900/70" />
+                    <span className="size-[7px] rounded-full bg-pos" />
                     Ostalo{" "}
-                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <span className="font-extrabold tabular-nums text-foreground">
                       <Amount value={fixedVar.variable} round />
                     </span>
                   </span>
                 </div>
-              </section>
-            ) : null}
+              </MoneyCard>
+            </section>
+          ) : null}
 
-            {/* Top merchants from scanned receipts. */}
-            {topMerchants.length > 0 ? (
-              <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Top prodavnice
-                </h2>
-                <ul className="mt-2 divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {topMerchants.map((m) => (
-                    <li key={m.name} className="flex items-baseline gap-2 py-2 text-sm">
-                      <span className="min-w-0 truncate font-medium text-gray-900 dark:text-gray-100">
-                        {m.name}
+          {/* Top merchants from scanned receipts. */}
+          {topMerchants.length > 0 ? (
+            <section>
+              <GroupHeader title="Top prodavnice" />
+              <MoneyCard className="px-3.5 py-1">
+                {topMerchants.map((m) => (
+                  <div
+                    key={m.name}
+                    className="flex items-center gap-[11px] border-b border-border py-[11px] last:border-b-0"
+                  >
+                    <span className="grid size-[34px] shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent-deep">
+                      <BuildingStorefrontIcon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2 text-[13.5px] font-bold">
+                        <span className="truncate">{m.name}</span>
+                        <span className="shrink-0 font-extrabold tabular-nums">
+                          <Amount value={m.total} />
+                        </span>
                       </span>
-                      <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                        · {m.count} {m.count === 1 ? "račun" : "računa"}
+                      <span className="mt-0.5 block text-[12px] font-semibold text-muted-foreground">
+                        {m.count} {m.count === 1 ? "račun" : "računa"}
                       </span>
-                      <span className="ml-auto shrink-0 font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                        <Amount value={m.total} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-          </div>
+                    </span>
+                  </div>
+                ))}
+              </MoneyCard>
+            </section>
+          ) : null}
 
-          <div className={insightsEmpty ? "xl:col-span-2" : undefined}>
-            {/* Troškovi kao timeline po danu */}
-            {!isLoading ? (
-              <section className="mt-6">
-                <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Troškovi
-                </h2>
-                <BudgetTimeline
-                  expenses={filteredExpenses}
-                  categoriesById={categoriesById}
-                  itemCounts={itemCounts}
-                  onOpenReceipt={setReceiptDetail}
-                  onEditManual={openEdit}
-                  onOpenPayment={openPaymentDetail}
-                />
-              </section>
-            ) : null}
-          </div>
-        </div>
+          <BudgetTrend month={month} onSelectMonth={onMonthChange} />
+        </>
       ) : null}
 
-      {!searchActive && !isFirstUse ? <BudgetTrend month={month} onSelectMonth={setMonth} /> : null}
+      {/* --------------------------- Troškovi ---------------------------- */}
+
+      {isExpenses ? (
+        <>
+          <ChipRow className="mb-1">
+            <FilterChip
+              active={selectedSources.size === 0 && selectedPersonIds.size === 0}
+              onClick={resetFilters}
+            >
+              Svi
+            </FilterChip>
+            {SOURCE_OPTIONS.map((option) => (
+              <FilterChip
+                key={option.key}
+                active={selectedSources.has(option.key)}
+                onClick={() => toggleSource(option.key)}
+              >
+                {option.label}
+              </FilterChip>
+            ))}
+            <FilterChip
+              active={selectedPersonIds.size > 0}
+              ariaPressed={false}
+              onClick={() => setMembersOpen(true)}
+            >
+              <UserGroupIcon className="size-3.5" />
+              {selectedPersonIds.size > 0 ? `Članovi · ${selectedPersonIds.size}` : "Članovi"}
+            </FilterChip>
+          </ChipRow>
+
+          {isLoading ? (
+            <p className="mt-6 text-sm font-semibold text-muted-foreground">Učitavanje…</p>
+          ) : (
+            <BudgetTimeline
+              expenses={filteredExpenses}
+              categoriesById={categoriesById}
+              itemCounts={itemCounts}
+              onOpenReceipt={setReceiptDetail}
+              onEditManual={openEdit}
+              onOpenPayment={openPaymentDetail}
+            />
+          )}
+        </>
+      ) : null}
 
       <IncomesSheet open={incomesOpen} onOpenChange={setIncomesOpen} month={month} />
 
       <CategoriesSheet open={categoriesOpen} onOpenChange={setCategoriesOpen} />
 
       <FilterSheet
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        isActive={filterCount > 0}
-        onReset={resetFilters}
+        open={membersOpen}
+        onOpenChange={setMembersOpen}
+        isActive={selectedPersonIds.size > 0}
+        onReset={() => setSelectedPersonIds(new Set())}
       >
         <FilterSection title="Članovi">
           <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-        </FilterSection>
-        <FilterSection title="Izvor troška">
-          {SOURCE_OPTIONS.map((option) => (
-            <ToggleChip
-              key={option.key}
-              active={selectedSources.size === 0 || selectedSources.has(option.key)}
-              onToggle={() => toggleSource(option.key)}
-            >
-              {option.label}
-            </ToggleChip>
-          ))}
         </FilterSection>
       </FilterSheet>
 
@@ -992,19 +981,13 @@ export function BudgetPage() {
         }}
         onScanReceipt={() => {
           setAddOpen(false);
-          openScan();
+          onScanReceipt();
         }}
         onDelete={() => {
           void handleDeleteEditing();
         }}
         deleting={deleteExpense.isPending}
       />
-
-      {scanMounted ? (
-        <Suspense fallback={null}>
-          <ReceiptScanDialog open={scanOpen} onOpenChange={setScanOpen} onJumpToMonth={setMonth} />
-        </Suspense>
-      ) : null}
 
       <ReceiptExpenseDialog
         open={!!receiptDetail}
@@ -1044,6 +1027,37 @@ export function BudgetPage() {
   );
 }
 
+/* --- Cycle card typography ------------------------------------------------ */
+
+function CycleLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex items-center justify-center gap-0.5 text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+      {children}
+    </span>
+  );
+}
+
+function CycleAmount({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "mt-1 block text-[17px] font-extrabold tracking-[-0.01em] tabular-nums",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CycleFoot({ children }: { children: ReactNode }) {
+  return (
+    <span className="mt-1 block text-[12px] font-semibold tabular-nums text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
 interface BudgetSearchResultsProps {
   hits: ExpenseSearchHit[];
   isSearching: boolean;
@@ -1065,14 +1079,12 @@ function BudgetSearchResults({
   onEditManual,
 }: BudgetSearchResultsProps) {
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-        Rezultati pretrage <span className="font-normal">· svi meseci</span>
-      </h2>
+    <section>
+      <GroupHeader title="Rezultati pretrage · svi meseci" count={hits.length} />
       {hits.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+        <MoneyCard className="text-center text-sm font-semibold text-muted-foreground">
           {isSearching ? "Pretraga…" : "Nema troškova koji odgovaraju pretrazi."}
-        </div>
+        </MoneyCard>
       ) : (
         <ul className="space-y-2">
           {hits.map(({ expense: e, matchedItems }) => {
@@ -1088,45 +1100,43 @@ function BudgetSearchResults({
             const inner = (
               <>
                 <span
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${color}22` }}
+                  className="grid size-[42px] shrink-0 place-items-center rounded-[14px]"
+                  style={{ backgroundColor: `${color}1f`, color }}
                 >
-                  <Icon className="size-5" style={{ color }} />
+                  <Icon className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {primary}
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[15px] font-bold">{primary}</span>
                     {isReceipt ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                      <StatusPill tone="accent">
                         <ReceiptPercentIcon className="size-2.5" />
                         račun
-                      </span>
+                      </StatusPill>
                     ) : e.source === "payment" ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                      <StatusPill tone="warn">
                         <LockClosedIcon className="size-2.5" />
                         iz plaćanja
-                      </span>
+                      </StatusPill>
                     ) : null}
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground">
                     <span>{formatDate(e.spent_on)}</span>
                     {category ? <span className="truncate">· {category.name}</span> : null}
                   </div>
                   {matchedItems.length > 0 ? (
-                    <div className="mt-0.5 truncate text-xs text-violet-600 dark:text-violet-400">
+                    <div className="mt-0.5 truncate text-[12px] font-semibold text-accent-deep">
                       Stavka: {matchedItems.slice(0, 3).join(", ")}
                       {matchedItems.length > 3 ? ` +${matchedItems.length - 3}` : ""}
                     </div>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                <span className="shrink-0 text-right text-[15px] font-extrabold tracking-[-0.01em] tabular-nums">
                   <Amount value={e.amount} />
                   <AmountOriginal
                     amount={e.original_amount}
                     currency={e.currency}
-                    className="block text-[10px] font-normal"
+                    className="block text-[10.5px] font-semibold"
                   />
                 </span>
               </>
@@ -1134,17 +1144,14 @@ function BudgetSearchResults({
 
             if (isReceipt || isManual) {
               return (
-                <li
-                  key={e.id}
-                  className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                >
+                <li key={e.id}>
                   <button
                     type="button"
                     onClick={() => (isReceipt ? onOpenReceipt(e) : onEditManual(e))}
-                    className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
+                    className="flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 text-left shadow-card transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]"
                   >
                     {inner}
-                    <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                   </button>
                 </li>
               );
@@ -1153,7 +1160,7 @@ function BudgetSearchResults({
             return (
               <li
                 key={e.id}
-                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+                className="flex items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 shadow-card"
               >
                 {inner}
               </li>
@@ -1190,36 +1197,28 @@ function BudgetStarterStep({
       type="button"
       onClick={onClick}
       disabled={done || busy}
-      className="flex w-full items-center gap-3 py-3 text-left transition-colors enabled:hover:bg-gray-50 disabled:cursor-default dark:enabled:hover:bg-gray-700/40"
+      className="flex w-full items-center gap-3 py-3 text-left transition-colors enabled:hover:bg-muted disabled:cursor-default"
     >
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-full",
-          done ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-gray-100 dark:bg-gray-700",
+          "grid size-9 shrink-0 place-items-center rounded-[12px]",
+          done ? "bg-pos-soft text-pos" : "bg-muted text-muted-foreground",
         )}
       >
-        {done ? (
-          <CheckIcon className="size-5 text-emerald-600 dark:text-emerald-400" />
-        ) : (
-          <Icon className="size-5 text-gray-600 dark:text-gray-300" />
-        )}
+        {done ? <CheckIcon className="size-5" /> : <Icon className="size-5" />}
       </span>
       <span className="min-w-0 flex-1">
         <span
           className={cn(
-            "block text-sm font-medium",
-            done
-              ? "text-gray-400 line-through dark:text-gray-500"
-              : "text-gray-900 dark:text-gray-100",
+            "block text-sm font-bold",
+            done ? "text-muted-foreground line-through" : "text-foreground",
           )}
         >
           {label}
         </span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+        <span className="block text-xs font-semibold text-muted-foreground">{description}</span>
       </span>
-      {!done ? (
-        <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
-      ) : null}
+      {!done ? <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" /> : null}
     </button>
   );
 }

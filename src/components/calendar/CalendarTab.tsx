@@ -1,3 +1,5 @@
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
@@ -26,7 +28,7 @@ export function CalendarTab() {
   } = useGoogleCalendars(connections.length > 0);
 
   return (
-    <Card>
+    <Card className="shadow-card">
       <CardHeader>
         <CardTitle>Google kalendar</CardTitle>
         <CardDescription>
@@ -36,26 +38,20 @@ export function CalendarTab() {
       </CardHeader>
       <CardContent className="space-y-5">
         {isLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Učitavanje…</p>
+          <p className="text-sm text-muted-foreground">Učitavanje…</p>
         ) : connections.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Nijedan Google nalog još nije povezan.
-          </p>
+          <p className="text-sm text-muted-foreground">Nijedan Google nalog još nije povezan.</p>
         ) : (
           <div className="space-y-6">
             {connections.map((conn) => (
               <div key={conn.id} className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <div className="truncate text-[14.5px] font-bold text-foreground">
                       {conn.google_account_email}
                     </div>
-                    {conn.needs_reauth ? (
-                      <div className="text-xs text-amber-600 dark:text-amber-400">
-                        Veza je istekla - poveži ponovo da bi sinhronizacija nastavila.
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Povezano</div>
+                    {conn.needs_reauth ? null : (
+                      <div className="text-xs font-semibold text-muted-foreground">Povezano</div>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -80,6 +76,16 @@ export function CalendarTab() {
                   </div>
                 </div>
 
+                {/* Expired connection: the attention banner sits full width under
+                    the account row so the long sentence isn't squeezed next to
+                    the buttons. */}
+                {conn.needs_reauth ? (
+                  <div className="flex items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-[13.5px] font-bold text-warn">
+                    <ExclamationTriangleIcon className="size-[18px] shrink-0" aria-hidden="true" />
+                    Veza je istekla - poveži ponovo da bi sinhronizacija nastavila.
+                  </div>
+                ) : null}
+
                 <ConnectionCalendars
                   calendars={calendars.filter((c) => c.connection_id === conn.id)}
                   isLoading={calendarsLoading}
@@ -103,7 +109,7 @@ export function CalendarTab() {
           </Button>
         </div>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
           Napomena: dok je aplikacija u Google „testing" režimu, veza može isteći nakon 7 dana, pa
           će biti potrebno ponovno povezivanje.
         </p>
@@ -126,38 +132,34 @@ function ConnectionCalendars({
   onSharingChange,
 }: ConnectionCalendarsProps) {
   if (isLoading) {
-    return <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Učitavanje kalendara…</p>;
-  }
-  if (isError) {
     return (
-      <p className="pl-1 text-xs text-amber-600 dark:text-amber-400">
-        Greška pri učitavanju kalendara.
-      </p>
+      <p className="pl-1 text-xs font-semibold text-muted-foreground">Učitavanje kalendara…</p>
     );
   }
+  if (isError) {
+    return <p className="pl-1 text-xs font-semibold text-warn">Greška pri učitavanju kalendara.</p>;
+  }
   if (calendars.length === 0) {
-    return <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Nema kalendara.</p>;
+    return <p className="pl-1 text-xs font-semibold text-muted-foreground">Nema kalendara.</p>;
   }
   return (
-    <ul className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
       {calendars.map((cal) => (
-        <li key={cal.id} className="flex items-center justify-between gap-3">
+        <li key={cal.id} className="flex items-center justify-between gap-3 px-[13px] py-2.5">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-full"
-              style={{ backgroundColor: cal.color ?? "#9ca3af" }}
+              style={{ backgroundColor: cal.color ?? "var(--muted-foreground)" }}
             />
-            <span className="truncate text-sm text-gray-800 dark:text-gray-200">
+            <span className="truncate text-sm font-semibold text-foreground">
               {cal.summary ?? cal.google_calendar_id}
-              {cal.is_primary ? (
-                <span className="text-gray-400 dark:text-gray-500"> (primarni)</span>
-              ) : null}
+              {cal.is_primary ? <span className="text-muted-foreground"> (primarni)</span> : null}
             </span>
           </div>
           {typeof cal.event_count === "number" ? (
             <span
-              className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500"
+              className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground"
               title="Događaja pronađeno (oko godinu dana unapred)"
             >
               {cal.event_count}
@@ -195,7 +197,7 @@ function SharingSelect({ value, onChange }: SharingSelectProps) {
         onChange={(e) => onChange(e.target.value as GoogleCalendarSharing)}
         aria-label="Deljenje kalendara"
         className={cn(
-          "h-8 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30",
+          "h-9 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm font-semibold shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30",
           "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         )}
       >
@@ -231,8 +233,8 @@ function ImportPrefs() {
   const disabled = isLoading || isSaving;
 
   return (
-    <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
-      <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    <div className="space-y-2 border-t border-border pt-4">
+      <h4 className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
         Šta uvozim sa Google-a
       </h4>
       <PrefRow
@@ -256,7 +258,7 @@ function ImportPrefs() {
         onChange={() => toggle("import_work_markers")}
         disabled={disabled}
       />
-      <p className="text-xs text-gray-500 dark:text-gray-400">
+      <p className="text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
         Obični događaji se uvek uvoze. Promena odmah re-sinhronizuje tvoje kalendare.
       </p>
     </div>
@@ -277,18 +279,18 @@ function PrefRow({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-h-11 items-center gap-3">
       <input
         id={`gcal-pref-${id}`}
         type="checkbox"
         checked={checked}
         onChange={onChange}
         disabled={disabled}
-        className="h-4 w-4 cursor-pointer rounded border-gray-300"
+        className="h-4 w-4 cursor-pointer rounded border-border accent-accent"
       />
       <label
         htmlFor={`gcal-pref-${id}`}
-        className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+        className="cursor-pointer text-[14.5px] font-bold text-foreground"
       >
         {label}
       </label>

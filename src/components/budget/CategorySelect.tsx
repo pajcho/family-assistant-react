@@ -31,7 +31,7 @@ export function CategorySelect({ value, onChange, id, label = "Kategorija" }: Ca
           style={
             selected
               ? { backgroundColor: selected.color }
-              : { boxShadow: "inset 0 0 0 1.5px #9ca3af", opacity: 0.6 }
+              : { boxShadow: "inset 0 0 0 1.5px var(--muted-foreground)", opacity: 0.6 }
           }
           aria-hidden="true"
         />

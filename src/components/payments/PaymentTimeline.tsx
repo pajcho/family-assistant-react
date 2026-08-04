@@ -30,13 +30,13 @@ export type PaymentTimelineProps = {
   flat?: boolean;
 };
 
-type ChipTone = "red" | "emerald" | "indigo" | "slate";
+type ChipTone = "neg" | "pos" | "info" | "neutral";
 
 const CHIP_TONE: Record<ChipTone, string> = {
-  red: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
-  slate: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+  neg: "bg-neg-soft text-neg",
+  pos: "bg-pos-soft text-pos",
+  info: "bg-info-soft text-info",
+  neutral: "bg-muted text-muted-foreground",
 };
 
 function overrideOf(item: PaymentListItemUnion) {
@@ -70,19 +70,19 @@ function chipFor(
   inOverdue: boolean,
 ): { label: string; tone: ChipTone } | null {
   const override = overrideOf(item);
-  if (override?.action === "cancel") return { label: "Otkazano", tone: "red" };
-  if (override?.action === "reschedule") return { label: "Pomereno", tone: "indigo" };
+  if (override?.action === "cancel") return { label: "Otkazano", tone: "neg" };
+  if (override?.action === "reschedule") return { label: "Pomereno", tone: "info" };
   if (item.type === "history") {
     return item.status === "canceled"
-      ? { label: "Preskočeno", tone: "slate" }
-      : { label: "Plaćeno", tone: "emerald" };
+      ? { label: "Preskočeno", tone: "neutral" }
+      : { label: "Plaćeno", tone: "pos" };
   }
-  if (item.type === "upcoming") return { label: "Nadolazeće", tone: "slate" };
+  if (item.type === "upcoming") return { label: "Nadolazeće", tone: "neutral" };
   // live payment row
-  if (item.is_paid) return { label: "Plaćeno", tone: "emerald" };
-  if (item.is_paused) return { label: "Pauzirano", tone: "slate" };
+  if (item.is_paid) return { label: "Plaćeno", tone: "pos" };
+  if (item.is_paused) return { label: "Pauzirano", tone: "neutral" };
   // Suppressed inside the "Prekoračeno" section - the header already says it.
-  if (!inOverdue && isOverdue(item.due_date)) return { label: "Prekoračeno", tone: "red" };
+  if (!inOverdue && isOverdue(item.due_date)) return { label: "Prekoračeno", tone: "neg" };
   return null;
 }
 
@@ -129,9 +129,7 @@ function PaymentTimelineRow({
         onClick={() => onSelect(item)}
         className={cn(
           "block w-full rounded-lg px-2 py-2 text-left transition-colors",
-          inOverdue
-            ? "hover:bg-red-100/60 dark:hover:bg-red-900/20"
-            : "hover:bg-gray-100 dark:hover:bg-gray-800/70",
+          inOverdue ? "hover:bg-neg/10" : "hover:bg-muted",
           dimmed && "opacity-60",
         )}
       >
@@ -143,13 +141,13 @@ function PaymentTimelineRow({
           <span className="min-w-0 flex-1">
             <span
               className={cn(
-                "block truncate font-medium text-gray-900 dark:text-gray-100",
-                struck && "text-gray-500 line-through dark:text-gray-500",
+                "block truncate font-medium text-foreground",
+                struck && "text-muted-foreground line-through",
               )}
             >
               {item.name}
             </span>
-            <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
               <span className="truncate">{metaFor(item, inOverdue)}</span>
               {personIds.length > 0 ? (
                 <span className="shrink-0">
@@ -159,7 +157,7 @@ function PaymentTimelineRow({
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1">
-            <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            <span className="font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
               <Amount value={item.amount} />
             </span>
             <AmountOriginal
@@ -170,7 +168,7 @@ function PaymentTimelineRow({
             {chip ? (
               <span
                 className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+                  "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold",
                   CHIP_TONE[chip.tone],
                 )}
               >
@@ -236,15 +234,15 @@ export function PaymentTimeline({
   return (
     <div className="space-y-6">
       {overdueItems.length > 0 ? (
-        <section className="rounded-xl border border-red-200 bg-red-50/70 p-3 dark:border-red-900/50 dark:bg-red-950/20">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400">
+        <section className="rounded-xl border border-neg/25 bg-neg-soft p-3">
+          <h2 className="flex items-center gap-2 text-sm font-extrabold text-neg">
             <ExclamationTriangleIcon className="size-4" />
             Prekoračeno
             <span className="ml-auto flex items-center gap-2">
-              <span className="text-xs font-bold tabular-nums">
+              <span className="text-xs font-extrabold tracking-[-0.01em] tabular-nums">
                 <Amount value={overdueItems.reduce((sum, i) => sum + i.amount, 0)} />
               </span>
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+              <span className="rounded-full bg-neg/15 px-2 py-[3px] text-[10.5px] font-extrabold tabular-nums">
                 {overdueItems.length}
               </span>
             </span>

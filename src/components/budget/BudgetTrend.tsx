@@ -38,8 +38,9 @@ function compact(amount: number): string {
 
 /**
  * Last-6-months total-spend bar chart (pure CSS). Bars are proportional to the
- * biggest month in the window; the selected month is highlighted. Tapping a bar
- * jumps to that month. Dark-mode aware.
+ * biggest month in the window; the selected month gets the accent fill. Tapping
+ * a bar jumps to that month. Colors come from the design tokens, so light/dark
+ * needs no per-class variants.
  */
 export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
   // The 6 months ending at `month` (oldest → newest).
@@ -69,10 +70,10 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
 
   return (
     <section className="mt-8">
-      <h2 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+      <h2 className="mb-2 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
         Trend (6 meseci)
       </h2>
-      <div className="flex items-end justify-between gap-2 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-end justify-between gap-2 rounded-xl border border-border bg-card p-4 shadow-card">
         {bars.map((bar) => {
           const isSelected = bar.month === month;
           const heightPct = bar.total > 0 ? Math.max((bar.total / max) * 100, 4) : 2;
@@ -88,9 +89,7 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
               <span
                 className={cn(
                   "text-[10px] tabular-nums",
-                  isSelected
-                    ? "font-semibold text-gray-900 dark:text-gray-100"
-                    : "text-gray-400 dark:text-gray-500",
+                  isSelected ? "font-extrabold text-foreground" : "text-muted-foreground",
                 )}
               >
                 {compact(bar.total)}
@@ -100,8 +99,8 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
                   className={cn(
                     "w-full max-w-8 rounded-t-md transition-[height,background-color]",
                     isSelected
-                      ? "bg-blue-500 dark:bg-blue-400"
-                      : "bg-gray-200 group-hover:bg-gray-300 dark:bg-gray-600 dark:group-hover:bg-gray-500",
+                      ? "bg-accent"
+                      : "bg-muted-foreground/25 group-hover:bg-muted-foreground/40",
                   )}
                   style={{ height: `${heightPct}%` }}
                 />
@@ -109,9 +108,7 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
               <span
                 className={cn(
                   "text-[11px]",
-                  isSelected
-                    ? "font-medium text-gray-900 dark:text-gray-100"
-                    : "text-gray-500 dark:text-gray-400",
+                  isSelected ? "font-bold text-foreground" : "text-muted-foreground",
                 )}
               >
                 {shortMonthLabel(bar.month)}

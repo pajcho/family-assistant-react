@@ -443,16 +443,16 @@ export default function ReceiptScanDialog({
             {open ? <ReceiptCamera onDecode={runImport} /> : null}
 
             {captureError ? (
-              <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+              <div className="flex items-start gap-2 rounded-xl bg-neg-soft p-3 text-sm font-semibold text-neg">
                 <ExclamationTriangleIcon className="mt-0.5 size-4 shrink-0" />
                 <span>{captureError}</span>
               </div>
             ) : null}
 
-            <div className="flex items-center gap-3 text-xs text-gray-400">
-              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-3 text-xs font-bold text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
               ili
-              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+              <span className="h-px flex-1 bg-border" />
             </div>
 
             {/* Paste link fallback. */}
@@ -485,9 +485,7 @@ export default function ReceiptScanDialog({
                   Učitaj
                 </Button>
               </div>
-              {pasteError ? (
-                <p className="text-xs text-red-600 dark:text-red-400">{pasteError}</p>
-              ) : null}
+              {pasteError ? <p className="text-xs font-semibold text-neg">{pasteError}</p> : null}
             </div>
 
             {/* Upload image fallback. */}
@@ -509,9 +507,7 @@ export default function ReceiptScanDialog({
                 <ArrowUpTrayIcon className="size-4" />
                 {uploadBusy ? "Čitam sliku…" : "Otpremi sliku"}
               </Button>
-              {uploadError ? (
-                <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
-              ) : null}
+              {uploadError ? <p className="text-xs font-semibold text-neg">{uploadError}</p> : null}
             </div>
           </div>
         ) : null}
@@ -519,10 +515,10 @@ export default function ReceiptScanDialog({
         {mode === "loading" ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12">
             <span
-              className="size-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400"
+              className="size-8 animate-spin rounded-full border-2 border-border border-t-accent"
               aria-hidden="true"
             />
-            <p className="text-sm text-gray-600 dark:text-gray-300">Učitavam račun…</p>
+            <p className="text-sm text-muted-foreground">Učitavam račun…</p>
           </div>
         ) : null}
 
@@ -568,16 +564,25 @@ export default function ReceiptScanDialog({
 
         {mode === "chain" && chainInfo ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-muted-foreground">
               Trošak je sačuvan. Na računu je preostalo još {chainInfo.count}{" "}
               {stavkeLabel(chainInfo.count)} (<Amount value={chainInfo.sum} />) - želiš li da ih
               dodaš kao poseban trošak, npr. u drugoj kategoriji?
             </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-extrabold text-muted-foreground"
+                onClick={() => onOpenChange(false)}
+              >
                 Završi
               </Button>
-              <Button type="button" onClick={handleChainContinue}>
+              <Button
+                type="button"
+                className="h-auto rounded-[15px] py-[13px] text-[15px] font-extrabold"
+                onClick={handleChainContinue}
+              >
                 Dodaj ostatak kao novi trošak
               </Button>
             </div>
@@ -586,16 +591,22 @@ export default function ReceiptScanDialog({
 
         {mode === "duplicate" ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-muted-foreground">
               Ovaj račun je već dodat u budžet. Nećemo ga dodati dvaput.
             </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-extrabold text-muted-foreground"
+                onClick={() => onOpenChange(false)}
+              >
                 Zatvori
               </Button>
               {duplicateMonth && onJumpToMonth ? (
                 <Button
                   type="button"
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-extrabold"
                   onClick={() => {
                     onJumpToMonth(duplicateMonth);
                     onOpenChange(false);

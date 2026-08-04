@@ -1,26 +1,28 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ChevronRightIcon, LockClosedIcon, ReceiptPercentIcon } from "@heroicons/react/24/outline";
 
-import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { EmptyState } from "@/components/common/EmptyState";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { GroupHeader, StatusPill } from "@/components/money/moneyUi";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
-import { addDays } from "@/utils/date";
+import { addDays, srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
 import { useToday } from "@/hooks/useToday";
 
 /**
- * The month's expenses ("troškovi") as a day-grouped timeline - the same
- * "Uskoro"/payments day grouping applied to the ledger (reuses
- * `AgendaDateHeader`), but ordered newest day first (matching
- * CategoryDetailSheet). Every row opens a modal on tap: manual → the edit form
- * (with delete inside it), receipt → the receipt detail, payment-sourced
- * ("iz plaćanja") → the underlying payment's detail popup. Events and
- * birthdays are intentionally NOT here - they don't cost anything, and any
- * spend tied to them already shows as a row.
+ * The month's expenses ("troškovi") as a day-grouped ledger - the Troškovi tab
+ * of Novac. Ordered newest day first (a ledger is read "what did we just
+ * spend", unlike the forward-looking agenda), so the relative day tokens are
+ * Danas / Juče rather than Danas / Sutra.
+ *
+ * Every row opens a modal on tap: manual → the edit form (with delete inside
+ * it), receipt → the receipt detail, payment-sourced ("iz plaćanja") → the
+ * underlying payment's detail popup. Events and birthdays are intentionally
+ * NOT here - they don't cost anything, and any spend tied to them already
+ * shows as a row.
  */
 export type BudgetTimelineProps = {
   expenses: Expense[];
@@ -31,6 +33,17 @@ export type BudgetTimelineProps = {
   /** Open the payment detail for a "source: payment" row (via its payment_id). */
   onOpenPayment: (expense: Expense) => void;
 };
+
+/** "Danas · ponedeljak" / "Juče · nedelja" / "Sreda, 1. oktobar". */
+function dayTitle(day: string, today: string, yesterday: string, tomorrow: string): string {
+  const date = parseISO(`${day}T12:00:00`);
+  const weekday = format(date, "EEEE", { locale: srLocale });
+  if (day === today) return `Danas · ${weekday}`;
+  if (day === yesterday) return `Juče · ${weekday}`;
+  if (day === tomorrow) return `Sutra · ${weekday}`;
+  const capitalized = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}`;
+  return `${capitalized}, ${format(date, "d. MMMM", { locale: srLocale })}`;
+}
 
 function ExpenseRow({
   expense,
@@ -60,55 +73,6 @@ function ExpenseRow({
     ? expense.merchant || expense.note?.trim() || category?.name || "Račun"
     : expense.note?.trim() || category?.name || "Trošak";
 
-  const inner = (
-    <>
-      <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${color}22` }}
-      >
-        <Icon className="size-5" style={{ color }} />
-      </span>
-      {/* Left column (title + meta) and right column (amount + original) are
-          siblings, so the € annotation can never push the meta row down. */}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-          {primary}
-        </span>
-        <span className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          {isPayment ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-              <LockClosedIcon className="size-2.5" />
-              iz plaćanja
-            </span>
-          ) : isReceipt ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-              <ReceiptPercentIcon className="size-2.5" />
-              {isReceiptPart ? "deo računa" : "račun"}
-            </span>
-          ) : null}
-          {isReceipt && itemCount > 0 ? (
-            <span className="truncate">
-              {itemCount} {stavkeLabel(itemCount)}
-            </span>
-          ) : category ? (
-            <span className="truncate">{category.name}</span>
-          ) : null}
-          <span className="shrink-0">
-            <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
-          </span>
-        </span>
-      </span>
-      <span className="shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-        <Amount value={expense.amount} />
-        <AmountOriginal
-          amount={expense.original_amount}
-          currency={expense.currency}
-          className="block text-[10px] font-normal"
-        />
-      </span>
-    </>
-  );
-
   // Every row taps the whole surface into a modal: receipt → receipt detail,
   // payment → the payment's detail popup, manual → the edit form (delete lives
   // inside it now, no inline actions).
@@ -123,10 +87,56 @@ function ExpenseRow({
       <button
         type="button"
         onClick={handleClick}
-        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/70"
+        className="flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 text-left shadow-card transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]"
       >
-        {inner}
-        <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+        {/* The category colour is user data, so the tile keeps it (tinted) -
+            only the chrome around it follows the design tokens. */}
+        <span
+          className="grid size-[42px] shrink-0 place-items-center rounded-[14px]"
+          style={{ backgroundColor: `${color}1f`, color }}
+        >
+          <Icon className="size-5" />
+        </span>
+        {/* Left column (title + meta) and right column (amount + original) are
+            siblings, so the EUR annotation can never push the meta row down. */}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-[15px] leading-tight font-bold tracking-[-0.01em]">
+              {primary}
+            </span>
+            <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
+          </span>
+          <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground">
+            {category ? <span className="truncate">{category.name}</span> : null}
+            {isPayment ? (
+              <StatusPill tone="warn">
+                <LockClosedIcon className="size-2.5" />
+                iz plaćanja
+              </StatusPill>
+            ) : isReceipt ? (
+              <StatusPill tone="accent">
+                <ReceiptPercentIcon className="size-2.5" />
+                {isReceiptPart ? "deo računa" : "račun"}
+              </StatusPill>
+            ) : (
+              <span className="truncate">ručno</span>
+            )}
+            {isReceipt && itemCount > 0 ? (
+              <span className="shrink-0 truncate">
+                {itemCount} {stavkeLabel(itemCount)}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <span className="shrink-0 text-right text-[15px] font-extrabold tracking-[-0.01em] tabular-nums">
+          <Amount value={expense.amount} />
+          <AmountOriginal
+            amount={expense.original_amount}
+            currency={expense.currency}
+            className="block text-[10.5px] font-semibold"
+          />
+        </span>
+        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
       </button>
     </li>
   );
@@ -141,6 +151,7 @@ export function BudgetTimeline({
   onOpenPayment,
 }: BudgetTimelineProps) {
   const { str: today, date: todayDate } = useToday();
+  const yesterday = useMemo(() => format(addDays(todayDate, -1), "yyyy-MM-dd"), [todayDate]);
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
 
   // Receipts represented by MORE than one expense this month - their rows say
@@ -161,9 +172,8 @@ export function BudgetTimeline({
       if (bucket) bucket.push(e);
       else byDay.set(e.spent_on, [e]);
     }
-    // Newest day first - a ledger is read "what did we just spend", unlike
-    // the forward-looking agenda lists. Within a day the query's
-    // `created_at DESC` keeps the most recently entered row on top.
+    // Newest day first. Within a day the query's `created_at DESC` keeps the
+    // most recently entered row on top.
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [expenses]);
 
@@ -179,11 +189,11 @@ export function BudgetTimeline({
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       {dayGroups.map(([day, rows]) => (
         <section key={day}>
-          <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} />
-          <ul className="mt-2 space-y-1">
+          <GroupHeader title={dayTitle(day, today, yesterday, tomorrow)} count={rows.length} />
+          <ul className="space-y-2">
             {rows.map((expense) => (
               <ExpenseRow
                 key={expense.id}
