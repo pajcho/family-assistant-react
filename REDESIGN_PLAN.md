@@ -71,13 +71,13 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane B - Danas (1 dan) [posle A]
 
-- [ ] Timeline komponenta: vremenska sipka levo, "Sada · HH:mm" linija, celodnevni/span cipovi gore,
+- [x] Timeline komponenta: vremenska sipka levo, "Sada · HH:mm" linija, celodnevni/span cipovi gore,
       sekcija "Placanja danas", prosli deo dana prigusen
-- [ ] WeekStrip v2 (vitka, tackice opterecenja, soft selekcija) + tap vodi na taj dan u Kalendar agendi
-- [ ] Person filter: avf prstenovi 26px + Svi cip (postojeca filter logika/semantika ostaje)
-- [ ] Prekoraceno baner (vodi u Novac > Placanja)
-- [ ] FirstStepsCard + prazna stanja restyle (postojeci copy zadrzan)
-- [ ] Gasenje starog ViewToggle na Danas; AgendaDayCalendar se povlaci (logika slotovanja se
+- [x] WeekStrip v2 (vitka, tackice opterecenja, soft selekcija) + tap vodi na taj dan u Kalendar agendi
+- [x] Person filter: avf prstenovi 26px + Svi cip (postojeca filter logika/semantika ostaje)
+- [x] Prekoraceno baner (vodi u Novac > Placanja)
+- [x] FirstStepsCard + prazna stanja restyle (postojeci copy zadrzan)
+- [x] Gasenje starog ViewToggle na Danas; AgendaDayCalendar se povlaci (logika slotovanja se
       reciklira u timeline)
 
 ### Lane C - Kalendar (1.5 dan) [posle A]
@@ -212,3 +212,7 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   identicno, samo preimenovanje.
 - Prototipska paleta ima plum akcenat; podrazumevani akcenat u aplikaciji je
   PLAVA (odluka 6), a plum je opcija "Ljubicasta".
+- Danas timeline: prototip prikazuje pocetak i u levoj koloni I u kartici desno;
+  kod nas kartica desno nosi samo "do HH:MM" (ponavljanje je bilo suvisno na telefonu).
+- Danas ucitava agendu za CELU tekucu nedelju (jedan useAgenda) da bi traka
+  imala tackice opterecenja; timeline uzima samo danasnji presek.

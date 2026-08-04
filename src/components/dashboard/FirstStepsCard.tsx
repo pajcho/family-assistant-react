@@ -26,30 +26,30 @@ export function FirstStepsCard({ firstSteps, onAddEvent, onAddPayment }: FirstSt
   return (
     <section
       aria-label="Prvi koraci"
-      className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+      className="rounded-xl border border-border bg-card p-4 shadow-card"
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-white">👋 Prvi koraci</h2>
+        <h2 className="text-base font-extrabold tracking-tight">👋 Prvi koraci</h2>
         <button
           type="button"
           onClick={hide}
           disabled={hiding}
-          className="text-xs font-medium text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          className="text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
         >
           Sakrij
         </button>
       </div>
-      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+      <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
         {doneCount} od {steps.length} · još malo pa je sve spremno
       </p>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-accent-soft">
         <div
-          className="h-full rounded-full bg-blue-600 transition-[width] dark:bg-blue-500"
+          className="h-full rounded-full bg-accent transition-[width]"
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      <ul className="mt-2 divide-y divide-gray-100 dark:divide-gray-700/60">
+      <ul className="mt-2 divide-y divide-border">
         {steps.map((step) => (
           <li key={step.id}>
             <StepRow step={step} onAddEvent={onAddEvent} onAddPayment={onAddPayment} />
@@ -74,27 +74,21 @@ function StepRow({
       <span
         className={cn(
           "flex size-6 shrink-0 items-center justify-center rounded-full",
-          step.done
-            ? "bg-emerald-100 dark:bg-emerald-900/40"
-            : "border-[1.5px] border-dashed border-gray-300 dark:border-gray-600",
+          step.done ? "bg-pos-soft" : "border-[1.5px] border-dashed border-border",
         )}
       >
-        {step.done ? (
-          <CheckIcon className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-        ) : null}
+        {step.done ? <CheckIcon className="size-3.5 text-pos" /> : null}
       </span>
       <span
         className={cn(
           "min-w-0 flex-1 text-sm",
-          step.done
-            ? "text-gray-400 line-through dark:text-gray-500"
-            : "font-medium text-gray-900 dark:text-gray-100",
+          step.done ? "text-muted-foreground line-through" : "font-semibold",
         )}
       >
         {step.label}
       </span>
       {!step.done ? (
-        <ChevronRightIcon className="size-4 shrink-0 text-gray-300 dark:text-gray-600" />
+        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/60" />
       ) : null}
     </>
   );
@@ -104,7 +98,7 @@ function StepRow({
   }
 
   const rowClass =
-    "flex w-full items-center gap-2.5 rounded-md py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40";
+    "flex w-full items-center gap-2.5 rounded-md py-2.5 text-left transition-colors hover:bg-muted";
 
   // Todo rows: settings steps deep-link to the right tab; the calendar and
   // payment steps open the add flows the dashboard already owns.
