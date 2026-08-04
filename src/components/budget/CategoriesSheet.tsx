@@ -174,7 +174,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
 
         {showDelete ? (
           <>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Da li ste sigurni da želite da obrišete „{toDelete.name}"? Troškovi neće biti obrisani
               - samo ostaju bez kategorije.
             </p>
@@ -203,7 +203,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                 return (
                   <li
                     key={c.id}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                    className="flex items-center gap-3 rounded-lg border border-border p-3"
                   >
                     <span
                       className="flex size-8 shrink-0 items-center justify-center rounded-full"
@@ -212,10 +212,8 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                       <Icon className="size-4" style={{ color: c.color }} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {c.name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">
                         {c.monthly_limit != null ? (
                           <>
                             Limit <Amount value={c.monthly_limit} />
@@ -230,7 +228,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                         type="button"
                         aria-label="Izmeni kategoriju"
                         onClick={() => openEditor(editorFrom(c))}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                       >
                         <PencilSquareIcon className="size-4" />
                       </button>
@@ -238,7 +236,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                         type="button"
                         aria-label="Obriši kategoriju"
                         onClick={() => openDelete(c)}
-                        className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                       >
                         <TrashIcon className="size-4" />
                       </button>

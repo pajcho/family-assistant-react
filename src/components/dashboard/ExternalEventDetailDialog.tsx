@@ -192,7 +192,7 @@ export function ExternalEventDetailDialog({
               </DetailActionList>
             ) : null}
 
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Događaj iz tvog Google kalendara - samo za prikaz. Izmene radi u Google-u.
             </p>
           </div>

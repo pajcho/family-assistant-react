@@ -482,7 +482,7 @@ export function PaymentDetailDialog({
                     ) : (
                       // Fixed foreign bill: the amount is contractual - only
                       // the rate gets confirmed. (Fixed RSD never lands here.)
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-medium text-foreground">
                         Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
                       </p>
                     )}
@@ -522,7 +522,7 @@ export function PaymentDetailDialog({
                 <>
                   {/* The bill's hero: amount first, state as badges. */}
                   <div>
-                    <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                    <div className="text-3xl font-bold tracking-tight tabular-nums text-foreground">
                       <Amount value={payment.amount} />
                     </div>
                     {payment.currency !== "RSD" && payment.original_amount != null ? (

@@ -82,8 +82,20 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
     </div>
   );
 
+  // Column width follows the view: the agenda is a reading column and stays
+  // narrow, while the week and month grids earn the full width of the screen
+  // area on desktop (a month squeezed into 768px wastes the format).
+  const wide = view !== "agenda";
+
   return (
-    <AppScreen header={header}>
+    <AppScreen
+      header={header}
+      contentClassName={
+        wide ? "mx-auto w-full max-w-3xl lg:max-w-none" : "mx-auto w-full max-w-3xl"
+      }
+      headerClassName={wide ? "lg:px-8" : undefined}
+      bodyClassName={wide ? "lg:px-8" : undefined}
+    >
       {!familyId ? (
         <AgendaListSkeleton rows={5} />
       ) : view === "nedelja" ? (

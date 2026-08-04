@@ -247,9 +247,7 @@ export function EventDetailDialog({
                 icon={CalendarIcon}
                 tone="info"
                 title={event.name}
-                titleClassName={
-                  isCanceled ? "text-gray-500 line-through dark:text-gray-500" : undefined
-                }
+                titleClassName={isCanceled ? "text-muted-foreground line-through" : undefined}
                 subtitle={formatEventTimeRange(event)}
               />
 

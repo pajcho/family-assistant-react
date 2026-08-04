@@ -45,6 +45,9 @@ export type MonthCalendarProps = {
 
 const MAX_DOTS = 3;
 
+/** Named chips a desktop cell shows before collapsing the rest into "+ još N". */
+const MAX_CHIPS = 3;
+
 export function MonthCalendar({
   filter,
   isFilterActive,
@@ -98,6 +101,28 @@ export function MonthCalendar({
         if (colors.length === MAX_DOTS) break;
       }
       map.set(day, colors);
+    }
+    return map;
+  }, [byDay]);
+
+  // Desktop cells have room for names, so each day also carries up to three
+  // labelled chips ("+ još N" for the rest). Phones keep the dots - a 46px
+  // cell cannot hold a word.
+  const chipsByDay = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; label: string; color: string; time: string | null }[]
+    >();
+    for (const [day, dayItems] of byDay) {
+      map.set(
+        day,
+        dayItems.map((item) => ({
+          key: agendaItemKey(item),
+          label: monthChipLabel(item),
+          color: agendaItemDotColor(item),
+          time: monthChipTime(item),
+        })),
+      );
     }
     return map;
   }, [byDay]);
@@ -180,16 +205,17 @@ export function MonthCalendar({
                   "flex aspect-[0.92] min-h-11 flex-col items-center justify-center gap-[3px] rounded-md border border-transparent",
                   "text-[13.5px] font-bold tabular-nums transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  "lg:aspect-auto lg:h-[104px] lg:items-stretch lg:justify-start lg:gap-1 lg:p-1.5 lg:text-left",
                   outside && "opacity-35",
                   isSelected
                     ? "border-accent bg-accent-soft text-accent-deep"
                     : isToday
                       ? "border-accent text-accent-deep"
-                      : "text-foreground",
+                      : "text-foreground lg:hover:bg-muted",
                 )}
               >
-                {Number(day.slice(8))}
-                <span className="flex h-[5px] items-center gap-[2.5px]">
+                <span className="lg:pl-0.5">{Number(day.slice(8))}</span>
+                <span className="flex h-[5px] items-center gap-[2.5px] lg:hidden">
                   {dots.map((color, i) => (
                     <span
                       key={`${color}-${i}`}
@@ -198,6 +224,26 @@ export function MonthCalendar({
                       className="size-[4.5px] rounded-full"
                     />
                   ))}
+                </span>
+                <span className="hidden min-h-0 flex-1 flex-col gap-[3px] overflow-hidden lg:flex">
+                  {(chipsByDay.get(day) ?? []).slice(0, MAX_CHIPS).map((chip) => (
+                    <span
+                      key={chip.key}
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${chip.color} 16%, var(--card))`,
+                        borderColor: chip.color,
+                      }}
+                      className="truncate rounded-sm border-l-[3px] px-1.5 py-px text-[11px] leading-tight font-bold text-foreground"
+                    >
+                      {chip.time ? `${chip.time} ` : ""}
+                      {chip.label}
+                    </span>
+                  ))}
+                  {(chipsByDay.get(day)?.length ?? 0) > MAX_CHIPS ? (
+                    <span className="pl-1 text-[10.5px] font-extrabold text-muted-foreground">
+                      + još {(chipsByDay.get(day)?.length ?? 0) - MAX_CHIPS}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             );
@@ -264,6 +310,32 @@ export function MonthCalendar({
 type MonthSpan = { key: string; name: string; range: string };
 
 /** Multi-day events in view, one entry each, with a "12-14. okt" style range. */
+/** Cell chip label - the shortest thing that identifies the item. */
+function monthChipLabel(item: AgendaItem): string {
+  switch (item.kind) {
+    case "activity":
+      return item.activity?.name ?? "Aktivnost";
+    case "event":
+      return item.event.name;
+    case "external":
+      return item.event.title ?? "(bez naslova)";
+    case "payment":
+      return item.payment.name;
+    case "birthday":
+      return item.birthday.name;
+  }
+}
+
+/** Start time for the chip, when the item has one worth showing. */
+function monthChipTime(item: AgendaItem): string | null {
+  if (item.kind === "activity") return item.block.startTime;
+  if (item.kind === "event" && !item.isAllDay) return item.startTime;
+  if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
+    return item.event.start_time.slice(0, 5);
+  }
+  return null;
+}
+
 function collectSpans(items: AgendaItem[]): MonthSpan[] {
   const byEvent = new Map<string, { name: string; days: string[] }>();
   for (const item of items) {

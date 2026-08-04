@@ -147,7 +147,7 @@ export function PaymentOccurrenceDialog({
             ) : (
               <>
                 <div>
-                  <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                  <div className="text-3xl font-bold tracking-tight tabular-nums text-foreground">
                     <Amount value={item.amount} />
                   </div>
                   <div className="mt-2">
@@ -216,7 +216,7 @@ export function PaymentOccurrenceDialog({
                 ) : null}
 
                 {isUpcoming ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Nadolazeća rata - označavanje plaćenim, pomeranje i preskakanje postaju dostupni
                     kada rata dođe na red.
                   </p>

@@ -139,7 +139,7 @@ export function PullToRefresh() {
         role="status"
         aria-busy={refreshing}
         className={cn(
-          "flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md transition-opacity duration-150 dark:border-gray-700 dark:bg-gray-800",
+          "flex size-9 items-center justify-center rounded-full border border-border bg-white shadow-md transition-opacity duration-150",
           visible ? "opacity-100" : "opacity-0",
         )}
       >
@@ -147,9 +147,7 @@ export function PullToRefresh() {
         <ArrowPathIcon
           className={cn(
             "size-5",
-            armed || refreshing
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-400 dark:text-gray-500",
+            armed || refreshing ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground",
             refreshing && "animate-spin",
           )}
           // Progress feedback while pulling: the arrow winds up toward the

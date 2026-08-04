@@ -74,7 +74,7 @@ export function ActivityMoneySection({
         onSelect={onSelect ? (payment) => onSelect({ kind: "payment", payment }) : undefined}
       >
         {months.length > 0 ? (
-          <div className="border-t border-gray-100 pt-2 dark:border-gray-700">
+          <div className="border-t border-border pt-2">
             <ul className="space-y-1">
               {months.map((m) => (
                 <li key={m.month} className="text-xs text-muted-foreground tabular-nums">

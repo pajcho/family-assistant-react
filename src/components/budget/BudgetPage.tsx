@@ -725,7 +725,9 @@ export function BudgetPage({
       ) : null}
 
       {isOverview && !isFirstUse ? (
-        <>
+        // Desktop lays the analysis cards out in two columns - stacked, they
+        // pushed the trend below the fold on every screen wider than a phone.
+        <div className="contents lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
           {breakdown.length > 0 ? (
             <section>
               <GroupHeader
@@ -883,7 +885,7 @@ export function BudgetPage({
           ) : null}
 
           <BudgetTrend month={month} onSelectMonth={onMonthChange} />
-        </>
+        </div>
       ) : null}
 
       {/* --------------------------- Troškovi ---------------------------- */}

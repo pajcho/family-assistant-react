@@ -626,7 +626,7 @@ function EntryForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {isLinked ? (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm font-medium text-gray-900 dark:border-emerald-800/40 dark:bg-emerald-900/10 dark:text-gray-100">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm font-medium text-foreground dark:border-emerald-800/40 dark:bg-emerald-900/10">
           <BanknotesIcon className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span className="truncate">{linkedName}</span>
         </div>

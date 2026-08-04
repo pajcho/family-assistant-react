@@ -199,10 +199,10 @@ export function WeekStrip({
           <button
             type="button"
             aria-label={`${monthLabel} - izaberi dan`}
-            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:bg-gray-700/60"
+            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none/60"
           >
             {monthLabel}
-            <ChevronDownIcon className="size-3.5 text-gray-400 dark:text-gray-500" />
+            <ChevronDownIcon className="size-3.5 text-muted-foreground" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0">
@@ -226,10 +226,7 @@ export function WeekStrip({
       {/* Fixed weekday header - every week shares the same Mon-Sun columns. */}
       <div className="grid grid-cols-7 gap-1 px-1">
         {WEEKDAY_INITIALS.map((wd) => (
-          <div
-            key={wd}
-            className="text-center text-[11px] font-medium text-gray-400 dark:text-gray-500"
-          >
+          <div key={wd} className="text-center text-[11px] font-medium text-muted-foreground">
             {wd}
           </div>
         ))}
@@ -289,8 +286,8 @@ export function WeekStrip({
                             : isToday
                               ? "font-semibold text-blue-600 dark:text-blue-400"
                               : selectable
-                                ? "font-medium text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700/60"
-                                : "text-gray-400 dark:text-gray-500",
+                                ? "font-medium text-foreground hover:bg-muted/60"
+                                : "text-muted-foreground",
                         )}
                       >
                         {Number(day.slice(8, 10))}

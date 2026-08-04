@@ -136,8 +136,16 @@ export function NovacScreen({
     </div>
   );
 
+  // Pregled is a card dashboard and takes a wider column on desktop; Troškovi
+  // and Plaćanja are lists, and a list wider than ~720px stops being scannable
+  // (the eye loses the line between the name and the amount).
+  const contentClassName =
+    tab === "pregled"
+      ? "mx-auto w-full max-w-3xl lg:max-w-[980px]"
+      : "mx-auto w-full max-w-3xl lg:max-w-[720px]";
+
   return (
-    <AppScreen header={header} bodyClassName="pb-6">
+    <AppScreen header={header} bodyClassName="pb-6" contentClassName={contentClassName}>
       {isPayments ? (
         <PaymentsPage month={month} searchTerm={searchTerm} />
       ) : (

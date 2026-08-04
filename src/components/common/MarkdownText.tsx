@@ -28,7 +28,7 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
   return (
     <div
       className={cn(
-        "text-sm leading-relaxed text-gray-700 dark:text-gray-300",
+        "text-sm leading-relaxed text-foreground",
         // Reset the dialog's overall vertical rhythm - markdown blocks get
         // their own breathing room from the component overrides below.
         "space-y-2",
@@ -40,13 +40,13 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
         components={{
           p: ({ children }) => <p className="leading-relaxed">{children}</p>,
           h1: ({ children }) => (
-            <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100">{children}</h1>
+            <h1 className="text-base font-semibold text-foreground">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{children}</h2>
+            <h2 className="text-base font-semibold text-foreground">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{children}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{children}</h3>
           ),
           ul: ({ children }) => <ul className="list-disc space-y-1 pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5">{children}</ol>,
@@ -62,25 +62,25 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
             </a>
           ),
           strong: ({ children }) => (
-            <strong className="font-semibold text-gray-900 dark:text-gray-100">{children}</strong>
+            <strong className="font-semibold text-foreground">{children}</strong>
           ),
           em: ({ children }) => <em className="italic">{children}</em>,
           code: ({ children }) => (
-            <code className="rounded bg-gray-100 px-1 py-0.5 text-xs font-mono text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+            <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono text-foreground">
               {children}
             </code>
           ),
           pre: ({ children }) => (
-            <pre className="overflow-x-auto rounded-md bg-gray-100 p-3 text-xs font-mono text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+            <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs font-mono text-foreground">
               {children}
             </pre>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-gray-300 pl-3 italic text-gray-600 dark:border-gray-600 dark:text-gray-400">
+            <blockquote className="border-l-2 border-border pl-3 italic text-muted-foreground">
               {children}
             </blockquote>
           ),
-          hr: () => <hr className="border-gray-200 dark:border-gray-700" />,
+          hr: () => <hr className="border-border" />,
         }}
       >
         {content}

@@ -277,15 +277,11 @@ export function PaymentLinkField({
           onMouseEnter={() => setActiveIndex(flatIndex)}
           className={cn(
             "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-            flatIndex === activeIndex
-              ? "bg-gray-100 dark:bg-gray-700"
-              : "hover:bg-gray-100 dark:hover:bg-gray-700",
+            flatIndex === activeIndex ? "bg-muted" : "hover:bg-muted",
           )}
         >
           <PaymentLinkIcon kind={option.kind} className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
-            {option.name}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-foreground">{option.name}</span>
           {option.personIds.length > 0 ? (
             <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
           ) : null}
@@ -302,9 +298,7 @@ export function PaymentLinkField({
   const triggerLabel = selected ? (
     <>
       <PaymentLinkIcon kind={selected.kind} className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-left text-gray-900 dark:text-gray-100">
-        {selected.name}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-left text-foreground">{selected.name}</span>
     </>
   ) : (
     <span className="flex-1 truncate text-left text-muted-foreground">

@@ -122,14 +122,14 @@ function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: Body
           rows={4}
         />
         {previewContent ? (
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <div className="rounded-md border border-border bg-muted p-3/40">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Pregled
             </p>
             <MarkdownText content={previewContent} />
           </div>
         ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Možete koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
             <code className="font-mono"> - tačke</code>, linkovi).
           </p>

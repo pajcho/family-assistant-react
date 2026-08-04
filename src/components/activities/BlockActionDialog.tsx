@@ -198,7 +198,7 @@ function BlockActionSheet({
               style={{ backgroundColor: color }}
               aria-hidden="true"
             />
-            <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
+            <span className="font-medium text-foreground">{personName}</span>
             <span>·</span>
             <span>{dateLabel}</span>
           </div>
@@ -220,7 +220,7 @@ function BlockActionSheet({
             note={block.override!.note}
           />
         ) : (
-          <div className="mb-4 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800/60 dark:text-gray-200">
+          <div className="mb-4 rounded-md bg-muted px-3 py-2 text-sm text-foreground/60">
             Redovan termin:{" "}
             <span className="font-medium tabular-nums">
               {block.startTime}-{block.endTime}

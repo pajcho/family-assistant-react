@@ -209,13 +209,13 @@ export function BirthdayDetailDialog({
                         <button
                           type="button"
                           onClick={() => setViewedCelebration(celebration)}
-                          className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-100 dark:hover:text-pink-400"
+                          className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:text-pink-400"
                         >
                           <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
                           <span className="min-w-0 flex-1 truncate text-left">
                             {celebration.name} · {formatDate(celebration.date)}
                           </span>
-                          <ChevronRightIcon className="ml-auto size-4 shrink-0 text-gray-400 dark:text-gray-500" />
+                          <ChevronRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground" />
                         </button>
                       ) : null}
                     </DetailInfoRows>
