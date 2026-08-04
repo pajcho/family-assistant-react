@@ -93,22 +93,22 @@ export function PaymentOccurrenceDialog({
     if (isUpcoming) {
       statusBadges.push({
         label: "Nadolazeće",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        className: "bg-muted text-muted-foreground",
       });
     } else if (item.status === "canceled") {
       statusBadges.push({
         label: "Preskočeno",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        className: "bg-muted text-muted-foreground",
       });
     } else {
       statusBadges.push({
         label: `Plaćeno${item.paid_date ? ` ${formatDate(item.paid_date)}` : ""}`,
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        className: "bg-pos-soft text-pos",
       });
     }
     statusBadges.push({
       label: `${isUpcoming ? "Dospeva" : "Dospelo"} ${formatDate(item.due_date)}`,
-      className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      className: "bg-muted text-muted-foreground",
     });
   }
 
@@ -129,8 +129,8 @@ export function PaymentOccurrenceDialog({
           <div className="space-y-4">
             <DetailHero
               icon={BanknotesIcon}
-              iconWrapClassName="bg-amber-100 dark:bg-amber-900/50"
-              iconClassName="text-amber-600 dark:text-amber-400"
+              iconWrapClassName="bg-warn-soft"
+              iconClassName="text-warn"
               title={item.name}
               subtitle={subtitle}
             />
@@ -153,7 +153,7 @@ export function PaymentOccurrenceDialog({
             ) : (
               <>
                 <div>
-                  <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                  <div className="text-3xl font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
                     <Amount value={item.amount} />
                   </div>
                   <div className="mt-2">
@@ -222,7 +222,7 @@ export function PaymentOccurrenceDialog({
                 ) : null}
 
                 {isUpcoming ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Nadolazeća rata - označavanje plaćenim, pomeranje i preskakanje postaju dostupni
                     kada rata dođe na red.
                   </p>

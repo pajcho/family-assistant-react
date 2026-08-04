@@ -235,24 +235,26 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
             {pendingSources.length > 0 ? (
               <section className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                  <h3 className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
                     Za potvrdu
                   </h3>
-                  <Badge variant="secondary">{pendingSources.length}</Badge>
+                  <Badge variant="secondary" className="py-[3px] text-[10.5px] font-extrabold">
+                    {pendingSources.length}
+                  </Badge>
                 </div>
                 <ul className="flex flex-col gap-2">
                   {pendingSources.map((source) => (
                     <li
                       key={source.id}
-                      className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-xs"
+                      className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-card"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-card-foreground">
+                        <div className="truncate text-sm font-bold text-card-foreground">
                           {source.name}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                           {personChip(source.person_id)}
-                          <span className="whitespace-nowrap">
+                          <span className="whitespace-nowrap tabular-nums">
                             očekivano <Amount value={source.amount} />
                           </span>
                         </div>
@@ -274,11 +276,13 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                   aria-expanded={confirmedRowsVisible}
                   onClick={() => setShowConfirmed((visible) => !visible)}
                 >
-                  <span className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                  <span className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
                     Potvrđeno
                   </span>
-                  <Badge variant="outline">{entries.length}</Badge>
-                  <span className="ml-auto text-sm font-semibold text-foreground">
+                  <Badge variant="outline" className="py-[3px] text-[10.5px] font-extrabold">
+                    {entries.length}
+                  </Badge>
+                  <span className="ml-auto text-sm font-bold tabular-nums text-foreground">
                     <Amount value={confirmedTotal} />
                   </span>
                   {confirmedRowsVisible ? (
@@ -293,7 +297,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                     {entries.map((entry) => (
                       <li
                         key={entry.id}
-                        className="flex items-center rounded-xl border bg-card shadow-xs"
+                        className="flex items-center rounded-xl border border-border bg-card shadow-card"
                       >
                         <button
                           type="button"
@@ -303,10 +307,13 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-card-foreground">
+                              <span className="truncate text-sm font-semibold text-card-foreground">
                                 {entry.name}
                               </span>
-                              <Badge variant={entry.is_one_time ? "secondary" : "outline"}>
+                              <Badge
+                                variant={entry.is_one_time ? "secondary" : "outline"}
+                                className="py-[3px] text-[10.5px] font-extrabold"
+                              >
                                 {entry.is_one_time ? "jednokratno" : "redovno"}
                               </Badge>
                             </div>
@@ -319,7 +326,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                               ) : null}
                             </div>
                           </div>
-                          <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-card-foreground">
                             <Amount value={entry.amount} />
                           </span>
                           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -340,10 +347,8 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                 ) : null}
               </section>
             ) : pendingSources.length === 0 ? (
-              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-5 text-center">
-                <p className="text-sm font-medium text-foreground">
-                  Još nema prihoda za ovaj mesec
-                </p>
+              <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-5 text-center">
+                <p className="text-sm font-bold text-foreground">Još nema prihoda za ovaj mesec</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Dodaj jednokratni prihod ili podesi redovni prihod.
                 </p>
@@ -363,13 +368,13 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
             <button
               type="button"
               onClick={() => push({ kind: "sources" })}
-              className="group flex w-full items-center gap-3 rounded-xl border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left shadow-card transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="grid size-[42px] shrink-0 place-items-center rounded-[14px] bg-accent-soft text-accent-deep">
                 <BanknotesIcon className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground">Redovni prihodi</span>
+                <span className="block text-sm font-bold text-foreground">Redovni prihodi</span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {activeSources.length > 0 ? (
                     <>
@@ -389,8 +394,8 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
         {view.kind === "sources" ? (
           <div className="flex flex-col gap-4">
             {incomes.length === 0 ? (
-              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-6 text-center">
-                <p className="text-sm font-medium text-foreground">Još nema redovnih prihoda</p>
+              <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-center">
+                <p className="text-sm font-bold text-foreground">Još nema redovnih prihoda</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Dodaj platu ili drugi prihod koji očekuješ svakog meseca.
                 </p>
@@ -400,7 +405,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                 {incomes.map((income) => (
                   <li
                     key={income.id}
-                    className="flex items-center rounded-xl border bg-card shadow-xs"
+                    className="flex items-center rounded-xl border border-border bg-card shadow-card"
                   >
                     <button
                       type="button"
@@ -413,14 +418,21 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
                           <span className="truncate text-sm font-semibold text-card-foreground">
                             {income.name}
                           </span>
-                          {!income.active ? <Badge variant="secondary">pauzirano</Badge> : null}
+                          {!income.active ? (
+                            <Badge
+                              variant="secondary"
+                              className="py-[3px] text-[10.5px] font-extrabold"
+                            >
+                              pauzirano
+                            </Badge>
+                          ) : null}
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                           {personChip(income.person_id)}
                           <span className="whitespace-nowrap">{income.day_of_month}. u mesecu</span>
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-card-foreground">
                         <Amount value={income.amount} />
                       </span>
                       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -626,8 +638,8 @@ function EntryForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {isLinked ? (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm font-medium text-gray-900 dark:border-emerald-800/40 dark:bg-emerald-900/10 dark:text-gray-100">
-          <BanknotesIcon className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex items-center gap-2 rounded-lg border border-pos/25 bg-pos-soft p-3 text-sm font-bold text-foreground">
+          <BanknotesIcon className="size-4 shrink-0 text-pos" />
           <span className="truncate">{linkedName}</span>
         </div>
       ) : (
@@ -785,12 +797,12 @@ function SourceForm({
           {memberOptions(members)}
         </select>
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+      <label className="flex min-h-11 items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={active}
           onChange={(e) => setActive(e.target.checked)}
-          className="rounded border-gray-300"
+          className="size-4 rounded-sm border-border accent-accent"
         />
         Aktivan
       </label>

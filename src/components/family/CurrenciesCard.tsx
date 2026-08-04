@@ -27,7 +27,7 @@ export function CurrenciesCard() {
   };
 
   return (
-    <Card>
+    <Card className="shadow-card">
       <CardHeader>
         <CardTitle>Valute</CardTitle>
         <CardDescription>
@@ -36,26 +36,26 @@ export function CurrenciesCard() {
           sklanja opciju za nove.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-1">
         {ALL_CURRENCIES.map((code) => {
           const isBase = code === "RSD";
           return (
-            <div key={code} className="flex items-center gap-3">
+            <div key={code} className="flex min-h-11 items-center gap-3">
               <input
                 id={`currency-${code}-toggle`}
                 type="checkbox"
                 checked={isBase || enabled.includes(code)}
                 onChange={(e) => toggle(code, e.target.checked)}
                 disabled={isBase || !isAdmin || update.isPending}
-                className="h-4 w-4 cursor-pointer rounded border-gray-300 disabled:cursor-not-allowed"
+                className="h-4 w-4 cursor-pointer rounded border-border accent-accent disabled:cursor-not-allowed"
               />
               <label
                 htmlFor={`currency-${code}-toggle`}
-                className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+                className="cursor-pointer text-[14.5px] font-bold text-foreground"
               >
                 {CURRENCY_LABELS[code] ?? code}
                 {isBase ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="ml-2 text-xs font-semibold text-muted-foreground">
                     osnovna valuta - uvek uključena
                   </span>
                 ) : null}
@@ -64,7 +64,7 @@ export function CurrenciesCard() {
           );
         })}
         {!isAdmin ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="pt-2 text-xs font-semibold text-muted-foreground">
             Samo administrator porodice može da menja valute.
           </p>
         ) : null}

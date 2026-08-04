@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { BanknotesIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
-import { FilterBar } from "@/components/common/FilterBar";
-import {
-  AppliedFilterChips,
-  FilterSection,
-  FilterSheet,
-  FilterSwitchRow,
-  useMemberAppliedFilters,
-} from "@/components/common/FilterSheet";
-import { MonthPicker } from "@/components/common/PeriodPicker";
+import { FilterSection, FilterSheet } from "@/components/common/FilterSheet";
 import { PersonFilterChips } from "@/components/common/PersonFilterChips";
+import { ChipRow, FilterChip, MoneyCard, ProgressTrack } from "@/components/money/moneyUi";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
@@ -395,18 +388,27 @@ function computeCombinedList({
 
 /* --- The page itself ------------------------------------------------------ */
 
-export function PaymentsPage() {
-  // Filters - default to the CURRENT month (the "Sva plaćanja" all-time view
-  // lives inside the month picker's popup).
-  const [selectedMonth, setSelectedMonth] = useState(() => currentMonthYYYYMM());
+export interface PaymentsPageProps {
+  /** "YYYY-MM" or "all" (Sva plaćanja), owned by the Novac hub's month pager. */
+  month: string;
+  /** Hub-owned search term; while active it spans ALL months. */
+  searchTerm: string;
+}
+
+/**
+ * The Plaćanja view of Novac: this month's bills, every status, grouped by
+ * day. The month, the search field and the QR scanner live in the hub header
+ * (see `NovacScreen`); everything below - person filter, the resolved-rows
+ * toggle, and the whole dialog layer - stays here.
+ */
+export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
+  // The hub owns the month; "all" (Sva plaćanja) is picked in its pager.
+  const selectedMonth = month;
   // Resolved (paid/canceled) rows are hidden by default - the list opens with
-  // what's still outstanding. Revealing them is a filter-sheet switch AND the
+  // what's still outstanding. Revealing them is a chip AND the
   // "Sakriveno N · Prikaži" link under the list.
   const [showPaid, setShowPaid] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  // Free-text search over name + description. While active it spans ALL
-  // months (the month filter would hide the thing you're looking for).
-  const [searchTerm, setSearchTerm] = useState("");
+  const [membersOpen, setMembersOpen] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person filter - same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
@@ -580,27 +582,11 @@ export function PaymentsPage() {
     return { paidCount, totalCount: paidCount + dueCount, nextDue };
   }, [combinedList, selectedMonth, todayStr]);
 
-  // Filter plumbing for the shared sheet + applied-chips row.
-  const filterCount = selectedPersonIds.size + (showPaid ? 1 : 0);
+  const filtersActive = selectedPersonIds.size > 0 || showPaid;
   const resetFilters = () => {
     setSelectedPersonIds(new Set());
     setShowPaid(false);
   };
-  const memberApplied = useMemberAppliedFilters(selectedPersonIds, togglePerson);
-  const appliedFilters = useMemo(
-    () =>
-      showPaid
-        ? [
-            ...memberApplied,
-            {
-              key: "__show-paid__",
-              label: "Plaćena prikazana",
-              onRemove: () => setShowPaid(false),
-            },
-          ]
-        : memberApplied,
-    [memberApplied, showPaid],
-  );
 
   const isLoading = paymentsQuery.isLoading || historyQuery.isLoading;
   const showEmpty = !isLoading && displayedList.length === 0;
@@ -697,100 +683,99 @@ export function PaymentsPage() {
     : null;
 
   return (
-    <div className="animate-fade-in pb-24 lg:pb-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Plaćanja</h1>
+    <div className="animate-fade-in">
+      {/* The bottom bar's "+" is the touch entry point; desktop keeps a real
+          button next to the list it adds to. */}
+      <div className="mb-2 hidden justify-end lg:flex">
         <AddButton label="Dodaj plaćanje" onClick={openAdd} />
       </div>
 
-      <div className="mt-4 space-y-3">
-        <FilterBar
-          picker={
-            <MonthPicker
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              allOptionLabel="Sva plaćanja"
-            />
-          }
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Pretraži plaćanja…"
-          filterCount={filterCount}
-          onOpenFilters={() => setFiltersOpen(true)}
-        />
-        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
-      </div>
+      <ChipRow className="mb-1">
+        <FilterChip active={!filtersActive} onClick={resetFilters}>
+          Svi
+        </FilterChip>
+        <FilterChip active={showPaid} onClick={() => setShowPaid((v) => !v)}>
+          Plaćena
+        </FilterChip>
+        <FilterChip
+          active={selectedPersonIds.size > 0}
+          ariaPressed={false}
+          onClick={() => setMembersOpen(true)}
+        >
+          <UserGroupIcon className="size-3.5" />
+          {selectedPersonIds.size > 0 ? `Članovi · ${selectedPersonIds.size}` : "Članovi"}
+        </FilterChip>
+      </ChipRow>
 
       {/* Summary - one card: how far through the month's bills we are. */}
       {!searchActive && combinedList.length > 0 ? (
         summary.type === "all" ? (
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-              <span className="size-1.5 rounded-full bg-amber-500" />
+          <MoneyCard className="mt-2 px-3.5 py-3.5">
+            <div className="flex items-center gap-2 text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+              <span className="size-1.5 rounded-full bg-warn" />
               Ukupno za platiti
             </div>
-            <div className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+            <div className="mt-1 text-[22px] font-black tracking-[-0.03em] tabular-nums">
               <Amount value={summary.total} />
             </div>
-          </div>
+          </MoneyCard>
         ) : (
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <MoneyCard className="mt-2 px-3.5 py-3.5">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              <span className="text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
                 Plaćeno ovog meseca
               </span>
               {monthStats && monthStats.totalCount > 0 ? (
-                <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-bold tabular-nums text-muted-foreground">
                   {monthStats.paidCount} od {monthStats.totalCount}
                 </span>
               ) : null}
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+              <span className="text-[22px] font-black tracking-[-0.03em] tabular-nums">
                 <Amount value={summary.paidTotal} />
               </span>
-              <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+              <span className="text-[13px] font-bold tabular-nums text-muted-foreground">
                 od <Amount value={summary.paidTotal + summary.unpaidTotal} />
               </span>
             </div>
-            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-[width]"
-                style={{
-                  width: `${
+            <ProgressTrack
+              className="mt-2.5"
+              segments={[
+                {
+                  key: "paid",
+                  pct:
                     summary.paidTotal + summary.unpaidTotal > 0
                       ? Math.max(
                           (summary.paidTotal / (summary.paidTotal + summary.unpaidTotal)) * 100,
                           summary.paidTotal > 0 ? 2 : 0,
                         )
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      : 0,
+                  className: "bg-pos",
+                },
+              ]}
+            />
+            <div className="mt-2 flex items-center justify-between gap-2 text-[12.5px] font-semibold text-muted-foreground">
               {summary.unpaidTotal > 0 ? (
                 <span>
                   Preostalo{" "}
-                  <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                  <span className="font-extrabold tabular-nums text-foreground">
                     <Amount value={summary.unpaidTotal} />
                   </span>
                 </span>
               ) : (
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                  Sve je plaćeno 🎉
-                </span>
+                <span className="font-bold text-pos">Sve je plaćeno 🎉</span>
               )}
               {monthStats?.nextDue && summary.unpaidTotal > 0 ? (
                 <span>Sledeće: {formatDate(monthStats.nextDue)}</span>
               ) : null}
             </div>
-          </div>
+          </MoneyCard>
         )
       ) : null}
 
       {searchActive ? (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs font-semibold text-muted-foreground">
           Rezultati pretrage obuhvataju sve mesece (filteri meseca i plaćenih se ne primenjuju).
         </p>
       ) : null}
@@ -817,7 +802,7 @@ export function PaymentsPage() {
       ) : null}
 
       {!isLoading && pagedList.length > 0 ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <PaymentTimeline
             items={pagedList}
             byPayment={byPayment}
@@ -837,13 +822,13 @@ export function PaymentsPage() {
 
       {/* Quiet reveal for the default hide-resolved view (Gmail-style). */}
       {hiddenResolvedCount > 0 ? (
-        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-4 text-center text-[12.5px] font-semibold text-muted-foreground">
           Sakriveno {hiddenResolvedCount}{" "}
           {hiddenResolvedCount === 1 ? "plaćeno/otkazano" : "plaćenih/otkazanih"} ·{" "}
           <button
             type="button"
             onClick={() => setShowPaid(true)}
-            className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+            className="px-1 py-1.5 font-extrabold text-accent-deep underline-offset-4 hover:underline"
           >
             Prikaži
           </button>
@@ -851,25 +836,14 @@ export function PaymentsPage() {
       ) : null}
 
       <FilterSheet
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        isActive={filterCount > 0}
-        onReset={resetFilters}
+        open={membersOpen}
+        onOpenChange={setMembersOpen}
+        isActive={selectedPersonIds.size > 0}
+        onReset={() => setSelectedPersonIds(new Set())}
       >
         <FilterSection title="Članovi">
           <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
         </FilterSection>
-        <section className="space-y-1">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Prikaz
-          </h4>
-          <FilterSwitchRow
-            label="Prikaži i plaćena"
-            icon={EyeIcon}
-            checked={showPaid}
-            onCheckedChange={setShowPaid}
-          />
-        </section>
       </FilterSheet>
 
       <PaymentFormDialog

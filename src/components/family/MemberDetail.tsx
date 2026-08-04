@@ -33,7 +33,12 @@ import {
 import { useCreateMemberLogin, useDisableMemberLogin } from "@/hooks/useFamilyLogin";
 import { useDeleteSchoolShiftAnchor, useUpsertSchoolShiftAnchor } from "@/hooks/useSchoolShifts";
 import { cn } from "@/lib/cn";
-import { PROFILE_COLOR_PALETTE, fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
+import {
+  PROFILE_COLOR_PALETTE,
+  fallbackColorForProfile,
+  getThisWeekStart,
+  profileColorName,
+} from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import type { Profile } from "@/types/database";
 
@@ -52,6 +57,9 @@ export type MemberDetailProps = {
    */
   onMemberReplaced?: (newId: string) => void;
 };
+
+/** Status pill sizing shared by the role badges in the header. */
+const PILL = "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold";
 
 /**
  * The detail pane for one family member. Every mutation here is admin-only at
@@ -89,7 +97,7 @@ export function MemberDetail({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          className="-mx-1 flex min-h-11 items-center gap-1 px-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           Svi članovi
@@ -106,31 +114,38 @@ export function MemberDetail({
             className="h-12 w-12 text-base"
           />
           <span
-            className="absolute -right-0.5 -bottom-0.5 size-4 rounded-full border-2 border-white dark:border-gray-800"
+            className="absolute -right-0.5 -bottom-0.5 size-4 rounded-full border-2 border-card"
             style={{ backgroundColor: color }}
             aria-hidden="true"
           />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="truncate text-lg font-bold text-foreground">
             {name}
             {isSelf ? (
-              <span className="ml-1.5 text-sm font-normal text-gray-400 dark:text-gray-500">
-                (ti)
-              </span>
+              <span className="ml-1.5 text-sm font-semibold text-muted-foreground">(ti)</span>
             ) : null}
           </div>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            <Badge variant={member.has_login ? "secondary" : "outline"}>
+            <Badge
+              variant={member.has_login ? "secondary" : "outline"}
+              className={cn(
+                PILL,
+                member.has_login ? "bg-pos-soft text-pos" : "text-muted-foreground",
+              )}
+            >
               {member.has_login ? "Nalog" : "Bez naloga"}
             </Badge>
             {member.is_admin ? (
-              <Badge>
+              <Badge className={cn(PILL, "bg-accent-soft text-accent-deep")}>
                 <ShieldCheckIcon /> Administrator
               </Badge>
             ) : null}
             {isStudent ? (
-              <Badge variant="outline">
+              <Badge
+                variant="outline"
+                className={cn(PILL, "border-transparent bg-info-soft text-info")}
+              >
                 <AcademicCapIcon /> Učenik
               </Badge>
             ) : null}
@@ -147,31 +162,29 @@ export function MemberDetail({
         <SectionTitle icon={<KeyIcon className="h-4 w-4" />} title="Nalog za prijavu" />
         {member.has_login ? (
           <div className="space-y-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Ovaj član ima svoj nalog i može da se prijavi u aplikaciju.
             </p>
             <Button
               variant="outline"
               size="sm"
-              className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+              className="text-destructive hover:bg-neg-soft hover:text-destructive"
               disabled={isSelf || isLastAdmin || disableLogin.isPending}
               onClick={() => disableLogin.mutate(member.id)}
             >
               {disableLogin.isPending ? "Gašenje…" : "Ugasi nalog"}
             </Button>
             {isSelf ? (
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Ne možeš ugasiti sopstveni nalog.
-              </p>
+              <p className="text-xs text-muted-foreground">Ne možeš ugasiti sopstveni nalog.</p>
             ) : isLastAdmin ? (
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Poslednji administrator - dodaj još jednog pre gašenja.
               </p>
             ) : null}
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Nema nalog. Napravi mu login da bi mogao sam da se prijavi.
             </p>
             <Button variant="outline" size="sm" onClick={() => setCreateLoginOpen(true)}>
@@ -223,11 +236,11 @@ export function MemberDetail({
 
       {/* Remove (login-less members only) */}
       {!member.has_login ? (
-        <section className="border-t border-gray-100 pt-4 dark:border-gray-700/60">
+        <section className="border-t border-border pt-4">
           <Button
             variant="ghost"
             size="sm"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+            className="text-destructive hover:bg-neg-soft hover:text-destructive"
             onClick={() => setConfirm("remove")}
           >
             <TrashIcon className="mr-1.5 h-4 w-4" />
@@ -284,8 +297,8 @@ export function MemberDetail({
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
-      <span className="text-gray-400 dark:text-gray-500">{icon}</span>
+    <h3 className="flex items-center gap-1.5 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+      {icon}
       {title}
     </h3>
   );
@@ -320,20 +333,20 @@ function ToggleRow({
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-accent disabled:cursor-not-allowed disabled:opacity-50"
       />
       <label
         htmlFor={id}
         className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}
       >
-        <span className="flex items-center gap-1.5 text-sm font-medium text-gray-900 dark:text-gray-100">
-          <span className="text-gray-400 dark:text-gray-500">{icon}</span>
+        <span className="flex items-center gap-1.5 text-[14.5px] font-bold text-foreground">
+          <span className="text-muted-foreground">{icon}</span>
           {label}
         </span>
-        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{description}</span>
-        {hint ? (
-          <span className="mt-0.5 block text-xs text-amber-600 dark:text-amber-400">{hint}</span>
-        ) : null}
+        <span className="mt-0.5 block text-xs font-semibold text-muted-foreground">
+          {description}
+        </span>
+        {hint ? <span className="mt-0.5 block text-xs font-semibold text-warn">{hint}</span> : null}
       </label>
     </div>
   );
@@ -398,26 +411,39 @@ function NameEditor({ member }: { member: Profile }) {
 
 function ColorPicker({ member }: { member: Profile }) {
   const updateColor = useUpdateProfileColor();
+  const selectedColorName = profileColorName(member.color);
   return (
     <section className="space-y-2">
       <SectionTitle icon={<SwatchIcon className="h-4 w-4" />} title="Boja" />
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-0.5">
         {PROFILE_COLOR_PALETTE.map((c) => (
           <button
             key={c}
             type="button"
-            aria-label={`Boja ${c}`}
+            // Fruit names instead of hex: the palette is fixed, so every colour
+            // has a name a person can actually say out loud.
+            aria-label={profileColorName(c) ?? `Boja ${c}`}
+            title={profileColorName(c) ?? undefined}
             onClick={() => updateColor.mutate({ profileId: member.id, color: c })}
-            style={{ backgroundColor: c }}
             className={cn(
-              "size-7 rounded-full border-2 transition-transform hover:scale-110",
-              member.color === c ? "border-gray-900 dark:border-white" : "border-transparent",
+              "grid size-11 place-items-center rounded-full border-2 transition-transform hover:scale-110",
+              member.color === c ? "border-foreground" : "border-transparent",
             )}
-          />
+          >
+            <span
+              className="size-8 rounded-full"
+              style={{ backgroundColor: c }}
+              aria-hidden="true"
+            />
+          </button>
         ))}
       </div>
       {member.color == null ? (
-        <p className="text-xs text-gray-400 dark:text-gray-500">Trenutno automatska boja.</p>
+        <p className="text-xs font-semibold text-muted-foreground">Trenutno automatska boja.</p>
+      ) : selectedColorName ? (
+        <p className="text-xs font-semibold text-muted-foreground">
+          Izabrana boja: {selectedColorName}.
+        </p>
       ) : null}
     </section>
   );
@@ -498,7 +524,7 @@ function CreateLoginDialog({
               placeholder="bar 6 karaktera"
               required
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400">Najmanje 6 karaktera.</p>
+            <p className="text-xs text-muted-foreground">Najmanje 6 karaktera.</p>
           </div>
           <ResponsiveDialogFooter>
             <Button

@@ -17,10 +17,7 @@ export function PaymentListSkeleton({
     <div role="status" aria-busy="true" className={cn("space-y-3", className)}>
       <span className="sr-only">Učitavanje</span>
       {Array.from({ length: cards }, (_, i) => (
-        <div
-          key={i}
-          className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-        >
+        <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-card">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className={cn("h-4", i % 2 === 0 ? "w-2/5" : "w-1/2")} />

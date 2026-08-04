@@ -35,14 +35,12 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
   const loading = historyQuery.isLoading || historyQuery.isFetching;
 
   if (loading) {
-    return (
-      <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">Učitavanje…</div>
-    );
+    return <div className="py-4 text-center text-sm text-muted-foreground">Učitavanje…</div>;
   }
 
   if (history.length === 0) {
     return (
-      <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="py-4 text-center text-sm text-muted-foreground">
         Nema zabeleženih uplata za ovo plaćanje.
       </div>
     );
@@ -53,18 +51,18 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
       {history.map((entry, index) => (
         <li
           key={entry.id}
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700/50"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted px-4 py-3"
         >
           <div className="flex flex-col gap-0.5">
             <span
               className={cn(
-                "text-sm font-medium text-gray-900 dark:text-gray-100",
-                entry.status === "canceled" && "text-gray-500 line-through dark:text-gray-500",
+                "text-sm font-medium text-foreground",
+                entry.status === "canceled" && "text-muted-foreground line-through",
               )}
             >
               {`${index + 1}. Dospeće ${formatDate(entry.due_date)}`}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-muted-foreground">
               {entry.status === "canceled"
                 ? `Otkazano${entry.note ? ` · ${entry.note}` : ""}`
                 : `Plaćeno ${entry.paid_date ? formatDate(entry.paid_date) : ""}`}
@@ -72,18 +70,14 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
             {/* Frozen name from that occurrence - shown only when it
                 differs from the payment's current name (renamed since). */}
             {entry.name && payment && entry.name !== payment.name ? (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                Naziv tada: {entry.name}
-              </span>
+              <span className="text-xs text-muted-foreground">Naziv tada: {entry.name}</span>
             ) : null}
           </div>
           <div className="flex flex-col items-end gap-0.5">
             <span
               className={cn(
-                "font-semibold",
-                entry.status === "canceled"
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-emerald-700 dark:text-emerald-400",
+                "font-extrabold tracking-[-0.01em] tabular-nums",
+                entry.status === "canceled" ? "text-neg" : "text-pos",
               )}
             >
               <Amount value={entry.amount} />
@@ -97,7 +91,7 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
               <button
                 type="button"
                 onClick={onRequestUndo}
-                className="inline-flex items-center gap-1 text-xs font-medium text-red-600 underline-offset-4 hover:underline dark:text-red-400"
+                className="inline-flex items-center gap-1 py-1.5 text-xs font-bold text-neg underline-offset-4 hover:underline"
               >
                 <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
                 Poništi
@@ -143,10 +137,10 @@ export function PaymentUndoConfirm({
   return (
     <>
       <div className="space-y-3">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-foreground">
           {`Da li ste sigurni da želite da poništite poslednje plaćanje za "${paymentName}"?`}
         </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Ovo će obrisati zapis iz istorije i vratiti datum dospeća na prethodni mesec.
         </p>
       </div>

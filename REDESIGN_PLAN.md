@@ -93,15 +93,15 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane D - Novac (1 dan) [posle A]
 
-- [ ] Hub sa segmentima + mesec pager + QR dugme u zaglavlju
-- [ ] Pregled: postojece budzet komponente restyle (cycle karta sa Prihodi/Potroseno/Preostalo,
+- [x] Hub sa segmentima + mesec pager + QR dugme u zaglavlju
+- [x] Pregled: postojece budzet komponente restyle (cycle karta sa Prihodi/Potroseno/Preostalo,
       projekcija, nudge za potvrdu prihoda, Po kategorijama + Uredi, Fiksno vs varijabilno,
       Top prodavnice, Trend) - logika netaknuta; sheetovi Prihodi/Kategorije/CategoryDetail restyle
-- [ ] Troskovi: BudgetTimeline kao tab + filteri izvora (Rucno/Racun/Iz placanja) + clanovi + pretraga
+- [x] Troskovi: BudgetTimeline kao tab + filteri izvora (Rucno/Racun/Iz placanja) + clanovi + pretraga
       (ukljucujuci stavke racuna, kao sada); cipovi "racun · N stavki" / "deo racuna" / "iz placanja"
-- [ ] Placanja: postojeci PaymentsPage sadrzaj kao tab (summary karta, grupe Prekoraceno/Danas/...,
+- [x] Placanja: postojeci PaymentsPage sadrzaj kao tab (summary karta, grupe Prekoraceno/Danas/...,
       svi statusi, "Prikazi jos", sakrivena placena linija)
-- [ ] Skener + ReceiptPreview + chain + Podeli racun: restyle u nove tokene (tok i logika netaknuti)
+- [x] Skener + ReceiptPreview + chain + Podeli racun: restyle u nove tokene (tok i logika netaknuti)
 
 ### Lane E - Deljeni inputi + sve forme (2 dana) [posle A; E1 pre E2]
 
@@ -126,16 +126,18 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane G - Podesavanja + nalog (1 dan) [posle A]
 
-- [ ] Spajanje /profile u /settings hub sa grupama (profil karta gore; Porodica, Novac-valute,
+- [x] Spajanje /profile u /settings hub sa grupama (profil karta gore; Porodica, Novac-valute,
       Obavestenja, Kalendar, Aplikacija, Odjava) - stari tabovi kao sekcije/pod-ekrani
-- [ ] Izgled: tema Svetla/Tamna/Auto + "Boja aplikacije" (default Plava; opcije Sljiva/Kedar/Cigla;
+- [x] Izgled: tema Svetla/Tamna/Auto + "Boja aplikacije" (default Plava; opcije Sljiva/Kedar/Cigla;
       akcenat token; prvo localStorage, OPCIONO profiles.accent migracija - odluciti tada;
       login/ikonica uvek plavi)
-- [ ] Google kalendar pod-ekran: per-kalendar select (Ne uvozi/Samo ja/Porodica), reauth baner,
+- [x] Google kalendar pod-ekran: per-kalendar select (Ne uvozi/Samo ja/Porodica), reauth baner,
       ImportPrefs (putovanja/rodjendani/markeri), povezivanje naloga
-- [ ] Porodica: clanovi sa vocnim bojama, uloge (Administrator/Ucenik), nalozi, Ukloni; naziv porodice
-- [ ] Obavestenja/digest/sesije/valute kartice restyle
-- [ ] Traka navigacije red (vodi na Uredi traku u Meniju)
+- [x] Porodica: clanovi sa vocnim bojama, uloge (Administrator/Ucenik), nalozi, Ukloni; naziv porodice
+- [x] Obavestenja/digest/sesije/valute kartice restyle
+- [~] Traka navigacije red (vodi na Uredi traku u Meniju) - red postoji i prikazuje trenutne
+  slotove, ali je informativan: "Uredi traku" je lokalno stanje u AppNav-u i nema ulaz iz rute
+  (vidi Odstupanja)
 
 ### Lane H - Desktop (1.5 dan) [posle vecine B-E; prvi task ODMAH moze]
 
@@ -213,6 +215,8 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   identicno, samo preimenovanje.
 - Prototipska paleta ima plum akcenat; podrazumevani akcenat u aplikaciji je
   PLAVA (odluka 6), a plum je opcija "Ljubicasta".
+Traka B (Danas) i H (desktop):
+
 - Danas timeline: prototip prikazuje pocetak i u levoj koloni I u kartici desno;
   kod nas kartica desno nosi samo "do HH:MM" (ponavljanje je bilo suvisno na telefonu).
 - Danas ucitava agendu za CELU tekucu nedelju (jedan useAgenda) da bi traka
@@ -220,3 +224,39 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   se opseg siri do kraja meseca, jer desna kolona ima mini-mesec i "Sledeci dani".
 - Desktop: pretraga postoji i u sidebaru (red "Pretrazi ⌘K"), ne samo u zaglavlju
   ekrana - sidebar je jedina povrsina prisutna na svakom ekranu.
+
+Traka D (Novac):
+
+- Pretraga u zaglavlju Novca je toggle (lupa -> polje ispod naslova), a ne poseban
+  sheet kao u prototipu. Otvaranje pretrage sa Pregleda prebacuje na Troskove
+  (tamo su rezultati), a povratak na Pregled gasi pretragu.
+- Mesec pager je nova komponenta (`money/MonthPager`) umesto deljenog
+  `MonthPicker`-a; u zaglavlju su strelice tiho hrom, a labela otvara mrezu
+  meseci sa "Ovaj mesec" i (samo na Placanjima) "Sva placanja".
+- Filteri na Troskovima/Placanjima su cip-red (Svi / izvori / Placena) umesto
+  FilterBar + FilterSheet; sheet je ostao samo za izbor clanova.
+- Dan-zaglavlja u Troskovima vise ne koriste `AgendaDateHeader` (to je agenda
+  obrazac, traka B) nego `.gh` grupu sa brojacem; relativni tokeni su
+  Danas/Juce (knjiga troskova gleda unazad), plus Sutra za retke buduce unose.
+- Dvokolonski `xl` raspored Budzeta je uklonjen - Troskovi su sada zaseban tab.
+  Desktop raspored je posao trake H.
+- "Dodaj" dugmad (BudgetAddMenu, Dodaj placanje) prikazuju se samo od `lg`
+  navise; na dodiru je ulaz centralno [+] iz trake.
+- `PaymentsPage` vise ne drzi mesec/pretragu (dolaze iz huba); prop
+  `onMonthChange` nije bio potreban pa ga nema.
+
+Traka G (Podesavanja):
+
+- Grupa "Obavestenja" je jedan red (push + pregledi dana + sesije) umesto
+  cetiri iz prototipa: sve cetiri kartice dele isti `notification_preferences`
+  red i cuvaju se zajedno, pa bi cetiri ulaza vodila na isti pod-ekran.
+- "Valute" su izvucene iz Porodice u svoj pod-ekran (`?tab=currencies`), kako
+  nalaze grupa "Porodica / Novac-valute"; `CurrenciesCard` se vise ne renderuje
+  unutar `FamilyTab`.
+- Red "Donja traka" je informativan (prikazuje trenutna dva slota) uz fusnotu
+  gde se menja. "Uredi traku" zivi kao lokalno stanje u `AppNav`-u i nema
+  ulaz iz rute; ako traka A/I doda npr. search param ili globalni event,
+  red je spreman da postane dugme.
+- `/profile` je sada redirect na `/settings` (nista vise ne linkuje na njega).
+- `?tab=` prihvata i `currencies`/`valute`; nepoznata vrednost vodi na hub
+  (ranije na Profil).
