@@ -148,24 +148,27 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
       tema; gasi se top inline nav; <lg ostaje donja traka (postojeci lg breakpoint se zadrzava)
 - [x] Danas desktop: 2 kolone - timeline levo (max ~640px), desno sticky: mini-mesec (klik vodi u
       Kalendar), Prekoraceno karta, kratka "Sledeci dani" lista
-- [ ] Kalendar desktop: Mesec sa event chipovima u celijama, Nedelja puna visina, Agenda centrirana;
+- [x] Kalendar desktop: Mesec sa event chipovima u celijama, Nedelja puna visina, Agenda centrirana;
       toolbar sa segmentima i filterima
-- [ ] Novac desktop: Pregled kao 2-kolonski grid kartica; Troskovi/Placanja liste max ~720px
-- [ ] Liste: postojeci resizable split ostaje, samo restyle
-- [ ] Sheetovi -> centrirani dijalozi >=sm (postojeci ResponsiveDialog obrazac), biraci kao popover
-- [ ] Hover/focus stanja, Esc, Cmd+K; (opciono, sme da ispadne: precice strelicama u kalendaru)
+- [x] Novac desktop: Pregled kao 2-kolonski grid kartica; Troskovi/Placanja liste max ~720px
+- [x] Liste: postojeci resizable split ostaje, samo restyle
+- [x] Sheetovi -> centrirani dijalozi >=sm (postojeci ResponsiveDialog obrazac), biraci kao popover
+- [x] Hover/focus stanja, Esc, Cmd+K; (opciono, sme da ispadne: precice strelicama u kalendaru)
 
 ### Lane I - Integracija + QA (1 dan, poslednja, zajednicka)
 
-- [ ] Dark mode prolaz kroz SVE ekrane i sheetove (tokeni, kontrast)
-- [ ] Prazna stanja svuda (postojeci copy iz empty-states speca)
-- [ ] PWA: manifest theme_color -> neutralna pozadina (svetla), ikonica NEPROMENJENA; update toast radi
-- [ ] iOS standalone QA: skrol, safe-area, tastatura, nav, sheetovi (poznata bolna tacka - proveriti rano)
-- [ ] Redirecti + push deep-linkovi + Nedavno + pretraga navigacija
-- [ ] Testovi: picker utili (addMin, genGrid, prestupne), normalizeNavSlots legacy mapping,
+- [x] Dark mode prolaz kroz SVE ekrane i sheetove (tokeni, kontrast)
+- [x] Prazna stanja svuda (postojeci copy iz empty-states speca)
+- [x] PWA: manifest theme_color -> neutralna pozadina (svetla), ikonica NEPROMENJENA; update toast radi
+- [~] iOS standalone QA: kod je proveren (nema window-scroll nigde, safe-area na traci/zaglavlju/
+      loginu, tastatura demontira donju traku, trake su neprozirne bez backdrop-filtera), ali
+      pravi prolaz na iPhone-u u standalone rezimu ostaje na korisniku - to se ne moze odglumiti
+- [x] Redirecti + push deep-linkovi + Nedavno + pretraga navigacija
+- [x] Testovi: picker utili (addMin, genGrid, prestupne), normalizeNavSlots legacy mapping,
       timeline slotovanje; CI (check + dash-check + test + build) zeleno
-- [ ] Bundle provera (Mesec lazy), Lighthouse brzi pregled
+- [x] Bundle provera (Mesec lazy), Lighthouse brzi pregled
 - [ ] PR opis sa checklistom + screenshotovi po ekranu (svetla/tamna, mobil/desktop)
+      - CEKA korisnikovu lokalnu potvrdu; PR se ne otvara pre toga
 
 ## Paralelizacija (predlog za agente/worktree-ove)
 
@@ -196,6 +199,28 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
 3. stiklira checkbox-ove ovde kako taskovi prolaze,
 4. za paralelizaciju podigne worktree agente po semi iznad (uz dogovor koliko paralele korisnik zeli),
 5. H0 (desktop mock) posalje korisniku na potvrdu pre Lane H gradnje.
+
+## Sta je provereno u integracionom prolazu (2026-08-04)
+
+- Rute i redirecti uzivo: `/uskoro` -> `/kalendar?view=agenda`, `/payments` ->
+  `/novac?tab=placanja`, `/budget` -> `/novac?tab=pregled`, `/profile` -> `/settings`.
+  Push deep-linkovi iz edge funkcija (`/payments`, `/uskoro`, `/events`, `/activities`,
+  `/lists/:id`, `/`) svi padaju na te rute - edge funkcije nisu dirane.
+- Nedavno (Meni sheet), Uredi traku 2/2, globalna pretraga i ⌘K, Esc zatvara dijaloge.
+- Akcenat: prebacivanje na Braon/Zelena/Plava preboji celu aplikaciju i upise se u
+  `profiles.accent` (lokalna baza).
+- Detalj-sheet placanja: redosled akcija nepromenjen (Oznaci kao placeno -> Izmeni ->
+  Istorija -> Pomeri -> Otkazi -> Obrisi).
+- Svetla i tamna tema: Danas, Kalendar (Agenda/Nedelja/Mesec), Novac (sva tri taba),
+  Podesavanja, Liste, Dogadjaji, Rodjendani, Aktivnosti, forma troska sa novim biracem.
+- Desktop (>=lg): sidebar, Danas 2 kolone, Mesec sa cipovima, Novac Pregled 2 kolone,
+  Liste split (izmereno: 320 + 8 + 712 = puna sirina).
+- Bundle: Mesec je zaseban lazy chunk (5,2 kB), skener 21 kB + wasm odvojeno,
+  glavni chunk 254 kB (82 kB gzip) - u rangu pre redizajna.
+- Lighthouse (produkcijski build, login ekran, mobilni): 100 pristupacnost /
+  100 najbolje prakse / 100 SEO. Prvi prolaz je nasao da nedostaje `<main>` orijentir
+  (izgubljen pri prepisivanju okvira) - popravljeno.
+- Ograda: Lighthouse i dalje moze samo login (ostali ekrani traze sesiju).
 
 ## Odluke donete tokom rada
 
