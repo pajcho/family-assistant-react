@@ -17,9 +17,9 @@ import {
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { DateField } from "@/components/common/DateField";
+import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import type { Income, IncomeEntry, Profile } from "@/types/database";
 import { useCreateIncome, useDeleteIncome, useIncomes, useUpdateIncome } from "@/hooks/useIncomes";
 import {
@@ -44,7 +44,7 @@ export type IncomesSheetProps = {
 };
 
 const SELECT_CHROME =
-  "h-9 w-full min-w-0 cursor-pointer appearance-none rounded-md border border-input bg-transparent px-3 text-base shadow-xs outline-none md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "min-h-11 w-full min-w-0 cursor-pointer rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /** Last day of a "YYYY-MM" month (JS Date month is 0-based; day 0 → prev month). */
 function clampDayInMonth(month: string, day: number): string {
@@ -631,9 +631,11 @@ function EntryForm({
           <span className="truncate">{linkedName}</span>
         </div>
       ) : (
-        <div className="space-y-2">
-          <Label htmlFor="entry-name">Naziv *</Label>
-          <Input
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="entry-name">Naziv *</label>
+          </FieldGroupLabel>
+          <FormInput
             id="entry-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -643,10 +645,12 @@ function EntryForm({
           />
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="entry-amount">Iznos (RSD) *</Label>
-          <Input
+      <div className="space-y-3">
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="entry-amount">Iznos (RSD) *</label>
+          </FieldGroupLabel>
+          <FormInput
             id="entry-amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -654,16 +658,22 @@ function EntryForm({
             placeholder="0"
             autoFocus={isLinked}
             required
+            className="text-right tabular-nums"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="entry-date">Datum</Label>
-          <DatePicker id="entry-date" value={receivedOn} onChange={setReceivedOn} />
-        </div>
+        <DateField
+          id="entry-date"
+          label="Datum"
+          mode="past"
+          value={receivedOn}
+          onChange={setReceivedOn}
+        />
       </div>
       {!isLinked ? (
-        <div className="space-y-2">
-          <Label htmlFor="entry-person">Član (opciono)</Label>
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="entry-person">Član (opciono)</label>
+          </FieldGroupLabel>
           <select
             id="entry-person"
             value={personId ?? ""}
@@ -737,9 +747,11 @@ function SourceForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="source-name">Naziv *</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="source-name">Naziv *</label>
+        </FieldGroupLabel>
+        <FormInput
           id="source-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -749,20 +761,25 @@ function SourceForm({
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="source-amount">Iznos (RSD) *</Label>
-          <Input
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="source-amount">Iznos (RSD) *</label>
+          </FieldGroupLabel>
+          <FormInput
             id="source-amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
             placeholder="0"
             required
+            className="text-right tabular-nums"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="source-day">Dan u mesecu *</Label>
-          <Input
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="source-day">Dan u mesecu *</label>
+          </FieldGroupLabel>
+          <FormInput
             id="source-day"
             value={dayOfMonth}
             onChange={(e) => setDayOfMonth(e.target.value)}
@@ -770,11 +787,14 @@ function SourceForm({
             min="1"
             max="31"
             required
+            className="text-right tabular-nums"
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="source-person">Član (opciono)</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="source-person">Član (opciono)</label>
+        </FieldGroupLabel>
         <select
           id="source-person"
           value={personId ?? ""}
@@ -785,15 +805,12 @@ function SourceForm({
           {memberOptions(members)}
         </select>
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-          className="rounded border-gray-300"
-        />
-        Aktivan
-      </label>
+      <SwitchRow
+        title="Aktivan"
+        description="Neaktivni prihodi se ne računaju u mesečnu projekciju."
+        checked={active}
+        onChange={setActive}
+      />
       <ResponsiveDialogFooter>
         <Button type="button" variant="outline" onClick={onDone} disabled={saving}>
           Odustani

@@ -4,7 +4,7 @@ import type { ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TimePicker } from "@/components/ui/time-picker";
+import { TimeField } from "@/components/common/TimeField";
 import type { BellSchedule, SchoolShift } from "@/types/database";
 import { normalizeTime } from "@/utils/activity";
 import { computeBellGrid } from "@/utils/schoolTimetable";
@@ -185,10 +185,12 @@ function BandRow({
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-      <div className="space-y-1">
-        <Label className="text-xs">{title} - početak</Label>
-        <TimePicker value={start} onChange={onStart} clearable={false} />
-      </div>
+      <TimeField
+        label={`${title} - početak`}
+        value={start}
+        onChange={onStart}
+        defaultTime="08:00"
+      />
       <div className="w-28 space-y-1">
         <Label className="text-xs">Veliki odmor posle</Label>
         <Input

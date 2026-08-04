@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
@@ -12,6 +11,7 @@ import {
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
+import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   ActivityForm,
@@ -159,20 +159,23 @@ export function ActivityFormDialog({
               </div>
               <div className="space-y-2">
                 <Label>Sezona (od / do)</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <DatePicker
-                    id="active_from"
-                    value={form.active_from}
-                    onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
-                    placeholder="npr. 1. septembar"
-                  />
-                  <DatePicker
-                    id="active_to"
-                    value={form.active_to}
-                    onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
-                    placeholder="npr. 15. jun"
-                  />
-                </div>
+                <DateField
+                  id="active_from"
+                  label="Od"
+                  value={form.active_from}
+                  onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
+                  placeholder="npr. 1. septembar"
+                  clearable
+                />
+                <DateField
+                  id="active_to"
+                  label="Do"
+                  value={form.active_to}
+                  onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
+                  placeholder="npr. 15. jun"
+                  minDate={form.active_from}
+                  clearable
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="activity-reminder">Podsetnik</Label>

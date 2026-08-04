@@ -13,7 +13,6 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +22,7 @@ import {
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
+import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
@@ -416,14 +416,13 @@ export function PaymentDetailDialog({
               {view === "reschedule" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="payment-detail-reschedule-date">Novi datum</Label>
-                    <DatePicker
+                    <DateField
                       id="payment-detail-reschedule-date"
+                      label="Novi datum"
                       value={newDate}
                       onChange={setNewDate}
                       placeholder="Izaberi datum"
                       maxDate={rescheduleMax}
-                      markedDate={rescheduleNext}
                     />
                     {rescheduleNext && rescheduleMax ? (
                       <p className="text-[11px] text-muted-foreground">

@@ -3,16 +3,15 @@ import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AdjustmentsHorizontalIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
-import { TimePicker } from "@/components/ui/time-picker";
 import { useIsDesktop } from "@/components/ui/responsive-dialog";
+import { DateField } from "@/components/common/DateField";
+import { FieldGroupLabel, FieldHint, FormInput } from "@/components/common/FormControls";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
-import { PickerRow } from "@/components/common/PickerRow";
+import { PickerRow, PickerRowPair } from "@/components/common/PickerRow";
 import { SwitchRow } from "@/components/common/SwitchRow";
+import { TimeField } from "@/components/common/TimeField";
 import { cn } from "@/lib/cn";
 import type { Activity, ActivitySchedule, WeekPattern } from "@/types/database";
 import { DAY_LABELS_FULL } from "@/utils/activity";
@@ -260,9 +259,11 @@ export function ActivityForm({
   };
 
   const nameField = (
-    <div className="space-y-2">
-      <Label htmlFor="name">Naziv aktivnosti *</Label>
-      <Input
+    <div>
+      <FieldGroupLabel>
+        <label htmlFor="name">Naziv aktivnosti *</label>
+      </FieldGroupLabel>
+      <FormInput
         id="name"
         value={form.name}
         onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -280,26 +281,24 @@ export function ActivityForm({
         onChange={(person_ids) => setForm((s) => ({ ...s, person_ids }))}
       />
       {form.person_ids.length === 0 ? (
-        <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          Izaberi bar jednog učesnika.
-        </p>
+        <p className="px-0.5 text-[11px] font-semibold text-warn">Izaberi bar jednog učesnika.</p>
       ) : null}
     </div>
   );
 
   const rulesSection = (
-    <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+    <div className="space-y-3 rounded-lg border border-border bg-card p-3">
       <div className="flex items-center justify-between">
-        <Label className="mb-0">Termini *</Label>
+        <FieldGroupLabel className="mt-0 mb-0">Termini *</FieldGroupLabel>
         <Button type="button" variant="outline" size="sm" onClick={handleAddRule}>
           <PlusIcon className="mr-1 h-4 w-4" />
           Dodaj termin
         </Button>
       </div>
       {!personHasShift ? (
-        <p className="text-xs text-muted-foreground">
+        <FieldHint>
           Postavi školsku smenu za ovu osobu da bi mogao da koristiš A/B nedelje.
-        </p>
+        </FieldHint>
       ) : null}
       <div className="space-y-2">
         {form.rules.length === 0 ? (
@@ -315,10 +314,8 @@ export function ActivityForm({
                 // mobile and stays readable on desktop. Day select on top
                 // gets the full row width so the longest names (Ponedeljak,
                 // Četvrtak) never truncate.
-                "space-y-2 rounded-md border p-2",
-                invalid
-                  ? "border-red-300 bg-red-50/40 dark:border-red-700 dark:bg-red-900/10"
-                  : "border-gray-200 dark:border-gray-700",
+                "space-y-2 rounded-lg border p-2",
+                invalid ? "border-neg bg-neg-soft/40" : "border-border",
               )}
             >
               <div className="flex items-center gap-2">
@@ -334,28 +331,23 @@ export function ActivityForm({
                   type="button"
                   aria-label="Ukloni termin"
                   onClick={() => handleRemoveRule(index)}
-                  className="rounded-md p-2 text-muted-foreground hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                  className="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-neg-soft hover:text-neg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <TimePicker
-                    value={rule.start_time}
-                    onChange={(value) => handleRuleChange(index, { start_time: value ?? "" })}
-                    clearable={false}
-                  />
-                </div>
-                <span className="shrink-0 text-sm text-muted-foreground">-</span>
-                <div className="min-w-0 flex-1">
-                  <TimePicker
-                    value={rule.end_time}
-                    onChange={(value) => handleRuleChange(index, { end_time: value ?? "" })}
-                    clearable={false}
-                  />
-                </div>
-              </div>
+              <PickerRowPair>
+                <TimeField
+                  label="Od"
+                  value={rule.start_time}
+                  onChange={(value) => handleRuleChange(index, { start_time: value ?? "" })}
+                />
+                <TimeField
+                  label="Do"
+                  value={rule.end_time}
+                  onChange={(value) => handleRuleChange(index, { end_time: value ?? "" })}
+                />
+              </PickerRowPair>
               {/* Pattern dropdown - composite values like `every:2` carry
                   both the week_pattern and the recurrence interval so the
                   rule card stays a single row of fields. A/B options are
@@ -396,7 +388,7 @@ export function ActivityForm({
       (form.notes.trim() ? 1 : 0);
 
     return (
-      <form id="activity-form" className="space-y-4" onSubmit={handleSubmit}>
+      <form id="activity-form" className="space-y-3" onSubmit={handleSubmit}>
         {nameField}
         {participantsField}
         {rulesSection}
@@ -413,7 +405,7 @@ export function ActivityForm({
           summary={
             detailParts.length > 0 ? detailParts.join(" · ") : "Opis · sezona · podsetnik · beleške"
           }
-          icon={<AdjustmentsHorizontalIcon className="size-4" />}
+          icon={<AdjustmentsHorizontalIcon className="size-[17px]" />}
           count={detailCount}
           onClick={() => onOpenView("details")}
         />
@@ -422,14 +414,16 @@ export function ActivityForm({
     );
   }
 
-  // --- Desktop: classic fully-expanded layout (unchanged) ---
+  // --- Desktop: fully-expanded layout, same field order ---
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="space-y-3" onSubmit={handleSubmit}>
       {nameField}
       {participantsField}
-      <div className="space-y-2">
-        <Label htmlFor="description">Opis</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="description">Opis</label>
+        </FieldGroupLabel>
+        <FormInput
           id="description"
           value={form.description}
           onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -442,63 +436,63 @@ export function ActivityForm({
       <div>
         <button
           type="button"
-          className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+          className="min-h-11 text-sm font-semibold text-muted-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           onClick={() => setShowSeason((v) => !v)}
         >
           {showSeason ? "Sakrij sezonu" : "Postavi sezonu (od / do)"}
         </button>
         {showSeason ? (
-          <div className="mt-2 grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="active_from">Od</Label>
-              <DatePicker
-                id="active_from"
-                value={form.active_from}
-                onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
-                placeholder="npr. 1. septembar"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="active_to">Do</Label>
-              <DatePicker
-                id="active_to"
-                value={form.active_to}
-                onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
-                placeholder="npr. 15. jun"
-              />
-            </div>
+          <div className="mt-2 space-y-2">
+            <DateField
+              id="active_from"
+              label="Od"
+              value={form.active_from}
+              onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
+              placeholder="npr. 1. septembar"
+              clearable
+            />
+            <DateField
+              id="active_to"
+              label="Do"
+              value={form.active_to}
+              onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
+              placeholder="npr. 15. jun"
+              minDate={form.active_from}
+              clearable
+            />
           </div>
         ) : null}
       </div>
 
       {isEdit ? (
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={form.is_paused}
-            onChange={(e) => setForm((s) => ({ ...s, is_paused: e.target.checked }))}
-            className="rounded border-gray-300"
-          />
-          <span className="text-sm text-gray-700 dark:text-gray-200">Pauziraj aktivnost</span>
-        </label>
+        <SwitchRow
+          title="Pauziraj aktivnost"
+          description="Dok je pauzirana, termini se ne prikazuju u agendi."
+          checked={form.is_paused}
+          onChange={(is_paused) => setForm((s) => ({ ...s, is_paused }))}
+        />
       ) : null}
 
-      <div className="space-y-2">
-        <Label htmlFor="activity-reminder">Podsetnik</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="activity-reminder">Podsetnik</label>
+        </FieldGroupLabel>
         <ReminderSelect
           id="activity-reminder"
           value={form.remind_minutes_before}
           onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
           options={EVENT_REMINDER_OPTIONS}
         />
-        <p className="text-[11px] text-muted-foreground">
+        <FieldHint>
           Svaki učesnik dobija push obaveštenje. Otkazani i pomereni termini se preskaču.
-        </p>
+        </FieldHint>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Beleške</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="notes">Beleške</label>
+        </FieldGroupLabel>
+        <FormInput
           id="notes"
           value={form.notes}
           onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}

@@ -9,8 +9,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
 import {
   CATEGORY_COLORS,
   CATEGORY_ICON_KEYS,
@@ -263,9 +262,11 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
 
         {showEditor ? (
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="category-name">Naziv *</Label>
-              <Input
+            <div>
+              <FieldGroupLabel>
+                <label htmlFor="category-name">Naziv *</label>
+              </FieldGroupLabel>
+              <FormInput
                 id="category-name"
                 value={editor.name}
                 onChange={(e) => setEditor((s) => (s ? { ...s, name: e.target.value } : s))}
@@ -275,9 +276,9 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Boja</Label>
-              <div className="flex flex-wrap gap-2">
+            <div>
+              <FieldGroupLabel>Boja</FieldGroupLabel>
+              <div className="flex flex-wrap gap-1.5">
                 {CATEGORY_COLORS.map((color) => (
                   <button
                     type="button"
@@ -286,18 +287,25 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                     aria-pressed={editor.color === color}
                     onClick={() => setEditor((s) => (s ? { ...s, color } : s))}
                     className={cn(
-                      "size-7 rounded-full ring-offset-2 ring-offset-white transition dark:ring-offset-gray-800",
-                      editor.color === color ? "ring-2 ring-gray-500" : "",
+                      "grid size-11 place-items-center rounded-full transition",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     )}
-                    style={{ backgroundColor: color }}
-                  />
+                  >
+                    <span
+                      className={cn(
+                        "block size-7 rounded-full ring-offset-2 ring-offset-background transition",
+                        editor.color === color ? "ring-2 ring-foreground" : "",
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Ikonica</Label>
-              <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
+            <div>
+              <FieldGroupLabel>Ikonica</FieldGroupLabel>
+              <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
                 {CATEGORY_ICON_KEYS.map((key) => {
                   const Icon = categoryIcon(key);
                   const selected = editor.icon === key;
@@ -309,10 +317,11 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                       aria-pressed={selected}
                       onClick={() => setEditor((s) => (s ? { ...s, icon: key } : s))}
                       className={cn(
-                        "flex aspect-square items-center justify-center rounded-md border transition-colors",
+                        "flex aspect-square min-h-11 items-center justify-center rounded-md border transition-colors",
+                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                         selected
-                          ? "border-gray-500 bg-gray-100 dark:border-gray-400 dark:bg-gray-700"
-                          : "border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700",
+                          ? "border-accent bg-accent-soft"
+                          : "border-border bg-card hover:bg-muted",
                       )}
                       style={selected ? { color: editor.color } : undefined}
                     >
@@ -323,9 +332,11 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category-limit">Mesečni limit (RSD, opciono)</Label>
-              <Input
+            <div>
+              <FieldGroupLabel>
+                <label htmlFor="category-limit">Mesečni limit (RSD, opciono)</label>
+              </FieldGroupLabel>
+              <FormInput
                 id="category-limit"
                 value={editor.monthly_limit}
                 onChange={(e) =>
@@ -333,6 +344,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                 }
                 inputMode="decimal"
                 placeholder="npr. 30000"
+                className="text-right tabular-nums"
               />
             </div>
 
