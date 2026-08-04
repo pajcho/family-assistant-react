@@ -217,6 +217,60 @@ export function BigValueCard({
   );
 }
 
+/**
+ * The amount field shared by the expense and payment forms: one big centred
+ * value with the numeric keypad, the currency CODE beside it and slots for the
+ * NBS conversion line (`footer`) and the currency segment (`currencyToggle`).
+ */
+export function AmountInputCard({
+  id,
+  label,
+  value,
+  onChange,
+  currencyCode,
+  currencyToggle,
+  footer,
+  required = true,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  currencyCode: string;
+  currencyToggle?: ReactNode;
+  footer?: ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3.5 text-center shadow-card">
+      <label
+        htmlFor={id}
+        className="text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase"
+      >
+        {label}
+      </label>
+      <div className="mt-1 flex items-baseline justify-center gap-1.5">
+        <input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          inputMode="decimal"
+          required={required}
+          placeholder="0"
+          className={cn(
+            "min-w-0 flex-1 bg-transparent text-right text-3xl font-extrabold tracking-tight tabular-nums outline-none",
+            "placeholder:text-muted-foreground/50",
+          )}
+        />
+        {/* Currency is always a CODE, never a symbol. */}
+        <span className="shrink-0 text-sm font-bold text-muted-foreground">{currencyCode}</span>
+      </div>
+      {footer}
+      {currencyToggle ? <div className="mt-2.5">{currencyToggle}</div> : null}
+    </div>
+  );
+}
+
 /** Toggle row with an icon, label, optional sub-label and a control (".swrow2"). */
 export function ControlRow({
   icon: Icon,

@@ -3,9 +3,13 @@ import type { ComponentType, FormEvent, SVGProps } from "react";
 import { UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  FieldGroupLabel,
+  FieldHint,
+  FormInput,
+  FormTextarea,
+} from "@/components/common/FormControls";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import { cn } from "@/lib/cn";
 import type { List, ListScope } from "@/types/database";
 
@@ -115,13 +119,15 @@ export function ListForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="list-name">Naziv liste *</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="list-name">Naziv liste *</label>
+        </FieldGroupLabel>
         {/* No `autoFocus` here - on iOS the keyboard pops up the
             instant the drawer slides in, before the user has even
             seen the form. They tap the field themselves when they
             want to type. Matches BirthdayForm / EventForm. */}
-        <Input
+        <FormInput
           id="list-name"
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -130,23 +136,25 @@ export function ListForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="list-description">Opis (opciono)</Label>
-        <Textarea
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="list-description">Opis (opciono)</label>
+        </FieldGroupLabel>
+        <FormTextarea
           id="list-description"
           value={form.description}
           onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
           placeholder="Kratak opis liste, Markdown podržan…"
           rows={3}
         />
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <FieldHint>
           Možeš koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
           <code className="font-mono"> - stavka</code>, linkovi).
-        </p>
+        </FieldHint>
       </div>
 
-      <div className="space-y-2">
-        <Label>Pristup</Label>
+      <div>
+        <FieldGroupLabel>Pristup</FieldGroupLabel>
         <div className="grid grid-cols-2 gap-2">
           <ScopeButton
             active={form.scope === "family"}
@@ -165,8 +173,10 @@ export function ListForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="list-auto-delete">Auto-brisanje završenih stavki</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="list-auto-delete">Auto-brisanje završenih stavki</label>
+        </FieldGroupLabel>
         {/* Native <select> keeps the component count small and gets us
             free OS-level pickers on mobile (a bottom drawer on iOS, a
             wheel on Android). The styling matches the <Input> primitive
@@ -179,7 +189,7 @@ export function ListForm({
           id="list-auto-delete"
           value={form.autoDelete}
           onChange={(e) => setForm((s) => ({ ...s, autoDelete: e.target.value }))}
-          className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-base shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:border-input dark:bg-input/30"
+          className="min-h-11 w-full rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           {AUTO_DELETE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -187,32 +197,16 @@ export function ListForm({
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Korisno za duge liste poput šopinga - završene stavke same nestaju.
-        </p>
+        <FieldHint>Korisno za duge liste poput šopinga - završene stavke same nestaju.</FieldHint>
       </div>
 
       {mode === "duplicate" ? (
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <input
-              id="list-copy-items"
-              type="checkbox"
-              checked={form.copyItems}
-              onChange={(e) => setForm((s) => ({ ...s, copyItems: e.target.checked }))}
-              className="h-4 w-4 cursor-pointer rounded border-gray-300"
-            />
-            <label
-              htmlFor="list-copy-items"
-              className="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
-            >
-              Kopiraj i stavke
-            </label>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Stavke se kopiraju kao nezavršene - kao sveža lista iz šablona.
-          </p>
-        </div>
+        <SwitchRow
+          title="Kopiraj i stavke"
+          description="Stavke se kopiraju kao nezavršene - kao sveža lista iz šablona."
+          checked={form.copyItems}
+          onChange={(copyItems) => setForm((s) => ({ ...s, copyItems }))}
+        />
       ) : null}
 
       <div className="flex justify-end gap-2 pt-2">
@@ -242,29 +236,18 @@ function ScopeButton({ active, icon: Icon, title, description, onClick }: ScopeB
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
-        active
-          ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/30"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600 dark:hover:bg-gray-700/50",
+        "flex min-h-11 flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-colors",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+        active ? "border-accent bg-accent-soft" : "border-border hover:bg-muted",
       )}
     >
       <div className="flex items-center gap-2">
-        <Icon
-          className={cn(
-            "h-5 w-5",
-            active ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400",
-          )}
-        />
-        <span
-          className={cn(
-            "text-sm font-medium",
-            active ? "text-blue-900 dark:text-blue-100" : "text-gray-900 dark:text-gray-100",
-          )}
-        >
+        <Icon className={cn("size-5", active ? "text-accent-deep" : "text-muted-foreground")} />
+        <span className={cn("text-sm font-bold", active ? "text-accent-deep" : "text-foreground")}>
           {title}
         </span>
       </div>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{description}</span>
+      <span className="text-xs text-muted-foreground">{description}</span>
     </button>
   );
 }

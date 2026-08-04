@@ -93,22 +93,22 @@ export function PaymentOccurrenceDialog({
     if (isUpcoming) {
       statusBadges.push({
         label: "Nadolazeće",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        tone: "neutral",
       });
     } else if (item.status === "canceled") {
       statusBadges.push({
         label: "Preskočeno",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        tone: "neutral",
       });
     } else {
       statusBadges.push({
         label: `Plaćeno${item.paid_date ? ` ${formatDate(item.paid_date)}` : ""}`,
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        tone: "pos",
       });
     }
     statusBadges.push({
       label: `${isUpcoming ? "Dospeva" : "Dospelo"} ${formatDate(item.due_date)}`,
-      className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      tone: "neutral",
     });
   }
 
@@ -127,13 +127,7 @@ export function PaymentOccurrenceDialog({
         <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
         {item ? (
           <div className="space-y-4">
-            <DetailHero
-              icon={BanknotesIcon}
-              iconWrapClassName="bg-amber-100 dark:bg-amber-900/50"
-              iconClassName="text-amber-600 dark:text-amber-400"
-              title={item.name}
-              subtitle={subtitle}
-            />
+            <DetailHero icon={BanknotesIcon} tone="warn" title={item.name} subtitle={subtitle} />
 
             {view.kind === "history" ? (
               <PaymentHistoryList

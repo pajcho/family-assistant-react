@@ -357,32 +357,32 @@ export function PaymentDetailDialog({
     if (cancelOverrideActive) {
       statusBadges.push({
         label: "Otkazano",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        tone: "neg",
       });
     } else if (payment.is_paid) {
       statusBadges.push({
         label: payment.paid_date ? `Plaćeno ${formatDate(payment.paid_date)}` : "Plaćeno",
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        tone: "pos",
       });
     } else if (payment.is_paused) {
       statusBadges.push({
         label: "Pauzirano",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        tone: "neutral",
       });
     } else if (isOverdue(effectiveDue)) {
       statusBadges.push({
         label: "Prekoračeno",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        tone: "neg",
       });
     }
     statusBadges.push({
       label: `${!payment.is_paid && isOverdue(effectiveDue) ? "Dospelo" : "Dospeva"} ${formatDate(effectiveDue)}`,
-      className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      tone: "neutral",
     });
     if (override?.action === "reschedule") {
       statusBadges.push({
         label: `Pomereno sa ${formatDate(payment.due_date)}`,
-        className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
+        tone: "accent",
       });
     }
   }
@@ -408,8 +408,7 @@ export function PaymentDetailDialog({
             <div className="space-y-4">
               <DetailHero
                 icon={BanknotesIcon}
-                iconWrapClassName="bg-amber-100 dark:bg-amber-900/50"
-                iconClassName="text-amber-600 dark:text-amber-400"
+                tone="warn"
                 title={payment.name}
                 subtitle={paymentSubtitle(payment)}
               />
