@@ -215,7 +215,7 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   identicno, samo preimenovanje.
 - Prototipska paleta ima plum akcenat; podrazumevani akcenat u aplikaciji je
   PLAVA (odluka 6), a plum je opcija "Ljubicasta".
-Traka B (Danas) i H (desktop):
+  Traka B (Danas) i H (desktop):
 
 - Danas timeline: prototip prikazuje pocetak i u levoj koloni I u kartici desno;
   kod nas kartica desno nosi samo "do HH:MM" (ponavljanje je bilo suvisno na telefonu).
