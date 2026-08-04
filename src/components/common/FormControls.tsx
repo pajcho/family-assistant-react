@@ -115,6 +115,7 @@ export function Tile({
   label,
   selected = false,
   onClick,
+  className,
   ...props
 }: {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -134,6 +135,7 @@ export function Tile({
         selected
           ? "border-accent bg-accent-soft text-accent-deep"
           : "border-border bg-card text-muted-foreground hover:bg-muted",
+        className,
       )}
       {...props}
     >

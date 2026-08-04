@@ -446,7 +446,7 @@ export function PaymentDetailDialog({
                 </div>
               ) : view === "cancel" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{cancelCopy?.message}</p>
+                  <p className="text-sm text-muted-foreground">{cancelCopy?.message}</p>
                   <div className="space-y-2">
                     <Label htmlFor="payment-detail-cancel-reason">Razlog (opciono)</Label>
                     <Textarea
@@ -460,7 +460,7 @@ export function PaymentDetailDialog({
                 </div>
               ) : view === "confirm-amount" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     {payment.is_variable_amount
                       ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
                       : `Potvrdi kurs za „${payment.name}" - podrazumevan je srednji kurs NBS na današnji dan.`}
@@ -505,7 +505,7 @@ export function PaymentDetailDialog({
                   </div>
                 </div>
               ) : view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
                   opozvati.
                 </p>

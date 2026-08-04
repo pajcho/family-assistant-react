@@ -259,7 +259,7 @@ export function DateField({
 
   const monthCaption = `${MONTH_NAMES_SR[cursor.month][0].toUpperCase()}${MONTH_NAMES_SR[cursor.month].slice(1)}`;
 
-  const trigger = (
+  const renderTrigger = ({ onOpen }: { onOpen?: () => void }) => (
     <PickerRow
       id={id}
       title={label}
@@ -272,7 +272,7 @@ export function DateField({
         )
       }
       disabled={disabled}
-      onClick={() => setOpen(true)}
+      onClick={onOpen}
       className={className}
     />
   );
@@ -287,7 +287,7 @@ export function DateField({
           ? "Tapni dan - bira se i zatvara. Zaglavlje gore vodi na mesec i godinu."
           : undefined
       }
-      trigger={trigger}
+      trigger={renderTrigger}
     >
       {step === "year" ? (
         <div className="flex flex-col gap-2">

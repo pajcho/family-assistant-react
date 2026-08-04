@@ -127,7 +127,7 @@ export function TimeField({
     }
   };
 
-  const trigger = (
+  const renderTrigger = ({ onOpen }: { onOpen?: () => void }) => (
     <PickerRow
       id={id}
       title={label}
@@ -144,13 +144,19 @@ export function TimeField({
       onPointerUp={cancelLongPress}
       onPointerMove={cancelLongPress}
       onPointerCancel={cancelLongPress}
-      onClick={() => {
-        if (longPressFired.current) {
-          longPressFired.current = false;
-          return;
-        }
-        setOpen(true);
-      }}
+      onClick={
+        onOpen
+          ? () => {
+              // The long press already opened the native picker - swallow the
+              // click it leaves behind so the sheet doesn't stack on top.
+              if (longPressFired.current) {
+                longPressFired.current = false;
+                return;
+              }
+              onOpen();
+            }
+          : undefined
+      }
       className={className}
     />
   );
@@ -172,7 +178,7 @@ export function TimeField({
         onOpenChange={setOpen}
         title="Vreme"
         description="Sat pa minuti - dva tapa. Za neuobičajeno vreme koristi polje na dnu."
-        trigger={trigger}
+        trigger={renderTrigger}
       >
         <div className="flex flex-col gap-2">
           <div className="rounded-xl border border-border bg-card p-2.5 text-center shadow-card">

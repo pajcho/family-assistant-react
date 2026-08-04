@@ -25,8 +25,13 @@ export type PickerOverlayProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: ReactNode;
-  /** The field row - becomes the popover anchor on desktop. */
-  trigger: ReactNode;
+  /**
+   * The field row, as a render prop. `onOpen` is the click handler the row
+   * must wire up on mobile; on DESKTOP it is `undefined` because Radix's
+   * PopoverTrigger owns the click (adding our own would fight its toggle and
+   * the popover could never be closed from the field).
+   */
+  trigger: (args: { onOpen?: () => void }) => ReactNode;
   children: ReactNode;
   /** Popover width on desktop. */
   contentClassName?: string;
@@ -46,7 +51,7 @@ export function PickerOverlay({
   if (isDesktop) {
     return (
       <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger asChild>{trigger({})}</PopoverTrigger>
         <PopoverContent
           align="start"
           collisionPadding={12}
@@ -67,14 +72,16 @@ export function PickerOverlay({
 
   return (
     <>
-      {trigger}
+      {trigger({ onOpen: () => onOpenChange(true) })}
       <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-            {description ? (
-              <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
-            ) : null}
+            {/* Always rendered: Radix wires `aria-describedby` from it, and a
+                dialog without one warns in the console. */}
+            <ResponsiveDialogDescription className={description ? undefined : "sr-only"}>
+              {description ?? title}
+            </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           {children}
         </ResponsiveDialogContent>

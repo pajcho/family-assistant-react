@@ -283,7 +283,7 @@ export function EventDetailDialog({
                 </div>
               ) : view === "cancel" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
                     kalendaru. Možeš ga kasnije vratiti.
                   </p>
@@ -299,7 +299,7 @@ export function EventDetailDialog({
                   </div>
                 </div>
               ) : view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
                   opozvati.
                 </p>

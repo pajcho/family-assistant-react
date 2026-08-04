@@ -181,7 +181,7 @@ export function BirthdayDetailDialog({
               />
 
               {view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
                   opozvati.
                 </p>

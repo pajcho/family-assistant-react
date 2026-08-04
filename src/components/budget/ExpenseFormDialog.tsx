@@ -119,7 +119,7 @@ export function ExpenseFormDialog({
           <Button
             type="button"
             variant="ghost"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="text-neg hover:bg-neg-soft hover:text-neg"
             onClick={() => stack.push({ kind: "delete" })}
             disabled={saving || deleting}
           >
@@ -175,7 +175,7 @@ export function ExpenseFormDialog({
               </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
             {error ? (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+              <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-semibold text-neg">
                 {error}
               </div>
             ) : null}
@@ -207,7 +207,7 @@ export function ExpenseFormDialog({
         ) : view.kind === "delete" ? (
           <>
             <SheetStackHeader title="Obriši trošak" onBack={stack.pop} />
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Obrisati ovaj trošak (<Amount value={expense?.amount ?? 0} />
               )? Ova radnja se ne može opozvati.
             </p>
