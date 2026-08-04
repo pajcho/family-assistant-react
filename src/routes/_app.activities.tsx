@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import {
   BookOpenIcon,
   Cog6ToothIcon,
@@ -54,7 +55,11 @@ export const Route = createFileRoute("/_app/activities")({
   validateSearch: (search: Record<string, unknown>): { edit?: string } => ({
     edit: typeof search.edit === "string" ? search.edit : undefined,
   }),
-  component: ActivitiesPage,
+  component: () => (
+    <LegacyScreen>
+      <ActivitiesPage />
+    </LegacyScreen>
+  ),
 });
 
 function ActivitiesPage() {

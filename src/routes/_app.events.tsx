@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import { CalendarIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 
@@ -33,7 +34,11 @@ function eventTouchesMonth(event: Event, month: string): boolean {
 }
 
 export const Route = createFileRoute("/_app/events")({
-  component: EventsPage,
+  component: () => (
+    <LegacyScreen>
+      <EventsPage />
+    </LegacyScreen>
+  ),
 });
 
 /** Minimum characters before the client-side search kicks in. */

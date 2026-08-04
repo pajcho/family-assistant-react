@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => ({
         name: "Porodični Asistent",
         short_name: "Porodicni Asistent",
         description: "Porodični kalendar, plaćanja i podsetnici",
-        theme_color: "#2563eb",
+        theme_color: "#f4f1f6",
         background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait",

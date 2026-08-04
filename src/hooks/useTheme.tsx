@@ -47,7 +47,7 @@ function applyDarkClass(isDark: boolean): void {
   // <meta name="theme-color"> is set by the bootstrap script in index.html;
   // we just patch its `content` on every theme flip.
   const meta = document.head.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", isDark ? "#111827" : "#2563eb");
+  if (meta) meta.setAttribute("content", isDark ? "#151019" : "#f4f1f6");
 }
 
 /**

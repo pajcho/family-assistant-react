@@ -23,6 +23,7 @@ import {
   isAgendaFilterActive,
 } from "@/utils/agendaFilters";
 import { addDays, srLocale } from "@/utils/date";
+import { getAppScrollEl, getAppScrollTop, offsetTopWithinApp, scrollAppTo } from "@/lib/appScroll";
 
 /**
  * "Uskoro" LIST view - an overdue "Prekoračeno" section, then everything from
@@ -35,7 +36,7 @@ import { addDays, srLocale } from "@/utils/date";
  * growing the horizon costs at most one extra fetch; the rest is expanded
  * client-side. EVERY day in the window is rendered - days with no items show a
  * dimmed header - so the agenda reads as a continuous calendar. Each day section
- * carries an `id` so the strip can scroll to it, and a window scroll-spy feeds
+ * carries an `id` so the strip can scroll to it, and a scroll-spy feeds
  * the strip the day currently at the top of the list.
  *
  * Split out from `AgendaUpcomingTab` so it and the weekly calendar are never
@@ -166,9 +167,12 @@ export function AgendaUpcomingList({
       if (!raf) raf = requestAnimationFrame(compute);
     };
     compute();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    // The document never scrolls since the redesign - the screen's own
+    // container does (see lib/appScroll), so that is where scroll events fire.
+    const scroller = getAppScrollEl();
+    scroller?.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      scroller?.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [allDays]);
@@ -202,18 +206,14 @@ export function AgendaUpcomingList({
     // scroll-spy doesn't walk activeDay through every day we pass on the way.
     setActiveDay(day);
 
-    // Land the day's header just below the sticky app header (h-14) + week strip
-    // with a small gap, so it isn't tucked under the strip. Derived from the
-    // strip's measured height (not a fixed scroll-margin) so it stays correct if
-    // the strip's size changes. The 8px gap keeps the header above the scroll-spy
-    // line (stripBottom + 12), so the strip still marks this as the active day.
-    const STICKY_HEADER_PX = 56; // app header h-14; the strip sticks just below it (top-14)
+    // Land the day's header just below the week strip with a small gap, so it
+    // isn't tucked under it. Derived from the strip's measured height (not a
+    // fixed scroll-margin) so it stays correct if the strip's size changes. The
+    // 8px gap keeps the header above the scroll-spy line (stripBottom + 12), so
+    // the strip still marks this as the active day.
     const stripHeight = stripRef.current?.offsetHeight ?? 0;
-    const startY = window.scrollY;
-    const targetY = Math.max(
-      0,
-      startY + el.getBoundingClientRect().top - (STICKY_HEADER_PX + stripHeight + 8),
-    );
+    const startY = getAppScrollTop();
+    const targetY = Math.max(0, offsetTopWithinApp(el) - (stripHeight + 8));
 
     releaseScrollPin();
     if (Math.abs(targetY - startY) < 1) return;
@@ -225,19 +225,20 @@ export function AgendaUpcomingList({
     // and release it on scrollend (or when a user gesture takes over, or a safety
     // timeout - covers the rare browser without a scrollend event).
     programmaticScrollRef.current = true;
+    const scroller = getAppScrollEl();
     const release = () => releaseScrollPin();
-    window.addEventListener("scrollend", release, { once: true });
-    window.addEventListener("wheel", release, { once: true, passive: true });
-    window.addEventListener("touchstart", release, { once: true, passive: true });
+    scroller?.addEventListener("scrollend", release, { once: true });
+    scroller?.addEventListener("wheel", release, { once: true, passive: true });
+    scroller?.addEventListener("touchstart", release, { once: true, passive: true });
     const timer = window.setTimeout(release, 1500);
     scrollCleanupRef.current = () => {
-      window.removeEventListener("scrollend", release);
-      window.removeEventListener("wheel", release);
-      window.removeEventListener("touchstart", release);
+      scroller?.removeEventListener("scrollend", release);
+      scroller?.removeEventListener("wheel", release);
+      scroller?.removeEventListener("touchstart", release);
       window.clearTimeout(timer);
     };
 
-    window.scrollTo({ top: targetY, behavior: "smooth" });
+    scrollAppTo({ top: targetY, behavior: "smooth" });
   };
 
   // Last day the month picker may jump to - the same 12-month cap the

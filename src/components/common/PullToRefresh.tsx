@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
+import { getAppScrollTop } from "@/lib/appScroll";
 
 /**
  * Pull-to-refresh for the INSTALLED PWA (standalone display mode only - in a
@@ -10,15 +11,15 @@ import { cn } from "@/lib/cn";
  * double-trigger). A top-overscroll pull past the threshold invalidates the
  * query cache and refetches the active queries.
  *
- * Deliberately conservative around this app's iOS constraints (native window
- * scroll + sticky header/week-strip):
+ * Deliberately conservative:
  *   - listeners are PASSIVE and never call preventDefault - scrolling is
  *     never hijacked, no rAF scroll loops;
- *   - nothing in the page layout moves: the indicator is a fixed overlay, so
- *     the sticky elements are never transformed or covered by new layout;
- *   - the gesture only starts with the window at scrollY 0 and is dropped the
- *     moment the page actually scrolls or a modal locks the body
- *     (react-remove-scroll stamps `data-scroll-locked` on <body>).
+ *   - nothing in the page layout moves: the indicator is a fixed overlay;
+ *   - the gesture only starts with the screen's scroll container at the top
+ *     (the document itself never scrolls since the redesign - see
+ *     lib/appScroll) and is dropped the moment the screen actually scrolls or
+ *     a modal locks the body (react-remove-scroll stamps `data-scroll-locked`
+ *     on <body>).
  */
 
 /** Raw finger travel (px) that triggers a refresh on release. */
@@ -59,7 +60,7 @@ export function PullToRefresh() {
 
     const onTouchStart = (e: TouchEvent) => {
       if (refreshingRef.current || e.touches.length !== 1) return;
-      if (window.scrollY > 0) return;
+      if (getAppScrollTop() > 0) return;
       // A dialog/drawer locks body scroll - a pull inside it must not refresh.
       if (
         document.body.hasAttribute("data-scroll-locked") ||
@@ -81,7 +82,7 @@ export function PullToRefresh() {
         g.axis = dy > Math.abs(dx) ? "pull" : "other";
       }
       if (g.axis !== "pull") return;
-      if (window.scrollY > 0) {
+      if (getAppScrollTop() > 0) {
         // The page took the gesture as a real scroll - stand down.
         reset();
         return;
@@ -97,7 +98,7 @@ export function PullToRefresh() {
         return;
       }
       const dy = e.changedTouches[0].clientY - g.y;
-      if (dy < TRIGGER_PX || window.scrollY > 0) {
+      if (dy < TRIGGER_PX || getAppScrollTop() > 0) {
         setPull(0);
         return;
       }

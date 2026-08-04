@@ -8,55 +8,143 @@
    on touch devices since swipe gestures cover the same actions there. */
 @custom-variant pointer-fine (@media (pointer: fine));
 
-/* shadcn/ui design tokens - neutral base, v4 @theme inline pattern */
+/* ===========================================================================
+   Dizajn jezik "Šljiva" (redizajn 2.0)
+   ---------------------------------------------------------------------------
+   Tri nezavisna sloja:
+
+   1. NEUTRALE - tople, sa šljivinim podtonom. Iste su za sve korisnike i ne
+      zavise od izbora akcenta. Nose shadcn imena (background, card, foreground,
+      muted-foreground, border...) da bi sve postojeće shadcn komponente
+      automatski uzele novi izgled.
+
+   2. AKCENAT - jedan token po korisniku: Plava (podrazumevana, brend boja),
+      Ljubičasta, Zelena, Braon. Prebacuje se preko `data-accent` na <html>
+      (vrednosti su engleske: blue/purple/green/brown, jer se čuvaju u bazi)
+      - vidi hooks/useAccent. Brend van aplikacije (PWA ikonica, login mark,
+      splash) OSTAJE plav bez obzira na izbor.
+        --accent           površina/fill (belo se čita na njoj)
+        --accent-foreground tekst na toj površini
+        --accent-soft      blago tonirana površina (čipovi, ikonice, trake)
+        --accent-deep      akcenat KAO TEKST/ikona (na neutralnoj ili soft
+                           podlozi); u tamnoj temi je svetliji, ne tamniji
+      Zato: `bg-accent text-accent-foreground` za dugmad, a
+            `bg-accent-soft text-accent-deep` za tihe, tonirane elemente.
+
+   3. SEMANTIKA NOVCA/TIPOVA - odvojena od brenda, ne menja se sa akcentom:
+      pos (zeleno), warn (ćilibar), neg (crveno), info (plavo) + `-soft` parovi.
+   =========================================================================== */
+
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 3.9%);
-  /* Primary = Tailwind blue-600 - matches the original Nuxt app's button color */
-  --primary: hsl(217.2 91.2% 59.8%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(0 0% 96.1%);
-  --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 96.1%);
-  --muted-foreground: hsl(0 0% 45.1%);
-  --accent: hsl(0 0% 96.1%);
-  --accent-foreground: hsl(0 0% 9%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 89.8%);
-  --input: hsl(0 0% 89.8%);
-  --ring: hsl(217.2 91.2% 59.8%);
-  --radius: 0.5rem;
+  /* --- neutrale (svetla) --- */
+  --background: #f4f1f6;
+  --foreground: #251c2c;
+  --card: #ffffff;
+  --card-foreground: #251c2c;
+  --popover: #ffffff;
+  --popover-foreground: #251c2c;
+  --secondary: #ece7f1;
+  --secondary-foreground: #251c2c;
+  --muted: #ece7f1;
+  --muted-foreground: #71667d;
+  --border: #e8e2ee;
+  --input: #e8e2ee;
+
+  /* --- akcenat: Plava (podrazumevani) --- */
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --accent-soft: #e7edfd;
+  --accent-deep: #1d4ed8;
+
+  /* --- semantika --- */
+  --pos: #2e7c46;
+  --pos-soft: #e2f1e6;
+  --warn: #a9720e;
+  --warn-soft: #faf0d9;
+  --neg: #c03b45;
+  --neg-soft: #fae4e5;
+  --info: #3d63b0;
+  --info-soft: #e4ebf8;
+
+  /* shadcn izvedeni tokeni - prate akcenat/semantiku */
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --destructive: var(--neg);
+  --destructive-foreground: #ffffff;
+  --ring: var(--accent);
+
+  --card-shadow: 0 2px 12px -6px rgb(60 30 80 / 0.18);
+  --radius: 0.875rem;
 }
 
 .dark {
-  /* Dark surfaces aligned with Tailwind gray-900/800/700 so cards sit
-     LIGHTER than the body - matches the original Nuxt visual hierarchy
-     (which uses bg-gray-900 for body, bg-gray-800 for cards). */
-  --background: hsl(222 47% 11%); /* gray-900 */
-  --foreground: hsl(220 14% 96%); /* gray-100 */
-  --card: hsl(217 33% 17%); /* gray-800 - lighter than body */
-  --card-foreground: hsl(220 14% 96%);
-  --popover: hsl(217 33% 17%); /* gray-800 */
-  --popover-foreground: hsl(220 14% 96%);
-  /* Primary stays the same blue in dark mode (matches Nuxt) */
-  --primary: hsl(217.2 91.2% 59.8%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(217 19% 27%); /* gray-700 */
-  --secondary-foreground: hsl(220 14% 96%);
-  --muted: hsl(217 19% 27%); /* gray-700 */
-  --muted-foreground: hsl(216 12% 80%); /* gray-400 */
-  --accent: hsl(217 19% 27%); /* gray-700 */
-  --accent-foreground: hsl(220 14% 96%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(217 19% 27%); /* gray-700 */
-  --input: hsl(217 19% 27%);
-  --ring: hsl(217.2 91.2% 59.8%);
+  /* --- neutrale (tamna); kartica je SVETLIJA od pozadine --- */
+  --background: #151019;
+  --foreground: #f1eaf6;
+  --card: #201927;
+  --card-foreground: #f1eaf6;
+  --popover: #201927;
+  --popover-foreground: #f1eaf6;
+  --secondary: #2a2333;
+  --secondary-foreground: #f1eaf6;
+  --muted: #2a2333;
+  --muted-foreground: #a79cb3;
+  --border: #332b3e;
+  --input: #332b3e;
+
+  /* --- akcenat: Plava (podrazumevani), tamna varijanta --- */
+  --accent: #4b7de3;
+  --accent-foreground: #ffffff;
+  --accent-soft: #1d2740;
+  --accent-deep: #9dbcfa;
+
+  --pos: #7cc492;
+  --pos-soft: #22382a;
+  --warn: #e3b65e;
+  --warn-soft: #3b3121;
+  --neg: #ef8b93;
+  --neg-soft: #43242a;
+  --info: #8faee8;
+  --info-soft: #232e45;
+
+  --destructive-foreground: #2a1418;
+  --card-shadow: 0 3px 14px -6px rgb(0 0 0 / 0.5);
+}
+
+/* --- akcenat: Ljubičasta (šljivina) --- */
+[data-accent="purple"] {
+  --accent: #7c3f87;
+  --accent-soft: #f0e8f4;
+  --accent-deep: #5d2c66;
+}
+.dark[data-accent="purple"] {
+  --accent: #a05fb2;
+  --accent-soft: #2e2339;
+  --accent-deep: #c9a0d6;
+}
+
+/* --- akcenat: Zelena --- */
+[data-accent="green"] {
+  --accent: #2f6b4f;
+  --accent-soft: #e3f0e9;
+  --accent-deep: #22523b;
+}
+.dark[data-accent="green"] {
+  --accent: #4e9b72;
+  --accent-soft: #1e3229;
+  --accent-deep: #96d2af;
+}
+
+/* --- akcenat: Braon --- */
+[data-accent="brown"] {
+  --accent: #9a4a2f;
+  --accent-soft: #f8e9e2;
+  --accent-deep: #7a3722;
+}
+.dark[data-accent="brown"] {
+  --accent: #c0704e;
+  --accent-soft: #392620;
+  --accent-deep: #eaa98a;
 }
 
 @theme inline {
@@ -74,15 +162,36 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-pos: var(--pos);
+  --color-pos-soft: var(--pos-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-neg: var(--neg);
+  --color-neg-soft: var(--neg-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Skala radiusa iz prototipa: 8 čip / 12 sitno / 14 dugme-polje-pločica /
+     17 kartica / 20 hero / 26 sheet. Namerno eksplicitna (ne izvedena iz
+     --radius) da sitni elementi ne bi dobili kartičasti radius. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.0625rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.625rem;
+
+  --shadow-card: var(--card-shadow);
+
+  /* Serif akcenat: samo pozdrav i ime meseca. Sistemski stack - 0 KB. */
+  --font-serif: "New York", "Iowan Old Style", Georgia, serif;
 }
 
 @layer base {
@@ -111,13 +220,13 @@
 
   html,
   body {
-    /* `overflow-x: clip` (not -hidden) contains horizontal bleed without
-       turning the document into an overflow scroll container - `-hidden`
-       does, which breaks `position: sticky` descendants (the Uskoro week
-       strip). `clip` still clips the x-axis and leaves vertical document
-       scrolling untouched. */
-    @apply overflow-x-clip bg-gray-50 text-gray-900;
-    @apply dark:bg-gray-900 dark:text-gray-100;
+    /* Redizajn 2.0: aplikacija je FIKSNI OKVIR visine 100dvh, a skrol se
+       dešava unutar kontejnera po ekranu (vidi lib/appScroll + routes/_app).
+       Zato dokument uopšte ne skroluje: nema window-scroll, nema sticky
+       hakova, nema iOS-ovog "sticky header nestane pri brzom skrolu".
+       `overscroll-behavior: none` gasi i gumeni bounce celog dokumenta u
+       standalone PWA-u. */
+    @apply h-full overflow-hidden overscroll-none bg-background text-foreground;
   }
 
   /* App-owned Drawer lock. This remains active across Vaul exit/remount

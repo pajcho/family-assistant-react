@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import { ListMaster } from "@/components/lists/ListMaster";
 import { useIsWide } from "@/hooks/useIsWide";
 
@@ -28,7 +29,13 @@ export const Route = createFileRoute("/_app/lists")({
 
 function ListsLayout() {
   const isWide = useIsWide();
-  return isWide ? <ListsSplit /> : <Outlet />;
+  return isWide ? (
+    <ListsSplit />
+  ) : (
+    <LegacyScreen>
+      <Outlet />
+    </LegacyScreen>
+  );
 }
 
 function ListsSplit() {
@@ -42,11 +49,10 @@ function ListsSplit() {
   });
 
   return (
-    // Fill the viewport below the sticky 56px nav, minus <main>'s pt-6 + pb-6
-    // (24px each) = 6.5rem - so the page itself never scrolls on /lists at lg;
-    // each panel scrolls internally instead. `100dvh` (not vh) keeps it stable
-    // against mobile URL-bar / safe-area changes.
-    <div className="h-[calc(100dvh-6.5rem)] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+    // Fills the screen area of the app frame (which is itself fixed at
+    // 100dvh), so the page never scrolls on /lists at lg - each panel scrolls
+    // internally instead.
+    <div className="h-full overflow-hidden border-t border-border">
       <Group
         orientation="horizontal"
         className="h-full"

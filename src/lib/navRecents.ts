@@ -1,4 +1,4 @@
-import { NAV_SECTION_MAP, type NavSectionKey } from "@/components/layout/navSections";
+import { resolveNavSectionKey, type NavSectionKey } from "@/components/layout/navSections";
 
 /**
  * Per-device memory of recently visited sections for the "Nedavno" row in the
@@ -25,9 +25,11 @@ export function readNavRecents(): NavSectionKey[] {
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<NavSectionKey>();
     for (const value of parsed) {
-      if (typeof value === "string" && value in NAV_SECTION_MAP) {
-        seen.add(value as NavSectionKey);
-      }
+      // Pre-redesign keys are mapped forward (uskoro → kalendar, payments and
+      // budget → novac), so a returning user's row isn't suddenly empty. The
+      // dedupe below is what makes the payments+budget collapse harmless.
+      const key = resolveNavSectionKey(value);
+      if (key) seen.add(key);
       if (seen.size === MAX_RECENTS) break;
     }
     return [...seen];

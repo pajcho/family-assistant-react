@@ -51,24 +51,26 @@ H (desktop) posle vecine B-E. I (integracija/QA) poslednja, zajednicka.
 Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane A - Temelj: tokeni + shell + navigacija (1 dan) [blokira sve]
-- [ ] Tailwind v4 @theme: kompletna Sljiva paleta (svetla+tamna), radiusi, senke, soft/tint sloj,
+
+- [x] Tailwind v4 @theme: kompletna Sljiva paleta (svetla+tamna), radiusi, senke, soft/tint sloj,
       CSS var nivo za akcenat (--accent, --accent-soft, --accent-deep)
-- [ ] Mapa vocnih imena za PROFILE_COLOR_PALETTE (malina, borovnica, kivi, kajsija, sljiva, dunja,
+- [x] Mapa vocnih imena za PROFILE_COLOR_PALETTE (malina, borovnica, kivi, kajsija, sljiva, dunja,
       lavanda, tresnja) - UI naming, iste hex vrednosti
-- [ ] App shell: fiksni okvir (100dvh, unutrasnji skrol po ekranu), safe-area, uklanjanje
+- [x] App shell: fiksni okvir (100dvh, unutrasnji skrol po ekranu), safe-area, uklanjanje
       window-scroll + sticky hakova (resava poznati iOS problem); tastatura i dalje krije donju traku
-- [ ] Rute: /kalendar (search param view=agenda|nedelja|mesec), /novac (tab=pregled|troskovi|placanja);
+- [x] Rute: /kalendar (search param view=agenda|nedelja|mesec), /novac (tab=pregled|troskovi|placanja);
       redirecti /uskoro, /payments, /budget; scroll restoration i preload kao do sada
-- [ ] navSections.ts: novi kljucevi/ikone/redosled; sectionForPathname; recents rade sa novim rutama
-- [ ] MobileBottomNav v2: 4 taba + centralno [+] dugme; normalizeNavSlots mapping legacy vrednosti,
+- [x] navSections.ts: novi kljucevi/ikone/redosled; sectionForPathname; recents rade sa novim rutama
+- [x] MobileBottomNav v2: 4 taba + centralno [+] dugme; normalizeNavSlots mapping legacy vrednosti,
       MAX_FREE_SLOTS=2; "Uredi traku" logika za 2 slota
-- [ ] Meni sheet v2: Nedavno + mreza svih sekcija + Uredi traku (po prototipu)
-- [ ] AddSheet sa [+]: Skeniraj racun hero + Trosak/Placanje/Dogadjaj/Aktivnost/Rodjendan/Lista;
+- [x] Meni sheet v2: Nedavno + mreza svih sekcija + Uredi traku (po prototipu)
+- [x] AddSheet sa [+]: Skeniraj racun hero + Trosak/Placanje/Dogadjaj/Aktivnost/Rodjendan/Lista;
       FAB se uklanja; "Dodaj" dugmad po stranicama ostaju na desktopu
-- [ ] Login ekran restyle (brend Sljiva, decji rezim link ostaje samo kao placeholder AKO postoji;
+- [x] Login ekran restyle (brend Sljiva, decji rezim link ostaje samo kao placeholder AKO postoji;
       inace bez njega - kid mode NIJE deo ovog PR-a)
 
 ### Lane B - Danas (1 dan) [posle A]
+
 - [ ] Timeline komponenta: vremenska sipka levo, "Sada · HH:mm" linija, celodnevni/span cipovi gore,
       sekcija "Placanja danas", prosli deo dana prigusen
 - [ ] WeekStrip v2 (vitka, tackice opterecenja, soft selekcija) + tap vodi na taj dan u Kalendar agendi
@@ -79,6 +81,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
       reciklira u timeline)
 
 ### Lane C - Kalendar (1.5 dan) [posle A]
+
 - [ ] Kontejner sa segmentima + filter cipovi (tip + clanovi) zajednicki za sva tri prikaza
 - [ ] Agenda: restyle AgendaUpcomingList (grupe po danu, prazni dani, infinite scroll do 365,
       Prekoraceno na vrhu, visednevni "Dan i/n") - logika netaknuta
@@ -89,6 +92,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] /uskoro redirect + WeekStrip sa Danas vodi ovde
 
 ### Lane D - Novac (1 dan) [posle A]
+
 - [ ] Hub sa segmentima + mesec pager + QR dugme u zaglavlju
 - [ ] Pregled: postojece budzet komponente restyle (cycle karta sa Prihodi/Potroseno/Preostalo,
       projekcija, nudge za potvrdu prihoda, Po kategorijama + Uredi, Fiksno vs varijabilno,
@@ -100,10 +104,10 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] Skener + ReceiptPreview + chain + Podeli racun: restyle u nove tokene (tok i logika netaknuti)
 
 ### Lane E - Deljeni inputi + sve forme (2 dana) [posle A; E1 pre E2]
+
 - [ ] E1: DateField + DatePickerSheet (precice po modu polja: past/future/dob; mreza sa tackicama
       zauzetosti iz agende; drill godina->mesec->dan; direktan upis za DOB; tap bira i zatvara)
-- [ ] E1: TimeField + TimePickerSheet (sat mreza 7-22, minuti 4 cipa, dugi pritisak native fallback)
-      + DurationChips (30/45/60/90/120 racunaju kraj)
+- [ ] E1: TimeField + TimePickerSheet (sat mreza 7-22, minuti 4 cipa, dugi pritisak native fallback) + DurationChips (30/45/60/90/120 racunaju kraj)
 - [ ] E1: desktop varijante kao popover (isti sadrzaj, anchor uz polje, tastatura radi)
 - [ ] E2: migracija formi na nove tokene + nove inpute: Trosak (+ skener ulaz), Placanje (tip,
       ponavljanje, promenljiv iznos, podsetnici), Dogadjaj (Vise dana + trajanje cipovi), Aktivnost
@@ -113,6 +117,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] E2: CurrencyToggle + ExchangeRateRow restyle (NBS red, zamrznut kurs - logika ista)
 
 ### Lane F - Sekundarni ekrani (1 dan) [posle A, moze paralelno sa E2]
+
 - [ ] Liste: index + detail restyle; smart sort, swipe gestovi, dnd, export, auto-brisanje - sve ostaje
 - [ ] Aktivnosti: WeekGrid restyle + skola + Opcije sheet (smene, rasporedi, satnica zvona) + lista svih
 - [ ] Dogadjaji: filter bar (mesec, pretraga, zavrseni) + grupe restyle
@@ -120,6 +125,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] Globalna pretraga: restyle dijaloga (iste grupe i ponasanje, Cmd+K)
 
 ### Lane G - Podesavanja + nalog (1 dan) [posle A]
+
 - [ ] Spajanje /profile u /settings hub sa grupama (profil karta gore; Porodica, Novac-valute,
       Obavestenja, Kalendar, Aplikacija, Odjava) - stari tabovi kao sekcije/pod-ekrani
 - [ ] Izgled: tema Svetla/Tamna/Auto + "Boja aplikacije" (default Plava; opcije Sljiva/Kedar/Cigla;
@@ -132,6 +138,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] Traka navigacije red (vodi na Uredi traku u Meniju)
 
 ### Lane H - Desktop (1.5 dan) [posle vecine B-E; prvi task ODMAH moze]
+
 - [ ] H0 PRVO: brz staticki mock desktop Danas + Kalendar (prosiriti postojeci artifact prototip)
       i kratka potvrda korisnika pre gradnje
 - [ ] Sidebar >=lg (~240px): logo, veliko "+ Dodaj", svih 9 sekcija sa ikonama, dole profil mini +
@@ -146,6 +153,7 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [ ] Hover/focus stanja, Esc, Cmd+K; (opciono, sme da ispadne: precice strelicama u kalendaru)
 
 ### Lane I - Integracija + QA (1 dan, poslednja, zajednicka)
+
 - [ ] Dark mode prolaz kroz SVE ekrane i sheetove (tokeni, kontrast)
 - [ ] Prazna stanja svuda (postojeci copy iz empty-states speca)
 - [ ] PWA: manifest theme_color -> neutralna pozadina (svetla), ikonica NEPROMENJENA; update toast radi
@@ -179,12 +187,28 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 ## Kickoff za novu sesiju
 
 U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesija treba da:
+
 1. procita ovaj fajl + memoriju projekta + otvori prototip artifact kao vizuelnu referencu,
 2. napravi granu `redesign/v2` i krene od Lane A,
 3. stiklira checkbox-ove ovde kako taskovi prolaze,
 4. za paralelizaciju podigne worktree agente po semi iznad (uz dogovor koliko paralele korisnik zeli),
 5. H0 (desktop mock) posalje korisniku na potvrdu pre Lane H gradnje.
 
+## Odluke donete tokom rada
+
+- Akcenat se cuva u bazi: migracija `20260804090000_profiles_accent.sql` (kolona
+  `profiles.accent` + CHECK), localStorage je samo ogledalo za prvi paint.
+- SVI kljucevi koji zavrsavaju u bazi su na ENGLESKOM (kasnija lokalizacija):
+  akcenti `blue|purple|green|brown` (labele Plava/Ljubicasta/Zelena/Braon),
+  nav sekcije `today|calendar|money|lists|activities|events|birthdays|family|settings`.
+  Stare vrednosti se mapiraju u kodu (`LEGACY_KEY_MAP`), bez migracije podataka.
+- Imena akcenata su prosta imena boja umesto "Sljiva/Kedar/Cigla" (ime dizajn
+  jezika i dalje je "Sljiva", ali korisnik bira Plavu/Ljubicastu/Zelenu/Braon).
+
 ## Odstupanja od prototipa (popunjava se tokom rada)
 
-- (prazno)
+- Token `--accent*` je uzet za korisnikov akcenat, pa je shadcn-ov neutralni
+  `accent` (hover pozadina) prebacen na `muted` u `components/ui/*`. Vizuelno
+  identicno, samo preimenovanje.
+- Prototipska paleta ima plum akcenat; podrazumevani akcenat u aplikaciji je
+  PLAVA (odluka 6), a plum je opcija "Ljubicasta".

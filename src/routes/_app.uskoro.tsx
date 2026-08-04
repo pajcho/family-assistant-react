@@ -1,9 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { DashboardScope } from "@/components/dashboard/DashboardScope";
-
-/** "Uskoro" - everything from today onward (list or weekly calendar). Shares the
- *  dashboard shell with Danas (`/`); the nav switches between them. */
+/**
+ * Legacy route. "Uskoro" became the Agenda view of Kalendar in the redesign.
+ * Kept as a redirect because it is baked into push-notification deep links,
+ * per-device "Nedavno" entries and anything the user bookmarked.
+ */
 export const Route = createFileRoute("/_app/uskoro")({
-  component: () => <DashboardScope scope="uskoro" />,
+  beforeLoad: () => {
+    throw redirect({ to: "/kalendar", search: { view: "agenda" }, replace: true });
+  },
 });

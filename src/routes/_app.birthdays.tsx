@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import { CakeIcon, EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import type { Birthday } from "@/types/database";
@@ -29,7 +30,11 @@ import { formatDate, srLocale } from "@/utils/date";
  * literal calendar date, not "next occurrence relative to today").
  */
 export const Route = createFileRoute("/_app/birthdays")({
-  component: BirthdaysPage,
+  component: () => (
+    <LegacyScreen>
+      <BirthdaysPage />
+    </LegacyScreen>
+  ),
 });
 
 /** Minimum characters before the client-side search kicks in. */

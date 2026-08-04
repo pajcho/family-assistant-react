@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -63,7 +64,11 @@ export const Route = createFileRoute("/_app/settings")({
     if (typeof search.reason === "string") result.reason = search.reason;
     return result;
   },
-  component: SettingsPage,
+  component: () => (
+    <LegacyScreen>
+      <SettingsPage />
+    </LegacyScreen>
+  ),
 });
 
 function SettingsPage() {

@@ -3,37 +3,36 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/cn";
 
 /**
- * Single nav item. Stacks icon-above-label on mobile (`flex-col`),
- * inline icon+label on `md:` and up (`flex-row`). Active state = gray pill.
- * The breakpoint matches AppNav's mobile/desktop flip (768px) so the bottom
- * tab bar's row layout and the top inline nav switch at the same width.
+ * Single nav item, used by both the mobile bottom bar (icon above a small
+ * label) and the desktop inline row (icon beside the label, from `lg`).
+ *
+ * Active state is the accent itself, not a filled pill: the redesigned bar is
+ * a quiet strip and a highlighted background would fight the elevated "+".
  */
 
 interface AppNavLinkProps {
   to: string;
+  /** Search params for sections that live under another route (Porodica). */
+  search?: Record<string, string>;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   className?: string;
 }
 
-export function AppNavLink({ to, label, icon: Icon, className }: AppNavLinkProps) {
+export function AppNavLink({ to, search, label, icon: Icon, className }: AppNavLinkProps) {
   return (
     <Link
       to={to}
+      search={search}
       activeOptions={{ exact: to === "/" }}
       className={cn(
-        "flex flex-col items-center gap-0.5 rounded-md px-3 py-2 text-sm font-medium transition-colors md:flex-row md:gap-2 md:px-2 md:py-1.5",
+        "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-extrabold transition-colors lg:flex-row lg:gap-2 lg:px-2.5 lg:py-1.5 lg:text-sm lg:font-medium",
         className,
       )}
-      activeProps={{
-        className: "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white",
-      }}
-      inactiveProps={{
-        className:
-          "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white",
-      }}
+      activeProps={{ className: "text-accent-deep lg:bg-accent-soft" }}
+      inactiveProps={{ className: "text-muted-foreground lg:hover:bg-muted" }}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className="size-[21px] shrink-0 lg:size-5" />
       <span>{label}</span>
     </Link>
   );

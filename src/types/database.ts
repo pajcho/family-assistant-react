@@ -46,6 +46,12 @@ export interface Profile {
    */
   nav_slots: string[] | null;
   /**
+   * In-app accent color ("boja aplikacije"): "plava" (default) | "sljiva" |
+   * "kedar" | "cigla". NULL = never picked. Read through `normalizeAccent`.
+   * The brand outside the app (PWA icon, login mark, splash) stays blue.
+   */
+  accent: string | null;
+  /**
    * True iff this profile's `id` matches a row in `auth.users` - i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional

@@ -1,4 +1,5 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { LegacyScreen } from "@/components/layout/AppScreen";
 import {
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -27,7 +28,11 @@ import { getDisplayName } from "@/utils/identity";
  * renders as a centered column, no redirect needed.
  */
 export const Route = createFileRoute("/_app/profile")({
-  component: ProfilePage,
+  component: () => (
+    <LegacyScreen>
+      <ProfilePage />
+    </LegacyScreen>
+  ),
 });
 
 const SETTINGS_LINKS = [
