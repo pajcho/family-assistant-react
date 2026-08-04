@@ -23,7 +23,9 @@ export function Amount({
   return (
     <span className={cn("whitespace-nowrap", className)}>
       {n.toLocaleString("sr-Latn-RS")}
-      <span className="ml-1 text-[0.72em] font-medium text-gray-400 dark:text-gray-500">RSD</span>
+      <span className="ml-[3px] text-[0.7em] font-extrabold tracking-[0.04em] text-muted-foreground">
+        RSD
+      </span>
     </span>
   );
 }
@@ -48,9 +50,7 @@ export function AmountOriginal({
   if (currency === "RSD" || amount == null) return null;
   const text = formatOriginalAmount(amount, currency);
   return (
-    <span
-      className={cn("whitespace-nowrap text-gray-400 tabular-nums dark:text-gray-500", className)}
-    >
+    <span className={cn("whitespace-nowrap tabular-nums text-muted-foreground", className)}>
       {parens ? `(${text})` : text}
     </span>
   );
