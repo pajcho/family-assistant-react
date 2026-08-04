@@ -196,27 +196,27 @@ export function EventDetailDialog({
     if (isCanceled) {
       statusBadges.push({
         label: "Otkazano",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        tone: "neg",
       });
     } else if (isEnded) {
       statusBadges.push({
         label: "Završeno",
-        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        tone: "neutral",
       });
     } else if (isEventOngoing(event, format(new Date(), "yyyy-MM-dd"))) {
       statusBadges.push({
         label: "U toku",
-        className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+        tone: "pos",
       });
     }
     statusBadges.push({
       label: formatEventDateRange(event),
-      className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+      tone: "neutral",
     });
     if (isMultiDayEvent(event)) {
       statusBadges.push({
         label: eventDurationLabel(event),
-        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+        tone: "info",
       });
     }
   }
@@ -245,8 +245,7 @@ export function EventDetailDialog({
             <div className="space-y-4">
               <DetailHero
                 icon={CalendarIcon}
-                iconWrapClassName="bg-blue-100 dark:bg-blue-900/50"
-                iconClassName="text-blue-600 dark:text-blue-400"
+                tone="info"
                 title={event.name}
                 titleClassName={
                   isCanceled ? "text-gray-500 line-through dark:text-gray-500" : undefined
@@ -284,7 +283,7 @@ export function EventDetailDialog({
                 </div>
               ) : view === "cancel" ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
                     kalendaru. Možeš ga kasnije vratiti.
                   </p>
@@ -300,7 +299,7 @@ export function EventDetailDialog({
                   </div>
                 </div>
               ) : view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
                   opozvati.
                 </p>

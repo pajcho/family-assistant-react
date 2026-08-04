@@ -11,12 +11,13 @@ import {
 import { format, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TimePicker } from "@/components/ui/time-picker";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { DateField } from "@/components/common/DateField";
+import { PickerRowPair } from "@/components/common/PickerRow";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { TimeField } from "@/components/common/TimeField";
 import { DetailActionList, DetailActionRow } from "@/components/common/DetailSheet";
 import {
   LinkedMoneyChooser,
@@ -525,9 +526,9 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-1.5">
-        <Label htmlFor="reschedule-date">Datum</Label>
-        <DatePicker
+        <DateField
           id="reschedule-date"
+          label="Datum"
           value={newDate}
           onChange={setNewDate}
           placeholder="Izaberi dan"
@@ -539,26 +540,20 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
           </p>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="reschedule-start">Početak</Label>
-          <TimePicker
-            id="reschedule-start"
-            value={startTime}
-            onChange={(value) => setStartTime(value ?? "")}
-            clearable={false}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="reschedule-end">Kraj</Label>
-          <TimePicker
-            id="reschedule-end"
-            value={endTime}
-            onChange={(value) => setEndTime(value ?? "")}
-            clearable={false}
-          />
-        </div>
-      </div>
+      <PickerRowPair>
+        <TimeField
+          id="reschedule-start"
+          label="Početak"
+          value={startTime}
+          onChange={(value) => setStartTime(value ?? "")}
+        />
+        <TimeField
+          id="reschedule-end"
+          label="Kraj"
+          value={endTime}
+          onChange={(value) => setEndTime(value ?? "")}
+        />
+      </PickerRowPair>
       <div className="space-y-1.5">
         <Label htmlFor="reschedule-note">Razlog (opciono)</Label>
         <Textarea

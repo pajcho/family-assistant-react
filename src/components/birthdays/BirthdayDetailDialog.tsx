@@ -175,14 +175,13 @@ export function BirthdayDetailDialog({
             <div className="space-y-4">
               <DetailHero
                 icon={CakeIcon}
-                iconWrapClassName="bg-pink-100 dark:bg-pink-900/50"
-                iconClassName="text-pink-600 dark:text-pink-400"
+                tone="accent"
                 title={birthday.name}
                 subtitle={`Rođendan · ${formatDate(birthday.birth_date)}`}
               />
 
               {view === "delete" ? (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
                   opozvati.
                 </p>
@@ -192,14 +191,11 @@ export function BirthdayDetailDialog({
                     badges={[
                       {
                         label: daysLabel(days),
-                        className:
-                          days <= 1
-                            ? "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                        tone: days <= 1 ? "accent" : "neutral",
                       },
                       {
                         label: ageLabel(nextAge),
-                        className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                        tone: "neutral",
                       },
                     ]}
                   />

@@ -124,8 +124,7 @@ export function ExternalEventDetailDialog({
           <div className="space-y-4">
             <DetailHero
               icon={GlobeAltIcon}
-              iconWrapClassName="bg-sky-100 dark:bg-sky-900/50"
-              iconClassName="text-sky-600 dark:text-sky-400"
+              tone="info"
               title={event.title ?? "(bez naslova)"}
               subtitle={formatDate(event.local_date)}
             />

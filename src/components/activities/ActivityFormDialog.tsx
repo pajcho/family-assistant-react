@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
@@ -12,6 +11,7 @@ import {
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
+import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   ActivityForm,
@@ -126,7 +126,7 @@ export function ActivityFormDialog({
               <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             {error ? (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+              <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-semibold text-neg">
                 {error}
               </div>
             ) : null}
@@ -159,20 +159,23 @@ export function ActivityFormDialog({
               </div>
               <div className="space-y-2">
                 <Label>Sezona (od / do)</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <DatePicker
-                    id="active_from"
-                    value={form.active_from}
-                    onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
-                    placeholder="npr. 1. septembar"
-                  />
-                  <DatePicker
-                    id="active_to"
-                    value={form.active_to}
-                    onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
-                    placeholder="npr. 15. jun"
-                  />
-                </div>
+                <DateField
+                  id="active_from"
+                  label="Od"
+                  value={form.active_from}
+                  onChange={(value) => setForm((s) => ({ ...s, active_from: value }))}
+                  placeholder="npr. 1. septembar"
+                  clearable
+                />
+                <DateField
+                  id="active_to"
+                  label="Do"
+                  value={form.active_to}
+                  onChange={(value) => setForm((s) => ({ ...s, active_to: value }))}
+                  placeholder="npr. 15. jun"
+                  minDate={form.active_from}
+                  clearable
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="activity-reminder">Podsetnik</Label>

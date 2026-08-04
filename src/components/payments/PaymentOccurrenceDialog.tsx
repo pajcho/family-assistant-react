@@ -93,22 +93,22 @@ export function PaymentOccurrenceDialog({
     if (isUpcoming) {
       statusBadges.push({
         label: "Nadolazeće",
-        className: "bg-muted text-muted-foreground",
+        tone: "neutral",
       });
     } else if (item.status === "canceled") {
       statusBadges.push({
         label: "Preskočeno",
-        className: "bg-muted text-muted-foreground",
+        tone: "neutral",
       });
     } else {
       statusBadges.push({
         label: `Plaćeno${item.paid_date ? ` ${formatDate(item.paid_date)}` : ""}`,
-        className: "bg-pos-soft text-pos",
+        tone: "pos",
       });
     }
     statusBadges.push({
       label: `${isUpcoming ? "Dospeva" : "Dospelo"} ${formatDate(item.due_date)}`,
-      className: "bg-muted text-muted-foreground",
+      tone: "neutral",
     });
   }
 
@@ -127,13 +127,7 @@ export function PaymentOccurrenceDialog({
         <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
         {item ? (
           <div className="space-y-4">
-            <DetailHero
-              icon={BanknotesIcon}
-              iconWrapClassName="bg-warn-soft"
-              iconClassName="text-warn"
-              title={item.name}
-              subtitle={subtitle}
-            />
+            <DetailHero icon={BanknotesIcon} tone="warn" title={item.name} subtitle={subtitle} />
 
             {view.kind === "history" ? (
               <PaymentHistoryList
@@ -153,7 +147,7 @@ export function PaymentOccurrenceDialog({
             ) : (
               <>
                 <div>
-                  <div className="text-3xl font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
+                  <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
                     <Amount value={item.amount} />
                   </div>
                   <div className="mt-2">
@@ -222,7 +216,7 @@ export function PaymentOccurrenceDialog({
                 ) : null}
 
                 {isUpcoming ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Nadolazeća rata - označavanje plaćenim, pomeranje i preskakanje postaju dostupni
                     kada rata dođe na red.
                   </p>

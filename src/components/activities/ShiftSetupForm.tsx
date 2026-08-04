@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateField } from "@/components/common/DateField";
 import { cn } from "@/lib/cn";
 import type { Profile, SchoolShift, SchoolShiftAnchor } from "@/types/database";
 import { SHIFT_LABELS, getThisWeekStart, getWeekStart } from "@/utils/activity";
@@ -91,15 +91,14 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
             ? "Postavi nedelju i smenu - sve ostalo se računa automatski (smena se naizmenice menja svake nedelje)."
             : "Postavi smenu u kojoj dete uvek ostaje. Nedelja se koristi samo kao polazna tačka."}
       </p>
-      <div className="space-y-1.5">
-        <Label htmlFor={`anchor-week-${member.id}`}>Nedelja</Label>
-        <DatePicker
-          id={`anchor-week-${member.id}`}
-          value={weekStart}
-          onChange={setWeekStart}
-          placeholder="Bilo koji dan u toj nedelji"
-        />
-      </div>
+      <DateField
+        id={`anchor-week-${member.id}`}
+        label="Nedelja"
+        value={weekStart}
+        onChange={setWeekStart}
+        placeholder="Bilo koji dan u toj nedelji"
+        showBusyDots={false}
+      />
       <div className="space-y-1.5">
         <Label>{isAlternating ? "Smena te nedelje" : "Smena"}</Label>
         <div className="flex gap-2">
@@ -109,7 +108,7 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
               type="button"
               onClick={() => setShift(option)}
               className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
+                "min-h-11 flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
                 shift === option
                   ? "border-accent bg-accent-soft text-accent-deep"
                   : "border-border hover:bg-muted",

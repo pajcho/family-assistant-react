@@ -180,7 +180,7 @@ export function SheetStackHeader({
             type="button"
             onClick={onBack}
             aria-label={backAriaLabel}
-            className="-ml-1.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+            className="-ml-2 grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <ChevronLeftIcon className="size-5" />
           </button>

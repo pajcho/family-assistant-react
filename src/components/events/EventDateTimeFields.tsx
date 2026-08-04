@@ -1,6 +1,9 @@
-import { DatePicker } from "@/components/ui/date-picker";
-import { Label } from "@/components/ui/label";
-import { TimePicker } from "@/components/ui/time-picker";
+import { SunIcon } from "@heroicons/react/24/outline";
+
+import { DateField } from "@/components/common/DateField";
+import { PickerRowPair } from "@/components/common/PickerRow";
+import { SwitchRow } from "@/components/common/SwitchRow";
+import { DurationChips, TimeField } from "@/components/common/TimeField";
 import type { Event } from "@/types/database";
 import { formatDate } from "@/utils/date";
 import { eventDurationLabel, isMultiDayEvent, shiftedEventEndDate } from "@/utils/event";
@@ -73,48 +76,43 @@ export function EventDateTimeFields({
   const patch = (partial: Partial<EventDateTimeValue>) => onChange({ ...value, ...partial });
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-date`}>Datum *</Label>
-        <DatePicker
-          id={`${idPrefix}-date`}
-          value={value.date}
-          onChange={(date) => patch({ date })}
-          placeholder="Izaberi datum"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          id={`${idPrefix}-all-day`}
-          type="checkbox"
-          checked={value.allDay}
-          onChange={(e) => patch({ allDay: e.target.checked })}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-        />
-        <Label htmlFor={`${idPrefix}-all-day`} className="cursor-pointer font-normal">
-          Ceo dan
-        </Label>
-      </div>
+    <div className="space-y-3">
+      <DateField
+        id={`${idPrefix}-date`}
+        label="Datum *"
+        value={value.date}
+        onChange={(date) => patch({ date })}
+        placeholder="Izaberi datum"
+      />
+      <SwitchRow
+        icon={SunIcon}
+        title="Ceo dan"
+        checked={value.allDay}
+        onChange={(allDay) => patch({ allDay })}
+      />
       {!value.allDay ? (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-start`}>Početak (opciono)</Label>
-            <TimePicker
+        <div className="space-y-2">
+          <PickerRowPair>
+            <TimeField
               id={`${idPrefix}-start`}
+              label="Početak"
               value={value.start_time}
               onChange={(start_time) => patch({ start_time })}
-              placeholder="00:00"
+              clearable
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${idPrefix}-end`}>Završetak (opciono)</Label>
-            <TimePicker
+            <TimeField
               id={`${idPrefix}-end`}
+              label="Kraj"
               value={value.end_time}
               onChange={(end_time) => patch({ end_time })}
-              placeholder="00:00"
+              clearable
             />
-          </div>
+          </PickerRowPair>
+          <DurationChips
+            start={value.start_time}
+            end={value.end_time}
+            onChangeEnd={(end_time) => patch({ end_time })}
+          />
         </div>
       ) : null}
     </div>

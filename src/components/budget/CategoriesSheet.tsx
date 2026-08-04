@@ -9,8 +9,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
 import {
   CATEGORY_COLORS,
   CATEGORY_ICON_KEYS,
@@ -175,7 +174,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
 
         {showDelete ? (
           <>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Da li ste sigurni da želite da obrišete „{toDelete.name}"? Troškovi neće biti obrisani
               - samo ostaju bez kategorije.
             </p>
@@ -204,17 +203,19 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                 return (
                   <li
                     key={c.id}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-card"
+                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
                   >
                     <span
-                      className="grid size-[42px] shrink-0 place-items-center rounded-[14px]"
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full"
                       style={{ backgroundColor: `${c.color}22` }}
                     >
-                      <Icon className="size-5" style={{ color: c.color }} />
+                      <Icon className="size-4" style={{ color: c.color }} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-foreground">{c.name}</div>
-                      <div className="text-xs tabular-nums text-muted-foreground">
+                      <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {c.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         {c.monthly_limit != null ? (
                           <>
                             Limit <Amount value={c.monthly_limit} />
@@ -229,7 +230,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                         type="button"
                         aria-label="Izmeni kategoriju"
                         onClick={() => openEditor(editorFrom(c))}
-                        className="grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                       >
                         <PencilSquareIcon className="size-4" />
                       </button>
@@ -237,7 +238,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                         type="button"
                         aria-label="Obriši kategoriju"
                         onClick={() => openDelete(c)}
-                        className="grid size-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-neg-soft hover:text-neg"
+                        className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                       >
                         <TrashIcon className="size-4" />
                       </button>
@@ -253,7 +254,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
               className="mt-2 w-full"
               onClick={() => openEditor(emptyEditor())}
             >
-              <PlusIcon />
+              <PlusIcon className="mr-2 size-4" />
               Dodaj kategoriju
             </Button>
           </div>
@@ -261,9 +262,11 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
 
         {showEditor ? (
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="category-name">Naziv *</Label>
-              <Input
+            <div>
+              <FieldGroupLabel>
+                <label htmlFor="category-name">Naziv *</label>
+              </FieldGroupLabel>
+              <FormInput
                 id="category-name"
                 value={editor.name}
                 onChange={(e) => setEditor((s) => (s ? { ...s, name: e.target.value } : s))}
@@ -273,9 +276,9 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Boja</Label>
-              <div className="flex flex-wrap gap-2">
+            <div>
+              <FieldGroupLabel>Boja</FieldGroupLabel>
+              <div className="flex flex-wrap gap-1.5">
                 {CATEGORY_COLORS.map((color) => (
                   <button
                     type="button"
@@ -284,18 +287,25 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                     aria-pressed={editor.color === color}
                     onClick={() => setEditor((s) => (s ? { ...s, color } : s))}
                     className={cn(
-                      "size-11 rounded-full ring-offset-2 ring-offset-background transition",
-                      editor.color === color ? "ring-2 ring-foreground" : "",
+                      "grid size-11 place-items-center rounded-full transition",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     )}
-                    style={{ backgroundColor: color }}
-                  />
+                  >
+                    <span
+                      className={cn(
+                        "block size-7 rounded-full ring-offset-2 ring-offset-background transition",
+                        editor.color === color ? "ring-2 ring-foreground" : "",
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Ikonica</Label>
-              <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
+            <div>
+              <FieldGroupLabel>Ikonica</FieldGroupLabel>
+              <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10">
                 {CATEGORY_ICON_KEYS.map((key) => {
                   const Icon = categoryIcon(key);
                   const selected = editor.icon === key;
@@ -307,21 +317,26 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                       aria-pressed={selected}
                       onClick={() => setEditor((s) => (s ? { ...s, icon: key } : s))}
                       className={cn(
-                        "grid aspect-square place-items-center rounded-md border transition-colors",
-                        selected ? "border-accent bg-accent-soft" : "border-border hover:bg-muted",
+                        "flex aspect-square min-h-11 items-center justify-center rounded-md border transition-colors",
+                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        selected
+                          ? "border-accent bg-accent-soft"
+                          : "border-border bg-card hover:bg-muted",
                       )}
                       style={selected ? { color: editor.color } : undefined}
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-4" />
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category-limit">Mesečni limit (RSD, opciono)</Label>
-              <Input
+            <div>
+              <FieldGroupLabel>
+                <label htmlFor="category-limit">Mesečni limit (RSD, opciono)</label>
+              </FieldGroupLabel>
+              <FormInput
                 id="category-limit"
                 value={editor.monthly_limit}
                 onChange={(e) =>
@@ -329,6 +344,7 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                 }
                 inputMode="decimal"
                 placeholder="npr. 30000"
+                className="text-right tabular-nums"
               />
             </div>
 

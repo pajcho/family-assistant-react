@@ -1,18 +1,16 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
+import { AdjustmentsHorizontalIcon, CalendarDaysIcon, SunIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { EVENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
-import { TimePicker } from "@/components/ui/time-picker";
 import { useIsDesktop } from "@/components/ui/responsive-dialog";
-import { DateQuickPick } from "@/components/common/DateQuickPick";
+import { DateField } from "@/components/common/DateField";
+import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
-import { PickerRow } from "@/components/common/PickerRow";
+import { PickerRow, PickerRowPair } from "@/components/common/PickerRow";
 import { SwitchRow } from "@/components/common/SwitchRow";
+import { DurationChips, TimeField } from "@/components/common/TimeField";
 import type { Event } from "@/types/database";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useToday } from "@/hooks/useToday";
@@ -201,7 +199,7 @@ export function EventForm({
 
   const endDateField = form.multiDay ? (
     <div className="space-y-1">
-      <DateQuickPick
+      <DateField
         id="end_date"
         label="Poslednji dan *"
         value={form.end_date}
@@ -211,7 +209,7 @@ export function EventForm({
         chips={durationChips}
       />
       {endDateInvalid ? (
-        <p className="text-xs text-red-600 dark:text-red-400">
+        <p className="px-0.5 text-xs font-semibold text-neg">
           Izaberi poslednji dan (posle prvog).
         </p>
       ) : null}
@@ -219,29 +217,33 @@ export function EventForm({
   ) : null;
 
   const timeGrid = !form.allDay ? (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="space-y-2">
-        <Label htmlFor="start_time">
-          {form.multiDay ? "Početak (prvi dan)" : "Početak (opciono)"}
-        </Label>
-        <TimePicker
+    <div className="space-y-2">
+      <PickerRowPair>
+        <TimeField
           id="start_time"
+          label={form.multiDay ? "Početak (prvi dan)" : "Početak"}
           value={form.start_time}
           onChange={(value) => setForm((s) => ({ ...s, start_time: value }))}
-          placeholder="00:00"
+          clearable
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="end_time">
-          {form.multiDay ? "Završetak (poslednji dan)" : "Završetak (opciono)"}
-        </Label>
-        <TimePicker
+        <TimeField
           id="end_time"
+          label={form.multiDay ? "Kraj (poslednji dan)" : "Kraj"}
           value={form.end_time}
           onChange={(value) => setForm((s) => ({ ...s, end_time: value }))}
-          placeholder="00:00"
+          clearable
         />
-      </div>
+      </PickerRowPair>
+      {/* Duration presets write the END time from the start - a 90-minute
+          event is one tap instead of a second picker. Multi-day spans skip
+          them: their end time belongs to a different calendar day. */}
+      {form.multiDay ? null : (
+        <DurationChips
+          start={form.start_time}
+          end={form.end_time}
+          onChangeEnd={(end_time) => setForm((s) => ({ ...s, end_time }))}
+        />
+      )}
     </div>
   ) : null;
 
@@ -250,8 +252,10 @@ export function EventForm({
   // mobile surfaces it in the "Više detalja" sub-view (see EventFormDialog).
   const reminderField =
     !form.allDay && form.start_time ? (
-      <div className="space-y-2">
-        <Label htmlFor="reminder">Podsetnik</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="reminder">Podsetnik</label>
+        </FieldGroupLabel>
         <ReminderSelect
           id="reminder"
           value={form.remind_minutes_before}
@@ -293,18 +297,16 @@ export function EventForm({
       (form.notes.trim() ? 1 : 0);
 
     return (
-      <form id="event-form" className="space-y-4" onSubmit={handleSubmit}>
-        <div className="space-y-2">
-          <Label htmlFor="name">Naziv *</Label>
-          <Input
-            id="name"
-            value={form.name}
-            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-            required
-            placeholder="npr. Marko rođendan"
-          />
-        </div>
-        <DateQuickPick
+      <form id="event-form" className="space-y-3" onSubmit={handleSubmit}>
+        <FormInput
+          id="name"
+          value={form.name}
+          onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+          required
+          placeholder="Naziv - npr. Marko rođendan *"
+          aria-label="Naziv"
+        />
+        <DateField
           id="date"
           label={form.multiDay ? "Prvi dan *" : "Datum *"}
           value={form.date}
@@ -312,6 +314,7 @@ export function EventForm({
           placeholder="Izaberi datum"
         />
         <SwitchRow
+          icon={CalendarDaysIcon}
           title="Više dana"
           description="Konferencija, odmor, put - traje do poslednjeg dana."
           checked={form.multiDay}
@@ -319,6 +322,7 @@ export function EventForm({
         />
         {endDateField}
         <SwitchRow
+          icon={SunIcon}
           title="Ceo dan"
           description={
             form.multiDay
@@ -332,7 +336,7 @@ export function EventForm({
         <PickerRow
           title="Više detalja"
           summary={detailParts.length > 0 ? detailParts.join(" · ") : "Opis · za koga · napomene"}
-          icon={<AdjustmentsHorizontalIcon className="size-4" />}
+          icon={<AdjustmentsHorizontalIcon className="size-[17px]" />}
           count={detailCount}
           onClick={() => onOpenView("details")}
         />
@@ -340,12 +344,14 @@ export function EventForm({
     );
   }
 
-  // --- Desktop: classic fully-expanded layout (unchanged) ---
+  // --- Desktop: fully-expanded layout, same field order ---
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="name">Naziv *</Label>
-        <Input
+    <form className="space-y-3" onSubmit={handleSubmit}>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="name">Naziv *</label>
+        </FieldGroupLabel>
+        <FormInput
           id="name"
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -353,9 +359,11 @@ export function EventForm({
           placeholder="npr. Marko rođendan"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Opis</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="description">Opis</label>
+        </FieldGroupLabel>
+        <FormInput
           id="description"
           value={form.description}
           onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -367,45 +375,35 @@ export function EventForm({
         value={form.personIds}
         onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
       />
-      <div className="space-y-2">
-        <Label htmlFor="date">{form.multiDay ? "Prvi dan *" : "Datum *"}</Label>
-        <DatePicker
-          id="date"
-          value={form.date}
-          onChange={handleDateChange}
-          placeholder="Izaberi datum"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          id="multi_day"
-          type="checkbox"
-          checked={form.multiDay}
-          onChange={(e) => handleMultiDayToggle(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-        />
-        <Label htmlFor="multi_day" className="cursor-pointer font-normal">
-          Više dana
-        </Label>
-      </div>
+      <DateField
+        id="date"
+        label={form.multiDay ? "Prvi dan *" : "Datum *"}
+        value={form.date}
+        onChange={handleDateChange}
+        placeholder="Izaberi datum"
+      />
+      <SwitchRow
+        icon={CalendarDaysIcon}
+        title="Više dana"
+        description="Konferencija, odmor, put - traje do poslednjeg dana."
+        checked={form.multiDay}
+        onChange={handleMultiDayToggle}
+      />
       {endDateField}
-      <div className="flex items-center gap-2">
-        <input
-          id="all_day"
-          type="checkbox"
-          checked={form.allDay}
-          onChange={(e) => setForm((s) => ({ ...s, allDay: e.target.checked }))}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
-        />
-        <Label htmlFor="all_day" className="cursor-pointer font-normal">
-          Ceo dan
-        </Label>
-      </div>
+      <SwitchRow
+        icon={SunIcon}
+        title="Ceo dan"
+        description="Bez početka i završetka - događaj važi ceo dan."
+        checked={form.allDay}
+        onChange={(allDay) => setForm((s) => ({ ...s, allDay }))}
+      />
       {timeGrid}
       {reminderField}
-      <div className="space-y-2">
-        <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="notes">Napomene (poklon, itd.)</label>
+        </FieldGroupLabel>
+        <FormInput
           id="notes"
           value={form.notes}
           onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}

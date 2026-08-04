@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { Birthday } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { DateField } from "@/components/common/DateField";
+import { FieldHint, FormInput } from "@/components/common/FormControls";
+import { useToday } from "@/hooks/useToday";
 
 /**
  * Controlled form for creating / editing a birthday. Direct port of
@@ -33,6 +33,7 @@ export type BirthdayFormProps = {
 
 export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: BirthdayFormProps) {
   const isEdit = !!birthday?.id;
+  const today = useToday();
 
   const [name, setName] = useState<string>(birthday?.name ?? "");
   const [description, setDescription] = useState<string>(birthday?.description ?? "");
@@ -60,35 +61,37 @@ export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: B
   };
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="birthday-name">Ime *</Label>
-        <Input
-          id="birthday-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          placeholder="npr. Ana Petrović"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="birthday-description">Opis (odnos)</Label>
-        <Input
-          id="birthday-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="npr. Kolega sa posla"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="birthday-birth_date">Datum rođenja *</Label>
-        <DatePicker
-          id="birthday-birth_date"
-          value={birthDate}
-          onChange={setBirthDate}
-          placeholder="Datum rođenja"
-        />
-      </div>
+    <form className="space-y-3" onSubmit={handleSubmit}>
+      <FormInput
+        id="birthday-name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        placeholder="Ime - npr. Ana Petrović *"
+        aria-label="Ime"
+      />
+      <FormInput
+        id="birthday-description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Opis (odnos) - npr. Kolega sa posla"
+        aria-label="Opis"
+      />
+      {/* `dob` mode opens on the YEAR grid and offers direct entry
+          ("15.05.1985") - three taps instead of paging decades of months. */}
+      <DateField
+        id="birthday-birth_date"
+        label="Datum rođenja *"
+        mode="dob"
+        value={birthDate}
+        onChange={setBirthDate}
+        placeholder="Datum rođenja"
+        maxDate={today.str}
+      />
+      <FieldHint>
+        Godišnjice se računaju same, uz podsetnik na vreme. Proslavu kasnije organizuješ jednim
+        tapom iz detalja.
+      </FieldHint>
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Odustani

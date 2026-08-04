@@ -13,7 +13,6 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +22,7 @@ import {
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
+import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
@@ -357,32 +357,32 @@ export function PaymentDetailDialog({
     if (cancelOverrideActive) {
       statusBadges.push({
         label: "Otkazano",
-        className: "bg-neg-soft text-neg",
+        tone: "neg",
       });
     } else if (payment.is_paid) {
       statusBadges.push({
         label: payment.paid_date ? `Plaćeno ${formatDate(payment.paid_date)}` : "Plaćeno",
-        className: "bg-pos-soft text-pos",
+        tone: "pos",
       });
     } else if (payment.is_paused) {
       statusBadges.push({
         label: "Pauzirano",
-        className: "bg-muted text-muted-foreground",
+        tone: "neutral",
       });
     } else if (isOverdue(effectiveDue)) {
       statusBadges.push({
         label: "Prekoračeno",
-        className: "bg-neg-soft text-neg",
+        tone: "neg",
       });
     }
     statusBadges.push({
       label: `${!payment.is_paid && isOverdue(effectiveDue) ? "Dospelo" : "Dospeva"} ${formatDate(effectiveDue)}`,
-      className: "bg-muted text-muted-foreground",
+      tone: "neutral",
     });
     if (override?.action === "reschedule") {
       statusBadges.push({
         label: `Pomereno sa ${formatDate(payment.due_date)}`,
-        className: "bg-info-soft text-info",
+        tone: "accent",
       });
     }
   }
@@ -408,8 +408,7 @@ export function PaymentDetailDialog({
             <div className="space-y-4">
               <DetailHero
                 icon={BanknotesIcon}
-                iconWrapClassName="bg-warn-soft"
-                iconClassName="text-warn"
+                tone="warn"
                 title={payment.name}
                 subtitle={paymentSubtitle(payment)}
               />
@@ -417,14 +416,13 @@ export function PaymentDetailDialog({
               {view === "reschedule" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="payment-detail-reschedule-date">Novi datum</Label>
-                    <DatePicker
+                    <DateField
                       id="payment-detail-reschedule-date"
+                      label="Novi datum"
                       value={newDate}
                       onChange={setNewDate}
                       placeholder="Izaberi datum"
                       maxDate={rescheduleMax}
-                      markedDate={rescheduleNext}
                     />
                     {rescheduleNext && rescheduleMax ? (
                       <p className="text-[11px] text-muted-foreground">
@@ -484,7 +482,7 @@ export function PaymentDetailDialog({
                     ) : (
                       // Fixed foreign bill: the amount is contractual - only
                       // the rate gets confirmed. (Fixed RSD never lands here.)
-                      <p className="text-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
                       </p>
                     )}
@@ -524,7 +522,7 @@ export function PaymentDetailDialog({
                 <>
                   {/* The bill's hero: amount first, state as badges. */}
                   <div>
-                    <div className="text-3xl font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
+                    <div className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
                       <Amount value={payment.amount} />
                     </div>
                     {payment.currency !== "RSD" && payment.original_amount != null ? (
@@ -725,7 +723,7 @@ export function PaymentDetailDialog({
                 Nazad
               </Button>
               <Button
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 onClick={() => {
                   void handleConfirmAmount();
                 }}

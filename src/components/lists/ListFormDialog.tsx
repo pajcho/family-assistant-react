@@ -50,7 +50,7 @@ export function ListFormDialog({
           <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         {error ? (
-          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+          <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-semibold text-neg">
             {error}
           </div>
         ) : null}
