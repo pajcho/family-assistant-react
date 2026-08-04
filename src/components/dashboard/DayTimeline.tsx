@@ -11,11 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Amount } from "@/components/common/Amount";
-import {
-  isAllDayItem,
-  timedRange,
-  useMinuteTick,
-} from "@/components/dashboard/agendaCalendarShared";
+import { useMinuteTick } from "@/components/dashboard/agendaCalendarShared";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { agendaItemKey } from "@/hooks/useAgenda";
@@ -25,6 +21,7 @@ import { fallbackColorForProfile } from "@/utils/activity";
 import { currentAge } from "@/utils/birthday";
 import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
+import { nowLineIndex, splitDayTimeline } from "@/utils/dayTimeline";
 
 /**
  * Danas as ONE timeline (redizajn 2.0 merges the old list and day-calendar
@@ -54,17 +51,16 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
   const { byId } = useFamilyMembers();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const { chips, timed, payments } = useMemo(() => splitForTimeline(items), [items]);
+  const { chips, timed, payments } = useMemo(
+    () => splitDayTimeline(items, nowMinutes),
+    [items, nowMinutes],
+  );
 
   if (chips.length === 0 && timed.length === 0 && payments.length === 0) {
     return <>{emptyState}</>;
   }
 
-  // The "now" line goes before the first row that has not started yet. It is
-  // skipped entirely when everything is still ahead (nothing to separate) or
-  // when the day is already done (a line under the last row reads as an error).
-  const nextIndex = timed.findIndex((entry) => entry.startMin >= nowMinutes);
-  const showNowLine = nextIndex > 0;
+  const nextIndex = nowLineIndex(timed, nowMinutes);
 
   return (
     <div>
@@ -79,7 +75,7 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
 
       {timed.map((entry, index) => (
         <div key={agendaItemKey(entry.item)}>
-          {showNowLine && index === nextIndex ? <NowLine now={now} /> : null}
+          {index === nextIndex ? <NowLine now={now} /> : null}
           <div className={cn("mb-2 flex items-stretch gap-2.5", entry.past && "opacity-40")}>
             <div className="w-11 flex-none pt-3 text-right text-[12.5px] font-extrabold text-muted-foreground tabular-nums">
               {entry.startTime}
@@ -116,60 +112,6 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
       ) : null}
     </div>
   );
-}
-
-/* ─────────────────────────── splitting ─────────────────────────── */
-
-type TimedEntry = {
-  item: AgendaItem;
-  startTime: string;
-  endTime: string | null;
-  startMin: number;
-  past: boolean;
-};
-
-function toMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
-
-/**
- * Three buckets: chips (all-day / multi-day / birthdays), timed rows, and
- * payments due today. Payments are pulled out even though some carry a time -
- * a due date is a deadline, not an appointment.
- */
-function splitForTimeline(items: ReadonlyArray<AgendaItem>): {
-  chips: AgendaItem[];
-  timed: TimedEntry[];
-  payments: AgendaItem[];
-} {
-  const chips: AgendaItem[] = [];
-  const timed: TimedEntry[] = [];
-  const payments: AgendaItem[] = [];
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-
-  for (const item of items) {
-    if (item.kind === "payment") {
-      payments.push(item);
-      continue;
-    }
-    const range = timedRange(item);
-    if (!range || isAllDayItem(item)) {
-      chips.push(item);
-      continue;
-    }
-    const endMin = toMinutes(range.endTime);
-    timed.push({
-      item,
-      startTime: range.startTime,
-      endTime: range.endTime === range.startTime ? null : range.endTime,
-      startMin: toMinutes(range.startTime),
-      past: endMin <= nowMinutes,
-    });
-  }
-
-  timed.sort((a, b) => a.startMin - b.startMin);
-  return { chips, timed, payments };
 }
 
 /* ─────────────────────────── pieces ─────────────────────────── */
