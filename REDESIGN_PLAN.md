@@ -161,14 +161,13 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [x] Prazna stanja svuda (postojeci copy iz empty-states speca)
 - [x] PWA: manifest theme_color -> neutralna pozadina (svetla), ikonica NEPROMENJENA; update toast radi
 - [~] iOS standalone QA: kod je proveren (nema window-scroll nigde, safe-area na traci/zaglavlju/
-      loginu, tastatura demontira donju traku, trake su neprozirne bez backdrop-filtera), ali
-      pravi prolaz na iPhone-u u standalone rezimu ostaje na korisniku - to se ne moze odglumiti
+  loginu, tastatura demontira donju traku, trake su neprozirne bez backdrop-filtera), ali
+  pravi prolaz na iPhone-u u standalone rezimu ostaje na korisniku - to se ne moze odglumiti
 - [x] Redirecti + push deep-linkovi + Nedavno + pretraga navigacija
 - [x] Testovi: picker utili (addMin, genGrid, prestupne), normalizeNavSlots legacy mapping,
       timeline slotovanje; CI (check + dash-check + test + build) zeleno
 - [x] Bundle provera (Mesec lazy), Lighthouse brzi pregled
-- [ ] PR opis sa checklistom + screenshotovi po ekranu (svetla/tamna, mobil/desktop)
-      - CEKA korisnikovu lokalnu potvrdu; PR se ne otvara pre toga
+- [ ] PR opis sa checklistom + screenshotovi po ekranu (svetla/tamna, mobil/desktop) - CEKA korisnikovu lokalnu potvrdu; PR se ne otvara pre toga
 
 ## Paralelizacija (predlog za agente/worktree-ove)
 
