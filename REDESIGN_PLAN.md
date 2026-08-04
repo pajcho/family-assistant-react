@@ -105,16 +105,16 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane E - Deljeni inputi + sve forme (2 dana) [posle A; E1 pre E2]
 
-- [ ] E1: DateField + DatePickerSheet (precice po modu polja: past/future/dob; mreza sa tackicama
+- [x] E1: DateField + DatePickerSheet (precice po modu polja: past/future/dob; mreza sa tackicama
       zauzetosti iz agende; drill godina->mesec->dan; direktan upis za DOB; tap bira i zatvara)
-- [ ] E1: TimeField + TimePickerSheet (sat mreza 7-22, minuti 4 cipa, dugi pritisak native fallback) + DurationChips (30/45/60/90/120 racunaju kraj)
-- [ ] E1: desktop varijante kao popover (isti sadrzaj, anchor uz polje, tastatura radi)
-- [ ] E2: migracija formi na nove tokene + nove inpute: Trosak (+ skener ulaz), Placanje (tip,
+- [x] E1: TimeField + TimePickerSheet (sat mreza 7-22, minuti 4 cipa, dugi pritisak native fallback) + DurationChips (30/45/60/90/120 racunaju kraj)
+- [x] E1: desktop varijante kao popover (isti sadrzaj, anchor uz polje, tastatura radi)
+- [x] E2: migracija formi na nove tokene + nove inpute: Trosak (+ skener ulaz), Placanje (tip,
       ponavljanje, promenljiv iznos, podsetnici), Dogadjaj (Vise dana + trajanje cipovi), Aktivnost
       (termini editor sa A/B), Rodjendan (DOB tok), Lista, Prihod/Kategorija forme
-- [ ] E2: DetailSheet restyle za sve entitete - REDOSLED AKCIJA IDENTICAN sadasnjem (placanje:
+- [x] E2: DetailSheet restyle za sve entitete - REDOSLED AKCIJA IDENTICAN sadasnjem (placanje:
       Oznaci kao placeno -> Izmeni -> Istorija -> Pomeri -> Otkazi -> Pauziraj -> Obrisi; itd.)
-- [ ] E2: CurrencyToggle + ExchangeRateRow restyle (NBS red, zamrznut kurs - logika ista)
+- [x] E2: CurrencyToggle + ExchangeRateRow restyle (NBS red, zamrznut kurs - logika ista)
 
 ### Lane F - Sekundarni ekrani (1 dan) [posle A, moze paralelno sa E2]
 
@@ -206,6 +206,14 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   jezika i dalje je "Sljiva", ali korisnik bira Plavu/Ljubicastu/Zelenu/Braon).
 
 ## Odstupanja od prototipa (popunjava se tokom rada)
+
+- Lane E: biraci se otvaraju kao sheet na mobilnom, ali kroz postojeci
+  ResponsiveDialog (vaul), ne kao pod-prikaz forme - forma ostaje na svom
+  mestu i vraca se netaknuta. Na desktopu je popover uz polje, kao u planu.
+- Lane E: uz mrezu sati 7-22 stoji i cip "Ostali sati" plus polje "Tacno vreme",
+  jer dugi pritisak na native picker ne radi svuda (Safari nema showPicker).
+- Lane E: cipovi trajanja se ne nude za visednevne dogadjaje - kraj tada pripada
+  drugom danu, pa bi racunanje "pocetak + N" bilo pogresno.
 
 - Token `--accent*` je uzet za korisnikov akcenat, pa je shadcn-ov neutralni
   `accent` (hover pozadina) prebacen na `muted` u `components/ui/*`. Vizuelno
