@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { endOfMonth, format } from "date-fns";
 import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
@@ -12,6 +12,7 @@ import { Amount } from "@/components/common/Amount";
 import { DayTimeline } from "@/components/dashboard/DayTimeline";
 import { FirstStepsCard } from "@/components/dashboard/FirstStepsCard";
 import { PersonFilterRow } from "@/components/dashboard/PersonFilterRow";
+import { TodayRail } from "@/components/dashboard/TodayRail";
 import { TodayWeekStrip } from "@/components/dashboard/TodayWeekStrip";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { AppScreen } from "@/components/layout/AppScreen";
@@ -24,6 +25,7 @@ import { useFirstSteps } from "@/hooks/useFirstSteps";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
 import { useProfile } from "@/hooks/useProfile";
 import { useSearchDialog } from "@/hooks/useSearchDialog";
+import { useIsWide } from "@/hooks/useIsWide";
 import { useToday } from "@/hooks/useToday";
 import { getWeekStart } from "@/utils/activity";
 import { addDays, srLocale } from "@/utils/date";
@@ -59,14 +61,20 @@ export function TodayScreen() {
   const firstSteps = useFirstSteps();
   const surface = useAgendaSurface();
 
-  // Today → the end of this week. The strip only ever shows the current week,
-  // and past days of it are not selectable, so nothing before today is needed.
-  const weekEnd = useMemo(() => {
+  // How far ahead to load. The phone only needs this week (the strip shows one
+  // week and its past days are not selectable); the desktop rail also shows a
+  // mini-month and "Sledeći dani", so it reaches the end of the month. Either
+  // way it stays ONE useAgenda - the hook fans out to several tables per call.
+  const isWide = useIsWide();
+  const rangeEnd = useMemo(() => {
     const monday = getWeekStart(today);
-    return format(addDays(new Date(`${monday}T12:00:00`), 6), "yyyy-MM-dd");
-  }, [today]);
+    const weekEnd = format(addDays(new Date(`${monday}T12:00:00`), 6), "yyyy-MM-dd");
+    if (!isWide) return weekEnd;
+    const monthEnd = format(endOfMonth(new Date(`${today}T12:00:00`)), "yyyy-MM-dd");
+    return monthEnd > weekEnd ? monthEnd : weekEnd;
+  }, [today, isWide]);
 
-  const { items: weekItems, isLoading } = useAgenda({ from: today, to: weekEnd });
+  const { items: weekItems, isLoading } = useAgenda({ from: today, to: rangeEnd });
   const overdue = useOverduePayments();
 
   const todayItems = useMemo(
@@ -157,68 +165,87 @@ export function TodayScreen() {
         </Link>
       </div>
 
-      <TodayWeekStrip today={today} countByDay={countByDay} />
+      {/* On desktop the strip and the filters belong to the timeline column,
+          not to the full width - a seven-day strip stretched over 1000px reads
+          as a calendar of its own. */}
+      <div className="flex flex-col gap-2.5 lg:max-w-[640px]">
+        <TodayWeekStrip today={today} countByDay={countByDay} />
 
-      <PersonFilterRow
-        selected={filters.filter.personIds}
-        onToggle={filters.togglePerson}
-        onClear={filters.reset}
-      />
+        <PersonFilterRow
+          selected={filters.filter.personIds}
+          onToggle={filters.togglePerson}
+          onClear={filters.reset}
+        />
+      </div>
     </div>
   );
 
   return (
-    <AppScreen header={header}>
-      {!familyId ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">Učitavanje…</p>
-      ) : (
-        <>
-          {overdueItems.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                void navigate({ to: "/novac", search: { tab: "placanja" } });
-              }}
-              className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-bold text-neg transition-transform active:scale-[0.98]"
-            >
-              <ExclamationTriangleIcon className="size-[17px] flex-none" />
-              <span>
-                Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
-              </span>
-              <span className="ml-auto font-extrabold tabular-nums">
-                <Amount value={overdueTotal} round />
-              </span>
-              <ChevronRightIcon className="size-[15px] flex-none" />
-            </button>
-          ) : null}
-
-          {firstSteps.visible ? (
-            <div className="mb-3">
-              <FirstStepsCard
-                firstSteps={firstSteps}
-                onAddEvent={surface.openAddEvent}
-                onAddPayment={surface.openAddPayment}
-              />
-            </div>
-          ) : null}
-
-          {isLoading ? (
-            <AgendaListSkeleton rows={4} />
+    <AppScreen
+      header={header}
+      contentClassName="mx-auto w-full max-w-3xl lg:max-w-[1010px]"
+      bodyClassName="lg:px-8"
+    >
+      <div className="lg:grid lg:grid-cols-[minmax(0,640px)_320px] lg:items-start lg:gap-6">
+        <div className="min-w-0">
+          {!familyId ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Učitavanje…</p>
           ) : (
-            <DayTimeline
-              items={todayItems}
-              onSelect={surface.onSelect}
-              emptyState={
-                <TodayEmpty
-                  filterActive={filterActive}
-                  hasOverdue={overdueItems.length > 0}
-                  onboardingActive={firstSteps.visible}
+            <>
+              {overdueItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate({ to: "/novac", search: { tab: "placanja" } });
+                  }}
+                  className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-bold text-neg transition-transform active:scale-[0.98] lg:hidden"
+                >
+                  <ExclamationTriangleIcon className="size-[17px] flex-none" />
+                  <span>
+                    Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
+                  </span>
+                  <span className="ml-auto font-extrabold tabular-nums">
+                    <Amount value={overdueTotal} round />
+                  </span>
+                  <ChevronRightIcon className="size-[15px] flex-none" />
+                </button>
+              ) : null}
+
+              {firstSteps.visible ? (
+                <div className="mb-3">
+                  <FirstStepsCard
+                    firstSteps={firstSteps}
+                    onAddEvent={surface.openAddEvent}
+                    onAddPayment={surface.openAddPayment}
+                  />
+                </div>
+              ) : null}
+
+              {isLoading ? (
+                <AgendaListSkeleton rows={4} />
+              ) : (
+                <DayTimeline
+                  items={todayItems}
+                  onSelect={surface.onSelect}
+                  emptyState={
+                    <TodayEmpty
+                      filterActive={filterActive}
+                      hasOverdue={overdueItems.length > 0}
+                      onboardingActive={firstSteps.visible}
+                    />
+                  }
                 />
-              }
-            />
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+        <TodayRail
+          today={today}
+          overdueItems={overdueItems}
+          upcoming={weekItems}
+          countByDay={countByDay}
+        />
+      </div>
       {surface.dialogs}
     </AppScreen>
   );

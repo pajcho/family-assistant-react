@@ -1,17 +1,21 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { Navigate, Outlet, createFileRoute } from "@tanstack/react-router";
-import { AppNav, MobileBottomNav } from "@/components/layout/AppNav";
+import { Navigate, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
+import { MobileBottomNav } from "@/components/layout/AppNav";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useAccentSync } from "@/hooks/useAccent";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamilyChannel } from "@/hooks/useFamilyChannel";
 import { SearchDialogProvider } from "@/hooks/useSearchDialog";
 import { useVisibilityRefetch } from "@/hooks/useVisibilityRefetch";
+import { sectionForPathname } from "@/components/layout/navSections";
+import { recordNavRecent } from "@/lib/navRecents";
 
 /**
  * Protected layout route. All authenticated pages sit under `_app` so they
- * share the app frame: desktop header, the screen area, and the mobile bottom
- * bar.
+ * share the app frame: the desktop nav rail, the screen area, and the mobile
+ * bottom bar.
  *
  * Redizajn 2.0 - the frame is FIXED at 100dvh and never scrolls. Each screen
  * scrolls inside its own container (see <AppScreen>), which is what lets the
@@ -43,20 +47,32 @@ function AppLayout() {
   // Paint the user's chosen accent ("boja aplikacije") onto <html>.
   useAccentSync();
 
+  // Feed the "Nedavno" row in the Meni sheet: every visit to one of the
+  // sections is remembered per-device, whatever surface triggered it.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  useEffect(() => {
+    const key = sectionForPathname(pathname);
+    if (key) recordNavRecent(key);
+  }, [pathname]);
+
   // SW update toast lives in __root.tsx (covers login too). The iOS install
   // banner lives on the login route - once you're signed in you've already
   // committed to the app, so the prompt would just be visual noise.
   return (
     <AuthGate>
       <SearchDialogProvider>
-        <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
-          <AppNav />
-          {/* The screen area. `min-h-0` is what makes the inner scroll
-              container actually scroll instead of stretching the frame. */}
-          <div className="relative min-h-0 flex-1">
-            <Outlet />
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+          {/* >= lg: the nav rail. Below that it renders nothing and the bottom
+              bar takes over. */}
+          <AppSidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* The screen area. `min-h-0` is what makes the inner scroll
+                container actually scroll instead of stretching the frame. */}
+            <div className="relative min-h-0 flex-1">
+              <Outlet />
+            </div>
+            <MobileBottomNav />
           </div>
-          <MobileBottomNav />
           <PullToRefresh />
         </div>
       </SearchDialogProvider>

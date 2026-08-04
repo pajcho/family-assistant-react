@@ -139,11 +139,12 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane H - Desktop (1.5 dan) [posle vecine B-E; prvi task ODMAH moze]
 
-- [ ] H0 PRVO: brz staticki mock desktop Danas + Kalendar (prosiriti postojeci artifact prototip)
-      i kratka potvrda korisnika pre gradnje
-- [ ] Sidebar >=lg (~240px): logo, veliko "+ Dodaj", svih 9 sekcija sa ikonama, dole profil mini +
+- [x] H0 PRVO: brz staticki mock desktop Danas + Kalendar (prosiriti postojeci artifact prototip)
+      i kratka potvrda korisnika pre gradnje - ODOBRENO 2026-08-04
+      (artifact: https://claude.ai/code/artifact/25b00c0d-3d0e-4c18-bfad-903267137cf4)
+- [x] Sidebar >=lg (~240px): logo, veliko "+ Dodaj", svih 9 sekcija sa ikonama, dole profil mini +
       tema; gasi se top inline nav; <lg ostaje donja traka (postojeci lg breakpoint se zadrzava)
-- [ ] Danas desktop: 2 kolone - timeline levo (max ~640px), desno sticky: mini-mesec (klik vodi u
+- [x] Danas desktop: 2 kolone - timeline levo (max ~640px), desno sticky: mini-mesec (klik vodi u
       Kalendar), Prekoraceno karta, kratka "Sledeci dani" lista
 - [ ] Kalendar desktop: Mesec sa event chipovima u celijama, Nedelja puna visina, Agenda centrirana;
       toolbar sa segmentima i filterima
@@ -215,4 +216,7 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
 - Danas timeline: prototip prikazuje pocetak i u levoj koloni I u kartici desno;
   kod nas kartica desno nosi samo "do HH:MM" (ponavljanje je bilo suvisno na telefonu).
 - Danas ucitava agendu za CELU tekucu nedelju (jedan useAgenda) da bi traka
-  imala tackice opterecenja; timeline uzima samo danasnji presek.
+  imala tackice opterecenja; timeline uzima samo danasnji presek. Na desktopu
+  se opseg siri do kraja meseca, jer desna kolona ima mini-mesec i "Sledeci dani".
+- Desktop: pretraga postoji i u sidebaru (red "Pretrazi ⌘K"), ne samo u zaglavlju
+  ekrana - sidebar je jedina povrsina prisutna na svakom ekranu.

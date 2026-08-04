@@ -1,19 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useMatchRoute, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import {
-  ArrowRightOnRectangleIcon,
   CheckIcon,
-  ChevronDownIcon,
-  Cog6ToothIcon,
-  ComputerDesktopIcon,
   LockClosedIcon,
-  MagnifyingGlassIcon,
-  MoonIcon,
   PencilSquareIcon,
   PlusIcon,
   RectangleGroupIcon,
-  SunIcon,
-  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
@@ -26,36 +18,22 @@ import {
   NAV_SECTION_MAP,
   UNSLOTTABLE_SECTIONS,
   normalizeNavSlots,
-  sectionForPathname,
   type NavSection,
   type NavSectionKey,
 } from "@/components/layout/navSections";
-import { UserAvatar } from "@/components/layout/UserAvatar";
 import { GlobalAddSheet } from "@/components/common/GlobalAddSheet";
 import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
-import { useAuth } from "@/hooks/useAuth";
-import { useSearchDialog } from "@/hooks/useSearchDialog";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useProfile, useUpdateNavSlots } from "@/hooks/useProfile";
-import { useTheme, type ThemeMode } from "@/hooks/useTheme";
-import { readNavRecents, recordNavRecent } from "@/lib/navRecents";
-import { getDisplayName } from "@/utils/identity";
+import { readNavRecents } from "@/lib/navRecents";
 
 /**
- * App chrome (redizajn 2.0).
+ * Mobile navigation (< lg), redizajn 2.0.
  *
- * Below `lg` there is no top bar at all - every screen owns its own header
- * (title, filters, search and avatar buttons), which is what lets the frame be
- * a fixed 100dvh box with per-screen scrolling. Navigation is the bottom bar:
+ * There is no top bar any more - every screen owns its own header (title,
+ * filters, search and avatar buttons), which is what lets the frame be a fixed
+ * 100dvh box with per-screen scrolling. Navigation is the bottom bar:
  *
  *     Danas · [slot] · (+) · [slot] · Meni
  *
@@ -64,228 +42,8 @@ import { getDisplayName } from "@/utils/identity";
  * also maps pre-redesign keys forward), and the centre "+" opens the global
  * add sheet - the FAB that used to float over every page is gone.
  *
- * At `lg` and up the desktop header carries the sections inline. (Lane H of
- * the redesign replaces it with a sidebar; this keeps desktop usable until
- * then.)
+ * At `lg` and up this renders nothing; <AppSidebar> takes over.
  */
-
-export function AppNav() {
-  const { openSearch } = useSearchDialog();
-
-  // Feed the "Nedavno" row: every visit to one of the sections is remembered
-  // per-device, whatever surface triggered the navigation.
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  useEffect(() => {
-    const key = sectionForPathname(pathname);
-    if (key) recordNavRecent(key);
-  }, [pathname]);
-
-  return (
-    <nav className="hidden flex-none border-b border-border bg-card lg:block">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2" aria-label="Početna">
-            {/* The brand mark stays blue whatever accent the user picked -
-                it matches the PWA icon, the login screen and the splash. */}
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-              <UserGroupIcon className="h-5 w-5 text-white" />
-            </div>
-          </Link>
-          <div className="flex gap-1">
-            {NAV_SECTIONS.filter((section) => !section.search && section.key !== "settings").map(
-              (section) => (
-                <AppNavLink
-                  key={section.key}
-                  to={section.to}
-                  label={section.label}
-                  icon={section.icon}
-                />
-              ),
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label="Pretraga"
-            title="Pretraga (⌘K)"
-            onClick={openSearch}
-            className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <MagnifyingGlassIcon className="h-5 w-5" />
-          </button>
-          <AppMenu />
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-function AppMenu() {
-  const { signOut, user } = useAuth();
-  const { profile } = useProfile();
-  const navigate = useNavigate();
-  const { mode, setMode } = useTheme();
-
-  const handleLogout = async () => {
-    await signOut();
-    await navigate({ to: "/login" });
-  };
-
-  const identity = {
-    firstName: profile?.first_name ?? null,
-    lastName: profile?.last_name ?? null,
-    email: user?.email ?? null,
-  };
-
-  return (
-    <AppDropdownMenu
-      identity={identity}
-      displayName={getDisplayName(identity)}
-      email={user?.email ?? null}
-      mode={mode}
-      setMode={setMode}
-      onLogout={handleLogout}
-    />
-  );
-}
-
-interface AppDropdownMenuProps {
-  identity: { firstName: string | null; lastName: string | null; email: string | null };
-  displayName: string;
-  email: string | null;
-  mode: ThemeMode;
-  setMode: (next: ThemeMode) => void;
-  onLogout: () => Promise<void>;
-}
-
-/** Desktop (lg+) account dropdown: identity, theme pill, settings, logout. */
-function AppDropdownMenu({
-  identity,
-  displayName,
-  email,
-  mode,
-  setMode,
-  onLogout,
-}: AppDropdownMenuProps) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Korisnički meni"
-          // Avatar doubles as the dropdown trigger - visually distinct from
-          // a hamburger so the affordance reads as "your account / menu".
-          // The chevron is the explicit "this opens a dropdown" hint.
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full pr-1.5 pl-0.5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
-        >
-          <UserAvatar {...identity} className="h-8 w-8" />
-          <span className="max-w-[12rem] truncate text-sm font-medium">{displayName}</span>
-          <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-64">
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <UserAvatar {...identity} className="h-9 w-9" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{displayName}</div>
-            {email && displayName !== email ? (
-              <div className="truncate text-xs text-muted-foreground">{email}</div>
-            ) : null}
-          </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-          Tema
-        </DropdownMenuLabel>
-        <div className="px-2 py-1.5">
-          <ThemePickerRow mode={mode} onSelect={setMode} />
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
-            <Cog6ToothIcon className="h-4 w-4" />
-            <span>Podešavanja</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            void onLogout();
-          }}
-          className="cursor-pointer"
-        >
-          <ArrowRightOnRectangleIcon className="h-4 w-4" />
-          <span>Odjavi se</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-interface ThemePickerRowProps {
-  mode: ThemeMode;
-  onSelect: (next: ThemeMode) => void;
-}
-
-function ThemePickerRow({ mode, onSelect }: ThemePickerRowProps) {
-  // Mirrors the desktop ThemeToggle three-button pill but rendered inside
-  // the dropdown. Clicking a button doesn't dismiss the menu (the pill is
-  // not a DropdownMenuItem), matching how iOS share-sheet style menus keep
-  // toggles available without closing.
-  return (
-    <div className="flex w-full items-center gap-1 rounded-md bg-muted p-1">
-      <ThemeButton
-        active={mode === "light"}
-        onClick={() => onSelect("light")}
-        ariaLabel="Svetla tema"
-        activeColor="text-warn"
-        icon={SunIcon}
-      />
-      <ThemeButton
-        active={mode === "dark"}
-        onClick={() => onSelect("dark")}
-        ariaLabel="Tamna tema"
-        activeColor="text-accent-deep"
-        icon={MoonIcon}
-      />
-      <ThemeButton
-        active={mode === "auto"}
-        onClick={() => onSelect("auto")}
-        ariaLabel="Automatska tema"
-        activeColor="text-foreground"
-        icon={ComputerDesktopIcon}
-      />
-    </div>
-  );
-}
-
-interface ThemeButtonProps {
-  active: boolean;
-  onClick: () => void;
-  ariaLabel: string;
-  activeColor: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-}
-
-function ThemeButton({ active, onClick, ariaLabel, activeColor, icon: Icon }: ThemeButtonProps) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className={cn(
-        "flex flex-1 items-center justify-center rounded-sm p-1.5 transition-colors",
-        active
-          ? cn("bg-card shadow-sm", activeColor)
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="h-4 w-4" />
-    </button>
-  );
-}
-
-/* ────────────────────────── donja traka (< lg) ────────────────────────── */
 
 export function MobileBottomNav() {
   // iOS Safari auto-elevates the keyboard above page content and leaves the
@@ -370,7 +128,7 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
       !!matchRoute({ to: section.to, fuzzy: true }),
   );
 
-  // Re-read on every open - visits are recorded globally (AppNav effect), the
+  // Re-read on every open - visits are recorded globally (in the _app route), the
   // sheet only presents them. Sections already in the bar are one tap away
   // and would be noise here.
   const recents = useMemo(() => {
