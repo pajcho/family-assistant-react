@@ -178,17 +178,14 @@ function Hub({
               const name = memberName(member);
               const band = timeBandByPerson.get(member.id) ?? null;
               return (
-                <li
-                  key={member.id}
-                  className="space-y-2 rounded-md border border-gray-200 p-2.5 dark:border-gray-700"
-                >
+                <li key={member.id} className="space-y-2 rounded-md border border-border p-2.5">
                   <div className="flex items-center gap-2">
                     <span
                       className="inline-block size-3 rounded-full"
                       style={{ backgroundColor: color }}
                       aria-hidden="true"
                     />
-                    <span className="flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span className="flex-1 truncate text-sm font-bold text-foreground">
                       {name}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">

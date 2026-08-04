@@ -67,7 +67,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
   const descriptionPreview = previewLine(item.description);
 
   return (
-    <div className="group flex items-stretch rounded-md bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/50">
+    <div className="group flex items-stretch rounded-md bg-card transition-colors hover:bg-muted/60">
       <label
         className="flex shrink-0 cursor-pointer items-center py-3 pl-3 pr-4 pointer-fine:py-1.5 pointer-fine:pl-2 pointer-fine:pr-2"
         aria-label={item.is_completed ? `Vrati "${item.name}" u aktivne` : `Završi "${item.name}"`}
@@ -76,7 +76,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           type="checkbox"
           checked={item.is_completed}
           onChange={() => onToggle(item)}
-          className="h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
+          className="h-5 w-5 shrink-0 cursor-pointer rounded-sm border-border bg-card text-accent focus:ring-ring"
         />
       </label>
       {/* Hit-target scoping: same approach as before - the wrapper owns the
@@ -102,10 +102,8 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
             }
           }}
           className={cn(
-            "flex max-w-full min-w-0 cursor-pointer flex-col justify-center rounded py-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 pointer-fine:py-1.5",
-            item.is_completed
-              ? "text-gray-400 dark:text-gray-500"
-              : "text-gray-900 dark:text-gray-100",
+            "flex max-w-full min-w-0 cursor-pointer flex-col justify-center rounded-sm py-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:py-1.5",
+            item.is_completed ? "text-muted-foreground" : "text-foreground",
           )}
           aria-label={`Otvori detalje za "${item.name}"`}
         >
@@ -114,9 +112,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
               text={item.name}
               linkClassName={cn(
                 "underline underline-offset-2",
-                item.is_completed
-                  ? "text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
-                  : "text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300",
+                item.is_completed ? "text-muted-foreground" : "text-accent-deep",
               )}
             />
           </span>
@@ -124,9 +120,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
             <span
               className={cn(
                 "truncate text-xs",
-                item.is_completed
-                  ? "text-gray-300 dark:text-gray-600"
-                  : "text-gray-500 dark:text-gray-400",
+                item.is_completed ? "text-muted-foreground/60" : "text-muted-foreground",
               )}
             >
               {descriptionPreview}
@@ -153,7 +147,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           onClick={() => onDelete(item)}
           aria-label="Obriši stavku"
         >
-          <TrashIcon className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
+          <TrashIcon className="h-3.5 w-3.5 text-neg" />
         </Button>
       </div>
       {/* Drag handle - only rendered when the list is reorderable
@@ -169,7 +163,7 @@ export function ListItemRow({ item, onToggle, onOpen, onDelete, dragHandle }: Li
           <button
             type="button"
             aria-label={`Premesti "${item.name}"`}
-            className="flex h-8 w-8 cursor-grab touch-none items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            className="flex h-9 w-9 cursor-grab touch-none items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
             {...dragHandle.attributes}
             {...dragHandle.listeners}
             // Stop the pointerdown from reaching `SwipeableListItem`, which

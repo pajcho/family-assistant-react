@@ -45,10 +45,10 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
         </ResponsiveDialogHeader>
 
         <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Lista
           </h3>
-          <dl className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-700/50">
+          <dl className="space-y-2 rounded-lg bg-muted p-3 text-sm">
             <AuditRow
               label="Kreirao"
               person={byId.get(list.owner_id)}
@@ -64,10 +64,10 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
 
         {list.list_items.length > 0 ? (
           <section className="mt-4 space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Aktivnost stavki
             </h3>
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {list.list_items.map((item) => {
                 const creator = item.created_by_id ? byId.get(item.created_by_id) : undefined;
                 const editor = item.updated_by_id ? byId.get(item.updated_by_id) : undefined;
@@ -81,26 +81,26 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
                       <span
                         className={
                           item.is_completed
-                            ? "min-w-0 truncate text-gray-400 line-through dark:text-gray-500"
-                            : "min-w-0 truncate font-medium text-gray-900 dark:text-gray-100"
+                            ? "min-w-0 truncate text-muted-foreground line-through"
+                            : "min-w-0 truncate font-medium text-foreground"
                         }
                       >
                         {item.name}
                       </span>
                       {item.is_completed ? (
-                        <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                        <span className="shrink-0 rounded-full bg-pos-soft px-2 py-0.5 text-xs font-bold text-pos">
                           Završeno
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       Dodao: <PersonLabel person={creator} /> ·{" "}
                       <time dateTime={item.created_at} title={formatDateTime(item.created_at)}>
                         {formatRelative(item.created_at)}
                       </time>
                     </p>
                     {wasEdited ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         Poslednja izmena: <PersonLabel person={editor} /> ·{" "}
                         <time dateTime={item.updated_at} title={formatDateTime(item.updated_at)}>
                           {formatRelative(item.updated_at)}
@@ -134,12 +134,12 @@ function AuditRow({
   // empty next to it.
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="shrink-0 text-gray-500 dark:text-gray-400">{label}</dt>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-right">
-        <span className="text-gray-900 dark:text-gray-100">
+        <span className="text-foreground">
           <PersonLabel person={person} />
         </span>
-        <span className="ml-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+        <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
           <time dateTime={timestamp} title={formatDateTime(timestamp)}>
             {formatRelative(timestamp)}
           </time>
@@ -151,7 +151,7 @@ function AuditRow({
 
 function PersonLabel({ person }: { person: Profile | undefined }) {
   if (!person) {
-    return <span className="italic text-gray-400 dark:text-gray-500">nepoznat korisnik</span>;
+    return <span className="italic text-muted-foreground">nepoznat korisnik</span>;
   }
   return (
     <span>{getDisplayName({ firstName: person.first_name, lastName: person.last_name })}</span>

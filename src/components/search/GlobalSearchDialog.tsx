@@ -104,42 +104,42 @@ const GROUP_META: Record<SearchResultKind, GroupMeta> = {
   page: {
     label: "Stranice",
     Icon: ArrowRightCircleIcon,
-    iconClass: "text-gray-500 dark:text-gray-400",
+    iconClass: "text-muted-foreground",
   },
   activity: {
     label: "Aktivnosti",
     Icon: UserGroupIcon,
-    iconClass: "text-violet-500 dark:text-violet-400",
+    iconClass: "text-accent-deep",
   },
   event: {
     label: "Događaji",
     Icon: CalendarIcon,
-    iconClass: "text-blue-500 dark:text-blue-400",
+    iconClass: "text-info",
   },
   external: {
     label: "Google kalendar",
     Icon: GlobeAltIcon,
-    iconClass: "text-sky-500 dark:text-sky-400",
+    iconClass: "text-info",
   },
   payment: {
     label: "Plaćanja",
     Icon: BanknotesIcon,
-    iconClass: "text-amber-500 dark:text-amber-400",
+    iconClass: "text-warn",
   },
   birthday: {
     label: "Rođendani",
     Icon: CakeIcon,
-    iconClass: "text-emerald-500 dark:text-emerald-400",
+    iconClass: "text-pos",
   },
   list: {
     label: "Liste",
     Icon: ClipboardDocumentListIcon,
-    iconClass: "text-purple-500 dark:text-purple-400",
+    iconClass: "text-accent-deep",
   },
   list_item: {
     label: "Stavke u listama",
     Icon: ClipboardDocumentListIcon,
-    iconClass: "text-purple-500 dark:text-purple-400",
+    iconClass: "text-accent-deep",
   },
 };
 
@@ -275,8 +275,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             Pretraži aktivnosti, događaje, plaćanja, rođendane i liste po nazivu.
           </DialogDescription>
 
-          <div className="flex items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
-            <MagnifyingGlassIcon className="size-5 shrink-0 text-gray-400 dark:text-gray-500" />
+          <div className="flex items-center gap-2 border-b border-border px-4">
+            <MagnifyingGlassIcon className="size-5 shrink-0 text-muted-foreground" />
             <input
               autoFocus
               type="text"
@@ -287,12 +287,12 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
               aria-label="Pretraga"
               aria-controls="global-search-results"
               aria-activedescendant={hasResults ? optionId(highlight) : undefined}
-              className="h-12 w-full bg-transparent text-base text-gray-900 outline-none placeholder:text-gray-400 md:text-sm dark:text-gray-100 dark:placeholder:text-gray-500"
+              className="h-12 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground md:text-sm"
             />
             {isSearching ? (
               <span
                 aria-hidden="true"
-                className="size-4 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400"
+                className="size-4 shrink-0 animate-spin rounded-full border-2 border-border border-t-accent"
               />
             ) : null}
           </div>
@@ -304,11 +304,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             className="max-h-[60vh] overflow-y-auto p-2"
           >
             {!enabled ? (
-              <p className="px-2 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                 {`Ukucaj bar ${MIN_SEARCH_CHARS} znaka za pretragu.`}
               </p>
             ) : showNoResults ? (
-              <p className="px-2 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                 Nema rezultata za „{debouncedTerm.trim()}".
               </p>
             ) : (
@@ -380,15 +380,13 @@ function SearchResultRow({
       onMouseEnter={onHover}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors",
-        highlighted && "bg-gray-100 dark:bg-gray-700/60",
+        highlighted && "bg-muted",
       )}
     >
       <RowIcon className={cn("size-4 shrink-0", iconClass)} />
-      <span className="min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100">
-        {result.title}
-      </span>
+      <span className="min-w-0 flex-1 truncate font-medium text-foreground">{result.title}</span>
       {result.subtitle ? (
-        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{result.subtitle}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{result.subtitle}</span>
       ) : null}
     </button>
   );

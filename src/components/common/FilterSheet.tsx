@@ -92,17 +92,17 @@ export function FilterSwitchRow({
       role="switch"
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-md py-1.5 text-sm font-medium text-gray-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:text-gray-200"
+      className="flex w-full items-center justify-between gap-3 rounded-md py-1.5 text-sm font-medium text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       <span className="flex items-center gap-2">
-        {Icon ? <Icon className="size-4 text-gray-400 dark:text-gray-500" /> : null}
+        {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
         {label}
       </span>
       <span
         aria-hidden="true"
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors",
-          checked ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600",
+          checked ? "bg-accent" : "bg-border",
         )}
       >
         <span
@@ -143,7 +143,7 @@ export function AppliedFilterChips({
       {filters.map((f) => (
         <span
           key={f.key}
-          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 py-0.5 pr-1 pl-2.5 text-xs font-medium text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/30 dark:text-blue-200"
+          className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent-soft py-0.5 pr-1 pl-2.5 text-xs font-bold text-accent-deep"
         >
           {f.color ? (
             <span
@@ -157,7 +157,7 @@ export function AppliedFilterChips({
             type="button"
             aria-label={`Ukloni filter ${f.label}`}
             onClick={f.onRemove}
-            className="rounded-full p-0.5 text-blue-500 hover:bg-blue-100 hover:text-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50"
+            className="rounded-full p-0.5 text-accent-deep transition-opacity hover:opacity-70"
           >
             <XMarkIcon className="size-3.5" />
           </button>

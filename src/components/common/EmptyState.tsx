@@ -31,22 +31,13 @@ import { cn } from "@/lib/cn";
 export type EmptyStateTone = "blue" | "amber" | "emerald" | "purple" | "violet" | "rose" | "gray";
 
 const TONE_CLASSES: Record<EmptyStateTone, { tile: string; icon: string }> = {
-  blue: { tile: "bg-blue-100 dark:bg-blue-900/40", icon: "text-blue-600 dark:text-blue-400" },
-  amber: { tile: "bg-amber-100 dark:bg-amber-900/40", icon: "text-amber-600 dark:text-amber-400" },
-  emerald: {
-    tile: "bg-emerald-100 dark:bg-emerald-900/40",
-    icon: "text-emerald-600 dark:text-emerald-400",
-  },
-  purple: {
-    tile: "bg-purple-100 dark:bg-purple-900/40",
-    icon: "text-purple-600 dark:text-purple-400",
-  },
-  violet: {
-    tile: "bg-violet-100 dark:bg-violet-900/40",
-    icon: "text-violet-600 dark:text-violet-400",
-  },
-  rose: { tile: "bg-rose-100 dark:bg-rose-900/40", icon: "text-rose-600 dark:text-rose-400" },
-  gray: { tile: "bg-gray-100 dark:bg-gray-700", icon: "text-gray-600 dark:text-gray-300" },
+  blue: { tile: "bg-info-soft", icon: "text-info" },
+  amber: { tile: "bg-warn-soft", icon: "text-warn" },
+  emerald: { tile: "bg-pos-soft", icon: "text-pos" },
+  purple: { tile: "bg-accent-soft", icon: "text-accent-deep" },
+  violet: { tile: "bg-accent-soft", icon: "text-accent-deep" },
+  rose: { tile: "bg-neg-soft", icon: "text-neg" },
+  gray: { tile: "bg-muted", icon: "text-muted-foreground" },
 };
 
 export type EmptyStateAction = { label: string; onClick: () => void };
@@ -96,7 +87,7 @@ export function EmptyState({
           className,
         )}
       >
-        <div className="pointer-events-auto w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 text-center shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div className="pointer-events-auto w-full max-w-sm rounded-xl border border-border bg-card p-5 text-center shadow-card">
           {Icon ? (
             <div
               className={cn(
@@ -108,17 +99,10 @@ export function EmptyState({
             </div>
           ) : null}
           {title ? (
-            <p className="text-base font-semibold text-balance text-gray-900 dark:text-white">
-              {title}
-            </p>
+            <p className="text-base font-bold text-balance text-foreground">{title}</p>
           ) : null}
           {description ? (
-            <p
-              className={cn(
-                "text-sm text-pretty text-gray-500 dark:text-gray-400",
-                title && "mt-1",
-              )}
-            >
+            <p className={cn("text-sm text-pretty text-muted-foreground", title && "mt-1")}>
               {description}
             </p>
           ) : null}
@@ -135,7 +119,7 @@ export function EmptyState({
                   key={example.label}
                   type="button"
                   onClick={example.onClick}
-                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
                 >
                   + {example.label}
                 </button>
@@ -152,23 +136,19 @@ export function EmptyState({
     return (
       <div
         className={cn(
-          "rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-800",
+          "rounded-xl border border-border bg-card p-6 text-center shadow-card",
           className,
         )}
       >
-        {title ? (
-          <p className="text-sm font-medium text-gray-900 dark:text-white">{title}</p>
-        ) : null}
+        {title ? <p className="text-sm font-bold text-foreground">{title}</p> : null}
         {description ? (
-          <p className={cn("text-sm text-gray-500 dark:text-gray-400", title && "mt-1")}>
-            {description}
-          </p>
+          <p className={cn("text-sm text-muted-foreground", title && "mt-1")}>{description}</p>
         ) : null}
         {secondaryAction ? (
           <button
             type="button"
             onClick={secondaryAction.onClick}
-            className="mt-2 text-sm font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+            className="mt-2 text-sm font-bold text-accent-deep underline-offset-4 hover:underline"
           >
             {secondaryAction.label}
           </button>
@@ -181,7 +161,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800",
+        "rounded-xl border border-dashed border-border bg-card p-8 text-center",
         className,
       )}
     >
@@ -196,17 +176,12 @@ export function EmptyState({
         </div>
       ) : null}
       {title ? (
-        <p
-          className={cn(
-            "text-base font-semibold text-balance text-gray-900 dark:text-white",
-            Icon && "mt-3",
-          )}
-        >
+        <p className={cn("text-base font-bold text-balance text-foreground", Icon && "mt-3")}>
           {title}
         </p>
       ) : null}
       {description ? (
-        <p className="mx-auto mt-1 max-w-sm text-sm text-pretty text-gray-500 dark:text-gray-400">
+        <p className="mx-auto mt-1 max-w-sm text-sm text-pretty text-muted-foreground">
           {description}
         </p>
       ) : null}
@@ -223,7 +198,7 @@ export function EmptyState({
               key={example.label}
               type="button"
               onClick={example.onClick}
-              className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-200 dark:hover:bg-gray-700"
+              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
             >
               + {example.label}
             </button>
@@ -234,7 +209,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={secondaryAction.onClick}
-          className="mt-3 block w-full text-sm font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+          className="mt-3 block w-full text-sm font-bold text-accent-deep underline-offset-4 hover:underline"
         >
           {secondaryAction.label}
         </button>

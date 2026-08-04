@@ -233,7 +233,7 @@ export function WeekGrid({
   return (
     <div
       ref={scrollContainerRef}
-      className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+      className="overflow-x-auto rounded-lg border border-border bg-card shadow-card"
     >
       {/* `min-w-max` makes the inner wrapper size to its content (1876px on
           mobile, 7×fr on sm+). Without it, the wrapper inherits the
@@ -247,21 +247,28 @@ export function WeekGrid({
             placeholder, not the gutter's first hour label.
             Mobile uses fixed 260px columns so multi-person blocks (siblings
             in the same termin) have room; sm+ flexes back to 1fr / 7. */}
-        <div className="sticky top-0 z-20 grid grid-cols-[56px_repeat(7,260px)] border-b border-gray-200 bg-white sm:grid-cols-[56px_repeat(7,minmax(0,1fr))] dark:border-gray-700 dark:bg-gray-800">
+        <div className="sticky top-0 z-20 grid grid-cols-[56px_repeat(7,260px)] border-b border-border bg-card sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]">
           <div className="px-2 py-2 text-[10px] uppercase tracking-wide text-muted-foreground" />
           {dayHeaders.map((dh, dow) => (
             <div
               key={dh.dateStr}
               data-day-index={dow}
               className={cn(
-                "border-l border-gray-200 px-2 py-2 text-center dark:border-gray-700",
-                isToday(dh.dateStr) && "bg-blue-50 dark:bg-blue-950/30",
+                "border-l border-border px-2 py-2 text-center",
+                isToday(dh.dateStr) && "bg-accent-soft",
               )}
             >
-              <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+              <div
+                className={cn(
+                  "text-xs font-extrabold",
+                  isToday(dh.dateStr) ? "text-accent-deep" : "text-foreground",
+                )}
+              >
                 {dh.label}
               </div>
-              <div className="text-[10px] text-muted-foreground">{dh.dayNum}</div>
+              <div className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+                {dh.dayNum}
+              </div>
             </div>
           ))}
         </div>
@@ -278,7 +285,7 @@ export function WeekGrid({
               below the header (z-20) so the top-left intersection stays
               clean. `sticky` also serves as the positioning context for the
               absolute hour labels (no extra `relative` needed). */}
-          <div className="sticky left-0 z-10 bg-white dark:bg-gray-800">
+          <div className="sticky left-0 z-10 bg-card">
             {hourLabels.map((hl) => (
               <div
                 key={hl.label}
@@ -291,7 +298,7 @@ export function WeekGrid({
             {todayDayIndex >= 0 && nowInViewport ? (
               <div
                 style={{ top: `${nowTopPx}px` }}
-                className="absolute right-1 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold tabular-nums text-white"
+                className="absolute right-1 -translate-y-1/2 rounded-full bg-neg px-1 text-[10px] font-extrabold tabular-nums text-white"
               >
                 {format(now, "HH:mm")}
               </div>
@@ -303,8 +310,8 @@ export function WeekGrid({
             <div
               key={dh.dateStr}
               className={cn(
-                "relative border-l border-gray-200 dark:border-gray-700",
-                isToday(dh.dateStr) && "bg-blue-50/40 dark:bg-blue-950/10",
+                "relative border-l border-border",
+                isToday(dh.dateStr) && "bg-accent-soft/50",
               )}
             >
               {/* Hour gridlines */}
@@ -312,7 +319,7 @@ export function WeekGrid({
                 <div
                   key={hl.label}
                   style={{ top: `${hl.topPx}px` }}
-                  className="absolute inset-x-0 border-t border-gray-100 dark:border-gray-700/60"
+                  className="absolute inset-x-0 border-t border-border/60"
                 />
               ))}
               {/* Blocks */}
@@ -359,7 +366,9 @@ export function WeekGrid({
                       height: `${block.heightPx}px`,
                       left: `calc(${leftPct}% + 2px)`,
                       width: `calc(${widthPct}% - 4px)`,
-                      backgroundColor: isGhost ? "transparent" : `${color}1F`,
+                      backgroundColor: isGhost
+                        ? "transparent"
+                        : `color-mix(in srgb, ${color} 16%, var(--card))`,
                       borderLeftColor: color,
                     }}
                     className={cn(
@@ -369,10 +378,10 @@ export function WeekGrid({
                       // style.borderLeftColor). Reads as "this slot is reserved
                       // but not active" without dominating the column.
                       isGhost
-                        ? "border-gray-300 border-l-2 border-dashed text-gray-500 dark:border-gray-600 dark:text-gray-400"
-                        : "border-l-4",
+                        ? "border-l-2 border-dashed border-border text-muted-foreground"
+                        : "border-l-[3px]",
                       "px-1.5 py-0.5 text-left text-[10px] leading-tight",
-                      "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                      "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       "transition-[filter]",
                       // Elapsed blocks fade out (à la Google Calendar) so the
                       // week reads at a glance; ghosts are already muted, so
@@ -404,7 +413,7 @@ export function WeekGrid({
                       {isSameDayReschedule ? (
                         <span
                           className="rounded-sm px-1 text-[8px] font-semibold uppercase"
-                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Pomereno"
                         >
                           ↻
@@ -413,7 +422,7 @@ export function WeekGrid({
                       {isMovedAway ? (
                         <span
                           className="rounded-sm px-1 text-[8px] font-semibold uppercase"
-                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Pomereno u drugi dan"
                         >
                           ↗
@@ -422,7 +431,7 @@ export function WeekGrid({
                       {isMovedHere ? (
                         <span
                           className="rounded-sm px-1 text-[8px] font-semibold uppercase"
-                          style={{ backgroundColor: "#d97706", color: "white" }}
+                          style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Premešten sa drugog dana"
                         >
                           ↘
@@ -431,7 +440,7 @@ export function WeekGrid({
                       {isCanceled ? (
                         <span
                           className="rounded-sm px-1 text-[8px] font-semibold uppercase"
-                          style={{ backgroundColor: "#dc2626", color: "white" }}
+                          style={{ backgroundColor: "var(--neg)", color: "white" }}
                         >
                           ✕
                         </span>
@@ -456,12 +465,12 @@ export function WeekGrid({
                     </div>
                     <div
                       className={cn(
-                        "truncate text-[11px] font-medium",
+                        "truncate text-[11px] font-bold",
                         isCanceled
-                          ? "text-gray-500 line-through dark:text-gray-400"
+                          ? "text-muted-foreground line-through"
                           : isMovedAway
-                            ? "text-gray-500 dark:text-gray-400"
-                            : "text-gray-900 dark:text-gray-100",
+                            ? "text-muted-foreground"
+                            : "text-foreground",
                       )}
                     >
                       {activity?.name ?? "Aktivnost"}
@@ -476,10 +485,10 @@ export function WeekGrid({
               {isToday(dh.dateStr) && nowInViewport ? (
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 border-t-2 border-red-500"
+                  className="pointer-events-none absolute inset-x-0 border-t-2 border-neg"
                   style={{ top: `${nowTopPx}px` }}
                 >
-                  <span className="absolute left-0 top-0 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-red-500" />
+                  <span className="absolute top-0 left-0 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-neg" />
                 </div>
               ) : null}
             </div>
@@ -520,16 +529,16 @@ function SchoolBlock({
         height: `${block.heightPx}px`,
         left: `calc(${leftPct}% + 2px)`,
         width: `calc(${widthPct}% - 4px)`,
-        backgroundColor: `${color}12`,
+        backgroundColor: `color-mix(in srgb, ${color} 10%, var(--card))`,
         borderLeftColor: color,
       }}
       className={cn(
         // Solid (not dashed - dashed is reserved for canceled/ghost activity
         // blocks) but lighter and thinner than an activity: faint fill + 2px
         // colored left accent so a full school day reads as quiet background.
-        "absolute overflow-hidden rounded-md border border-gray-200 border-l-2",
-        "px-1.5 py-0.5 text-left text-[10px] leading-tight text-gray-700 dark:border-gray-700 dark:text-gray-200",
-        "hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+        "absolute overflow-hidden rounded-md border border-l-2 border-border",
+        "px-1.5 py-0.5 text-left text-[10px] leading-tight text-foreground",
+        "hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "transition-[filter]",
         // Faded once the class has ended, matching past activity blocks.
         isPast && "opacity-60",
@@ -541,9 +550,7 @@ function SchoolBlock({
         <BookOpenIcon className="h-2.5 w-2.5 shrink-0" />
         <span className="tabular-nums">{block.startTime}</span>
       </div>
-      <div className="truncate text-[11px] font-medium text-gray-800 dark:text-gray-100">
-        {block.subject}
-      </div>
+      <div className="truncate text-[11px] font-bold text-foreground">{block.subject}</div>
       {block.room ? (
         <div className="truncate text-[9px] text-muted-foreground">{block.room}</div>
       ) : null}
