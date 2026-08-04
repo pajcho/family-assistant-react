@@ -284,3 +284,10 @@ Traka C (Kalendar) i F (sekundarni ekrani):
   okvirom do 44px, zbog minimalne dodirne mete.
 - Traka F: detalj liste na mobilnom je sada zaseban AppScreen; desktop
   master-detail split je netaknut.
+
+Integracija (traka I):
+
+- Nedeljni prikaz vise ne skroluje vodoravno na telefonu: sedam kolona staje na
+  ekran (~46px po danu, kao u prototipu), a celodnevni cipovi se ispod `sm`
+  svode na ikonicu jer ime ne moze da stane. Ranije se videlo 1,7 dana, sto je
+  nedeljnom prikazu oduzimalo jedini razlog postojanja.

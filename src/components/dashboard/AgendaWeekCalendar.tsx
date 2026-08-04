@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import {
   AcademicCapIcon,
@@ -61,11 +61,17 @@ export type AgendaWeekCalendarProps = {
   onEditBirthday: (birthday: Birthday) => void;
 };
 
-/** 44px time gutter + 7 day columns - fixed 200px (horizontal scroll) on
- *  mobile, equal flex columns filling the width on sm+. The fixed mobile px
- *  (not `1fr`) is deliberate: iOS Safari mis-sizes `1fr` tracks inside a
- *  min-width-expanded scroll box, collapsing the columns. */
-const GRID_COLS = "grid-cols-[44px_repeat(7,200px)] sm:grid-cols-[44px_repeat(7,minmax(0,1fr))]";
+/** Time gutter + 7 equal day columns, at every width.
+ *
+ *  The pre-redesign grid used fixed 200px columns below `sm` and scrolled
+ *  sideways, which cost the week view the one thing it is for: seeing the
+ *  whole week at once. Columns are ~46px on a phone - tight, but the
+ *  prototype's week is built exactly that way, and a block's position on the
+ *  clock plus a tap for details carries what the label can't. (The old iOS
+ *  `1fr`-inside-a-scroll-box sizing bug does not apply now that the grid is
+ *  not inside a horizontal scroll container.) */
+const GRID_COLS =
+  "grid-cols-[30px_repeat(7,minmax(0,1fr))] sm:grid-cols-[44px_repeat(7,minmax(0,1fr))]";
 
 /** One laneable entry in the grid: an agenda item or a school class. */
 type WeekEntry = TimeSpan &
@@ -185,21 +191,6 @@ export function AgendaWeekCalendar({
     setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), 7), "yyyy-MM-dd"));
   const goToday = () => setWeekStart(thisWeekStart);
 
-  // Land on today's column when the week renders - only matters once the days
-  // overflow. Horizontal only; the screen owns vertical scroll.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const todayIndex = days.indexOf(todayStr);
-  useLayoutEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    if (todayIndex < 0) {
-      container.scrollLeft = 0;
-      return;
-    }
-    const cell = container.querySelector<HTMLElement>(`[data-day-index="${todayIndex}"]`);
-    if (cell) container.scrollLeft = Math.max(0, cell.offsetLeft - 44);
-  }, [todayIndex, weekStart]);
-
   const isEmpty = !isLoading && items.length === 0 && schoolBlocks.length === 0;
 
   return (
@@ -238,14 +229,8 @@ export function AgendaWeekCalendar({
           container (not inside it), so it stays centered in the visible area
           instead of scrolling away with the fixed mobile columns. */}
       <div className="relative">
-        <div
-          ref={scrollRef}
-          className="overflow-x-auto rounded-lg border border-border bg-card shadow-card"
-        >
-          {/* `min-w-max` sizes to the fixed columns on mobile (scrolls, like the
-              activities grid); `sm:min-w-0` lets the 1fr columns fill the width
-              on desktop without the all-day chips inflating max-content. */}
-          <div className="min-w-max sm:min-w-0">
+        <div className="rounded-lg border border-border bg-card shadow-card">
+          <div>
             {/* Day headers - sticky on top. */}
             <div className={cn("sticky top-0 z-20 grid border-b border-border bg-card", GRID_COLS)}>
               <div />
@@ -254,7 +239,7 @@ export function AgendaWeekCalendar({
                   key={date}
                   data-day-index={i}
                   className={cn(
-                    "border-l border-border px-2 py-1.5 text-center",
+                    "border-l border-border px-0.5 py-1.5 text-center sm:px-2",
                     date === todayStr && "bg-accent-soft",
                   )}
                 >
@@ -283,7 +268,7 @@ export function AgendaWeekCalendar({
                   <div
                     key={d.date}
                     className={cn(
-                      "flex min-w-0 flex-col gap-1 border-l border-border p-1",
+                      "flex min-w-0 flex-col gap-1 overflow-hidden border-l border-border p-1",
                       d.date === todayStr && "bg-accent-soft/50",
                     )}
                   >

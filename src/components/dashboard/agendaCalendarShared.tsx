@@ -265,16 +265,19 @@ export function TimedBlock({
         borderLeftColor: color,
       }}
       className={cn(
-        "absolute overflow-hidden rounded-sm border border-l-[3px] border-transparent px-1.5 py-0.5 text-left",
+        "absolute overflow-hidden rounded-sm border border-l-[3px] border-transparent px-1 py-0.5 text-left sm:px-1.5",
         "hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         "transition-[filter]",
         isPast && "opacity-60",
       )}
     >
-      <div className="text-[9.5px] font-semibold tabular-nums text-muted-foreground">
+      {/* The start/end line needs ~70px; a phone column has ~46. The block's
+          position on the clock already says when it is, so below `sm` the
+          label gets the whole block. */}
+      <div className="hidden text-[9.5px] font-semibold tabular-nums text-muted-foreground sm:block">
         {block.startTime}-{block.endTime}
       </div>
-      <div className="truncate text-[11px] font-bold text-foreground">{label}</div>
+      <div className="truncate text-[10px] font-bold text-foreground sm:text-[11px]">{label}</div>
     </button>
   );
 }
@@ -304,11 +307,13 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
       <>
         <div className="flex min-w-0 items-start gap-1.5">
           <BanknotesIcon className="mt-0.5 size-3.5 shrink-0 text-warn" />
-          <span className="line-clamp-2 min-w-0 text-[11px] leading-snug font-bold text-foreground">
+          <span className="hidden min-w-0 text-[11px] leading-snug font-bold text-foreground sm:line-clamp-2">
             {item.payment.name}
           </span>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5">
+        {/* A phone's week column is ~46px wide - the tinted icon is all that
+            fits, and tapping it opens the full detail anyway. */}
+        <div className="mt-0.5 hidden flex-wrap items-center gap-x-1.5 gap-y-1 pl-5 sm:flex">
           <span className="text-[11px] font-extrabold tabular-nums text-warn">
             <Amount value={item.payment.amount} round />
           </span>
@@ -351,7 +356,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         className={cn(ALL_DAY_CARD, BIRTHDAY_TINT, "flex items-center gap-1.5")}
       >
         <CakeIcon className="size-3.5 shrink-0 text-pos" />
-        <span className="min-w-0 truncate text-[11px] font-bold text-foreground">
+        <span className="hidden min-w-0 truncate text-[11px] font-bold text-foreground sm:block">
           {item.birthday.name}
         </span>
       </button>
@@ -374,10 +379,14 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         className={cn(ALL_DAY_CARD, "flex items-center gap-1.5 hover:brightness-95")}
       >
         <GlobeAltIcon className="size-3.5 shrink-0" style={{ color }} />
-        <span className="min-w-0 truncate text-[11px] font-bold text-foreground">
+        <span className="hidden min-w-0 truncate text-[11px] font-bold text-foreground sm:block">
           {item.event.title ?? "(bez naslova)"}
         </span>
-        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+        {item.personIds.length > 0 ? (
+          <span className="hidden sm:block">
+            <MemberBadges personIds={item.personIds} size="xs" />
+          </span>
+        ) : null}
       </button>
     );
   }
@@ -398,15 +407,19 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
       >
         <CalendarIcon className="size-3.5 shrink-0 text-info" />
-        <span className="min-w-0 truncate text-[11px] font-bold text-foreground">
+        <span className="hidden min-w-0 truncate text-[11px] font-bold text-foreground sm:block">
           {item.event.name}
         </span>
         {suffix ? (
-          <span className="shrink-0 text-[10px] font-semibold tabular-nums text-muted-foreground">
+          <span className="hidden shrink-0 text-[10px] font-semibold tabular-nums text-muted-foreground sm:block">
             {suffix}
           </span>
         ) : null}
-        {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+        {item.personIds.length > 0 ? (
+          <span className="hidden sm:block">
+            <MemberBadges personIds={item.personIds} size="xs" />
+          </span>
+        ) : null}
       </button>
     );
   }
