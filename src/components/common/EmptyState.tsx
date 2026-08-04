@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
  *     the top so it's visible without scrolling on tall grids. No dashed
  *     border, solid background (iOS backdrop-filter is a known hazard here).
  *
- * Tones follow the app-wide per-type accent convention (see AddMenu / AppNav
+ * Tones follow the app-wide per-type accent convention (see navSections
  * "Više" tiles): event=blue, payment=amber, birthday=emerald, list=purple,
  * activity=violet, expense=rose.
  */

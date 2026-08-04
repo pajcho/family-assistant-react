@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 /**
  * The "Prvi koraci" card on Danas - a 5-step checklist that walks a fresh
  * family to their first useful state. Purely presentational: statuses and
- * dismissal come from `useFirstSteps` (owned by DashboardScope so the same
+ * dismissal come from `useFirstSteps` (owned by TodayScreen so the same
  * signal can also soften the day's empty-state copy).
  *
  * Every todo row leads STRAIGHT INTO the matching flow (an open form or the

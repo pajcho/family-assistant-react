@@ -19,7 +19,8 @@ import { AppScreen } from "@/components/layout/AppScreen";
 import { UserAvatar } from "@/components/layout/UserAvatar";
 import { useAgenda } from "@/hooks/useAgenda";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
-import { useAgendaSurface } from "@/hooks/useAgendaSurface";
+import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
+import { useAgendaEditForms } from "@/components/dashboard/useAgendaEditForms";
 import { useAuth } from "@/hooks/useAuth";
 import { useFirstSteps } from "@/hooks/useFirstSteps";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
@@ -59,7 +60,14 @@ export function TodayScreen() {
 
   const filters = useAgendaFilters();
   const firstSteps = useFirstSteps();
-  const surface = useAgendaSurface();
+  // Row tap opens the shared detail sheet; its "Izmeni" lands in the feature's
+  // full form, which the same host mounts. Kalendar wires the identical pair.
+  const forms = useAgendaEditForms();
+  const details = useAgendaDetails({
+    onEditEvent: forms.openEditEvent,
+    onEditPayment: forms.openEditPayment,
+    onEditBirthday: forms.openEditBirthday,
+  });
 
   // How far ahead to load. The phone only needs this week (the strip shows one
   // week and its past days are not selectable); the desktop rail also shows a
@@ -215,8 +223,8 @@ export function TodayScreen() {
                 <div className="mb-3">
                   <FirstStepsCard
                     firstSteps={firstSteps}
-                    onAddEvent={surface.openAddEvent}
-                    onAddPayment={surface.openAddPayment}
+                    onAddEvent={forms.openAddEvent}
+                    onAddPayment={forms.openAddPayment}
                   />
                 </div>
               ) : null}
@@ -226,7 +234,7 @@ export function TodayScreen() {
               ) : (
                 <DayTimeline
                   items={todayItems}
-                  onSelect={surface.onSelect}
+                  onSelect={details.onSelect}
                   emptyState={
                     <TodayEmpty
                       filterActive={filterActive}
@@ -246,7 +254,8 @@ export function TodayScreen() {
           countByDay={countByDay}
         />
       </div>
-      {surface.dialogs}
+      {details.dialogs}
+      {forms.dialogs}
     </AppScreen>
   );
 }
