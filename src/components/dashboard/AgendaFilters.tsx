@@ -13,10 +13,12 @@ import { getDisplayName } from "@/utils/identity";
  * swipeable chip line, the way the prototype shows them: a leading "Sve" chip
  * that clears everything, then the five types, then the family members.
  *
- * Semantics are unchanged from the sheet: an EMPTY selection means "no filter",
- * so every chip reads as active; clicking narrows to the clicked items. That is
- * also why "Sve" is a reset rather than a sixth toggle - it is only lit when
- * nothing is selected.
+ * Filtering itself is unchanged: an EMPTY selection means "no filter" and a
+ * non-empty one narrows to what is picked. What the redesign changes is how the
+ * NEUTRAL state is drawn. It used to light every chip, which read as "click one
+ * to hide it" even though clicking one has always narrowed TO it. Now the "Sve"
+ * chip carries the neutral state on its own and the facet chips stay unlit
+ * until they are actually selected, so the row says what it does.
  */
 export type AgendaFiltersProps = {
   filter: AgendaFilter;
@@ -41,10 +43,9 @@ export function AgendaFilters({
 }: AgendaFiltersProps) {
   const { members } = useFamilyMembers();
 
-  // Empty set ⇒ every chip reads as active (no filter); otherwise only the
-  // selected ones do.
-  const kindActive = (kind: AgendaKind) => filter.kinds.size === 0 || filter.kinds.has(kind);
-  const personActive = (id: string) => filter.personIds.size === 0 || filter.personIds.has(id);
+  // Only what is actually selected is lit - "Sve" holds the neutral state.
+  const kindActive = (kind: AgendaKind) => filter.kinds.has(kind);
+  const personActive = (id: string) => filter.personIds.has(id);
 
   return (
     <FilterChipRow ariaLabel="Filteri">

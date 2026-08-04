@@ -327,20 +327,25 @@ function ActivitiesPage() {
             Ova sedmica
           </FilterChip>
         ) : null}
+        {members.length > 0 ? (
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+        ) : null}
+        {/* "Sve" carries the neutral state so the member chips only light up
+            once someone is actually picked (same reading as Kalendar). */}
+        {members.length > 0 ? (
+          <FilterChip active={personFilter.size === 0} onToggle={() => setPersonFilter(new Set())}>
+            Svi
+          </FilterChip>
+        ) : null}
         {members.map((member) => (
           <PersonChip
             key={member.id}
             person={member}
-            active={personFilter.size === 0 || personFilter.has(member.id)}
+            active={personFilter.has(member.id)}
             onToggle={() => togglePerson(member.id)}
             shift={timeBandByPerson.get(member.id) ?? null}
           />
         ))}
-        {personFilter.size > 0 ? (
-          <FilterChip active={false} onToggle={() => setPersonFilter(new Set())}>
-            Resetuj
-          </FilterChip>
-        ) : null}
       </FilterChipRow>
     </div>
   );
