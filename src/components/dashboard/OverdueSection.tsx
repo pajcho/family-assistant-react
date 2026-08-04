@@ -1,16 +1,17 @@
 import { format, parseISO } from "date-fns";
 
+import { Amount } from "@/components/common/Amount";
+import { SectionHeading } from "@/components/common/SectionHeading";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
 import { srLocale } from "@/utils/date";
-import { Amount } from "@/components/common/Amount";
 
 /**
- * The "Prekoračeno" (overdue) section shared by the Danas and Uskoro tabs - the
- * past-due unpaid payments from `useOverduePayments`, pinned above today. The
- * red header signals lateness and carries the summed amount so the total
- * damage is glanceable; each row shows its due date in the gutter (the
- * payment row is otherwise time-less) so you can tell how overdue it is.
+ * The "Prekoračeno" (overdue) section shared by Danas and the calendar's
+ * agenda - the past-due unpaid payments from `useOverduePayments`, pinned above
+ * today. The red header signals lateness and carries the summed amount so the
+ * total damage is glanceable; each row repeats its due date in the meta line
+ * (the payment row is otherwise date-less) so you can tell how overdue it is.
  */
 function overdueDateLabel(date: string): string {
   return format(parseISO(date + "T12:00:00"), "d. MMM", { locale: srLocale });
@@ -32,16 +33,16 @@ export function OverdueSection({
   );
   return (
     <section>
-      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-red-600 uppercase dark:text-red-400">
+      <SectionHeading as="h3" tone="neg" count={items.length} className="mb-2">
         Prekoračeno
         {totalAmount > 0 ? (
           <>
             {" · "}
-            <Amount value={totalAmount} />
+            <Amount value={totalAmount} round />
           </>
         ) : null}
-      </h3>
-      <ul className="space-y-1">
+      </SectionHeading>
+      <ul className="space-y-2.5">
         {items.map((item) => (
           <AgendaItemRow
             key={agendaItemKey(item)}

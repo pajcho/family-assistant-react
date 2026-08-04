@@ -1,11 +1,28 @@
 import { format } from "date-fns";
-import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
 import { Amount, AmountOriginal } from "@/components/common/Amount";
+import {
+  ItemCard,
+  ItemMain,
+  ItemMeta,
+  ItemSide,
+  ItemTile,
+  ItemTime,
+  ItemTitle,
+  PersonDot,
+} from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
-import { cn } from "@/lib/cn";
+import { Pill } from "@/components/common/Pill";
+import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import type { AgendaItem } from "@/hooks/useAgenda";
-import type { Activity, Birthday, ExternalCalendarEvent, Payment, Profile } from "@/types/database";
+import type {
+  Activity,
+  Birthday,
+  ExternalCalendarEvent,
+  Payment,
+  Profile,
+  RecurrencePeriod,
+} from "@/types/database";
 import {
   fallbackColorForProfile,
   normalizeTime,
@@ -17,33 +34,15 @@ import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 
 /**
- * One agenda row - the discriminated-union renderer shared by the "Danas" and
- * "Uskoro" tabs. Lifted (activity / event / payment variants verbatim) out of
- * the old `DashboardTodayCard`, plus a birthday variant. Every variant uses the
- * same frame - a fixed time gutter, a type indicator, then a truncating label -
- * so rows line up whatever their kind. Clicking a row bubbles up via `onClick`
- * (the tab opens the matching detail dialog).
+ * One agenda row - the discriminated-union renderer shared by "Danas",
+ * "Kalendar › Agenda" and the overdue block.
+ *
+ * Redizajn 2.0 turned the row from a dense one-liner with a leading time gutter
+ * into the shared `.kcard`: a glyph tile on the left says WHAT it is at a
+ * glance, the middle column carries title + one meta line, and the trailing
+ * column carries the time or the amount. Clicking bubbles up via `onClick` (the
+ * screen opens the matching detail dialog).
  */
-
-/** Common visual frame so every row aligns: time gutter | indicator | label. */
-const ROW_CLASS =
-  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70";
-const TIME_GUTTER_CLASS =
-  "w-24 shrink-0 font-mono text-xs tabular-nums text-gray-500 dark:text-gray-400";
-/** Match the dim treatment used for ended events on the /events page. */
-const PAST_ROW_CLASS = "opacity-50";
-
-/**
- * The row's leading time column. Time-less rows (payments outside
- * "Prekoračeno", birthdays) would otherwise open with 6rem of blank gutter -
- * on a phone that's a quarter of the row spent on nothing, so below `sm` the
- * empty gutter isn't rendered at all and the row starts hard left with the
- * full width for its details. From `sm` up the column stays, so rows keep
- * lining up where there's room to spare.
- */
-function TimeGutter({ label }: { label?: string }) {
-  return <span className={cn(TIME_GUTTER_CLASS, !label && "hidden sm:block")}>{label ?? ""}</span>;
-}
 
 export function AgendaItemRow({
   item,
@@ -52,8 +51,7 @@ export function AgendaItemRow({
 }: {
   item: AgendaItem;
   onClick: () => void;
-  /** Optional label for the (otherwise empty) payment time gutter - e.g. the
-   *  due date in the "Prekoračeno" section. */
+  /** Extra meta for a time-less payment row - e.g. the due date in "Prekoračeno". */
   dateLabel?: string;
 }) {
   switch (item.kind) {
@@ -70,12 +68,12 @@ export function AgendaItemRow({
       return <EventRow item={item} onClick={onClick} />;
     case "payment":
       // A payment occurrence that ISN'T the series' live one (keyed on
-      // payment.due_date) is a future repetition ("nadolazeće") - only the Uskoro
-      // list surfaces those. It's shown read-only there: no detail dialog, so
-      // none of its actions (Pomeri / Otkaži / Označi kao plaćeno / Izmeni) can
-      // fire before it becomes the current due. The live occurrence stays
-      // actionable even when its due date is still in the future (e.g. due
-      // tomorrow), matching the payments page.
+      // payment.due_date) is a future repetition ("nadolazeće") - only the
+      // agenda list surfaces those. It's shown read-only there: no detail
+      // dialog, so none of its actions (Pomeri / Otkaži / Označi kao plaćeno /
+      // Izmeni) can fire before it becomes the current due. The live occurrence
+      // stays actionable even when its due date is still in the future (e.g.
+      // due tomorrow), matching the payments page.
       return (
         <PaymentRow
           payment={item.payment}
@@ -133,19 +131,21 @@ function ActivityRow({
 
   return (
     <li>
-      <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <TimeGutter label={`${block.startTime}-${block.endTime}`} />
-        <span
-          className="size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: color }}
-          aria-hidden="true"
-        />
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
-          <span className="text-muted-foreground"> · </span>
-          <span className="text-gray-700 dark:text-gray-300">{activityName}</span>
-        </span>
-      </button>
+      <ItemCard onClick={onClick} dimmed={isPast}>
+        <ItemTile icon={AGENDA_KIND_META.activity.icon} color={color} />
+        <ItemMain>
+          <ItemTitle>
+            <span className="min-w-0 truncate">{activityName}</span>
+            <PersonDot color={color} />
+          </ItemTitle>
+          <ItemMeta>
+            {block.startTime}-{block.endTime} · {personName}
+          </ItemMeta>
+        </ItemMain>
+        <ItemSide>
+          <ItemTime>{block.startTime}</ItemTime>
+        </ItemSide>
+      </ItemCard>
     </li>
   );
 }
@@ -162,38 +162,44 @@ function EventRow({
   // "ceo dan" through the middle and "do 15:00" on its last (mirrors how the
   // expanded Google events read); single-day rows keep the old labels.
   const isMulti = item.totalDays > 1;
+  // Trailing column = the short, scannable "when". The meta line only repeats
+  // the time when it says MORE than that (a full range).
   const timeLabel = item.startTime
-    ? item.endTime
-      ? `${item.startTime}-${item.endTime}`
-      : isMulti
-        ? `od ${item.startTime}`
-        : item.startTime
+    ? isMulti && !item.endTime
+      ? `od ${item.startTime}`
+      : item.startTime
     : item.endTime
       ? `do ${item.endTime}`
       : "ceo dan";
+  const metaTime = item.startTime && item.endTime ? `${item.startTime}-${item.endTime}` : null;
   const isPast = isEventEnded(event);
 
   return (
     <li>
-      <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <TimeGutter label={timeLabel} />
-        <CalendarIcon className="size-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-gray-900 dark:text-gray-100">{event.name}</span>
-          {event.description ? (
-            <>
-              <span className="text-muted-foreground"> · </span>
-              <span className="text-gray-700 dark:text-gray-300">{event.description}</span>
-            </>
-          ) : null}
-        </span>
-        {isMulti ? (
-          <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-blue-700 uppercase dark:bg-blue-500/15 dark:text-blue-300">
-            Dan {item.dayIndex}/{item.totalDays}
-          </span>
-        ) : null}
-        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
-      </button>
+      <ItemCard onClick={onClick} dimmed={isPast}>
+        <ItemTile icon={AGENDA_KIND_META.event.icon} tone="info" />
+        <ItemMain>
+          <ItemTitle>
+            <span className="min-w-0 truncate">{event.name}</span>
+            {isMulti ? (
+              <Pill>
+                Dan {item.dayIndex}/{item.totalDays}
+              </Pill>
+            ) : null}
+          </ItemTitle>
+          <ItemMeta>
+            {metaTime || event.description ? (
+              <span className="min-w-0 truncate">
+                {[metaTime, event.description].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+            {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+          </ItemMeta>
+        </ItemMain>
+        <ItemSide>
+          <ItemTime>{timeLabel}</ItemTime>
+        </ItemSide>
+      </ItemCard>
     </li>
   );
 }
@@ -209,64 +215,70 @@ function PaymentRow({
   personIds: string[];
   onClick: () => void;
   dateLabel?: string;
-  /** Not-yet-due occurrence (Uskoro list): rendered read-only with a
-   *  "Nadolazeće" tag instead of a tappable row, so no action can be taken on
-   *  it before its due date. */
+  /** Not-yet-due occurrence: rendered read-only with a "Nadolazeće" tag instead
+   *  of a tappable row, so no action can be taken before its due date. */
   upcoming?: boolean;
 }) {
+  const recurrence =
+    payment.is_recurring && payment.recurrence_period
+      ? RECURRENCE_LABEL[payment.recurrence_period]
+      : null;
+  const meta = [
+    dateLabel ? `dospelo ${dateLabel}` : null,
+    recurrence,
+    payment.is_variable_amount ? "promenljiv iznos" : null,
+  ].filter(Boolean);
+
   const content = (
     <>
-      <TimeGutter label={dateLabel} />
-      <BanknotesIcon className="size-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
-      <span className="min-w-0 truncate">
-        <span className="font-medium text-gray-900 dark:text-gray-100">{payment.name}</span>
-        <span className="text-muted-foreground"> · </span>
-        <span className="text-gray-700 dark:text-gray-300">
+      <ItemTile
+        icon={AGENDA_KIND_META.payment.icon}
+        tone={dateLabel ? "neg" : AGENDA_KIND_META.payment.tone}
+      />
+      <ItemMain>
+        <ItemTitle>
+          <span className="min-w-0 truncate">{payment.name}</span>
+          {upcoming ? <Pill tone="muted">Nadolazeće</Pill> : null}
+        </ItemTitle>
+        <ItemMeta>
+          {meta.length > 0 ? <span className="min-w-0 truncate">{meta.join(" · ")}</span> : null}
+          {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+        </ItemMeta>
+      </ItemMain>
+      <ItemSide>
+        <span className="text-[15px] font-extrabold tracking-[-0.01em] tabular-nums">
           <Amount value={payment.amount} round />
-          {/* Hidden on phones: the dense single-line agenda row truncates, and
-              a clipped "(5…" is worse than no annotation - the payment detail
-              carries the original. */}
-          <AmountOriginal
-            amount={payment.original_amount}
-            currency={payment.currency}
-            parens
-            className="ml-1 hidden text-[10px] sm:inline"
-          />
         </span>
-      </span>
-      {upcoming ? (
-        <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-gray-500 uppercase dark:bg-gray-700 dark:text-gray-400">
-          Nadolazeće
-        </span>
-      ) : null}
-      {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+        <AmountOriginal
+          amount={payment.original_amount}
+          currency={payment.currency}
+          parens
+          className="text-[10.5px] font-bold text-muted-foreground"
+        />
+      </ItemSide>
     </>
   );
 
   // Not yet due → static row (no button), so the detail dialog never opens.
-  if (upcoming) {
-    return (
-      <li>
-        <div
-          className={cn(
-            ROW_CLASS,
-            "cursor-default opacity-60 hover:bg-transparent dark:hover:bg-transparent",
-          )}
-        >
-          {content}
-        </div>
-      </li>
-    );
-  }
-
   return (
     <li>
-      <button type="button" onClick={onClick} className={ROW_CLASS}>
-        {content}
-      </button>
+      {upcoming ? (
+        <ItemCard dimmed>{content}</ItemCard>
+      ) : (
+        <ItemCard onClick={onClick}>{content}</ItemCard>
+      )}
     </li>
   );
 }
+
+/** Recurrence in the one-line meta - lowercase forms of RECURRENCE_OPTIONS. */
+const RECURRENCE_LABEL: Record<RecurrencePeriod, string | null> = {
+  weekly: "nedeljno",
+  monthly: "mesečno",
+  limited: "ograničeno",
+  // A one-off carries no repetition note - the due date already says it all.
+  "one-time": null,
+};
 
 function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () => void }) {
   // Next age = the birthday they're about to have. Rendered as an ordinal
@@ -275,15 +287,20 @@ function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () =>
 
   return (
     <li>
-      <button type="button" onClick={onClick} className={ROW_CLASS}>
-        <TimeGutter />
-        <CakeIcon className="size-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-gray-900 dark:text-gray-100">{birthday.name}</span>
-          <span className="text-muted-foreground"> · </span>
-          <span className="text-gray-700 dark:text-gray-300">{nextAge}. rođendan</span>
-        </span>
-      </button>
+      <ItemCard onClick={onClick}>
+        <ItemTile icon={AGENDA_KIND_META.birthday.icon} tone="pos" />
+        <ItemMain>
+          <ItemTitle>
+            <span className="min-w-0 truncate">{birthday.name}</span>
+          </ItemTitle>
+          <ItemMeta>
+            <span className="min-w-0 truncate">
+              {nextAge}. rođendan
+              {birthday.description ? ` · ${birthday.description}` : ""}
+            </span>
+          </ItemMeta>
+        </ItemMain>
+      </ItemCard>
     </li>
   );
 }
@@ -309,33 +326,36 @@ function ExternalEventRow({
 }) {
   const startTime = event.start_time ? normalizeTime(event.start_time) : null;
   const endTime = event.end_time ? normalizeTime(event.end_time) : null;
-  const timeLabel = isAllDay ? "ceo dan" : endTime ? `${startTime}-${endTime}` : (startTime ?? "");
+  const timeLabel = isAllDay ? "ceo dan" : (startTime ?? "");
+  const metaTime = !isAllDay && startTime && endTime ? `${startTime}-${endTime}` : null;
   const isPast = isExternalEventPast(event);
 
   return (
     <li>
-      <button type="button" onClick={onClick} className={cn(ROW_CLASS, isPast && PAST_ROW_CLASS)}>
-        <TimeGutter label={timeLabel} />
-        <GlobeAltIcon
-          className="size-3.5 shrink-0 text-sky-500 dark:text-sky-400"
-          style={event.color ? { color: event.color } : undefined}
+      <ItemCard onClick={onClick} dimmed={isPast}>
+        <ItemTile
+          icon={AGENDA_KIND_META.external.icon}
+          tone="info"
+          color={event.color ?? undefined}
         />
-        <span className="min-w-0 truncate">
-          <span className="font-medium text-gray-900 dark:text-gray-100">
-            {event.title ?? "(bez naslova)"}
-          </span>
-          {event.location ? (
-            <>
-              <span className="text-muted-foreground"> · </span>
-              <span className="text-gray-700 dark:text-gray-300">{event.location}</span>
-            </>
-          ) : null}
-        </span>
-        <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-sky-700 uppercase dark:bg-sky-500/15 dark:text-sky-300">
-          Google
-        </span>
-        {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
-      </button>
+        <ItemMain>
+          <ItemTitle>
+            <span className="min-w-0 truncate">{event.title ?? "(bez naslova)"}</span>
+            <Pill tone="info">Google</Pill>
+          </ItemTitle>
+          <ItemMeta>
+            {metaTime || event.location ? (
+              <span className="min-w-0 truncate">
+                {[metaTime, event.location].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+            {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+          </ItemMeta>
+        </ItemMain>
+        <ItemSide>
+          <ItemTime>{timeLabel}</ItemTime>
+        </ItemSide>
+      </ItemCard>
     </li>
   );
 }
