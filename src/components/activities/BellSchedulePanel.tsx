@@ -217,8 +217,8 @@ function BandPreview({
 }) {
   const grid = useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
   return (
-    <div className="rounded-md border border-gray-200 p-2 text-xs dark:border-gray-700">
-      <div className="mb-1 font-semibold text-gray-700 dark:text-gray-200">{title}</div>
+    <div className="rounded-md border border-border p-2 text-xs">
+      <div className="mb-1 font-bold text-foreground">{title}</div>
       <ol className="space-y-0.5">
         {grid.map((slot) => (
           <Fragment key={slot.periodIndex}>
@@ -229,9 +229,7 @@ function BandPreview({
               </span>
             </li>
             {slot.bigBreakAfter ? (
-              <li className="text-center text-[9px] uppercase text-amber-600 dark:text-amber-400">
-                odmor
-              </li>
+              <li className="text-center text-[9px] uppercase text-warn">odmor</li>
             ) : null}
           </Fragment>
         ))}

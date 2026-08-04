@@ -40,7 +40,7 @@ export function PeriodPickerShell({
   return (
     <div
       className={cn(
-        "inline-flex items-stretch rounded-md border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800",
+        "inline-flex items-stretch rounded-md border border-border bg-card shadow-card",
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function PeriodPickerShell({
         type="button"
         onClick={onPrev}
         aria-label={prevAriaLabel}
-        className="rounded-l-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
+        className="rounded-l-md p-2 text-muted-foreground hover:bg-muted"
       >
         <ChevronLeftIcon className="h-4 w-4" />
       </button>
@@ -57,7 +57,7 @@ export function PeriodPickerShell({
         type="button"
         onClick={onNext}
         aria-label={nextAriaLabel}
-        className="rounded-r-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
+        className="rounded-r-md p-2 text-muted-foreground hover:bg-muted"
       >
         <ChevronRightIcon className="h-4 w-4" />
       </button>
@@ -146,7 +146,7 @@ export function MonthPicker({
             <button
               type="button"
               aria-label="Izaberi mesec i godinu"
-              className="min-w-[8.5rem] border-x border-gray-200 px-3 py-1.5 text-center text-sm font-medium tabular-nums text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-700"
+              className="min-w-[8.5rem] border-x border-border px-3 py-1.5 text-center text-sm font-bold tabular-nums text-foreground hover:bg-muted"
             >
               {isAll ? (allOptionLabel ?? "Sve") : monthLabel(value)}
             </button>
@@ -158,19 +158,17 @@ export function MonthPicker({
                 aria-label="Prethodna godina"
                 onClick={() => setGridYear((y) => y - 1)}
                 disabled={minYear != null && gridYear <= minYear}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
               >
                 <ChevronLeftIcon className="size-4" />
               </button>
-              <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                {gridYear}
-              </span>
+              <span className="text-sm font-bold tabular-nums text-foreground">{gridYear}</span>
               <button
                 type="button"
                 aria-label="Sledeća godina"
                 onClick={() => setGridYear((y) => y + 1)}
                 disabled={maxYear != null && gridYear >= maxYear}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
               >
                 <ChevronRightIcon className="size-4" />
               </button>
@@ -189,10 +187,10 @@ export function MonthPicker({
                     className={cn(
                       "rounded-md px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40",
                       selected
-                        ? "bg-blue-600 font-medium text-white"
+                        ? "bg-accent font-bold text-accent-foreground"
                         : isCurrent
-                          ? "bg-blue-50 font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60"
-                          : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700",
+                          ? "bg-accent-soft font-bold text-accent-deep hover:brightness-95"
+                          : "text-foreground hover:bg-muted",
                     )}
                   >
                     {name}
@@ -206,7 +204,7 @@ export function MonthPicker({
               <button
                 type="button"
                 onClick={() => pick(current)}
-                className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                className="mt-2 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
               >
                 {resetLabel}
               </button>
@@ -218,8 +216,8 @@ export function MonthPicker({
                 className={cn(
                   "mt-2 w-full rounded-md border px-2 py-1.5 text-sm transition-colors",
                   isAll
-                    ? "border-blue-300 bg-blue-50 font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
-                    : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700",
+                    ? "border-accent bg-accent-soft font-bold text-accent-deep"
+                    : "border-border text-foreground hover:bg-muted",
                 )}
               >
                 {allOptionLabel}

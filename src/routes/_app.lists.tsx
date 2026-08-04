@@ -1,7 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 
-import { LegacyScreen } from "@/components/layout/AppScreen";
 import { ListMaster } from "@/components/lists/ListMaster";
 import { useIsWide } from "@/hooks/useIsWide";
 
@@ -28,14 +27,11 @@ export const Route = createFileRoute("/_app/lists")({
 });
 
 function ListsLayout() {
+  // Below lg each child route owns its own <AppScreen> (the master list and
+  // the list detail are separate full screens), so the layout gets out of the
+  // way entirely.
   const isWide = useIsWide();
-  return isWide ? (
-    <ListsSplit />
-  ) : (
-    <LegacyScreen>
-      <Outlet />
-    </LegacyScreen>
-  );
+  return isWide ? <ListsSplit /> : <Outlet />;
 }
 
 function ListsSplit() {
@@ -77,14 +73,10 @@ function ListsSplit() {
             the library extends the actual hit target for comfortable dragging.
             Tints on hover and while dragging (:active). */}
         <Separator className="group relative w-2 cursor-col-resize bg-transparent outline-none">
-          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200 transition-colors group-hover:bg-blue-400 group-active:bg-blue-500 dark:bg-gray-700 dark:group-hover:bg-blue-500" />
+          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-accent group-active:bg-accent" />
         </Separator>
 
-        <Panel
-          id="detail"
-          minSize="360px"
-          className="h-full overflow-y-auto bg-white p-6 dark:bg-gray-800"
-        >
+        <Panel id="detail" minSize="360px" className="h-full overflow-y-auto bg-card p-6">
           <Outlet />
         </Panel>
       </Group>

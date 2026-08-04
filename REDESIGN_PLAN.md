@@ -82,14 +82,14 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane C - Kalendar (1.5 dan) [posle A]
 
-- [ ] Kontejner sa segmentima + filter cipovi (tip + clanovi) zajednicki za sva tri prikaza
-- [ ] Agenda: restyle AgendaUpcomingList (grupe po danu, prazni dani, infinite scroll do 365,
+- [x] Kontejner sa segmentima + filter cipovi (tip + clanovi) zajednicki za sva tri prikaza
+- [x] Agenda: restyle AgendaUpcomingList (grupe po danu, prazni dani, infinite scroll do 365,
       Prekoraceno na vrhu, visednevni "Dan i/n") - logika netaknuta
-- [ ] Nedelja: restyle AgendaWeekCalendar + integracija skolskih blokova (toggle "Prikazi skolu",
+- [x] Nedelja: restyle AgendaWeekCalendar + integracija skolskih blokova (toggle "Prikazi skolu",
       iz postojece WeekGrid/smene logike)
-- [ ] Mesec (NOVO): mreza sa tackicama po tipu, span trake visednevnih, tap na dan otvara pregled dana
-      ispod; lazy-load chunk; na desktopu celije sa chipovima umesto tackica
-- [ ] /uskoro redirect + WeekStrip sa Danas vodi ovde
+- [x] Mesec (NOVO): mreza sa tackicama po tipu, span trake visednevnih, tap na dan otvara pregled dana
+      ispod; lazy-load chunk; desktopske celije sa chipovima ostaju za traku H
+- [x] /uskoro redirect + `?day=` predaja sa Danas nedeljne trake (traka B salje)
 
 ### Lane D - Novac (1 dan) [posle A]
 
@@ -118,11 +118,11 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 
 ### Lane F - Sekundarni ekrani (1 dan) [posle A, moze paralelno sa E2]
 
-- [ ] Liste: index + detail restyle; smart sort, swipe gestovi, dnd, export, auto-brisanje - sve ostaje
-- [ ] Aktivnosti: WeekGrid restyle + skola + Opcije sheet (smene, rasporedi, satnica zvona) + lista svih
-- [ ] Dogadjaji: filter bar (mesec, pretraga, zavrseni) + grupe restyle
-- [ ] Rodjendani: mesecne grupe, Proslava badge, "za N dana"
-- [ ] Globalna pretraga: restyle dijaloga (iste grupe i ponasanje, Cmd+K)
+- [x] Liste: index + detail restyle; smart sort, swipe gestovi, dnd, export, auto-brisanje - sve ostaje
+- [x] Aktivnosti: WeekGrid restyle + skola + Opcije sheet (smene, rasporedi, satnica zvona) + lista svih
+- [x] Dogadjaji: filter bar (mesec, pretraga, zavrseni) + grupe restyle
+- [x] Rodjendani: mesecne grupe, Proslava badge, "za N dana"
+- [x] Globalna pretraga: restyle dijaloga (iste grupe i ponasanje, Cmd+K)
 
 ### Lane G - Podesavanja + nalog (1 dan) [posle A]
 
@@ -260,3 +260,19 @@ Traka G (Podesavanja):
 - `/profile` je sada redirect na `/settings` (nista vise ne linkuje na njega).
 - `?tab=` prihvata i `currencies`/`valute`; nepoznata vrednost vodi na hub
   (ranije na Profil).
+
+Traka C (Kalendar) i F (sekundarni ekrani):
+
+- Traka C: Kalendar > Agenda NEMA nedeljnu traku (prototip je ne prikazuje na tom
+  ekranu). Ostaje na Danas i predaje dan preko `?day=`; mesecni skok iz stare
+  WeekStrip biraca zamenjuje prikaz Mesec.
+- Traka C: neutralno stanje filter cipova. Ranije su, dok filter nije aktivan,
+  SVI cipovi bili upaljeni; sada je upaljen samo "Sve" (kao u prototipu), a
+  cipovi tipova/clanova svetle tek kad se stvarno izaberu. Sama logika
+  filtriranja je nepromenjena (prazan skup = bez filtera). Isto vazi za cipove
+  clanova na Aktivnostima ("Svi"); PersonFilterChips unutar FilterSheet-a
+  (placanja/dogadjaji/rodjendani) i dalje koristi staru konvenciju.
+- Traka C: ikon-dugmad su vizuelno 40px (prototip 38px) sa providnim ::after
+  okvirom do 44px, zbog minimalne dodirne mete.
+- Traka F: detalj liste na mobilnom je sada zaseban AppScreen; desktop
+  master-detail split je netaknut.

@@ -277,7 +277,7 @@ export function ListBody({
     <>
       <div className="px-2 py-2">
         {active.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="px-2 py-2 text-sm text-muted-foreground">
             {completed.length === 0
               ? "Lista je prazna. Dodaj prvu stavku ispod."
               : "Sve stavke su završene."}
@@ -311,7 +311,7 @@ export function ListBody({
             <button
               type="button"
               onClick={() => setShowCompleted((s) => !s)}
-              className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+              className="flex w-full items-center gap-1 rounded-md px-2 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
             >
               {showCompleted ? (
                 <ChevronUpIcon className="h-3.5 w-3.5" />
@@ -329,7 +329,7 @@ export function ListBody({
 
       <form
         onSubmit={handleAdd}
-        className="flex items-center gap-2 border-t border-gray-100 px-3 py-2 dark:border-gray-700"
+        className="flex items-center gap-2 border-t border-border px-3 py-2"
       >
         <Input
           value={draft}
@@ -391,7 +391,7 @@ function CategorizedItems({
     <div className="space-y-2">
       {groups.map((g) => (
         <div key={g.category}>
-          <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {CATEGORY_LABEL[g.category]}
           </h3>
           <ul className="space-y-0.5">{g.items.map((item) => renderRow(item))}</ul>

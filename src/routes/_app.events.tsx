@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { LegacyScreen } from "@/components/layout/AppScreen";
-import { CalendarIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
+import { CalendarIcon, EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 
-import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
+import { IconButton } from "@/components/common/IconButton";
+import { SearchIconButton } from "@/components/common/ScreenActions";
 import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
+import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { FilterBar } from "@/components/common/FilterBar";
 import {
   AppliedFilterChips,
@@ -34,11 +36,7 @@ function eventTouchesMonth(event: Event, month: string): boolean {
 }
 
 export const Route = createFileRoute("/_app/events")({
-  component: () => (
-    <LegacyScreen>
-      <EventsPage />
-    </LegacyScreen>
-  ),
+  component: EventsPage,
 });
 
 /** Minimum characters before the client-side search kicks in. */
@@ -215,43 +213,48 @@ function EventsPage() {
   const isLoading = eventsQuery.isLoading;
   const showEmpty = !isLoading && filteredEvents.length === 0;
 
+  const header = (
+    <div className="flex flex-col gap-2.5">
+      <ScreenHeaderRow
+        title="Događaji"
+        actions={
+          <>
+            <SearchIconButton />
+            <IconButton icon={PlusIcon} aria-label="Dodaj događaj" onClick={openAdd} />
+          </>
+        }
+      />
+      <FilterBar
+        picker={
+          <MonthPicker
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            allOptionLabel="Svi događaji"
+          />
+        }
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Pretraži događaje…"
+        filterCount={filterCount}
+        onOpenFilters={() => setFiltersOpen(true)}
+      />
+      <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
+    </div>
+  );
+
   return (
-    <div className="animate-fade-in pb-24 lg:pb-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Događaji</h1>
-        <AddButton label="Dodaj događaj" onClick={openAdd} />
-      </div>
-
-      <div className="mt-4 space-y-3">
-        <FilterBar
-          picker={
-            <MonthPicker
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              allOptionLabel="Svi događaji"
-            />
-          }
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Pretraži događaje…"
-          filterCount={filterCount}
-          onOpenFilters={() => setFiltersOpen(true)}
-        />
-        <AppliedFilterChips filters={appliedFilters} onClearAll={resetFilters} />
-      </div>
-
+    <AppScreen header={header}>
       {searchActive ? (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mb-3 text-xs text-muted-foreground">
           Rezultati pretrage obuhvataju sve mesece (filteri meseca i završenih se ne primenjuju).
         </p>
       ) : null}
 
-      {isLoading ? <div className="mt-6 text-gray-500">Učitavanje…</div> : null}
+      {isLoading ? <AgendaListSkeleton rows={5} /> : null}
 
       {showEmpty ? (
         events.length === 0 ? (
           <EmptyState
-            className="mt-6"
             icon={CalendarIcon}
             tone="blue"
             title="Roditeljski, pregledi, proslave..."
@@ -264,7 +267,6 @@ function EventsPage() {
           />
         ) : (
           <EmptyState
-            className="mt-6"
             variant="filter"
             description={
               searchActive
@@ -286,7 +288,7 @@ function EventsPage() {
 
       {!isLoading && filteredEvents.length > 0 ? (
         searchActive ? (
-          <ul className="mt-6 space-y-1">
+          <ul className="space-y-2.5">
             {filteredEvents.map((eventItem) => (
               <li key={eventItem.id}>
                 <EventTimelineRow
@@ -299,11 +301,11 @@ function EventsPage() {
             ))}
           </ul>
         ) : (
-          <div className="mt-6 space-y-6">
+          <div className="space-y-4">
             {eventGroups.map(([day, dayEvents]) => (
               <section key={day}>
-                <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} />
-                <ul className="mt-2 space-y-1">
+                <AgendaDateHeader day={day} today={today} tomorrow={tomorrow} className="mb-2" />
+                <ul className="space-y-2.5">
                   {dayEvents.map((eventItem) => (
                     <li key={eventItem.id}>
                       <EventTimelineRow
@@ -322,16 +324,16 @@ function EventsPage() {
 
       {/* Quiet reveal for the default hide-completed view. */}
       {hiddenCompletedCount > 0 ? (
-        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-4 text-center text-[11.5px] font-semibold text-muted-foreground">
           Sakriveno {hiddenCompletedCount} {hiddenCompletedCount === 1 ? "završen" : "završenih"} ·{" "}
           <button
             type="button"
             onClick={() => setHideCompleted(false)}
-            className="font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+            className="font-extrabold text-accent-deep underline-offset-4 hover:underline"
           >
             Prikaži
           </button>
-        </div>
+        </p>
       ) : null}
 
       <FilterSheet
@@ -378,6 +380,6 @@ function EventsPage() {
           void handleSubmit(payload);
         }}
       />
-    </div>
+    </AppScreen>
   );
 }

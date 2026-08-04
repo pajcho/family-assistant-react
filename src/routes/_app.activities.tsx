@@ -1,20 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { LegacyScreen } from "@/components/layout/AppScreen";
+import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import {
   BookOpenIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
   Cog6ToothIcon,
   PencilSquareIcon,
+  PlusIcon,
+  SparklesIcon,
   Squares2X2Icon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { addDays, format, parseISO } from "date-fns";
 
-import { Button } from "@/components/ui/button";
-import { AddButton } from "@/components/common/AddButton";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { PeriodPickerShell } from "@/components/common/PeriodPicker";
+import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { IconButton } from "@/components/common/IconButton";
+import {
+  ItemCard,
+  ItemMain,
+  ItemMeta,
+  ItemSide,
+  ItemTile,
+  PersonDot,
+} from "@/components/common/ItemCard";
+import { Pill } from "@/components/common/Pill";
+import { SectionHeading } from "@/components/common/SectionHeading";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
@@ -45,7 +59,6 @@ import type { Activity, Profile, SchoolShift, TimetableVariant } from "@/types/d
 import { fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
 import { timeBandForWeek } from "@/utils/schoolTimetable";
 import { formatDate, srLocale } from "@/utils/date";
-import { cn } from "@/lib/cn";
 import { getDisplayName } from "@/utils/identity";
 
 export const Route = createFileRoute("/_app/activities")({
@@ -55,11 +68,7 @@ export const Route = createFileRoute("/_app/activities")({
   validateSearch: (search: Record<string, unknown>): { edit?: string } => ({
     edit: typeof search.edit === "string" ? search.edit : undefined,
   }),
-  component: () => (
-    <LegacyScreen>
-      <ActivitiesPage />
-    </LegacyScreen>
-  ),
+  component: ActivitiesPage,
 });
 
 function ActivitiesPage() {
@@ -285,81 +294,66 @@ function ActivitiesPage() {
     replaceSchedule.isPending ||
     replaceParticipants.isPending;
 
-  return (
-    <div className="animate-fade-in space-y-4">
-      <div className="flex flex-row items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Aktivnosti</h1>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button variant="outline" onClick={() => setOptionsOpen(true)} aria-label="Opcije">
-            <Cog6ToothIcon className="h-5 w-5 sm:mr-2" />
-            <span className="hidden sm:inline">Opcije</span>
-          </Button>
-          <AddButton label="Dodaj aktivnost" onClick={openAdd} />
-        </div>
-      </div>
-
-      {/* Sticky just under the app header (h-14) so the week navigation + school
-          toggle stay put while the grid below scrolls. */}
-      <div className="sticky top-14 z-30 flex flex-wrap items-center gap-2 bg-gray-50 py-2 dark:bg-gray-900">
-        <PeriodPickerShell
-          onPrev={goPrevWeek}
-          onNext={goNextWeek}
-          prevAriaLabel="Prethodna nedelja"
-          nextAriaLabel="Sledeća nedelja"
-        >
-          <div className="flex items-center border-x border-gray-200 px-3 py-1.5 text-sm font-medium tabular-nums dark:border-gray-700">
-            {rangeLabel}
-          </div>
-        </PeriodPickerShell>
-        {!isCurrentWeek ? (
-          <Button variant="outline" size="sm" onClick={goToToday}>
-            Ova sedmica
-          </Button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setShowSchool((v) => !v)}
-          aria-pressed={showSchool}
-          aria-label="Prikaži školu"
-          title="Prikaži školu"
-          className={cn(
-            "ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
-            showSchool
-              ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300"
-              : "border-gray-200 text-muted-foreground hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
-          )}
-        >
-          <BookOpenIcon className="h-4 w-4" />
-          <span className="hidden sm:inline">Prikaži školu</span>
-        </button>
-      </div>
-
-      {members.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {members.map((member) => (
-            <PersonChip
-              key={member.id}
-              person={member}
-              active={personFilter.size === 0 || personFilter.has(member.id)}
-              onToggle={() => togglePerson(member.id)}
-              shift={timeBandByPerson.get(member.id) ?? null}
+  const header = (
+    <div className="flex flex-col gap-2.5">
+      <ScreenHeaderRow
+        title="Aktivnosti"
+        actions={
+          <>
+            <IconButton
+              icon={Cog6ToothIcon}
+              aria-label="Opcije"
+              onClick={() => setOptionsOpen(true)}
             />
-          ))}
-          {personFilter.size > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => setPersonFilter(new Set())}
-            >
-              Resetuj
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+            <IconButton icon={PlusIcon} aria-label="Dodaj aktivnost" onClick={openAdd} />
+          </>
+        }
+      />
+      <div className="flex items-center gap-2">
+        <IconButton icon={ChevronLeftIcon} aria-label="Prethodna nedelja" onClick={goPrevWeek} />
+        <div className="flex-1 text-center text-sm font-extrabold tabular-nums">{rangeLabel}</div>
+        <IconButton icon={ChevronRightIcon} aria-label="Sledeća nedelja" onClick={goNextWeek} />
+      </div>
+      <FilterChipRow ariaLabel="Filteri rasporeda">
+        <FilterChip
+          active={showSchool}
+          onToggle={() => setShowSchool((v) => !v)}
+          icon={BookOpenIcon}
+        >
+          Prikaži školu
+        </FilterChip>
+        {!isCurrentWeek ? (
+          <FilterChip active={false} onToggle={goToToday} icon={ClockIcon}>
+            Ova sedmica
+          </FilterChip>
+        ) : null}
+        {members.length > 0 ? (
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+        ) : null}
+        {/* "Sve" carries the neutral state so the member chips only light up
+            once someone is actually picked (same reading as Kalendar). */}
+        {members.length > 0 ? (
+          <FilterChip active={personFilter.size === 0} onToggle={() => setPersonFilter(new Set())}>
+            Svi
+          </FilterChip>
+        ) : null}
+        {members.map((member) => (
+          <PersonChip
+            key={member.id}
+            person={member}
+            active={personFilter.has(member.id)}
+            onToggle={() => togglePerson(member.id)}
+            shift={timeBandByPerson.get(member.id) ?? null}
+          />
+        ))}
+      </FilterChipRow>
+    </div>
+  );
 
+  return (
+    <AppScreen header={header} contentClassName="mx-auto w-full max-w-3xl space-y-4">
       {isLoading ? (
-        <div className="text-gray-500">Učitavanje…</div>
+        <p className="text-muted-foreground">Učitavanje…</p>
       ) : (
         // The starter overlay floats over the (faint, still visible) week grid -
         // a bare 07-22h grid with no explanation reads as broken to a new user.
@@ -475,7 +469,7 @@ function ActivitiesPage() {
         entries={timetableQuery.data ?? []}
         bell={bell}
       />
-    </div>
+    </AppScreen>
   );
 }
 
@@ -513,11 +507,11 @@ function AllActivitiesList({
   onDelete,
 }: AllActivitiesListProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+    <section>
+      <SectionHeading count={activities.length} className="mb-2">
         Sve aktivnosti
-      </h2>
-      <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+      </SectionHeading>
+      <ul className="space-y-2.5">
         {activities.map((activity) => {
           const personIds = personIdsByActivity.get(activity.id) ?? [];
           const personNames = personIds
@@ -533,71 +527,63 @@ function AllActivitiesList({
             })
             .join(", ");
           const count = scheduleCountByActivity.get(activity.id) ?? 0;
+          // The tile takes the FIRST participant's colour - with siblings in
+          // one activity the dots after the name carry the rest.
+          const firstPersonId = personIds[0];
+          const tileColor = firstPersonId
+            ? (peopleById.get(firstPersonId)?.color ?? fallbackColorForProfile(firstPersonId))
+            : undefined;
+          const meta = [
+            personNames || "Bez učesnika",
+            count === 0 ? "bez termina" : count === 1 ? "1 termin" : `${count} termina`,
+            activity.active_from || activity.active_to
+              ? `${activity.active_from ? formatDate(activity.active_from) : "…"} - ${
+                  activity.active_to ? formatDate(activity.active_to) : "…"
+                }`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+
           return (
-            <li
-              key={activity.id}
-              className={cn("flex items-center gap-3 py-2", activity.is_paused && "opacity-60")}
-            >
-              <span className="flex shrink-0 -space-x-1">
-                {personIds.length === 0 ? (
-                  <span className="inline-block size-2.5 rounded-full bg-gray-300" aria-hidden />
-                ) : (
-                  personIds.map((id) => {
-                    const p = peopleById.get(id);
-                    const color = p?.color ?? fallbackColorForProfile(id);
-                    return (
-                      <span
+            <li key={activity.id}>
+              <ItemCard dimmed={activity.is_paused}>
+                <ItemTile icon={SparklesIcon} color={tileColor} tone="accent" />
+                <ItemMain>
+                  <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-[1.25] font-bold tracking-[-0.01em]">
+                    <span className="min-w-0 truncate">{activity.name}</span>
+                    {personIds.map((id) => (
+                      <PersonDot
                         key={id}
-                        className="inline-block size-2.5 rounded-full ring-1 ring-white dark:ring-gray-800"
-                        style={{ backgroundColor: color }}
-                        aria-hidden="true"
+                        color={peopleById.get(id)?.color ?? fallbackColorForProfile(id)}
                       />
-                    );
-                  })
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {activity.name}
-                  {activity.is_paused ? (
-                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600">
-                      pauzirano
-                    </span>
-                  ) : null}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {personNames || "Bez učesnika"} ·{" "}
-                  {count === 0 ? "bez termina" : count === 1 ? "1 termin" : `${count} termina`}
-                  {activity.active_from || activity.active_to ? (
-                    <span>
-                      {" · "}
-                      {activity.active_from ? formatDate(activity.active_from) : "…"}
-                      {" - "}
-                      {activity.active_to ? formatDate(activity.active_to) : "…"}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <button
-                type="button"
-                aria-label="Izmeni"
-                onClick={() => onEdit(activity)}
-                className="rounded-md p-2 text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-              >
-                <PencilSquareIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Obriši"
-                onClick={() => onDelete(activity)}
-                className="rounded-md p-2 text-muted-foreground hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-700"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
+                    ))}
+                    {activity.is_paused ? <Pill tone="warn">pauzirano</Pill> : null}
+                  </span>
+                  <ItemMeta>
+                    <span className="min-w-0 truncate">{meta}</span>
+                  </ItemMeta>
+                </ItemMain>
+                <ItemSide className="flex-row items-center gap-0.5">
+                  <IconButton
+                    icon={PencilSquareIcon}
+                    size="sm"
+                    aria-label={`Izmeni ${activity.name}`}
+                    onClick={() => onEdit(activity)}
+                  />
+                  <IconButton
+                    icon={TrashIcon}
+                    size="sm"
+                    aria-label={`Obriši ${activity.name}`}
+                    onClick={() => onDelete(activity)}
+                    className="text-neg"
+                  />
+                </ItemSide>
+              </ItemCard>
             </li>
           );
         })}
       </ul>
-    </div>
+    </section>
   );
 }
