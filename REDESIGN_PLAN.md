@@ -169,6 +169,33 @@ Procene su za fokusiran rad jedne sesije/agenta po traci.
 - [x] Bundle provera (Mesec lazy), Lighthouse brzi pregled
 - [ ] PR opis sa checklistom + screenshotovi po ekranu (svetla/tamna, mobil/desktop) - CEKA korisnikovu lokalnu potvrdu; PR se ne otvara pre toga
 
+### Lane J - Vremenske trake (dodato 2026-08-05, po odobrenom predlogu)
+
+Predlog: https://claude.ai/code/artifact/d8b011aa-b20f-4ffd-bd24-5acdbdea21a3
+(odobren uz izmenu: Novac dobija Mesec-stil zaglavlja umesto predlozene trake cipova).
+
+- [x] Deljene komponente: `common/MonthGridPopover` (mreza meseci izvucena iz MonthPager-a,
+      godina + 12 meseci + "Ovaj mesec" + opcioni red "Sva placanja") i `common/NowPill`
+      ("vrati na sada" pilula - renderuje se samo dok si odlutao od "sada")
+- [x] Novac: MonthPager v2 - serifno ime meseca + godina levo (klik otvara mrezu), NowPill
+      kad nije tekuci mesec (i u "Sva placanja"), IconButton sm strelice desno; API ka
+      NovacScreen nepromenjen
+- [x] Kalendar > Mesec: naslov postaje dugme (ista mreza meseci) + NowPill povratka
+- [x] WeekStrip v3: orphan `dashboard/WeekStrip.tsx` prerabljen - v2 celije (inicijal + broj
+      + do 3 tackice opterecenja), header linija (mesec label sa mini-kalendar popoverom +
+      NowPill + opcione pointer-fine strelice); swipe motor netaknut (translateX karusel,
+      tacno 1 nedelja po prevlacenju, axis-lock, flick, trackpad wheel, iOS workaround)
+- [x] Kalendar > Agenda: traka se VRACA - portal u fiksni header (slot u CalendarScreen,
+      NovacScreen "Dodaj" obrazac), scroll-spy na app-scroll kontejneru, tap skroluje listu,
+      mini-kalendar skok preko growHorizon mehanike, NowPill "Danas"; prosli dani tekuce
+      nedelje utisani i neaktivni (pravilo "Uskoro pocinje od danas")
+- [x] Kalendar > Nedelja: ista traka kao minimapa i pager - swipe menja nedelju (nosi isti
+      dan u nedelji), tap doskroluje mrezu do kolone (mobil), horizontalni scroll-spy prati
+      kolonu u kadru, NowPill "Ova sedmica", strelice samo pointer-fine; stari `< opseg >`
+      red i uslovni cip "Ova sedmica" uklonjeni
+- [x] Provere: check + test (374) + build zeleno; rucni prolaz na dev serveru (mobil/desktop,
+      svetla/tamna tema, zeleni akcenat demo naloga)
+
 ## Paralelizacija (predlog za agente/worktree-ove)
 
 - Agent 1: A, zatim B, zatim pomaze I
@@ -259,6 +286,15 @@ kartice (dokumentovana odluka - agenda se cita kao kontinuiran kalendar).
   jezika i dalje je "Sljiva", ali korisnik bira Plavu/Ljubicastu/Zelenu/Braon).
 
 ## Odstupanja od prototipa (popunjava se tokom rada)
+
+Traka J (vremenske trake, 2026-08-05):
+
+- Prototip redizajna za Novac prikazuje centriran `< Mesec >` pager; zamenjen je Mesec-stilom
+  zaglavlja (serifno ime kao okidac mreze + strelice + NowPill) na korisnikov zahtev. Vizuelni
+  izvor za trake je poseban artifact (link u traci J), i on za Novac vazi u varijanti
+  "Mesec-stil", ne "traka cipova".
+- Ranija odluka "Kalendar > Agenda NEMA nedeljnu traku" (beleska trake C ispod) je PONISTENA
+  ovim predlogom: Agenda ponovo ima swipe traku, a "mesecni skok" zivi na labelu meseca u njoj.
 
 - Lane E: biraci se otvaraju kao sheet na mobilnom, ali kroz postojeci
   ResponsiveDialog (vaul), ne kao pod-prikaz forme - forma ostaje na svom

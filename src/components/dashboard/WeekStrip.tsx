@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { Calendar } from "@/components/ui/calendar";
+import { IconButton } from "@/components/common/IconButton";
+import { NowPill } from "@/components/common/NowPill";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
 import { getWeekStart } from "@/utils/activity";
@@ -10,25 +12,34 @@ import { srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
 
 /**
- * Todoist-style week strip for the "Uskoro" tab. A fixed Mon-Sun weekday header
- * over a horizontally-swipeable pager of week rows - one week per page.
+ * The swipeable week strip (redizajn 2.0 "vremenske trake") - a pager of
+ * Mon-Sun rows, one week per page, skinned like the Danas strip: weekday
+ * initial + day number + up to three load dots per cell.
  *
- * The pager is a `transform: translateX` carousel, NOT a native scroll container.
- * iOS WebKit ignores `scroll-snap-stop: always` during momentum scrolling
- * (https://bugs.webkit.org/show_bug.cgi?id=243582), so a hard fling on a snap
- * scroller skips several weeks at once. Driving the page index straight from the
- * touch gesture makes one swipe move exactly one week - never a runaway fling.
+ * Mounted twice with different wiring: the calendar's AGENDA view (scroll-spy
+ * follows the list, tapping a day scrolls to it) and its NEDELJA view (the
+ * strip is the week pager and minimap of the timetable). The header line
+ * carries the month label (a popover mini-calendar for far jumps), the owner's
+ * NowPill back to "now", and - where the owner asks - desktop-only arrows.
  *
- * It follows the list: `activeDay` (the day at the top of the scrolled list) is
- * marked with a filled circle, and the pager pages to that day's week, so
- * scrolling the list walks the strip forward/back in step. Tapping a day scrolls
- * the list to it; swiping to an adjacent week carries the selection along (Thu →
- * next/prev Thu); swiping to the last week loads more (`onReachEnd`). Today is
- * marked even when scrolled away; days with items carry a dot.
+ * The pager is a `transform: translateX` carousel, NOT a native scroll
+ * container. iOS WebKit ignores `scroll-snap-stop: always` during momentum
+ * scrolling (https://bugs.webkit.org/show_bug.cgi?id=243582), so a hard fling
+ * on a snap scroller skips several weeks at once. Driving the page index
+ * straight from the touch gesture makes one swipe move exactly one week -
+ * never a runaway fling.
+ *
+ * `activeDay` is marked with a filled accent cell and the pager pages to that
+ * day's week, so the owner's state walks the strip in step. Tapping a day
+ * hands it to `onSelectDay`; swiping to an adjacent week carries the selection
+ * along (Thu → next/prev Thu); swiping to the last week calls `onReachEnd`.
  */
 
 /** Monday-first two-letter weekday initials. */
 const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
+
+/** Load dots are capped so a heavy day doesn't grow the row. */
+const MAX_DOTS = 3;
 
 /** A swipe counts as a page change past this fraction of the strip width… */
 const SWIPE_DISTANCE_RATIO = 0.2;
@@ -42,15 +53,15 @@ export type WeekStripProps = {
   /** Week-start Mondays (yyyy-MM-dd), ascending - one page each. */
   weeks: string[];
   today: string;
-  /** First selectable day (today - the Uskoro window now starts at today). */
+  /** First selectable day - days before it render dimmed and disabled. */
   from: string;
-  /** The day currently at the top of the list (scroll-spy), or null. */
+  /** The day the strip marks as selected (scroll-spy / focused column). */
   activeDay: string | null;
-  /** day (yyyy-MM-dd) → item count. */
+  /** day (yyyy-MM-dd) → item count, for the load dots. */
   countByDay: Map<string, number>;
-  /** e.g. "Jun 2026". */
+  /** e.g. "Avgust 2026". */
   monthLabel: string;
-  /** Last jumpable day (the agenda horizon cap, today + 12 months). */
+  /** Last jumpable day - the mini-calendar's far bound. */
   maxDay: string;
   onSelectDay: (day: string) => void;
   /**
@@ -61,6 +72,10 @@ export type WeekStripProps = {
   onJumpToDay: (day: string) => void;
   /** Fired when the pager is swiped to its last week - load more. */
   onReachEnd: () => void;
+  /** The "vrati na sada" pill - rendered in the header line while `show`. */
+  nowPill?: { label: string; show: boolean; onClick: () => void };
+  /** Show prev/next week arrows on pointer-fine devices (Nedelja). */
+  showArrows?: boolean;
 };
 
 export function WeekStrip({
@@ -74,6 +89,8 @@ export function WeekStrip({
   onSelectDay,
   onJumpToDay,
   onReachEnd,
+  nowPill,
+  showArrows = false,
 }: WeekStripProps) {
   const onReachEndRef = useRef(onReachEnd);
   onReachEndRef.current = onReachEnd;
@@ -81,13 +98,14 @@ export function WeekStrip({
   const activeWeek = activeDay ? getWeekStart(activeDay) : (weeks[0] ?? today);
   const activeWeekIndex = Math.max(0, weeks.indexOf(activeWeek));
 
-  // Which week page is showing. Driven both by swipes and by the list (below).
+  // Which week page is showing. Driven both by swipes and by the owner (below).
   const [pageIndex, setPageIndex] = useState(activeWeekIndex);
   const lastIndex = Math.max(0, weeks.length - 1);
   const page = Math.min(Math.max(pageIndex, 0), lastIndex);
 
-  // Follow the list: when the scrolled-to day crosses into another week, page
-  // there. Only fires on a real week change, so a manual swipe-ahead is left be.
+  // Follow the owner: when `activeDay` crosses into another week (list scroll,
+  // week change), page there. Only fires on a real week change, so a manual
+  // swipe-ahead is left be.
   useEffect(() => {
     setPageIndex(activeWeekIndex);
   }, [activeWeekIndex]);
@@ -96,8 +114,8 @@ export function WeekStrip({
   const gesture = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null } | null>(null);
   const wheelLock = useRef(false);
 
-  // Month-picker popover state + bounds (today → the horizon cap). Selecting a
-  // day closes the popover and hands off to the owner's jump mechanics.
+  // Month-picker popover state + bounds. Selecting a day closes the popover
+  // and hands off to the owner's jump mechanics.
   const [pickerOpen, setPickerOpen] = useState(false);
   const fromDate = useMemo(() => parseISO(from + "T12:00:00"), [from]);
   const maxDate = useMemo(() => parseISO(maxDay + "T12:00:00"), [maxDay]);
@@ -105,10 +123,11 @@ export function WeekStrip({
 
   const restingTransform = (i: number) => `translateX(${-i * 100}%)`;
 
-  // A user swipe/wheel paged the strip. Carry the selection across: select the
-  // same weekday in the week we moved to (Thu → next/prev Thu), clamped to the
-  // first selectable day. NOT used by the list-follow effect above, so scrolling
-  // the list pages the strip without re-selecting (no feedback loop).
+  // A user swipe/wheel/arrow paged the strip. Carry the selection across:
+  // select the same weekday in the week we moved to (Thu → next/prev Thu),
+  // clamped to the first selectable day. NOT used by the follow effect above,
+  // so the owner's own updates page the strip without re-selecting (no
+  // feedback loop).
   const goToPage = (target: number) => {
     const next = Math.min(Math.max(target, 0), lastIndex);
     if (next === page) return;
@@ -192,44 +211,55 @@ export function WeekStrip({
 
   return (
     <div>
-      {/* Month label doubles as the "jump to a day" affordance - a popover
-          mini-calendar bounded to [today, horizon cap]. */}
-      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${monthLabel} - izaberi dan`}
-            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-normal text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none/60"
-          >
-            {monthLabel}
-            <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto p-0">
-          <Calendar
-            mode="single"
-            locale={srLocale}
-            selected={activeDate}
-            defaultMonth={activeDate ?? fromDate}
-            startMonth={fromDate}
-            endMonth={maxDate}
-            disabled={{ before: fromDate, after: maxDate }}
-            onSelect={(date) => {
-              if (!date) return;
-              setPickerOpen(false);
-              onJumpToDay(format(date, "yyyy-MM-dd"));
-            }}
-          />
-        </PopoverContent>
-      </Popover>
-
-      {/* Fixed weekday header - every week shares the same Mon-Sun columns. */}
-      <div className="grid grid-cols-7 gap-1 px-1">
-        {WEEKDAY_INITIALS.map((wd) => (
-          <div key={wd} className="text-center text-[11px] font-medium text-muted-foreground">
-            {wd}
-          </div>
-        ))}
+      {/* Header line: month label (jump-to-a-day popover), the way back to
+          "now", and - where asked - desktop week arrows. */}
+      <div className="mb-1 flex min-h-7 items-center gap-2">
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${monthLabel} - izaberi dan`}
+              className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-[13.5px] font-semibold transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <span className="truncate">{monthLabel}</span>
+              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0">
+            <Calendar
+              mode="single"
+              locale={srLocale}
+              selected={activeDate}
+              defaultMonth={activeDate ?? fromDate}
+              startMonth={fromDate}
+              endMonth={maxDate}
+              disabled={{ before: fromDate, after: maxDate }}
+              onSelect={(date) => {
+                if (!date) return;
+                setPickerOpen(false);
+                onJumpToDay(format(date, "yyyy-MM-dd"));
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+        <span className="min-w-1 flex-1" />
+        {nowPill?.show ? <NowPill label={nowPill.label} onClick={nowPill.onClick} /> : null}
+        {showArrows ? (
+          <span className="hidden gap-1.5 pointer-fine:flex">
+            <IconButton
+              icon={ChevronLeftIcon}
+              size="sm"
+              aria-label="Prethodna nedelja"
+              onClick={() => goToPage(page - 1)}
+            />
+            <IconButton
+              icon={ChevronRightIcon}
+              size="sm"
+              aria-label="Sledeća nedelja"
+              onClick={() => goToPage(page + 1)}
+            />
+          </span>
+        ) : null}
       </div>
 
       {/* Swipeable week pager - a clipped viewport over a translateX track. */}
@@ -249,17 +279,14 @@ export function WeekStrip({
           {weeks.map((weekStart) => {
             const base = parseISO(weekStart + "T12:00:00");
             return (
-              <div key={weekStart} className="grid w-full shrink-0 grid-cols-7 gap-1 px-1">
+              <div key={weekStart} className="grid w-full shrink-0 grid-cols-7 gap-1">
                 {Array.from({ length: 7 }, (_, dow) => {
                   const date = addDays(base, dow);
                   const day = format(date, "yyyy-MM-dd");
                   const count = countByDay.get(day) ?? 0;
+                  const dots = Math.min(count, MAX_DOTS);
                   const isToday = day === today;
                   const isActive = day === activeDay;
-                  const isPast = day < today;
-                  // Any day from today on is tappable - the list renders a section
-                  // per day (empty ones too), so there's always somewhere to land.
-                  // The green dot below the number signals which days have events.
                   const selectable = day >= from;
                   // Humanized for screen readers: "ponedeljak, 20. jul - 6 stavki".
                   const spokenDay = format(date, "EEEE, d. MMMM", { locale: srLocale });
@@ -268,34 +295,43 @@ export function WeekStrip({
                       key={day}
                       type="button"
                       disabled={!selectable}
+                      aria-current={isToday ? "date" : undefined}
                       aria-label={
                         count > 0 ? `${spokenDay} - ${count} ${stavkeLabel(count)}` : spokenDay
                       }
                       onClick={() => onSelectDay(day)}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-lg py-1.5 transition-colors",
-                        isPast && "opacity-40",
-                        !selectable && "cursor-default",
+                        "min-w-0 rounded-md border border-transparent py-1 text-center transition-colors",
+                        !selectable && "cursor-default opacity-40",
+                        isActive
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : isToday
+                            ? "border-accent/40 bg-accent-soft text-accent-deep"
+                            : selectable
+                              ? "text-muted-foreground hover:bg-muted/60"
+                              : "text-muted-foreground",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
-                          isActive
-                            ? "bg-blue-600 font-normal text-white dark:bg-blue-500"
-                            : isToday
-                              ? "font-normal text-blue-600 dark:text-blue-400"
-                              : selectable
-                                ? "font-medium text-foreground hover:bg-muted/60"
-                                : "text-muted-foreground",
-                        )}
-                      >
+                      <span className="block text-[9px] font-bold tracking-wide uppercase opacity-85">
+                        {WEEKDAY_INITIALS[dow]}
+                      </span>
+                      <span className="mt-px block text-sm font-bold tabular-nums">
                         {Number(day.slice(8, 10))}
                       </span>
-                      <span className="flex h-1 items-center justify-center">
-                        {count > 0 && !isActive && !isPast ? (
-                          <span className="size-1 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                        ) : null}
+                      <span className="mt-0.5 flex h-1 items-center justify-center gap-px">
+                        {Array.from({ length: dots }, (_, i) => (
+                          <span
+                            key={i}
+                            className={cn(
+                              "size-1 rounded-full",
+                              isActive
+                                ? "bg-accent-foreground opacity-90"
+                                : isToday
+                                  ? "bg-accent-deep opacity-90"
+                                  : "bg-muted-foreground opacity-40",
+                            )}
+                          />
+                        ))}
                       </span>
                     </button>
                   );

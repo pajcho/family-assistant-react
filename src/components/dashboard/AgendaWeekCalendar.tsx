@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, format, parseISO } from "date-fns";
-import {
-  AcademicCapIcon,
-  BookOpenIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ClockIcon,
-} from "@heroicons/react/24/outline";
+import { createPortal } from "react-dom";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { AcademicCapIcon, BookOpenIcon } from "@heroicons/react/24/outline";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
-import { IconButton } from "@/components/common/IconButton";
+import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import {
   AllDayChip,
@@ -68,6 +63,8 @@ import { cn } from "@/lib/cn";
  */
 export type AgendaWeekCalendarProps = {
   filter: AgendaFilter;
+  /** Where the week strip portals to - a slot in the screen's fixed header. */
+  stripSlot?: HTMLElement | null;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
@@ -88,6 +85,13 @@ const GRID_COLS = "grid-cols-[44px_repeat(7,140px)] sm:grid-cols-[44px_repeat(7,
 /** Width of the sticky hour gutter - the horizontal scroll offsets past it. */
 const GUTTER_PX = 44;
 
+/** Fixed day-column width below `sm` - the horizontal scroll-spy's unit. */
+const COL_PX = 140;
+
+/** Strip range: 26 weeks back, 26 forward - a year of weeks, half each way. */
+const STRIP_WEEKS_BACK = 26;
+const STRIP_WEEKS_FORWARD = 26;
+
 /** All-day chips a day shows before collapsing the rest into "+ još N" (the
  *  month view's MAX_CHIPS rule, so the two grids behave alike). */
 const MAX_ALL_DAY = 3;
@@ -101,11 +105,18 @@ const NO_SCHOOL_BLOCKS: ResolvedSchoolBlock[] = [];
 
 export function AgendaWeekCalendar({
   filter,
+  stripSlot,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
 }: AgendaWeekCalendarProps) {
   const [weekStart, setWeekStart] = useState<string>(() => getThisWeekStart());
+  // The strip's focused column (0-6): follows the grid's horizontal scroll on
+  // phones, and is what a strip tap or a week jump aims the grid at.
+  const [selCol, setSelCol] = useState<number>(() => {
+    const now = new Date();
+    return (now.getDay() + 6) % 7;
+  });
   const [showSchool, setShowSchool] = useState(true);
   // Days whose all-day cell is expanded past MAX_ALL_DAY. Keyed by date (unique
   // across weeks), so navigating away and back keeps the choice - harmless
@@ -232,19 +243,52 @@ export function AgendaWeekCalendar({
   const nowInViewport = nowMin >= startMin && nowMin <= endMin;
   const nowTopPx = GRID_TOP_PADDING_PX + ((nowMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
 
-  const goPrev = () =>
-    setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), -7), "yyyy-MM-dd"));
-  const goNext = () =>
-    setWeekStart((w) => format(addDays(parseISO(w + "T12:00:00"), 7), "yyyy-MM-dd"));
-  const goToday = () => setWeekStart(thisWeekStart);
-
   const isEmpty = !isLoading && items.length === 0 && schoolBlocks.length === 0;
+
+  /* ------------------------------- week strip ------------------------------ */
+
+  // Load dots: agenda items only (school is background structure, not load).
+  // Only the loaded week has data - other pages' dots fill in as you arrive.
+  const countByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of items) map.set(item.date, (map.get(item.date) ?? 0) + 1);
+    return map;
+  }, [items]);
+
+  // Strip pages: half a year back, half forward, anchored on the current week.
+  const stripWeeks = useMemo(() => {
+    const base = parseISO(thisWeekStart + "T12:00:00");
+    return Array.from({ length: STRIP_WEEKS_BACK + STRIP_WEEKS_FORWARD + 1 }, (_, i) =>
+      format(addDays(base, (i - STRIP_WEEKS_BACK) * 7), "yyyy-MM-dd"),
+    );
+  }, [thisWeekStart]);
+  const stripMaxDay = useMemo(
+    () =>
+      format(addDays(parseISO(stripWeeks[stripWeeks.length - 1] + "T12:00:00"), 6), "yyyy-MM-dd"),
+    [stripWeeks],
+  );
+
+  // The month the shown week mostly sits in - Thursday's month, ISO-style.
+  const monthLabel = useMemo(() => {
+    const label = format(addDays(parseISO(weekStart + "T12:00:00"), 3), "LLLL yyyy", {
+      locale: srLocale,
+    });
+    return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+  }, [weekStart]);
+
+  const activeDay = days[Math.min(Math.max(selCol, 0), 6)];
 
   // Open on today, at the current hour. Read from refs and fired once per week
   // so the minute tick (which moves `nowTopPx`) can never yank the grid out from
   // under someone who has scrolled somewhere else.
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledForRef = useRef<string | null>(null);
+  // A cross-week strip jump lands the grid on the tapped column once the new
+  // week has rendered, instead of the default today-or-Monday.
+  const pendingColRef = useRef<number | null>(null);
+  // While a tap-driven smooth scroll runs, the horizontal spy is pinned so it
+  // doesn't re-select every column passed on the way.
+  const spyPinRef = useRef(false);
   const targetRef = useRef({ todayIndex: days.indexOf(todayStr), nowTopPx, nowInViewport });
   targetRef.current = { todayIndex: days.indexOf(todayStr), nowTopPx, nowInViewport };
   useEffect(() => {
@@ -257,46 +301,124 @@ export function AgendaWeekCalendar({
     scrolledForRef.current = weekStart;
 
     const { todayIndex, nowTopPx: top, nowInViewport: nowVisible } = targetRef.current;
+    // A strip jump aims at its column; otherwise today hard against the
+    // gutter, so it and the days after it are what you see; a week without
+    // today starts at Monday.
+    const focusIndex = pendingColRef.current ?? todayIndex;
+    pendingColRef.current = null;
     const cell =
-      todayIndex >= 0 ? box.querySelector<HTMLElement>(`[data-day-index="${todayIndex}"]`) : null;
-    // Today hard against the gutter, so it and the days after it are what you
-    // see; a week without today starts at Monday.
+      focusIndex >= 0 ? box.querySelector<HTMLElement>(`[data-day-index="${focusIndex}"]`) : null;
     box.scrollLeft = cell ? Math.max(0, cell.offsetLeft - GUTTER_PX) : 0;
     // "Now" a third down rather than at the very top - the hour you are in
     // reads better with the morning still above it.
     box.scrollTop = nowVisible && todayIndex >= 0 ? Math.max(0, top - box.clientHeight / 3) : 0;
   }, [weekStart, isLoading]);
 
+  // Aim the grid's horizontal scroll at a column - phones only: from `sm` up
+  // all seven columns share the width and there is nothing to scroll.
+  const scrollGridToCol = (col: number) => {
+    const box = scrollRef.current;
+    if (!box || box.scrollWidth <= box.clientWidth + 8) return;
+    const cell = box.querySelector<HTMLElement>(`[data-day-index="${col}"]`);
+    if (!cell) return;
+    spyPinRef.current = true;
+    const release = () => {
+      spyPinRef.current = false;
+      box.removeEventListener("scrollend", release);
+      window.clearTimeout(timer);
+    };
+    const timer = window.setTimeout(release, 1000);
+    box.addEventListener("scrollend", release, { once: true });
+    box.scrollTo({ left: Math.max(0, cell.offsetLeft - GUTTER_PX), behavior: "smooth" });
+  };
+
+  // A strip tap / swipe-carry / mini-calendar pick. Same week: slide the grid
+  // to that column. Another week: switch weeks and land on the column once the
+  // new grid renders (the auto-open effect above).
+  const handleStripDay = (day: string) => {
+    const monday = getWeekStart(day);
+    const dow = differenceInCalendarDays(
+      parseISO(day + "T12:00:00"),
+      parseISO(monday + "T12:00:00"),
+    );
+    setSelCol(dow);
+    if (monday === weekStart) {
+      scrollGridToCol(dow);
+      return;
+    }
+    pendingColRef.current = dow;
+    setWeekStart(monday);
+  };
+
+  // Horizontal scroll-spy: the strip's focused column follows whichever day
+  // column sits against the gutter. Phones only (see `scrollGridToCol`).
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      if (spyPinRef.current) return;
+      if (box.scrollWidth <= box.clientWidth + 8) return;
+      const col = Math.min(6, Math.max(0, Math.round(box.scrollLeft / COL_PX)));
+      setSelCol((prev) => (prev === col ? prev : col));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    box.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      box.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
-      {/* Week pager. */}
-      <div className="flex items-center gap-2">
-        <IconButton icon={ChevronLeftIcon} aria-label="Prethodna nedelja" onClick={goPrev} />
-        <div className="flex-1 text-center text-sm font-bold tabular-nums">
-          {formatWeekRange(weekStart, weekEnd)}
-        </div>
-        <IconButton icon={ChevronRightIcon} aria-label="Sledeća nedelja" onClick={goNext} />
-      </div>
+      {/* The week strip lives in the screen's FIXED header (slot portal): the
+          same strip the agenda has, wired as this view's pager and minimap -
+          swiping it changes the week, tapping a day slides the grid to that
+          column, and the grid's horizontal scroll walks its focused cell. */}
+      {stripSlot
+        ? createPortal(
+            <WeekStrip
+              weeks={stripWeeks}
+              today={todayStr}
+              from={stripWeeks[0]}
+              activeDay={activeDay}
+              countByDay={countByDay}
+              monthLabel={monthLabel}
+              maxDay={stripMaxDay}
+              onSelectDay={handleStripDay}
+              onJumpToDay={handleStripDay}
+              onReachEnd={() => {}}
+              nowPill={{
+                label: "Ova sedmica",
+                show: !isCurrentWeek,
+                onClick: () => handleStripDay(todayStr),
+              }}
+              showArrows
+            />,
+            stripSlot,
+          )
+        : null}
 
-      <FilterChipRow ariaLabel="Prikaz nedelje">
-        {hasSchoolData ? (
-          <FilterChip
-            active={showSchool}
-            onToggle={() => setShowSchool((v) => !v)}
-            icon={AcademicCapIcon}
-          >
-            Prikaži školu
-          </FilterChip>
-        ) : null}
-        {!isCurrentWeek ? (
-          <FilterChip active={false} onToggle={goToday} icon={ClockIcon}>
-            Ova sedmica
-          </FilterChip>
-        ) : null}
-        {isLoading ? (
-          <span className="shrink-0 px-1 text-xs text-muted-foreground">Učitavanje…</span>
-        ) : null}
-      </FilterChipRow>
+      {hasSchoolData || isLoading ? (
+        <FilterChipRow ariaLabel="Prikaz nedelje">
+          {hasSchoolData ? (
+            <FilterChip
+              active={showSchool}
+              onToggle={() => setShowSchool((v) => !v)}
+              icon={AcademicCapIcon}
+            >
+              Prikaži školu
+            </FilterChip>
+          ) : null}
+          {isLoading ? (
+            <span className="shrink-0 px-1 text-xs text-muted-foreground">Učitavanje…</span>
+          ) : null}
+        </FilterChipRow>
+      ) : null}
 
       {/* The grid scrolls in BOTH directions inside this box, which is what lets
           the day header and the hour gutter stay pinned: `sticky` anchors to the
@@ -591,12 +713,4 @@ function SchoolBlock({
       <div className="truncate text-[10px] font-semibold text-foreground">{subject}</div>
     </button>
   );
-}
-
-function formatWeekRange(weekStart: string, weekEnd: string): string {
-  const start = parseISO(weekStart + "T12:00:00");
-  const end = parseISO(weekEnd + "T12:00:00");
-  return `${format(start, "dd.MM", { locale: srLocale })} - ${format(end, "dd.MM.yyyy", {
-    locale: srLocale,
-  })}`;
 }

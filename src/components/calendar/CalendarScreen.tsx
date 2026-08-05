@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
@@ -54,6 +54,13 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
   const { familyId } = useProfile();
   const filters = useAgendaFilters();
   const forms = useAgendaEditForms();
+  // Slot the Agenda and Nedelja views portal their week strip into. The strip
+  // belongs to the fixed header (it must not scroll away with the list), but
+  // its state - weeks, load dots, scroll-spy - lives with the view that owns
+  // the data, so a slot keeps both where they should be (the NovacScreen
+  // "Dodaj" pattern). `display: contents` so the portalled strip joins the
+  // header column directly and an empty slot adds no gap.
+  const [stripSlot, setStripSlot] = useState<HTMLElement | null>(null);
 
   const header = (
     <div className="flex flex-col gap-2.5">
@@ -79,6 +86,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
         reset={filters.reset}
         isActive={filters.isActive}
       />
+      <div ref={setStripSlot} className="contents" />
     </div>
   );
 
@@ -103,6 +111,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
       ) : view === "nedelja" ? (
         <AgendaWeekCalendar
           filter={filters.filter}
+          stripSlot={stripSlot}
           onEditEvent={forms.openEditEvent}
           onEditPayment={forms.openEditPayment}
           onEditBirthday={forms.openEditBirthday}
@@ -122,6 +131,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
         <AgendaUpcomingList
           filter={filters.filter}
           scrollToDay={day}
+          stripSlot={stripSlot}
           onAddEvent={forms.openAddEvent}
           onEditEvent={forms.openEditEvent}
           onEditPayment={forms.openEditPayment}

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { addMonths, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { IconButton } from "@/components/common/IconButton";
+import { MonthGridPopover } from "@/components/common/MonthGridPopover";
+import { NowPill } from "@/components/common/NowPill";
 import { SectionHeading } from "@/components/common/SectionHeading";
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
@@ -14,6 +16,7 @@ import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { DAY_LABELS_SHORT, getWeekStart } from "@/utils/activity";
 import { type AgendaFilter, filterAgendaItems, groupAgendaByDay } from "@/utils/agendaFilters";
+import { monthName as monthNameFor } from "@/utils/budget";
 import { addDays, srLocale } from "@/utils/date";
 import { cn } from "@/lib/cn";
 
@@ -137,6 +140,7 @@ export function MonthCalendar({
     const label = format(monthDate, "LLLL", { locale: srLocale });
     return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
   }, [monthDate]);
+  const currentMonthName = monthNameFor(todayStr.slice(0, 7));
 
   const shiftMonth = (delta: number) => {
     const next = format(addMonths(monthDate, delta), "yyyy-MM-01");
@@ -157,14 +161,32 @@ export function MonthCalendar({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline gap-2.5 px-[3px]">
-        <span className="font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
-          {monthName}
-        </span>
-        <span className="text-sm font-semibold text-muted-foreground">
-          {format(monthDate, "yyyy")}.
-        </span>
-        <span className="flex-1" />
+      <div className="flex items-center gap-1.5 px-[3px]">
+        {/* The title is the far-jump affordance - same grid the Novac pager
+            opens, so "izaberi mesec i godinu" is one control app-wide. */}
+        <MonthGridPopover value={monthPrefix} onPick={(month) => setMonthAnchor(`${month}-01`)}>
+          <button
+            type="button"
+            aria-label="Izaberi mesec i godinu"
+            className="-mx-1 flex min-w-0 items-baseline gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <span className="truncate font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
+              {monthName}
+            </span>
+            <span className="text-sm font-semibold text-muted-foreground tabular-nums">
+              {format(monthDate, "yyyy")}.
+            </span>
+            <ChevronDownIcon className="size-4 shrink-0 self-center text-muted-foreground" />
+          </button>
+        </MonthGridPopover>
+        <span className="min-w-1 flex-1" />
+        {monthPrefix !== todayStr.slice(0, 7) ? (
+          <NowPill
+            label={currentMonthName}
+            aria-label="Vrati na tekući mesec"
+            onClick={() => setMonthAnchor(`${todayStr.slice(0, 7)}-01`)}
+          />
+        ) : null}
         <IconButton
           icon={ChevronLeftIcon}
           size="sm"

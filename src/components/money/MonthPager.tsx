@@ -1,38 +1,25 @@
-import { useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IconButton } from "@/components/common/IconButton";
+import { MonthGridPopover } from "@/components/common/MonthGridPopover";
+import { NowPill } from "@/components/common/NowPill";
 import { cn } from "@/lib/cn";
 import { currentMonthYYYYMM } from "@/utils/date";
-import { monthLabel, shiftMonth } from "@/utils/budget";
+import { monthName, shiftMonth } from "@/utils/budget";
 
 /**
- * Novac's month pager: `‹ Oktobar 2026 ›`, centered under the segments.
+ * Novac's month row - the same header the calendar's Mesec view has, so the two
+ * month screens read as one control: serif month name on the left (the title
+ * doubles as the month/year grid trigger), small card arrows on the right, and
+ * a NowPill back to the current month whenever you are off it.
  *
- * It replaces the old bordered `MonthPicker` pill on this screen - inside a
- * fixed header the arrows want to be quiet chrome, not a boxed control. The
- * label still opens the month/year grid (fast jump back over years), so the
- * behaviour the budget and payments pages had is intact; the all-time entry is
- * only offered where it means something (Plaćanja).
+ * Replaced the centered `‹ Oktobar 2026 ›` pager (2026-08): two detached
+ * arrows around a bare label read as an empty divider cutting the screen, and
+ * the way back to the current month was buried in the popover.
  */
 
 /** Sentinel month value for the payments "all time" view. */
 export const ALL_MONTHS = "all";
-
-const MONTH_SHORT_SR = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Maj",
-  "Jun",
-  "Jul",
-  "Avg",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Dec",
-] as const;
 
 export function MonthPager({
   value,
@@ -46,129 +33,59 @@ export function MonthPager({
   allOptionLabel?: string;
   className?: string;
 }) {
-  const [open, setOpen] = useState(false);
   const current = currentMonthYYYYMM();
   const isAll = value === ALL_MONTHS;
   // In "all" mode the arrows step from today - there is no anchored month to
   // step from, and landing next to the current one is what you want.
   const baseMonth = isAll ? current : value;
-  const [gridYear, setGridYear] = useState(() => Number(baseMonth.slice(0, 4)));
-
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (next) setGridYear(Number(baseMonth.slice(0, 4)));
-  };
-
-  const pick = (next: string) => {
-    onChange(next);
-    setOpen(false);
-  };
 
   return (
-    <div className={cn("flex items-center justify-center gap-3.5", className)}>
-      <PagerArrow
+    <div className={cn("flex items-center gap-1.5", className)}>
+      <MonthGridPopover
+        value={isAll ? null : value}
+        onPick={onChange}
+        extraOption={
+          allOptionLabel
+            ? { label: allOptionLabel, active: isAll, onPick: () => onChange(ALL_MONTHS) }
+            : undefined
+        }
+      >
+        <button
+          type="button"
+          aria-label="Izaberi mesec i godinu"
+          className="-mx-1 flex min-w-0 items-baseline gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <span className="truncate font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
+            {isAll ? (allOptionLabel ?? "Sve") : monthName(value)}
+          </span>
+          {isAll ? null : (
+            <span className="text-sm font-semibold text-muted-foreground tabular-nums">
+              {value.slice(0, 4)}.
+            </span>
+          )}
+          <ChevronDownIcon className="size-4 shrink-0 self-center text-muted-foreground" />
+        </button>
+      </MonthGridPopover>
+      <span className="min-w-1 flex-1" />
+      {value !== current ? (
+        <NowPill
+          label={monthName(current)}
+          aria-label="Vrati na tekući mesec"
+          onClick={() => onChange(current)}
+        />
+      ) : null}
+      <IconButton
         icon={ChevronLeftIcon}
-        label="Prethodni mesec"
+        size="sm"
+        aria-label="Prethodni mesec"
         onClick={() => onChange(shiftMonth(baseMonth, -1))}
       />
-      <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label="Izaberi mesec i godinu"
-            className="min-w-[7.5rem] rounded-sm px-2 py-1 text-center text-sm font-bold tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            {isAll ? (allOptionLabel ?? "Sve") : monthLabel(value)}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-64 rounded-xl p-3" align="center">
-          <div className="flex items-center justify-between">
-            <PagerArrow
-              icon={ChevronLeftIcon}
-              label="Prethodna godina"
-              onClick={() => setGridYear((y) => y - 1)}
-            />
-            <span className="text-sm font-bold tabular-nums">{gridYear}</span>
-            <PagerArrow
-              icon={ChevronRightIcon}
-              label="Sledeća godina"
-              onClick={() => setGridYear((y) => y + 1)}
-            />
-          </div>
-          <div className="mt-2 grid grid-cols-3 gap-1">
-            {MONTH_SHORT_SR.map((name, index) => {
-              const month = `${gridYear}-${String(index + 1).padStart(2, "0")}`;
-              const selected = !isAll && month === value;
-              const isCurrent = month === current;
-              return (
-                <button
-                  key={month}
-                  type="button"
-                  onClick={() => pick(month)}
-                  className={cn(
-                    "rounded-sm px-2 py-2 text-sm font-semibold transition-colors",
-                    selected
-                      ? "bg-accent text-accent-foreground"
-                      : isCurrent
-                        ? "bg-accent-soft text-accent-deep"
-                        : "text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
-            <button
-              type="button"
-              onClick={() => pick(current)}
-              className="rounded-sm px-2 py-2 text-left text-sm font-semibold text-accent-deep hover:bg-muted"
-            >
-              Ovaj mesec
-            </button>
-            {allOptionLabel ? (
-              <button
-                type="button"
-                onClick={() => pick(ALL_MONTHS)}
-                className={cn(
-                  "rounded-sm px-2 py-2 text-left text-sm font-semibold hover:bg-muted",
-                  isAll ? "text-accent-deep" : "text-muted-foreground",
-                )}
-              >
-                {allOptionLabel}
-              </button>
-            ) : null}
-          </div>
-        </PopoverContent>
-      </Popover>
-      <PagerArrow
+      <IconButton
         icon={ChevronRightIcon}
-        label="Sledeći mesec"
+        size="sm"
+        aria-label="Sledeći mesec"
         onClick={() => onChange(shiftMonth(baseMonth, 1))}
       />
     </div>
-  );
-}
-
-/** 30px visual, 44px hit area - the arrows must stay tappable in the header. */
-function PagerArrow({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof ChevronLeftIcon;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-    >
-      <Icon className="size-4" />
-    </button>
   );
 }
