@@ -121,6 +121,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
           <MonthCalendar
             filter={filters.filter}
             isFilterActive={filters.isActive}
+            stripSlot={stripSlot}
             onOpenDay={onOpenDay}
             onEditEvent={forms.openEditEvent}
             onEditPayment={forms.openEditPayment}

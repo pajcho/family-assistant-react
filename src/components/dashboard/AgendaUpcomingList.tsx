@@ -376,6 +376,7 @@ export function AgendaUpcomingList({
                 show: (activeDay ?? today) !== today,
                 onClick: () => scrollToDaySection(today),
               }}
+              showArrows
             />,
             stripSlot,
           )

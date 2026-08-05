@@ -181,8 +181,7 @@ Predlog: https://claude.ai/code/artifact/d8b011aa-b20f-4ffd-bd24-5acdbdea21a3
       kad nije tekuci mesec (i u "Sva placanja"), IconButton sm strelice desno; API ka
       NovacScreen nepromenjen
 - [x] Kalendar > Mesec: naslov postaje dugme (ista mreza meseci) + NowPill povratka
-- [x] WeekStrip v3: orphan `dashboard/WeekStrip.tsx` prerabljen - v2 celije (inicijal + broj
-      + do 3 tackice opterecenja), header linija (mesec label sa mini-kalendar popoverom +
+- [x] WeekStrip v3: orphan `dashboard/WeekStrip.tsx` prerabljen - v2 celije (inicijal + broj + do 3 tackice opterecenja), header linija (mesec label sa mini-kalendar popoverom +
       NowPill + opcione pointer-fine strelice); swipe motor netaknut (translateX karusel,
       tacno 1 nedelja po prevlacenju, axis-lock, flick, trackpad wheel, iOS workaround)
 - [x] Kalendar > Agenda: traka se VRACA - portal u fiksni header (slot u CalendarScreen,

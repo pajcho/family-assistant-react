@@ -96,7 +96,10 @@ function Calendar({
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("rounded-r-md bg-muted", defaultClassNames.range_end),
         today: cn(
-          "rounded-md bg-muted text-foreground data-[selected=true]:rounded-none",
+          // When today IS the selected day, the cell's muted fill must vanish
+          // entirely - the stock `rounded-none` variant left a square grey
+          // plate peeking out behind the accent-filled day button.
+          "rounded-md bg-muted text-foreground data-[selected=true]:bg-transparent",
           defaultClassNames.today,
         ),
         outside: cn(

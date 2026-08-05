@@ -35,8 +35,8 @@ import { stavkeLabel } from "@/utils/plural";
  * along (Thu → next/prev Thu); swiping to the last week calls `onReachEnd`.
  */
 
-/** Monday-first two-letter weekday initials. */
-const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
+/** Monday-first three-letter weekday labels - the app-wide abbreviation. */
+const WEEKDAY_INITIALS = ["Pon", "Uto", "Sre", "Čet", "Pet", "Sub", "Ned"] as const;
 
 /** Load dots are capped so a heavy day doesn't grow the row. */
 const MAX_DOTS = 3;
@@ -212,8 +212,10 @@ export function WeekStrip({
   return (
     <div>
       {/* Header line: month label (jump-to-a-day popover), the way back to
-          "now", and - where asked - desktop week arrows. */}
-      <div className="mb-1 flex min-h-7 items-center gap-2">
+          "now", and - where asked - desktop week arrows. `min-h` matches the
+          sm IconButton, so the line sits at the same height with or without
+          arrows - switching calendar views must not shift the label. */}
+      <div className="mb-1 flex min-h-[34px] items-center gap-2">
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
           <PopoverTrigger asChild>
             <button

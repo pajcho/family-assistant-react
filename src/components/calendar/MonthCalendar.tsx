@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { addMonths, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
@@ -39,6 +40,12 @@ import { cn } from "@/lib/cn";
 export type MonthCalendarProps = {
   filter: AgendaFilter;
   isFilterActive: boolean;
+  /**
+   * Where the month row portals to - the same fixed-header slot the week
+   * strips use, so the "Avgust 2026" line sits at the exact same spot in all
+   * three calendar views and switching them never shifts the content.
+   */
+  stripSlot?: HTMLElement | null;
   /** Hand a day off to the agenda view (deep-links `?view=agenda&day=`). */
   onOpenDay: (day: string) => void;
   onEditEvent: (event: Event) => void;
@@ -54,6 +61,7 @@ const MAX_CHIPS = 3;
 export function MonthCalendar({
   filter,
   isFilterActive,
+  stripSlot,
   onOpenDay,
   onEditEvent,
   onEditPayment,
@@ -159,47 +167,51 @@ export function MonthCalendar({
   const selectedItems = byDay.get(selectedDay) ?? [];
   const monthPrefix = monthAnchor.slice(0, 7);
 
+  // The month row mirrors the week strips' header line exactly - same label
+  // type, same 34px line - and lives in the same fixed-header slot, so
+  // switching Agenda / Nedelja / Mesec never moves the "Avgust 2026" line.
+  const monthRow = (
+    <div className="flex min-h-[34px] items-center gap-2">
+      {/* The title is the far-jump affordance - same grid the Novac pager
+          opens, so "izaberi mesec i godinu" is one control app-wide. */}
+      <MonthGridPopover value={monthPrefix} onPick={(month) => setMonthAnchor(`${month}-01`)}>
+        <button
+          type="button"
+          aria-label="Izaberi mesec i godinu"
+          className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-[13.5px] font-semibold transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <span className="truncate">
+            {monthName} {format(monthDate, "yyyy")}
+          </span>
+          <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </MonthGridPopover>
+      <span className="min-w-1 flex-1" />
+      {monthPrefix !== todayStr.slice(0, 7) ? (
+        <NowPill
+          label={currentMonthName}
+          aria-label="Vrati na tekući mesec"
+          onClick={() => setMonthAnchor(`${todayStr.slice(0, 7)}-01`)}
+        />
+      ) : null}
+      <IconButton
+        icon={ChevronLeftIcon}
+        size="sm"
+        aria-label="Prethodni mesec"
+        onClick={() => shiftMonth(-1)}
+      />
+      <IconButton
+        icon={ChevronRightIcon}
+        size="sm"
+        aria-label="Sledeći mesec"
+        onClick={() => shiftMonth(1)}
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-1.5 px-[3px]">
-        {/* The title is the far-jump affordance - same grid the Novac pager
-            opens, so "izaberi mesec i godinu" is one control app-wide. */}
-        <MonthGridPopover value={monthPrefix} onPick={(month) => setMonthAnchor(`${month}-01`)}>
-          <button
-            type="button"
-            aria-label="Izaberi mesec i godinu"
-            className="-mx-1 flex min-w-0 items-baseline gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <span className="truncate font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
-              {monthName}
-            </span>
-            <span className="text-sm font-semibold text-muted-foreground tabular-nums">
-              {format(monthDate, "yyyy")}.
-            </span>
-            <ChevronDownIcon className="size-4 shrink-0 self-center text-muted-foreground" />
-          </button>
-        </MonthGridPopover>
-        <span className="min-w-1 flex-1" />
-        {monthPrefix !== todayStr.slice(0, 7) ? (
-          <NowPill
-            label={currentMonthName}
-            aria-label="Vrati na tekući mesec"
-            onClick={() => setMonthAnchor(`${todayStr.slice(0, 7)}-01`)}
-          />
-        ) : null}
-        <IconButton
-          icon={ChevronLeftIcon}
-          size="sm"
-          aria-label="Prethodni mesec"
-          onClick={() => shiftMonth(-1)}
-        />
-        <IconButton
-          icon={ChevronRightIcon}
-          size="sm"
-          aria-label="Sledeći mesec"
-          onClick={() => shiftMonth(1)}
-        />
-      </div>
+      {stripSlot ? createPortal(monthRow, stripSlot) : monthRow}
 
       <div>
         <div className="grid grid-cols-7 gap-[3px]">

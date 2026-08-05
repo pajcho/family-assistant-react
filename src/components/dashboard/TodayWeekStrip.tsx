@@ -17,8 +17,8 @@ import { stavkeLabel } from "@/utils/plural";
  * today (the "Uskoro počinje od danas" rule).
  */
 
-/** Monday-first two-letter weekday initials. */
-const WEEKDAY_INITIALS = ["Po", "Ut", "Sr", "Če", "Pe", "Su", "Ne"] as const;
+/** Monday-first three-letter weekday labels - the app-wide abbreviation. */
+const WEEKDAY_INITIALS = ["Pon", "Uto", "Sre", "Čet", "Pet", "Sub", "Ned"] as const;
 
 /** Load dots are capped so a heavy day doesn't grow the row. */
 const MAX_DOTS = 3;
