@@ -44,7 +44,7 @@ export function SwitchRow({
         <Icon className="size-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold">{title}</span>
+        <span className="block text-sm font-normal">{title}</span>
         {description ? (
           <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
             {description}

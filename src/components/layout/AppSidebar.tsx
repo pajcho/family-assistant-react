@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link, useMatchRoute } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   ComputerDesktopIcon,
   MagnifyingGlassIcon,
@@ -9,12 +8,15 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
+import { Kbd } from "@/components/common/Kbd";
 import { cn } from "@/lib/cn";
-import { GlobalAddSheet } from "@/components/common/GlobalAddSheet";
-import { NAV_SECTIONS, type NavSection } from "@/components/layout/navSections";
+import { searchShortcutKeys } from "@/lib/platform";
+import { navShortcutLabel } from "@/lib/shortcuts";
+import { NAV_SECTIONS, isNavSectionActive, type NavSection } from "@/components/layout/navSections";
 import { UserAvatar } from "@/components/layout/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useAppCommands } from "@/hooks/useAppCommands";
 import { useSearchDialog } from "@/hooks/useSearchDialog";
 import { useTheme, type ThemeMode } from "@/hooks/useTheme";
 import { getDisplayName } from "@/utils/identity";
@@ -39,7 +41,7 @@ export function AppSidebar() {
   const { user } = useAuth();
   const { mode, setMode } = useTheme();
   const { openSearch } = useSearchDialog();
-  const [addOpen, setAddOpen] = useState(false);
+  const { openAdd } = useAppCommands();
 
   const identity = {
     firstName: profile?.first_name ?? null,
@@ -56,19 +58,23 @@ export function AppSidebar() {
           <UserGroupIcon className="size-[18px]" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[14.5px] leading-tight font-extrabold tracking-tight">
+          <span className="block truncate text-[14.5px] leading-tight font-bold tracking-tight">
             {familyName ?? "Porodični asistent"}
           </span>
-          <span className="block text-[11.5px] font-semibold text-muted-foreground">
+          <span className="block text-[11.5px] font-normal text-muted-foreground">
             Porodični asistent
           </span>
         </span>
       </Link>
 
+      {/* No accent glow here. That shadow earns its keep on the mobile bar's
+          floating "+", which has to lift off the bar it overlaps; on a
+          full-width block in a quiet rail it just made the button shout over
+          the navigation it sits above. */}
       <button
         type="button"
-        onClick={() => setAddOpen(true)}
-        className="flex h-[42px] items-center justify-center gap-2 rounded-lg bg-accent text-[14.5px] font-extrabold text-accent-foreground shadow-[0_8px_18px_-10px_var(--accent)] transition-transform active:scale-[0.98]"
+        onClick={openAdd}
+        className="flex h-[42px] items-center justify-center gap-2 rounded-lg bg-accent text-[14.5px] font-semibold text-accent-foreground transition-transform active:scale-[0.98]"
       >
         <PlusIcon className="size-[18px]" />
         Dodaj
@@ -79,13 +85,15 @@ export function AppSidebar() {
       <button
         type="button"
         onClick={openSearch}
-        className="flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        // `pr-[3px]` against `pl-2.5`: 3px of padding plus the 1px border puts
+        // the shortcut badge the same 4px from the right edge as the centred
+        // 28px cap sits from the top and bottom, so it reads as seated in the
+        // field rather than floating in the middle of it.
+        className="flex h-9 items-center gap-2 rounded-md border border-border pr-[3px] pl-2.5 text-[13.5px] font-normal text-muted-foreground transition-colors hover:text-foreground"
       >
         <MagnifyingGlassIcon className="size-[15px]" />
         Pretraži
-        <kbd className="ml-auto rounded-sm border border-border px-1.5 py-px font-mono text-[10.5px]">
-          ⌘K
-        </kbd>
+        <Kbd keys={searchShortcutKeys()} className="ml-auto" />
       </button>
 
       <nav className="grid gap-0.5">
@@ -108,28 +116,24 @@ export function AppSidebar() {
         >
           <UserAvatar {...identity} className="size-[30px] flex-none rounded-md" />
           <span className="min-w-0">
-            <span className="block truncate text-[13px] font-bold">
-              {getDisplayName(identity) || "Profil"}
+            <span className="block truncate text-[13px] font-semibold">
+              {/* No email fallback - the email is the very next line. */}
+              {getDisplayName({ ...identity, email: null }) || "Profil"}
             </span>
-            <span className="block truncate text-[11px] font-semibold text-muted-foreground">
+            <span className="block truncate text-[11px] font-normal text-muted-foreground">
               {user?.email ?? ""}
             </span>
           </span>
         </Link>
         <ThemeMini mode={mode} onSelect={setMode} />
       </div>
-
-      <GlobalAddSheet open={addOpen} onOpenChange={setAddOpen} />
     </aside>
   );
 }
 
 function SidebarLink({ section, separated }: { section: NavSection; separated: boolean }) {
-  const matchRoute = useMatchRoute();
-  const active =
-    section.to === "/"
-      ? !!matchRoute({ to: "/" })
-      : !section.search && !!matchRoute({ to: section.to, fuzzy: true });
+  const { pathname, search } = useLocation();
+  const active = isNavSectionActive(section, pathname, search);
 
   return (
     <>
@@ -137,10 +141,11 @@ function SidebarLink({ section, separated }: { section: NavSection; separated: b
       <Link
         to={section.to}
         search={section.search}
+        title={navShortcutLabel(section)}
         className={cn(
-          "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-semibold transition-colors",
+          "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-normal transition-colors",
           active
-            ? "bg-accent-soft font-extrabold text-accent-deep"
+            ? "bg-accent-soft font-bold text-accent-deep"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >

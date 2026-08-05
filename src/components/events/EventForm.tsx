@@ -86,7 +86,7 @@ export function initialEventFormState(
 }
 
 export type EventFormProps = {
-  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives a sub-view opening over the form. */
   form: EventFormState;
   setForm: Dispatch<SetStateAction<EventFormState>>;
   event?: Event | null;
@@ -209,9 +209,7 @@ export function EventForm({
         chips={durationChips}
       />
       {endDateInvalid ? (
-        <p className="px-0.5 text-xs font-semibold text-neg">
-          Izaberi poslednji dan (posle prvog).
-        </p>
+        <p className="px-0.5 text-xs font-normal text-neg">Izaberi poslednji dan (posle prvog).</p>
       ) : null}
     </div>
   ) : null;

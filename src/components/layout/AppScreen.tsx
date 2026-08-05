@@ -1,7 +1,36 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { APP_SCROLL_ID, APP_SCROLL_RESTORATION_ID } from "@/lib/appScroll";
+
+/**
+ * Width the scroll container reserves for a classic scrollbar - 0 on every
+ * platform with overlay scrollbars. Measured off a throwaway element rather
+ * than off the live one, so the header can size itself in the same render the
+ * body first appears in, and re-measured on resize because the width changes
+ * with zoom (and with the OS "show scroll bars" setting).
+ */
+function useScrollbarGutter(): number {
+  const [gutter, setGutter] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:absolute;top:-9999px;width:100px;height:100px;overflow-y:scroll;scrollbar-gutter:stable";
+      document.body.appendChild(probe);
+      const width = probe.offsetWidth - probe.clientWidth;
+      probe.remove();
+      setGutter(width);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  return gutter;
+}
 
 /**
  * The frame every screen sits in (redizajn 2.0).
@@ -35,6 +64,14 @@ export interface AppScreenProps {
    * (week/month calendars, desktop two-column layouts) pass their own.
    */
   contentClassName?: string;
+  /**
+   * The body is a fixed-height PANE, not a scrolling document: it fills the
+   * space left over and whatever is inside owns the scrolling. The weekly
+   * calendar needs this - a timetable that scrolls in two directions can only
+   * pin its day header and its hour gutter against a scrollport it controls,
+   * and the page's own vertical scroll is not one.
+   */
+  fillBody?: boolean;
 }
 
 export function AppScreen({
@@ -43,11 +80,20 @@ export function AppScreen({
   bodyClassName,
   headerClassName,
   contentClassName = "mx-auto w-full max-w-3xl",
+  fillBody = false,
 }: AppScreenProps) {
+  const gutter = useScrollbarGutter();
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {header ? (
         <div
+          // The body reserves a classic scrollbar's width; the header does not,
+          // so their `mx-auto` columns were centred in boxes of different widths
+          // and the content sat half a scrollbar left of the title. Giving the
+          // header the same reservation lines the two columns up at every width.
+          // Zero wherever scrollbars are overlays (touch, macOS default).
+          style={gutter ? { marginRight: gutter } : undefined}
           className={cn(
             "flex-none px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-2 lg:pt-4",
             headerClassName,
@@ -60,13 +106,31 @@ export function AppScreen({
         id={APP_SCROLL_ID}
         data-scroll-restoration-id={APP_SCROLL_RESTORATION_ID}
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 lg:pb-10",
-          // No header means the screen owns its own top spacing.
-          header ? "pt-1" : "pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-4",
+          // `scrollbar-gutter: stable` keeps that reservation constant, so a
+          // screen does not shift sideways the moment its content outgrows one
+          // viewport - and so the header's copy of it stays correct.
+          "min-h-0 flex-1 px-4 pb-8 [scrollbar-gutter:stable] lg:pb-10",
+          fillBody ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
           bodyClassName,
         )}
       >
-        <div className={contentClassName}>{children}</div>
+        {/* The top gap belongs to the CONTENT, not to the scroll container:
+            padding on the container sits above where a `sticky top-0` child
+            comes to rest, so rows kept scrolling visibly through that strip
+            between the header panel and the stuck day header. With the gap
+            inside, a sticky child parks flush against the panel. */}
+        <div
+          className={cn(
+            contentClassName,
+            // No header means the screen owns its own top spacing.
+            header ? "pt-1" : "pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:pt-4",
+            // `h-full` here is what gives the pane a definite height to divide
+            // up: <main> is a flex child with `min-h-0`, so it already has one.
+            fillBody && "flex h-full min-h-0 flex-col",
+          )}
+        >
+          {children}
+        </div>
       </main>
     </div>
   );
@@ -109,11 +173,9 @@ export function ScreenHeaderRow({
     <div className="flex items-center gap-2.5">
       <div className="min-w-0 flex-1">
         {subtitle ? (
-          <div className="font-serif text-sm text-muted-foreground">{subtitle}</div>
+          <div className="font-serif text-[13.5px] text-muted-foreground italic">{subtitle}</div>
         ) : null}
-        <h1 className="truncate text-[23px] leading-tight font-extrabold tracking-tight">
-          {title}
-        </h1>
+        <h1 className="truncate text-[23px] leading-tight font-bold tracking-tight">{title}</h1>
       </div>
       {actions}
     </div>

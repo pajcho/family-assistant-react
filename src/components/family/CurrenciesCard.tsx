@@ -51,11 +51,11 @@ export function CurrenciesCard() {
               />
               <label
                 htmlFor={`currency-${code}-toggle`}
-                className="cursor-pointer text-[14.5px] font-bold text-foreground"
+                className="cursor-pointer text-[14.5px] font-semibold text-foreground"
               >
                 {CURRENCY_LABELS[code] ?? code}
                 {isBase ? (
-                  <span className="ml-2 text-xs font-semibold text-muted-foreground">
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
                     osnovna valuta - uvek uključena
                   </span>
                 ) : null}
@@ -64,7 +64,7 @@ export function CurrenciesCard() {
           );
         })}
         {!isAdmin ? (
-          <p className="pt-2 text-xs font-semibold text-muted-foreground">
+          <p className="pt-2 text-xs font-normal text-muted-foreground">
             Samo administrator porodice može da menja valute.
           </p>
         ) : null}

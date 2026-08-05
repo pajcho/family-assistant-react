@@ -318,7 +318,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
                   <div key={group.kind}>
                     <div
                       role="presentation"
-                      className="px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                      className="px-2 pt-2 pb-1 text-xs font-normal tracking-wide text-muted-foreground uppercase"
                     >
                       {label}
                     </div>

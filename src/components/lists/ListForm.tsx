@@ -7,6 +7,7 @@ import {
   FieldGroupLabel,
   FieldHint,
   FormInput,
+  FormSelect,
   FormTextarea,
 } from "@/components/common/FormControls";
 import { SwitchRow } from "@/components/common/SwitchRow";
@@ -185,18 +186,17 @@ export function ListForm({
             any focused form control whose computed font-size is < 16px,
             and the zoom is especially jarring when transitioning from the
             name input (keyboard up) into the select. */}
-        <select
+        <FormSelect
           id="list-auto-delete"
           value={form.autoDelete}
           onChange={(e) => setForm((s) => ({ ...s, autoDelete: e.target.value }))}
-          className="min-h-11 w-full rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           {AUTO_DELETE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
         <FieldHint>Korisno za duge liste poput šopinga - završene stavke same nestaju.</FieldHint>
       </div>
 
@@ -243,7 +243,9 @@ function ScopeButton({ active, icon: Icon, title, description, onClick }: ScopeB
     >
       <div className="flex items-center gap-2">
         <Icon className={cn("size-5", active ? "text-accent-deep" : "text-muted-foreground")} />
-        <span className={cn("text-sm font-bold", active ? "text-accent-deep" : "text-foreground")}>
+        <span
+          className={cn("text-sm font-semibold", active ? "text-accent-deep" : "text-foreground")}
+        >
           {title}
         </span>
       </div>

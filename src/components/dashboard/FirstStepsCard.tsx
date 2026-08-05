@@ -29,17 +29,17 @@ export function FirstStepsCard({ firstSteps, onAddEvent, onAddPayment }: FirstSt
       className="rounded-xl border border-border bg-card p-4 shadow-card"
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-extrabold tracking-tight">👋 Prvi koraci</h2>
+        <h2 className="text-base font-bold tracking-tight">👋 Prvi koraci</h2>
         <button
           type="button"
           onClick={hide}
           disabled={hiding}
-          className="text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
+          className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           Sakrij
         </button>
       </div>
-      <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+      <p className="mt-0.5 text-xs font-normal text-muted-foreground">
         {doneCount} od {steps.length} · još malo pa je sve spremno
       </p>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-accent-soft">
@@ -82,7 +82,7 @@ function StepRow({
       <span
         className={cn(
           "min-w-0 flex-1 text-sm",
-          step.done ? "text-muted-foreground line-through" : "font-semibold",
+          step.done ? "text-muted-foreground line-through" : "font-normal",
         )}
       >
         {step.label}
@@ -105,7 +105,7 @@ function StepRow({
   switch (step.id) {
     case "profile":
       return (
-        <Link to="/settings" className={rowClass}>
+        <Link to="/settings" search={{ tab: "profile" }} className={rowClass}>
           {inner}
         </Link>
       );

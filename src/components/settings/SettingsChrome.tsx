@@ -26,7 +26,7 @@ const TONE_TILE: Record<SettingsTone, string> = {
 /** Uppercase heading above a group. */
 export function SettingsGroupTitle({ children, count }: { children: ReactNode; count?: number }) {
   return (
-    <h2 className="mx-[3px] mt-5 mb-2 flex items-center gap-2 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+    <h2 className="mx-[3px] mt-5 mb-2 flex items-center gap-2 text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
       <span>{children}</span>
       {count != null ? (
         <span className="rounded-full border border-border bg-card px-2 py-px text-[10.5px] tabular-nums">
@@ -60,7 +60,7 @@ export function SettingsGroup({
 /** Quiet explanatory paragraph under a group. */
 export function SettingsFootnote({ children }: { children: ReactNode }) {
   return (
-    <p className="px-5 pt-3.5 pb-1.5 text-center text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
+    <p className="px-5 pt-3.5 pb-1.5 text-center text-[11.5px] leading-relaxed font-normal text-muted-foreground">
       {children}
     </p>
   );
@@ -79,6 +79,8 @@ export interface SettingsRowProps {
   danger?: boolean;
   /** Center the label (used by the standalone Odjava row). */
   center?: boolean;
+  /** Extra classes on the row itself (e.g. hiding a desktop-only row). */
+  className?: string;
 }
 
 /**
@@ -95,6 +97,7 @@ export function SettingsRow({
   onClick,
   danger = false,
   center = false,
+  className: extraClassName,
 }: SettingsRowProps) {
   const body = (
     <>
@@ -110,16 +113,21 @@ export function SettingsRow({
       ) : null}
       <span className={cn("min-w-0", center ? "shrink-0" : "flex-1")}>
         <span
-          className={cn("block text-[14.5px] font-bold", danger ? "text-neg" : "text-foreground")}
+          className={cn(
+            "block text-[14.5px] font-semibold",
+            danger ? "text-neg" : "text-foreground",
+          )}
         >
           {label}
         </span>
         {hint ? (
-          <span className="mt-px block text-xs font-semibold text-muted-foreground">{hint}</span>
+          <span className="mt-px block text-xs font-normal text-muted-foreground">{hint}</span>
         ) : null}
       </span>
       {value ? (
-        <span className="flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-muted-foreground">
+        // Regular, like the hint: the trailing value states what the row is set
+        // to, it is not a second title competing with the label on the left.
+        <span className="flex shrink-0 items-center gap-1.5 text-[13px] font-normal text-muted-foreground">
           {value}
         </span>
       ) : null}
@@ -132,6 +140,7 @@ export function SettingsRow({
   const className = cn(
     "flex w-full min-h-[52px] items-center gap-[11px] border-b border-border px-[13px] py-3 text-left last:border-b-0",
     center && "justify-center",
+    extraClassName,
   );
 
   if (!onClick) return <div className={className}>{body}</div>;
@@ -161,7 +170,7 @@ export function SettingsPill({
   return (
     <span
       className={cn(
-        "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold whitespace-nowrap",
+        "rounded-full px-2 py-[3px] text-[10.5px] font-bold whitespace-nowrap",
         TONE_TILE[tone],
       )}
     >

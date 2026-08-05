@@ -492,29 +492,6 @@ export const PROFILE_COLOR_PALETTE = [
 ] as const;
 
 /**
- * Fruit names for the palette above (redizajn 2.0). Naming only - the stored
- * values are the same hex codes, so nothing in the DB or in any existing
- * profile changes. The picker shows these instead of "plava / zelena / ...",
- * which reads warmer and matches the design language.
- */
-export const PROFILE_COLOR_NAMES: Readonly<Record<string, string>> = {
-  "#3b82f6": "Borovnica",
-  "#10b981": "Kivi",
-  "#f59e0b": "Kajsija",
-  "#ef4444": "Trešnja",
-  "#8b5cf6": "Šljiva",
-  "#ec4899": "Malina",
-  "#14b8a6": "Dunja",
-  "#6366f1": "Lavanda",
-};
-
-/** Fruit name for a stored color, case-insensitive; null for custom values. */
-export function profileColorName(color: string | null | undefined): string | null {
-  if (!color) return null;
-  return PROFILE_COLOR_NAMES[color.toLowerCase()] ?? null;
-}
-
-/**
  * Deterministic placeholder for profiles without a `color` set yet - same
  * id always picks the same palette slot so the UI doesn't churn between
  * renders.

@@ -40,14 +40,12 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
         components={{
           p: ({ children }) => <p className="leading-relaxed">{children}</p>,
           h1: ({ children }) => (
-            <h1 className="text-base font-semibold text-foreground">{children}</h1>
+            <h1 className="text-base font-normal text-foreground">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-base font-semibold text-foreground">{children}</h2>
+            <h2 className="text-base font-normal text-foreground">{children}</h2>
           ),
-          h3: ({ children }) => (
-            <h3 className="text-sm font-semibold text-foreground">{children}</h3>
-          ),
+          h3: ({ children }) => <h3 className="text-sm font-normal text-foreground">{children}</h3>,
           ul: ({ children }) => <ul className="list-disc space-y-1 pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5">{children}</ol>,
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
@@ -62,7 +60,7 @@ export function MarkdownText({ content, className }: MarkdownTextProps) {
             </a>
           ),
           strong: ({ children }) => (
-            <strong className="font-semibold text-foreground">{children}</strong>
+            <strong className="font-normal text-foreground">{children}</strong>
           ),
           em: ({ children }) => <em className="italic">{children}</em>,
           code: ({ children }) => (

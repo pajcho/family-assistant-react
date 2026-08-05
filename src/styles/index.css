@@ -8,6 +8,11 @@
    on touch devices since swipe gestures cover the same actions there. */
 @custom-variant pointer-fine (@media (pointer: fine));
 
+/* The complement: devices driven by a finger. Gates the hints and affordances
+   that only exist there - swipe gestures on list rows have no equivalent with
+   a mouse, so telling a desktop user to "prevuci levo" is noise. */
+@custom-variant pointer-coarse (@media (pointer: coarse));
+
 /* ===========================================================================
    Dizajn jezik "Šljiva" (redizajn 2.0)
    ---------------------------------------------------------------------------
@@ -265,6 +270,47 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Horizontal scrollers whose content runs past the edge (filter chip rows).
+     The row is exactly as wide as the page column, so a chip leaving the view
+     would otherwise be sliced mid-word at the edge; the ramps make it thin out
+     into nothing instead, as if it slid under the page.
+
+     A mask, not an overlay: it fades the chips to transparent, so whatever is
+     behind shows through (card, sheet, dark theme) with no colour to keep in
+     sync. Each side is drawn only when `useEdgeFade` says there is something
+     hidden past it - a row that fits, or one scrolled hard against an end, has
+     no mask at all. */
+  .fade-scroll-x {
+    --fade-start: 0px;
+    --fade-end: 0px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--fade-start),
+      #000 calc(100% - var(--fade-end)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--fade-start),
+      #000 calc(100% - var(--fade-end)),
+      transparent 100%
+    );
+  }
+  .fade-scroll-x[data-fade-start="true"] {
+    --fade-start: 1.5rem;
+  }
+  .fade-scroll-x[data-fade-end="true"] {
+    --fade-end: 1.5rem;
+  }
+  /* Neither end needs one: drop the mask entirely rather than leaning on a
+     zero-width ramp, so nothing composites and nothing can dim the first chip. */
+  .fade-scroll-x:not([data-fade-start="true"]):not([data-fade-end="true"]) {
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   /* Fade in animation */

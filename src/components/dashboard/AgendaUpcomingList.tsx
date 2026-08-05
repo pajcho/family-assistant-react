@@ -22,7 +22,8 @@ import {
   isAgendaFilterActive,
 } from "@/utils/agendaFilters";
 import { addDays } from "@/utils/date";
-import { getAppScrollTop, offsetTopWithinApp, scrollAppTo } from "@/lib/appScroll";
+import { cn } from "@/lib/cn";
+import { getAppScrollEl, getAppScrollTop, offsetTopWithinApp, scrollAppTo } from "@/lib/appScroll";
 
 /**
  * The calendar's AGENDA view - an overdue "Prekoračeno" section, then
@@ -58,6 +59,9 @@ export type AgendaUpcomingListProps = {
 const INITIAL_DAYS = 30;
 const CHUNK_DAYS = 30;
 const MAX_HORIZON_DAYS = 365;
+
+/** A member touching the scroll cancels the jump's correction pass. */
+const ABANDON_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 
 export function AgendaUpcomingList({
   filter,
@@ -140,15 +144,54 @@ export function AgendaUpcomingList({
     scrollCleanupRef.current = null;
     if (Math.abs(targetY - startY) < 1) return;
 
+    const container = getAppScrollEl();
+
+    // Two things can leave the jump short after the scroll itself is over:
+    // rows still landing in the days ABOVE the target (`useAgenda` fans out to
+    // several queries, and each late row pushes the target further down), and
+    // the router's scroll restoration writing the previous screen's offset onto
+    // this container once the new route has rendered. One correction pass once
+    // the scroll has settled covers both - it re-measures the section instead
+    // of trusting the offset we aimed at.
+    const settle = () => {
+      const settled = document.getElementById(`agenda-day-${day}`);
+      if (!settled) return;
+      const nextY = Math.max(0, offsetTopWithinApp(settled) - 4);
+      if (Math.abs(getAppScrollTop() - nextY) > 8) scrollAppTo({ top: nextY, behavior: "smooth" });
+    };
+
+    // A member who starts scrolling themselves owns the scroll from then on -
+    // the correction pass would fight them. This is the reliable signal for
+    // "this was a person", where a position check is not: a stomped scroll and
+    // a flicked one look identical by offset alone.
+    let abandoned = false;
+    const abandon = () => {
+      abandoned = true;
+      teardown();
+    };
+
+    // `scrollend` is the precise signal; the timeout is the fallback for
+    // browsers without it (and for a scroll that never starts moving).
+    const onScrollEnd = () => {
+      teardown();
+      if (!abandoned) settle();
+    };
+    const timer = window.setTimeout(onScrollEnd, 1500);
+    const teardown = () => {
+      window.clearTimeout(timer);
+      container?.removeEventListener("scrollend", onScrollEnd);
+      for (const type of ABANDON_EVENTS) container?.removeEventListener(type, abandon);
+      scrollCleanupRef.current = null;
+    };
+    container?.addEventListener("scrollend", onScrollEnd, { once: true });
+    for (const type of ABANDON_EVENTS) {
+      container?.addEventListener(type, abandon, { once: true, passive: true });
+    }
+    scrollCleanupRef.current = teardown;
+
     // Native, compositor-driven smooth scroll - NOT a main-thread rAF tween. On
     // iOS a per-frame JS scrollTo lets the list paint over fixed chrome for a
-    // frame; the browser's own smooth scroll keeps the layers ordered. The
-    // teardown only exists so an unmount mid-scroll leaves nothing behind.
-    const timer = window.setTimeout(() => {
-      scrollCleanupRef.current = null;
-    }, 1500);
-    scrollCleanupRef.current = () => window.clearTimeout(timer);
-
+    // frame; the browser's own smooth scroll keeps the layers ordered.
     scrollAppTo({ top: targetY, behavior: "smooth" });
   };
 
@@ -174,23 +217,36 @@ export function AgendaUpcomingList({
     setPendingJumpDay(requestedDay);
   }, [requestedDay, from, to, todayDate]);
 
-  // Day sections render for EVERY day in [from, to] (they don't wait for data),
-  // so as soon as the window covers the pending day we can scroll to it - one
-  // frame later, so layout has settled.
-  useEffect(() => {
-    if (!pendingJumpDay || pendingJumpDay > to) return;
-    const day = pendingJumpDay;
-    setPendingJumpDay(null);
-    const raf = requestAnimationFrame(() => scrollToDaySection(day));
-    return () => cancelAnimationFrame(raf);
-    // scrollToDaySection is re-created per render but only reads refs + DOM.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingJumpDay, to]);
-
   // A filter that matches nothing shows the reason (not a long run of empty
   // days); first load shows a skeleton; otherwise render every day in the window.
   const showEmptyMsg = filterActive && !hasItems && overdueItems.length === 0;
   const showLoading = !showEmptyMsg && isLoading && !hasItems;
+
+  // Once the window covers the pending day we can scroll to it - one frame
+  // later, so layout has settled.
+  //
+  // `showLoading` is part of the gate, not just noise: arriving from the Danas
+  // mini-month or the month grid mounts this list with its data still in
+  // flight, and the skeleton stands in for the day sections. Scrolling then
+  // found no `#agenda-day-…` element and silently gave up, which is why a
+  // deep link used to land at the top of the agenda. Keeping the request
+  // pending until the sections exist is what makes the jump land.
+  useEffect(() => {
+    if (!pendingJumpDay || pendingJumpDay > to || showLoading) return;
+    const day = pendingJumpDay;
+    // Clearing the request INSIDE the frame, not before it: clearing first
+    // changes this effect's own deps, React runs the cleanup on the re-render
+    // that follows, and the frame is cancelled before it ever fires. Only an
+    // unmount (or a window that moved) cancels it now.
+    const raf = requestAnimationFrame(() => {
+      setPendingJumpDay(null);
+      scrollToDaySection(day);
+    });
+    return () => cancelAnimationFrame(raf);
+    // scrollToDaySection is re-created per render but only reads refs + DOM.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingJumpDay, to, showLoading]);
+
   // Nothing in the whole horizon and no filter - the day skeleton alone reads
   // as broken, so a starter card explains the screen above the (kept) day rows.
   const showStarter =
@@ -215,18 +271,39 @@ export function AgendaUpcomingList({
       ) : showLoading ? (
         <AgendaListSkeleton rows={6} />
       ) : (
-        <div className="space-y-4">
+        // No gap BETWEEN sections - the day gap is padding INSIDE each one, so
+        // the sections touch. A margin here left a strip that belonged to no
+        // section: the outgoing day's header had already been pushed out and
+        // the next one had not arrived, and rows scrolled through it in plain
+        // sight. Touching sections hand the top over from one header to the
+        // next with nothing uncovered in between.
+        <div>
           {allDays.map((day) => {
             const dayItems = byDay.get(day) ?? [];
             const isEmpty = dayItems.length === 0;
+            const isLinked = day === requestedDay;
             return (
-              <section key={day} id={`agenda-day-${day}`} className="scroll-mt-2">
+              <section
+                key={day}
+                id={`agenda-day-${day}`}
+                className="scroll-mt-2 pb-4"
+                aria-current={isLinked ? "date" : undefined}
+              >
+                {/* Sticky per section: the day you are reading stays named at
+                    the top of the list and is pushed out by the next day's
+                    header, so a long scroll never loses its date. Opaque
+                    background (no backdrop-filter - iOS fails to repaint it)
+                    with a small horizontal bleed so rows pass cleanly under. */}
                 <AgendaDateHeader
                   day={day}
                   today={today}
                   tomorrow={tomorrow}
                   muted={isEmpty}
-                  className={isEmpty ? undefined : "mb-2"}
+                  selected={isLinked}
+                  className={cn(
+                    "sticky top-0 z-10 -mx-1.5 bg-background px-1.5 pt-1",
+                    isEmpty ? "pb-1" : "pb-2",
+                  )}
                 />
                 {isEmpty ? null : (
                   <ul className="space-y-2.5">
@@ -249,7 +326,7 @@ export function AgendaUpcomingList({
       {!atCap ? <div ref={sentinelRef} aria-hidden="true" className="h-1" /> : null}
 
       {!showEmptyMsg && !showLoading ? (
-        <p className="px-5 py-2 text-center text-[11.5px] font-semibold text-muted-foreground">
+        <p className="px-5 py-2 text-center text-[11.5px] font-normal text-muted-foreground">
           {atCap
             ? "To je sve za narednih 12 meseci."
             : "Skroluj za još · učitava se do 12 meseci unapred."}

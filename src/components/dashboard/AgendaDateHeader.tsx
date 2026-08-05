@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 
 import { SectionHeading } from "@/components/common/SectionHeading";
+import { cn } from "@/lib/cn";
 import { srLocale } from "@/utils/date";
 
 /**
@@ -12,18 +13,24 @@ import { srLocale } from "@/utils/date";
  * `muted` dims the whole header: the calendar's agenda renders a header for
  * EVERY day in the window, and a day with nothing on it should read as an empty
  * slot in a continuous calendar rather than as a real section.
+ *
+ * `selected` marks the day a link asked for (the Danas mini-month, the month
+ * grid's "otvori u agendi"). Scrolling there is not enough on its own - in a
+ * continuous run of day headers nothing would say which one you were sent to.
  */
 export function AgendaDateHeader({
   day,
   today,
   tomorrow,
   muted = false,
+  selected = false,
   className,
 }: {
   day: string;
   today: string;
   tomorrow: string;
   muted?: boolean;
+  selected?: boolean;
   className?: string;
 }) {
   const date = parseISO(day + "T12:00:00");
@@ -33,7 +40,13 @@ export function AgendaDateHeader({
   const relative = day === today ? "Danas" : day === tomorrow ? "Sutra" : null;
 
   return (
-    <SectionHeading muted={muted} className={className}>
+    <SectionHeading
+      muted={muted && !selected}
+      className={cn(selected && "text-accent-deep", className)}
+    >
+      {selected ? (
+        <span className="mr-1.5 inline-block size-1.5 rounded-full bg-accent align-middle" />
+      ) : null}
       {[dayMonth, relative, weekday].filter(Boolean).join(" · ")}
     </SectionHeading>
   );

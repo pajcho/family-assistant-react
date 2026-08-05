@@ -246,14 +246,14 @@ function PaymentRow({
         </ItemMeta>
       </ItemMain>
       <ItemSide>
-        <span className="text-[15px] font-extrabold tracking-[-0.01em] tabular-nums">
+        <span className="text-[15px] font-bold tracking-[-0.01em] tabular-nums">
           <Amount value={payment.amount} round />
         </span>
         <AmountOriginal
           amount={payment.original_amount}
           currency={payment.currency}
           parens
-          className="text-[10.5px] font-bold text-muted-foreground"
+          className="text-[10.5px] font-semibold text-muted-foreground"
         />
       </ItemSide>
     </>

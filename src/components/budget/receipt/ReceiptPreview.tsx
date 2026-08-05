@@ -32,7 +32,7 @@ import {
  * Više detalja) that swap the sheet to a sub-view with a "←" header; desktop
  * shows everything inline. Fully CONTROLLED: the hosting `ReceiptScanDialog`
  * owns the sub-view, the field values AND the line selection (the stack's
- * mobile close→reopen hop remounts this component - local state would lose
+ * a sub-view opening over the preview remounts this component - local state would lose
  * what the user picked).
  */
 
@@ -111,17 +111,17 @@ export function ReceiptPreview({
 
   const amountHero = (
     <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-card">
-      <div className="text-[34px] font-black tracking-[-0.03em] text-foreground tabular-nums">
+      <div className="text-[34px] font-bold tracking-[-0.03em] text-foreground tabular-nums">
         <Amount value={heroAmount} />
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] text-muted-foreground">
         {receipt.merchant ? (
-          <span className="font-bold text-foreground">{receipt.merchant}</span>
+          <span className="font-semibold text-foreground">{receipt.merchant}</span>
         ) : null}
         <span>· {formatReceiptDate(receipt.issuedAt)}</span>
       </div>
       {showReceiptTotal ? (
-        <div className="mt-1 text-[11px] font-extrabold tracking-[0.07em] text-muted-foreground uppercase">
+        <div className="mt-1 text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
           Ceo račun · <Amount value={receipt.totalAmount} />
         </div>
       ) : null}
@@ -133,7 +133,7 @@ export function ReceiptPreview({
       ? receipt.warnings.map((warning) => (
           <p
             key={warning}
-            className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-semibold text-warn"
+            className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-normal text-warn"
           >
             {warning}
           </p>
@@ -144,7 +144,7 @@ export function ReceiptPreview({
   // and a note that this receipt can only be saved whole.
   const mismatchNote =
     hasItems && !selectable ? (
-      <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-semibold text-warn">
+      <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-normal text-warn">
         Stavke se ne poklapaju sa ukupnim iznosom, pa račun može da se doda samo ceo.
       </p>
     ) : null;
@@ -167,7 +167,7 @@ export function ReceiptPreview({
           className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-semibold text-foreground">
+            <span className="block truncate text-[13.5px] font-normal text-foreground">
               {it.name}
             </span>
             {it.quantity != null && it.quantity !== 1 ? (
@@ -176,7 +176,7 @@ export function ReceiptPreview({
               </span>
             ) : null}
           </span>
-          <span className="shrink-0 text-[13.5px] font-extrabold text-foreground tabular-nums">
+          <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
             <Amount value={it.total} />
           </span>
         </li>
@@ -246,7 +246,7 @@ export function ReceiptPreview({
       <Button
         type="button"
         variant="outline"
-        className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-extrabold text-muted-foreground"
+        className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
         onClick={onCancel}
         disabled={saving}
       >
@@ -254,7 +254,7 @@ export function ReceiptPreview({
       </Button>
       <Button
         type="button"
-        className="h-auto rounded-[15px] py-[13px] text-[15px] font-extrabold"
+        className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
         disabled={saving || nothingSelected}
         onClick={onSave}
       >
@@ -264,7 +264,7 @@ export function ReceiptPreview({
   );
 
   const errorBlock = error ? (
-    <div className="rounded-xl bg-neg-soft p-3 text-sm font-semibold text-neg">{error}</div>
+    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">{error}</div>
   ) : null;
 
   const freeCount = lines.filter((l) => !l.claimed).length;

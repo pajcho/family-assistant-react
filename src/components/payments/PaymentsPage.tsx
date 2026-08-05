@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { BanknotesIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { createPortal } from "react-dom";
+import { BanknotesIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
-import { FilterSection, FilterSheet } from "@/components/common/FilterSheet";
-import { PersonFilterChips } from "@/components/common/PersonFilterChips";
-import { ChipRow, FilterChip, MoneyCard, ProgressTrack } from "@/components/money/moneyUi";
+import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { HeaderIconButton, MoneyCard, ProgressTrack } from "@/components/money/moneyUi";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import { PaymentListSkeleton } from "@/components/payments/PaymentListSkeleton";
@@ -37,7 +36,10 @@ import {
   isMonthlyOccurrenceMonth,
 } from "@/utils/date";
 import { useToday } from "@/hooks/useToday";
+import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { Amount } from "@/components/common/Amount";
+import { fallbackColorForProfile } from "@/utils/activity";
+import { getDisplayName } from "@/utils/identity";
 
 /* --- Search + pagination constants ----------------------------------------- */
 
@@ -393,6 +395,8 @@ export interface PaymentsPageProps {
   month: string;
   /** Hub-owned search term; while active it spans ALL months. */
   searchTerm: string;
+  /** Header node the hub lends this view for its "Dodaj" (null until mounted). */
+  addSlot: HTMLElement | null;
 }
 
 /**
@@ -401,14 +405,13 @@ export interface PaymentsPageProps {
  * (see `NovacScreen`); everything below - person filter, the resolved-rows
  * toggle, and the whole dialog layer - stays here.
  */
-export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
+export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) {
   // The hub owns the month; "all" (Sva plaćanja) is picked in its pager.
   const selectedMonth = month;
   // Resolved (paid/canceled) rows are hidden by default - the list opens with
   // what's still outstanding. Revealing them is a chip AND the
   // "Sakriveno N · Prikaži" link under the list.
   const [showPaid, setShowPaid] = useState(false);
-  const [membersOpen, setMembersOpen] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person filter - same convention as the dashboard's person facet: an empty
   // set means "no filter"; a non-empty set narrows to those members.
@@ -434,6 +437,7 @@ export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const historyQuery = usePaymentHistory();
   const { byPayment } = usePaymentParticipants();
+  const { members } = useFamilyMembers();
   const { byKey: overridesByKey } = usePaymentOverrides();
 
   // Mutations - the detail dialogs own the rest (mark paid, pause, reschedule,
@@ -684,58 +688,80 @@ export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
 
   return (
     <div className="animate-fade-in">
-      {/* The bottom bar's "+" is the touch entry point; desktop keeps a real
-          button next to the list it adds to. */}
-      <div className="mb-2 hidden justify-end lg:flex">
-        <AddButton label="Dodaj plaćanje" onClick={openAdd} />
-      </div>
+      {/* The bottom bar's "+" is the touch entry point; on desktop the button
+          sits in the Novac header with the rest of the chrome, so it stays put
+          across all three tabs instead of floating over each view's content. */}
+      {addSlot
+        ? createPortal(
+            <HeaderIconButton
+              icon={PlusIcon}
+              label="Dodaj plaćanje"
+              onClick={openAdd}
+              className="hidden lg:grid"
+            />,
+            addSlot,
+          )
+        : null}
 
-      <ChipRow className="mb-1">
-        <FilterChip active={!filtersActive} onClick={resetFilters}>
-          Svi
+      {/* One swipeable line, same shape as Danas / Kalendar / Aktivnosti: the
+          neutral chip first, then the facets, then a chip per member. The
+          members used to hide behind a sheet trigger here alone, which meant
+          two different member pickers in one app. */}
+      <FilterChipRow className="mb-3" ariaLabel="Filter plaćanja">
+        <FilterChip active={!filtersActive} onToggle={resetFilters}>
+          Sva
         </FilterChip>
-        <FilterChip active={showPaid} onClick={() => setShowPaid((v) => !v)}>
-          Plaćena
+        <FilterChip active={showPaid} onToggle={() => setShowPaid((v) => !v)}>
+          Samo plaćena
         </FilterChip>
-        <FilterChip
-          active={selectedPersonIds.size > 0}
-          ariaPressed={false}
-          onClick={() => setMembersOpen(true)}
-        >
-          <UserGroupIcon className="size-3.5" />
-          {selectedPersonIds.size > 0 ? `Članovi · ${selectedPersonIds.size}` : "Članovi"}
-        </FilterChip>
-      </ChipRow>
+        {/* One member = nobody to narrow to (same rule as Danas / Kalendar). */}
+        {members.length > 1
+          ? members.map((member) => (
+              <FilterChip
+                key={member.id}
+                active={selectedPersonIds.has(member.id)}
+                onToggle={() => togglePerson(member.id)}
+                color={member.color ?? fallbackColorForProfile(member.id)}
+              >
+                {getDisplayName({
+                  firstName: member.first_name,
+                  lastName: member.last_name,
+                  email: null,
+                }) || "Bez imena"}
+              </FilterChip>
+            ))
+          : null}
+      </FilterChipRow>
 
       {/* Summary - one card: how far through the month's bills we are. */}
       {!searchActive && combinedList.length > 0 ? (
         summary.type === "all" ? (
-          <MoneyCard className="mt-2 px-3.5 py-3.5">
-            <div className="flex items-center gap-2 text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+          <MoneyCard className="px-3.5 py-3.5">
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
               <span className="size-1.5 rounded-full bg-warn" />
               Ukupno za platiti
             </div>
-            <div className="mt-1 text-[22px] font-black tracking-[-0.03em] tabular-nums">
+            <div className="mt-1 text-[22px] font-bold tracking-[-0.03em] tabular-nums">
               <Amount value={summary.total} />
             </div>
           </MoneyCard>
         ) : (
-          <MoneyCard className="mt-2 px-3.5 py-3.5">
+          <MoneyCard className="px-3.5 py-3.5">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">
+              <span className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                 Plaćeno ovog meseca
               </span>
               {monthStats && monthStats.totalCount > 0 ? (
-                <span className="text-xs font-bold tabular-nums text-muted-foreground">
+                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                   {monthStats.paidCount} od {monthStats.totalCount}
                 </span>
               ) : null}
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-[22px] font-black tracking-[-0.03em] tabular-nums">
+              <span className="text-[22px] font-bold tracking-[-0.03em] tabular-nums">
                 <Amount value={summary.paidTotal} />
               </span>
-              <span className="text-[13px] font-bold tabular-nums text-muted-foreground">
+              <span className="text-[13px] font-semibold tabular-nums text-muted-foreground">
                 od <Amount value={summary.paidTotal + summary.unpaidTotal} />
               </span>
             </div>
@@ -755,16 +781,16 @@ export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
                 },
               ]}
             />
-            <div className="mt-2 flex items-center justify-between gap-2 text-[12.5px] font-semibold text-muted-foreground">
+            <div className="mt-2 flex items-center justify-between gap-2 text-[12.5px] font-normal text-muted-foreground">
               {summary.unpaidTotal > 0 ? (
                 <span>
                   Preostalo{" "}
-                  <span className="font-extrabold tabular-nums text-foreground">
+                  <span className="font-bold tabular-nums text-foreground">
                     <Amount value={summary.unpaidTotal} />
                   </span>
                 </span>
               ) : (
-                <span className="font-bold text-pos">Sve je plaćeno 🎉</span>
+                <span className="font-semibold text-pos">Sve je plaćeno 🎉</span>
               )}
               {monthStats?.nextDue && summary.unpaidTotal > 0 ? (
                 <span>Sledeće: {formatDate(monthStats.nextDue)}</span>
@@ -775,7 +801,7 @@ export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
       ) : null}
 
       {searchActive ? (
-        <p className="mt-3 text-xs font-semibold text-muted-foreground">
+        <p className="mt-3 text-xs font-normal text-muted-foreground">
           Rezultati pretrage obuhvataju sve mesece (filteri meseca i plaćenih se ne primenjuju).
         </p>
       ) : null}
@@ -822,29 +848,18 @@ export function PaymentsPage({ month, searchTerm }: PaymentsPageProps) {
 
       {/* Quiet reveal for the default hide-resolved view (Gmail-style). */}
       {hiddenResolvedCount > 0 ? (
-        <div className="mt-4 text-center text-[12.5px] font-semibold text-muted-foreground">
+        <div className="mt-4 text-center text-[12.5px] font-normal text-muted-foreground">
           Sakriveno {hiddenResolvedCount}{" "}
           {hiddenResolvedCount === 1 ? "plaćeno/otkazano" : "plaćenih/otkazanih"} ·{" "}
           <button
             type="button"
             onClick={() => setShowPaid(true)}
-            className="px-1 py-1.5 font-extrabold text-accent-deep underline-offset-4 hover:underline"
+            className="px-1 py-1.5 font-bold text-accent-deep underline-offset-4 hover:underline"
           >
             Prikaži
           </button>
         </div>
       ) : null}
-
-      <FilterSheet
-        open={membersOpen}
-        onOpenChange={setMembersOpen}
-        isActive={selectedPersonIds.size > 0}
-        onReset={() => setSelectedPersonIds(new Set())}
-      >
-        <FilterSection title="Članovi">
-          <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
-        </FilterSection>
-      </FilterSheet>
 
       <PaymentFormDialog
         open={dialogOpen}

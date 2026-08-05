@@ -12,12 +12,11 @@ import {
 import { toast } from "sonner";
 
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,7 +145,7 @@ function ItemsList({
           className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-semibold text-foreground">
+            <span className="block truncate text-[13.5px] font-normal text-foreground">
               {it.name}
             </span>
             {it.quantity != null && it.quantity !== 1 ? (
@@ -155,7 +154,7 @@ function ItemsList({
               </span>
             ) : null}
           </span>
-          <span className="shrink-0 text-[13.5px] font-extrabold text-foreground tabular-nums">
+          <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
             <Amount value={it.total} />
           </span>
         </li>
@@ -171,8 +170,8 @@ export function ReceiptExpenseDialog({
   allowDelete = true,
   onOpenExpense,
 }: ReceiptExpenseDialogProps) {
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, "detail");
+  const stack = useSheetStack<View>(open, onOpenChange, "detail");
+  const { push, pop, reset } = stack;
   const isDesktop = useIsDesktop();
   const { categories } = useExpenseCategories();
   const { members } = useFamilyMembers();
@@ -375,7 +374,7 @@ export function ReceiptExpenseDialog({
   const partInfoBlock =
     showPartInfo && receiptContext ? (
       <div className="space-y-2 rounded-2xl bg-accent-soft p-3">
-        <p className="text-xs font-bold text-accent-deep">
+        <p className="text-xs font-semibold text-accent-deep">
           Deo računa · {items.length} od {totalLineCount} {stavkeLabel(totalLineCount)} · ceo račun{" "}
           <Amount value={receiptContext.receipt.total_amount} />
         </p>
@@ -399,11 +398,11 @@ export function ReceiptExpenseDialog({
                       style={{ color: color ?? "var(--muted-foreground)" }}
                     />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-left font-semibold text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-left font-normal text-foreground">
                     {category?.name ?? "Bez kategorije"}
                     {sibling.note?.trim() ? ` · ${sibling.note.trim()}` : ""}
                   </span>
-                  <span className="shrink-0 font-extrabold text-foreground tabular-nums">
+                  <span className="shrink-0 font-bold text-foreground tabular-nums">
                     <Amount value={sibling.amount} />
                   </span>
                 </>
@@ -443,14 +442,14 @@ export function ReceiptExpenseDialog({
   if (note.trim()) detailParts.push("Beleška ✓");
   const detailCount = (personId ? 1 : 0) + (note.trim() ? 1 : 0);
 
-  const stickyFooter =
+  const stickyFooterFor = (view: View) =>
     !isDesktop && view === "detail" && expense ? (
       <div className="flex items-center justify-between gap-2">
         {allowDelete ? (
           <Button
             type="button"
             variant="ghost"
-            className="rounded-[15px] font-bold text-neg hover:bg-neg-soft hover:text-neg"
+            className="rounded-[15px] font-semibold text-neg hover:bg-neg-soft hover:text-neg"
             disabled={updateExpense.isPending}
             onClick={() => push("delete")}
           >
@@ -464,7 +463,7 @@ export function ReceiptExpenseDialog({
           <Button
             type="button"
             variant="outline"
-            className="rounded-[15px] border-border bg-card font-bold text-muted-foreground"
+            className="rounded-[15px] border-border bg-card font-semibold text-muted-foreground"
             onClick={() => onOpenChange(false)}
             disabled={updateExpense.isPending}
           >
@@ -472,7 +471,7 @@ export function ReceiptExpenseDialog({
           </Button>
           <Button
             type="button"
-            className="rounded-[15px] font-bold"
+            className="rounded-[15px] font-semibold"
             onClick={() => void handleSave()}
             disabled={updateExpense.isPending}
           >
@@ -482,7 +481,7 @@ export function ReceiptExpenseDialog({
       </div>
     ) : undefined;
 
-  const headerTitle =
+  const titleFor = (view: View) =>
     view === "delete"
       ? "Obriši trošak"
       : view === "category"
@@ -496,283 +495,286 @@ export function ReceiptExpenseDialog({
               : expense?.merchant || "Račun";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md" stickyFooter={stickyFooter}>
-        <SheetStackHeader title={headerTitle} onBack={atRoot ? undefined : pop} />
+    <SheetStackViews
+      stack={stack}
+      render={(view, level) => (
+        <ResponsiveDialogContent className="sm:max-w-md" stickyFooter={stickyFooterFor(view)}>
+          <SheetStackHeader title={titleFor(view)} onBack={level === 0 ? undefined : pop} />
 
-        {!expense ? null : view === "delete" ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />?
-              Ova radnja se ne može opozvati.
-            </p>
-            <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-extrabold text-muted-foreground"
-                onClick={pop}
-                disabled={deleteExpense.isPending}
-              >
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                className="h-auto rounded-[15px] py-[13px] text-[15px] font-extrabold"
-                onClick={() => {
-                  void handleDelete();
-                }}
-                disabled={deleteExpense.isPending}
-              >
-                Obriši
-              </Button>
-            </ResponsiveDialogFooter>
-          </>
-        ) : view === "category" ? (
-          <CategoryGridPicker
-            value={categoryId}
-            onChange={(id) => {
-              setCategoryId(id);
-              pop();
-            }}
-          />
-        ) : view === "split" ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Izaberi stavke koje prelaze na novi trošak. Iznosi se preračunavaju sami - zbir oba
-              dela ostaje tačno ceo račun.
-            </p>
-            <ReceiptItemsSelect
-              lines={splitLines}
-              selected={splitSelected}
-              onToggle={(idx) => {
-                setSplitSelected((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(idx)) next.delete(idx);
-                  else next.add(idx);
-                  return next;
-                });
-              }}
-              onSetAll={(select) => {
-                // "All" would empty the original - cap at all-but-one.
-                setSplitSelected(
-                  select ? new Set(splitLines.slice(0, -1).map((l) => l.idx)) : new Set(),
-                );
-              }}
-              disabled={splitExpense.isPending}
-            />
-            <div className="rounded-xl bg-muted px-3 py-2.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  Novi trošak ({splitSelected.size} {stavkeLabel(splitSelected.size)})
-                </span>
-                <span className="font-extrabold text-foreground tabular-nums">
-                  <Amount value={splitSum} />
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-muted-foreground">Ostaje na ovom trošku</span>
-                <span className="font-extrabold text-foreground tabular-nums">
-                  <Amount value={(expense ? expense.amount : 0) - splitSum} />
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Kategorija novog troška</Label>
-              <CategoryGridPicker value={splitCategoryId} onChange={setSplitCategoryId} />
-            </div>
-            {splitError ? (
-              <div className="rounded-xl bg-neg-soft p-3 text-sm font-semibold text-neg">
-                {splitError}
-              </div>
-            ) : null}
-            <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-extrabold text-muted-foreground"
-                onClick={pop}
-                disabled={splitExpense.isPending}
-              >
-                Nazad
-              </Button>
-              <Button
-                className="h-auto rounded-[15px] py-[13px] text-[15px] font-extrabold"
-                onClick={handleSplit}
-                disabled={!splitValid || splitExpense.isPending}
-              >
-                {splitExpense.isPending ? "Delim…" : "Podeli"}
-              </Button>
-            </ResponsiveDialogFooter>
-          </div>
-        ) : view === "items" ? (
-          itemsInline
-        ) : view === "details" ? (
-          <div className="space-y-4">
-            <ExpensePersonSelect value={personId} onChange={setPersonId} />
-            <div className="space-y-2">
-              <Label htmlFor="receipt-detail-note">Beleška</Label>
-              <Input
-                id="receipt-detail-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="npr. nedeljna kupovina"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {/* Amount (read-only) + date. */}
-            <div className="text-center">
-              <div className="text-[34px] font-black tracking-[-0.03em] text-foreground tabular-nums">
-                <Amount value={expense.amount} />
-              </div>
-              <div className="mt-1 text-[13px] text-muted-foreground">
-                {formatDate(expense.spent_on)}
-              </div>
-              {expense.receipt_url ? (
-                <a
-                  href={expense.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-accent-deep hover:underline"
+          {!expense ? null : view === "delete" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />
+                ? Ova radnja se ne može opozvati.
+              </p>
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={deleteExpense.isPending}
                 >
-                  Otvori račun
-                  <ArrowTopRightOnSquareIcon className="size-4" />
-                </a>
-              ) : null}
-            </div>
-
-            {isDesktop ? (
-              // --- Desktop: everything inline ---
-              <>
-                <div className="space-y-2">
-                  <Label>Kategorija</Label>
-                  <CategoryGridPicker value={categoryId} onChange={setCategoryId} />
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={() => {
+                    void handleDelete();
+                  }}
+                  disabled={deleteExpense.isPending}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            </>
+          ) : view === "category" ? (
+            <CategoryGridPicker
+              value={categoryId}
+              onChange={(id) => {
+                setCategoryId(id);
+                pop();
+              }}
+            />
+          ) : view === "split" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Izaberi stavke koje prelaze na novi trošak. Iznosi se preračunavaju sami - zbir oba
+                dela ostaje tačno ceo račun.
+              </p>
+              <ReceiptItemsSelect
+                lines={splitLines}
+                selected={splitSelected}
+                onToggle={(idx) => {
+                  setSplitSelected((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(idx)) next.delete(idx);
+                    else next.add(idx);
+                    return next;
+                  });
+                }}
+                onSetAll={(select) => {
+                  // "All" would empty the original - cap at all-but-one.
+                  setSplitSelected(
+                    select ? new Set(splitLines.slice(0, -1).map((l) => l.idx)) : new Set(),
+                  );
+                }}
+                disabled={splitExpense.isPending}
+              />
+              <div className="rounded-xl bg-muted px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    Novi trošak ({splitSelected.size} {stavkeLabel(splitSelected.size)})
+                  </span>
+                  <span className="font-bold text-foreground tabular-nums">
+                    <Amount value={splitSum} />
+                  </span>
                 </div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-muted-foreground">Ostaje na ovom trošku</span>
+                  <span className="font-bold text-foreground tabular-nums">
+                    <Amount value={(expense ? expense.amount : 0) - splitSum} />
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Kategorija novog troška</Label>
+                <CategoryGridPicker value={splitCategoryId} onChange={setSplitCategoryId} />
+              </div>
+              {splitError ? (
+                <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {splitError}
+                </div>
+              ) : null}
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={splitExpense.isPending}
+                >
+                  Nazad
+                </Button>
+                <Button
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={handleSplit}
+                  disabled={!splitValid || splitExpense.isPending}
+                >
+                  {splitExpense.isPending ? "Delim…" : "Podeli"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </div>
+          ) : view === "items" ? (
+            itemsInline
+          ) : view === "details" ? (
+            <div className="space-y-4">
+              <ExpensePersonSelect value={personId} onChange={setPersonId} />
+              <div className="space-y-2">
+                <Label htmlFor="receipt-detail-note">Beleška</Label>
+                <Input
+                  id="receipt-detail-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="npr. nedeljna kupovina"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Amount (read-only) + date. */}
+              <div className="text-center">
+                <div className="text-[34px] font-bold tracking-[-0.03em] text-foreground tabular-nums">
+                  <Amount value={expense.amount} />
+                </div>
+                <div className="mt-1 text-[13px] text-muted-foreground">
+                  {formatDate(expense.spent_on)}
+                </div>
+                {expense.receipt_url ? (
+                  <a
+                    href={expense.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent-deep hover:underline"
+                  >
+                    Otvori račun
+                    <ArrowTopRightOnSquareIcon className="size-4" />
+                  </a>
+                ) : null}
+              </div>
+
+              {isDesktop ? (
+                // --- Desktop: everything inline ---
+                <>
+                  <div className="space-y-2">
+                    <Label>Kategorija</Label>
+                    <CategoryGridPicker value={categoryId} onChange={setCategoryId} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stavke</Label>
+                    {itemsInline}
+                    {splitEligible ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => push("split")}
+                      >
+                        <ScissorsIcon className="size-4" />
+                        Podeli račun
+                      </Button>
+                    ) : null}
+                  </div>
+                  {partInfoBlock}
+                  <ExpensePersonSelect value={personId} onChange={setPersonId} />
+                  <div className="space-y-2">
+                    <Label htmlFor="receipt-detail-note-d">Beleška</Label>
+                    <Input
+                      id="receipt-detail-note-d"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="npr. nedeljna kupovina"
+                    />
+                  </div>
+                  {error ? (
+                    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                      {error}
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {allowDelete ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="rounded-[15px] font-semibold text-neg hover:bg-neg-soft hover:text-neg"
+                        disabled={updateExpense.isPending}
+                        onClick={() => push("delete")}
+                      >
+                        <TrashIcon className="size-4" />
+                        Obriši
+                      </Button>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-[15px] border-border bg-card font-semibold text-muted-foreground"
+                        onClick={() => onOpenChange(false)}
+                        disabled={updateExpense.isPending}
+                      >
+                        Zatvori
+                      </Button>
+                      <Button
+                        type="button"
+                        className="rounded-[15px] font-semibold"
+                        onClick={() => void handleSave()}
+                        disabled={updateExpense.isPending}
+                      >
+                        {updateExpense.isPending ? "Čuvam…" : "Sačuvaj izmene"}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // --- Mobile: "Brzi unos" picker rows (footer pinned by dialog) ---
                 <div className="space-y-2">
-                  <Label>Stavke</Label>
-                  {itemsInline}
+                  <PickerRow
+                    title="Kategorija"
+                    summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
+                    icon={
+                      selectedCategory ? (
+                        (() => {
+                          const Icon = categoryIcon(selectedCategory.icon);
+                          return (
+                            <Icon className="size-4" style={{ color: selectedCategory.color }} />
+                          );
+                        })()
+                      ) : (
+                        <TagIcon className="size-4" />
+                      )
+                    }
+                    onClick={() => push("category")}
+                  />
+                  <PickerRow
+                    title="Stavke"
+                    summary={
+                      itemsLoading
+                        ? "Učitavam…"
+                        : items.length > 0
+                          ? `${items.length} ${stavkeLabel(items.length)}`
+                          : "Nema stavki"
+                    }
+                    icon={<ListBulletIcon className="size-4" />}
+                    onClick={() => push("items")}
+                  />
                   {splitEligible ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
+                    <PickerRow
+                      title="Podeli račun"
+                      summary="Deo stavki kao poseban trošak"
+                      icon={<ScissorsIcon className="size-4" />}
                       onClick={() => push("split")}
-                    >
-                      <ScissorsIcon className="size-4" />
-                      Podeli račun
-                    </Button>
+                    />
+                  ) : null}
+                  <PickerRow
+                    title="Više detalja"
+                    summary={detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška"}
+                    icon={<AdjustmentsHorizontalIcon className="size-4" />}
+                    count={detailCount}
+                    onClick={() => push("details")}
+                  />
+                  {partInfoBlock}
+                  {error ? (
+                    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                      {error}
+                    </div>
                   ) : null}
                 </div>
-                {partInfoBlock}
-                <ExpensePersonSelect value={personId} onChange={setPersonId} />
-                <div className="space-y-2">
-                  <Label htmlFor="receipt-detail-note-d">Beleška</Label>
-                  <Input
-                    id="receipt-detail-note-d"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="npr. nedeljna kupovina"
-                  />
-                </div>
-                {error ? (
-                  <div className="rounded-xl bg-neg-soft p-3 text-sm font-semibold text-neg">
-                    {error}
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  {allowDelete ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="rounded-[15px] font-bold text-neg hover:bg-neg-soft hover:text-neg"
-                      disabled={updateExpense.isPending}
-                      onClick={() => push("delete")}
-                    >
-                      <TrashIcon className="size-4" />
-                      Obriši
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-[15px] border-border bg-card font-bold text-muted-foreground"
-                      onClick={() => onOpenChange(false)}
-                      disabled={updateExpense.isPending}
-                    >
-                      Zatvori
-                    </Button>
-                    <Button
-                      type="button"
-                      className="rounded-[15px] font-bold"
-                      onClick={() => void handleSave()}
-                      disabled={updateExpense.isPending}
-                    >
-                      {updateExpense.isPending ? "Čuvam…" : "Sačuvaj izmene"}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              // --- Mobile: "Brzi unos" picker rows (footer pinned by dialog) ---
-              <div className="space-y-2">
-                <PickerRow
-                  title="Kategorija"
-                  summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
-                  icon={
-                    selectedCategory ? (
-                      (() => {
-                        const Icon = categoryIcon(selectedCategory.icon);
-                        return (
-                          <Icon className="size-4" style={{ color: selectedCategory.color }} />
-                        );
-                      })()
-                    ) : (
-                      <TagIcon className="size-4" />
-                    )
-                  }
-                  onClick={() => push("category")}
-                />
-                <PickerRow
-                  title="Stavke"
-                  summary={
-                    itemsLoading
-                      ? "Učitavam…"
-                      : items.length > 0
-                        ? `${items.length} ${stavkeLabel(items.length)}`
-                        : "Nema stavki"
-                  }
-                  icon={<ListBulletIcon className="size-4" />}
-                  onClick={() => push("items")}
-                />
-                {splitEligible ? (
-                  <PickerRow
-                    title="Podeli račun"
-                    summary="Deo stavki kao poseban trošak"
-                    icon={<ScissorsIcon className="size-4" />}
-                    onClick={() => push("split")}
-                  />
-                ) : null}
-                <PickerRow
-                  title="Više detalja"
-                  summary={detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška"}
-                  icon={<AdjustmentsHorizontalIcon className="size-4" />}
-                  count={detailCount}
-                  onClick={() => push("details")}
-                />
-                {partInfoBlock}
-                {error ? (
-                  <div className="rounded-xl bg-neg-soft p-3 text-sm font-semibold text-neg">
-                    {error}
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+              )}
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

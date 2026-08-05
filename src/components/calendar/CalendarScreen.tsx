@@ -82,19 +82,21 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
     </div>
   );
 
-  // Column width follows the view: the agenda is a reading column and stays
-  // narrow, while the week and month grids earn the full width of the screen
-  // area on desktop (a month squeezed into 768px wastes the format).
-  const wide = view !== "agenda";
-
   return (
+    // ONE column width for all three views: it used to be full-width for
+    // Nedelja/Mesec and narrow for Agenda, so switching views slid the segment
+    // control and the filter chips sideways. The grids need the room (a month
+    // squeezed into 768px wastes the format), but unbounded width turns the
+    // agenda into a stretched row of name-on-the-left, time-on-the-right - so
+    // the column stops at Danas' width, the app's wide-screen ceiling.
     <AppScreen
       header={header}
-      contentClassName={
-        wide ? "mx-auto w-full max-w-3xl lg:max-w-none" : "mx-auto w-full max-w-3xl"
-      }
-      headerClassName={wide ? "lg:px-8" : undefined}
-      bodyClassName={wide ? "lg:px-8" : undefined}
+      contentClassName="mx-auto w-full max-w-3xl lg:max-w-[1010px]"
+      headerClassName="lg:px-8"
+      bodyClassName="lg:px-8"
+      // Nedelja is a two-axis timetable: it fills the body and scrolls itself,
+      // so its day header and hour gutter have a scrollport to pin against.
+      fillBody={view === "nedelja"}
     >
       {!familyId ? (
         <AgendaListSkeleton rows={5} />

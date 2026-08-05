@@ -65,7 +65,7 @@ function NotificationsCard({ n }: NotificationsCardProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {!n.supported ? (
-          <p className="text-sm font-semibold text-warn">
+          <p className="text-sm font-normal text-warn">
             Ovaj uređaj / pregledač ne podržava push obaveštenja. Na iPhone-u prvo dodaj aplikaciju
             na početni ekran i otvori je odatle.
           </p>
@@ -73,14 +73,14 @@ function NotificationsCard({ n }: NotificationsCardProps) {
           // Once permission is denied, calling Notification.requestPermission()
           // silently returns "denied" without re-prompting, so the button below
           // won't recover the state - point the user at browser settings.
-          <p className="text-sm font-semibold text-warn">
+          <p className="text-sm font-normal text-warn">
             Dozvola za obaveštenja je odbijena u pregledaču. Otvori postavke pregledača (ili
             sistemske postavke za ovu aplikaciju na iPhone-u) i uključi obaveštenja, pa pokušaj
             ponovo.
           </p>
         ) : null}
 
-        {n.error ? <p className="text-sm font-semibold text-neg">{n.error}</p> : null}
+        {n.error ? <p className="text-sm font-normal text-neg">{n.error}</p> : null}
 
         <div className="flex flex-wrap gap-2">
           {n.checking ? (
@@ -148,9 +148,9 @@ function SessionsCard({ n }: SessionsCardProps) {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-sm font-semibold text-muted-foreground">Učitavanje…</p>
+          <p className="text-sm font-normal text-muted-foreground">Učitavanje…</p>
         ) : subscriptions.length === 0 ? (
-          <p className="text-sm font-semibold text-muted-foreground">
+          <p className="text-sm font-normal text-muted-foreground">
             Trenutno nema aktivnih sesija. Uključi obaveštenja iznad da bi ovaj uređaj počeo da
             prima podsetnike.
           </p>
@@ -186,10 +186,10 @@ function SessionRow({ row, isCurrent, disabled, onRevoke }: SessionRowProps) {
     <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-bold">{label}</span>
+          <span className="truncate text-sm font-semibold">{label}</span>
           {isCurrent ? <SettingsPill tone="accent">ovaj uređaj</SettingsPill> : null}
         </div>
-        <div className="text-xs font-semibold text-muted-foreground">{lastSeen}</div>
+        <div className="text-xs font-normal text-muted-foreground">{lastSeen}</div>
       </div>
       <Button
         type="button"
@@ -302,7 +302,7 @@ function FamilyCreateRow({ id, label, checked, onChange, disabled }: FamilyCreat
   return (
     <label
       htmlFor={`notify-${id}-toggle`}
-      className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold"
+      className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-normal"
     >
       <input
         id={`notify-${id}-toggle`}
@@ -365,7 +365,7 @@ function DigestsCard() {
             onTime={(t) => setForm((s) => ({ ...s, evening_time: t ?? s.evening_time }))}
             disabled={isLoading || saving}
           />
-          <p className="text-xs font-semibold text-muted-foreground">
+          <p className="text-xs font-normal text-muted-foreground">
             Vremenska zona: <span className="font-mono">{form.timezone}</span>
           </p>
           <div className="flex justify-end">
@@ -397,7 +397,7 @@ function DigestRow({ id, label, enabled, time, onToggle, onTime, disabled }: Dig
     <div className="flex min-h-11 items-center gap-3">
       <label
         htmlFor={`${id}-toggle`}
-        className="flex cursor-pointer items-center gap-3 text-sm font-semibold"
+        className="flex cursor-pointer items-center gap-3 text-sm font-normal"
       >
         <input
           id={`${id}-toggle`}

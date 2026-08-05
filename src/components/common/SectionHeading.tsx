@@ -31,7 +31,7 @@ export function SectionHeading({
   return (
     <Tag
       className={cn(
-        "flex items-center gap-2 px-[3px] text-[11.5px] font-extrabold tracking-[0.08em] uppercase",
+        "flex items-center gap-2 px-[3px] text-[11.5px] font-bold tracking-[0.08em] uppercase",
         tone === "neg" ? "text-neg" : muted ? "text-muted-foreground/60" : "text-muted-foreground",
         className,
       )}

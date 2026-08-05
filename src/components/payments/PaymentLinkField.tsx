@@ -353,7 +353,7 @@ export function PaymentLinkField({
                   <>
                     {activityOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Aktivnosti
                         </p>
                         <ul>{activityOptions.map(renderOption)}</ul>
@@ -361,7 +361,7 @@ export function PaymentLinkField({
                     ) : null}
                     {eventOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Događaji
                         </p>
                         <ul>{eventOptions.map(renderOption)}</ul>
@@ -369,7 +369,7 @@ export function PaymentLinkField({
                     ) : null}
                     {birthdayOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Rođendani
                         </p>
                         <ul>{birthdayOptions.map(renderOption)}</ul>

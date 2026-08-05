@@ -1,5 +1,6 @@
 import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 
+import { useEdgeFade } from "@/hooks/useEdgeFade";
 import { cn } from "@/lib/cn";
 
 /**
@@ -23,14 +24,19 @@ export function FilterChipRow({
   className?: string;
   children: ReactNode;
 }) {
+  const fadeRef = useEdgeFade<HTMLDivElement>();
+
   return (
     <div
+      ref={fadeRef}
       role="group"
       aria-label={ariaLabel}
-      // Bleeds to the screen edge so the last chip can scroll fully into view
-      // and the row reads as continuing past the edge.
+      // Exactly the page column's width - no bleed. The row used to hang 16px
+      // past it on each side, which read as the filters being wider than the
+      // screen. `fade-scroll-x` ramps out whichever end still has chips behind
+      // it, so they thin out AT the page edge instead of being cut there.
       className={cn(
-        "scrollbar-hide -mx-4 flex min-h-11 items-center gap-1.5 overflow-x-auto px-4",
+        "scrollbar-hide fade-scroll-x flex min-h-11 items-center gap-1.5 overflow-x-auto",
         className,
       )}
     >
@@ -72,7 +78,7 @@ export function FilterChip({
       style={style}
       className={cn(
         "relative flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5",
-        "text-[12.5px] font-bold whitespace-nowrap transition-colors",
+        "text-[12.5px] font-semibold whitespace-nowrap transition-colors",
         "after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         color

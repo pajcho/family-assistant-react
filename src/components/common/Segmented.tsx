@@ -44,7 +44,7 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex-1 rounded-sm px-1 py-1.5 text-[13px] font-bold transition-colors",
+              "flex-1 rounded-sm px-1 py-1.5 text-[13px] font-semibold transition-colors",
               active ? "bg-accent-soft text-accent-deep" : "text-muted-foreground",
             )}
           >

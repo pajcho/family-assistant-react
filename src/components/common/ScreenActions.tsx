@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 import { IconButton } from "@/components/common/IconButton";
+import { searchShortcutLabel } from "@/lib/platform";
 import { UserAvatar } from "@/components/layout/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -21,7 +22,7 @@ export function SearchIconButton() {
     <IconButton
       icon={MagnifyingGlassIcon}
       aria-label="Pretraga"
-      title="Pretraga (⌘K)"
+      title={`Pretraga (${searchShortcutLabel()})`}
       onClick={openSearch}
     />
   );

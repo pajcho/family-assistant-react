@@ -135,7 +135,7 @@ export function PasswordCard() {
           />
 
           {error ? (
-            <p className="rounded-[15px] bg-neg-soft px-[13px] py-[11px] text-[13.5px] font-bold text-neg">
+            <p className="rounded-[15px] bg-neg-soft px-[13px] py-[11px] text-[13.5px] font-semibold text-neg">
               {error}
             </p>
           ) : null}
@@ -188,7 +188,7 @@ function PasswordField({ id, label, value, onValueChange, hint, ...props }: Pass
           {visible ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
         </button>
       </div>
-      {hint ? <p className="text-xs font-semibold text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="text-xs font-normal text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

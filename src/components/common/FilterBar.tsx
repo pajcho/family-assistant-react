@@ -142,7 +142,7 @@ export function FilterTriggerButton({
       {/* Overlaid on the corner so appearing/disappearing never changes the
           button's width - the toolbar row can't reflow when a filter lands. */}
       {count > 0 ? (
-        <span className="absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-foreground tabular-nums shadow-sm">
+        <span className="absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground tabular-nums shadow-sm">
           {count}
         </span>
       ) : null}

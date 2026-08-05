@@ -43,7 +43,12 @@ function KalendarRoute() {
         void navigate({ search: { view: next }, replace: true });
       }}
       onOpenDay={(next) => {
-        void navigate({ search: { view: "agenda", day: next } });
+        // `resetScroll: false` is what makes the jump stick. With it on (the
+        // default) the router writes the previous screen's scroll offset onto
+        // the app scroll container in its `onRendered` pass - which lands AFTER
+        // the agenda has started scrolling to `day` and cancels it mid-flight.
+        // Nothing here wants the top of the list: the agenda scrolls itself.
+        void navigate({ search: { view: "agenda", day: next }, resetScroll: false });
       }}
     />
   );

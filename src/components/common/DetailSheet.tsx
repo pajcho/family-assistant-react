@@ -60,11 +60,9 @@ export function DetailHero({
         <Icon className={cn("size-6", iconClassName)} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-lg leading-tight font-extrabold", titleClassName)}>
-          {title}
-        </p>
+        <p className={cn("truncate text-lg leading-tight font-bold", titleClassName)}>{title}</p>
         {subtitle ? (
-          <p className="mt-0.5 text-[13px] font-semibold text-muted-foreground">{subtitle}</p>
+          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
     </div>
@@ -88,7 +86,7 @@ export function DetailBadgeRow({ badges }: { badges: ReadonlyArray<DetailBadge> 
         <span
           key={badge.label}
           className={cn(
-            "rounded-full px-2 py-0.5 text-[11px] font-bold whitespace-nowrap",
+            "rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
             badge.className ?? TONE_SURFACE[badge.tone ?? "neutral"],
           )}
         >
@@ -131,7 +129,7 @@ export function DetailInfoRow({
       {Icon ? (
         <Icon className="size-4 shrink-0 self-center text-muted-foreground" aria-hidden="true" />
       ) : null}
-      <span className="min-w-0 flex-1 font-semibold text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 font-normal text-muted-foreground">{label}</span>
       {children}
     </div>
   );
@@ -151,7 +149,7 @@ export function DetailInfoText({
 }) {
   return (
     <DetailInfoRow label={label} icon={icon} align="baseline">
-      <span className={cn("text-right font-bold tabular-nums", valueClassName)}>{value}</span>
+      <span className={cn("text-right font-semibold tabular-nums", valueClassName)}>{value}</span>
     </DetailInfoRow>
   );
 }
@@ -231,7 +229,7 @@ export function DetailActionRow({
     <>
       <Icon className={cn("size-[17px] shrink-0", classes.icon)} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <div className={cn("text-sm font-bold", classes.label)}>{label}</div>
+        <div className={cn("text-sm font-semibold", classes.label)}>{label}</div>
         {description ? (
           <div className={cn("text-xs leading-snug", classes.description)}>{description}</div>
         ) : null}

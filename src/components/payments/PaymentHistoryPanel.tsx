@@ -76,7 +76,7 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
           <div className="flex flex-col items-end gap-0.5">
             <span
               className={cn(
-                "font-extrabold tracking-[-0.01em] tabular-nums",
+                "font-bold tracking-[-0.01em] tabular-nums",
                 entry.status === "canceled" ? "text-neg" : "text-pos",
               )}
             >
@@ -91,7 +91,7 @@ export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryLis
               <button
                 type="button"
                 onClick={onRequestUndo}
-                className="inline-flex items-center gap-1 py-1.5 text-xs font-bold text-neg underline-offset-4 hover:underline"
+                className="inline-flex items-center gap-1 py-1.5 text-xs font-semibold text-neg underline-offset-4 hover:underline"
               >
                 <ArrowUturnLeftIcon className="h-3.5 w-3.5" />
                 Poništi

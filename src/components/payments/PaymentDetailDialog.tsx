@@ -16,14 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogFooter,
-} from "@/components/ui/responsive-dialog";
+import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { DateField } from "@/components/common/DateField";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
   DetailActionRow,
@@ -59,7 +55,12 @@ import { usePaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
-import { formatOriginalAmount, formatRateInput, parseDecimal } from "@/utils/currency";
+import {
+  formatOriginalAmount,
+  formatRateInput,
+  parseDecimal,
+  sanitizeDecimalInput,
+} from "@/utils/currency";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -72,9 +73,9 @@ import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@
  *
  * Self-contained: owns the mutations and a sheet-stack of sub-views (see
  * `useSheetStack`) - reschedule, cancel, confirm-amount, delete, history and
- * the history's undo confirm all swap the SAME sheet's content with a "←"
- * back header; dismissing a sub-view returns one level up instead of closing
- * the flow. Reschedule/cancel branch on recurring vs one-time:
+ * the history's undo confirm each open as their own sheet ON TOP of this one,
+ * with a "←" back header; dismissing a sub-view returns one level up instead
+ * of closing the flow. Reschedule/cancel branch on recurring vs one-time:
  *   - reschedule: recurring → per-occurrence override ("Pomereno"); one-time →
  *     edits `due_date`.
  *   - cancel: recurring → records a canceled history entry + advances to the
@@ -118,8 +119,8 @@ export function PaymentDetailDialog({
   onEdit,
   variant = "full",
 }: PaymentDetailDialogProps) {
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, "detail");
+  const stack = useSheetStack<View>(open, onOpenChange, "detail");
+  const { push, pop, reset } = stack;
   const [newDate, setNewDate] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
@@ -330,7 +331,7 @@ export function PaymentDetailDialog({
   const cancelCopy = payment ? paymentCancelCopy(payment) : null;
   const rescheduleNext = payment ? nextPaymentOccurrenceDate(payment) : null;
   const rescheduleMax = rescheduleNext ? subtractDay(rescheduleNext) : null;
-  const title =
+  const titleFor = (view: View) =>
     view === "reschedule"
       ? isRecurring
         ? "Pomeri ratu"
@@ -397,371 +398,381 @@ export function PaymentDetailDialog({
 
   return (
     <>
-      <ResponsiveDialog
-        key={dialogKey}
-        open={dialogOpen && !linkEditTarget}
-        onOpenChange={handleOpenChange}
-      >
-        <ResponsiveDialogContent>
-          <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
-          {payment ? (
-            <div className="space-y-4">
-              <DetailHero
-                icon={BanknotesIcon}
-                tone="warn"
-                title={payment.name}
-                subtitle={paymentSubtitle(payment)}
-              />
+      <SheetStackViews
+        stack={stack}
+        hidden={!!linkEditTarget}
+        render={(view, level) => (
+          <ResponsiveDialogContent>
+            <SheetStackHeader
+              title={titleFor(view)}
+              srOnly={level === 0}
+              onBack={level === 0 ? undefined : pop}
+            />
+            {payment ? (
+              <div className="space-y-4">
+                {/* Root only: a stacked sub-view sits ON TOP of this sheet, which
+                    already names the subject right above it - repeating the hero
+                    printed the same title twice on one screen. */}
+                {level === 0 ? (
+                  <DetailHero
+                    icon={BanknotesIcon}
+                    tone="warn"
+                    title={payment.name}
+                    subtitle={paymentSubtitle(payment)}
+                  />
+                ) : null}
 
-              {view === "reschedule" ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <DateField
-                      id="payment-detail-reschedule-date"
-                      label="Novi datum"
-                      value={newDate}
-                      onChange={setNewDate}
-                      placeholder="Izaberi datum"
-                      maxDate={rescheduleMax}
-                    />
-                    {rescheduleNext && rescheduleMax ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        Najkasnije {formatDate(rescheduleMax)} - dan pre sledeće uplate (
-                        {formatDate(rescheduleNext)}).
-                      </p>
+                {view === "reschedule" ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <DateField
+                        id="payment-detail-reschedule-date"
+                        label="Novi datum"
+                        value={newDate}
+                        onChange={setNewDate}
+                        placeholder="Izaberi datum"
+                        maxDate={rescheduleMax}
+                      />
+                      {rescheduleNext && rescheduleMax ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          Najkasnije {formatDate(rescheduleMax)} - dan pre sledeće uplate (
+                          {formatDate(rescheduleNext)}).
+                        </p>
+                      ) : null}
+                    </div>
+                    {isRecurring ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="payment-detail-reschedule-reason">Razlog (opciono)</Label>
+                        <Textarea
+                          id="payment-detail-reschedule-reason"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="npr. plata kasni ovaj mesec"
+                          rows={2}
+                        />
+                      </div>
                     ) : null}
                   </div>
-                  {isRecurring ? (
+                ) : view === "cancel" ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">{cancelCopy?.message}</p>
                     <div className="space-y-2">
-                      <Label htmlFor="payment-detail-reschedule-reason">Razlog (opciono)</Label>
+                      <Label htmlFor="payment-detail-cancel-reason">Razlog (opciono)</Label>
                       <Textarea
-                        id="payment-detail-reschedule-reason"
+                        id="payment-detail-cancel-reason"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="npr. plata kasni ovaj mesec"
-                        rows={2}
+                        placeholder={cancelCopy?.placeholder ?? ""}
+                        rows={3}
                       />
                     </div>
-                  ) : null}
-                </div>
-              ) : view === "cancel" ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">{cancelCopy?.message}</p>
-                  <div className="space-y-2">
-                    <Label htmlFor="payment-detail-cancel-reason">Razlog (opciono)</Label>
-                    <Textarea
-                      id="payment-detail-cancel-reason"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder={cancelCopy?.placeholder ?? ""}
-                      rows={3}
-                    />
                   </div>
-                </div>
-              ) : view === "confirm-amount" ? (
-                <div className="space-y-4">
+                ) : view === "confirm-amount" ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      {payment.is_variable_amount
+                        ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
+                        : `Potvrdi kurs za „${payment.name}" - podrazumevan je srednji kurs NBS na današnji dan.`}
+                    </p>
+                    <div className="space-y-2">
+                      {payment.is_variable_amount ? (
+                        <>
+                          <Label htmlFor="payment-detail-paid-amount">
+                            Iznos ({isForeignPayment ? payment.currency : "RSD"})
+                          </Label>
+                          <Input
+                            id="payment-detail-paid-amount"
+                            value={paidAmount}
+                            onChange={(e) => setPaidAmount(sanitizeDecimalInput(e.target.value))}
+                            inputMode="decimal"
+                            autoFocus
+                          />
+                        </>
+                      ) : (
+                        // Fixed foreign bill: the amount is contractual - only
+                        // the rate gets confirmed. (Fixed RSD never lands here.)
+                        <p className="text-sm font-medium text-foreground">
+                          Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
+                        </p>
+                      )}
+                      {/* Pay-time NBS rate + live RSD preview (foreign only). */}
+                      <ExchangeRateRow
+                        control={rateControl}
+                        amountNum={paidAmountNum}
+                        inputId="payment-detail-rate"
+                      />
+                      {payment.is_variable_amount ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          Okvirno:{" "}
+                          {isForeignPayment && payment.original_amount != null ? (
+                            formatOriginalAmount(payment.original_amount, payment.currency)
+                          ) : (
+                            <Amount value={payment.amount} />
+                          )}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : view === "delete" ? (
                   <p className="text-sm text-muted-foreground">
-                    {payment.is_variable_amount
-                      ? `Koliko si uplatio/la za „${payment.name}" ovog meseca?`
-                      : `Potvrdi kurs za „${payment.name}" - podrazumevan je srednji kurs NBS na današnji dan.`}
+                    Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
+                    opozvati.
                   </p>
-                  <div className="space-y-2">
-                    {payment.is_variable_amount ? (
-                      <>
-                        <Label htmlFor="payment-detail-paid-amount">
-                          Iznos ({isForeignPayment ? payment.currency : "RSD"})
-                        </Label>
-                        <Input
-                          id="payment-detail-paid-amount"
-                          value={paidAmount}
-                          onChange={(e) => setPaidAmount(e.target.value)}
-                          inputMode="decimal"
-                          autoFocus
-                        />
-                      </>
-                    ) : (
-                      // Fixed foreign bill: the amount is contractual - only
-                      // the rate gets confirmed. (Fixed RSD never lands here.)
-                      <p className="text-sm font-medium text-foreground">
-                        Iznos: {formatOriginalAmount(paidAmountNum, payment.currency)}
-                      </p>
-                    )}
-                    {/* Pay-time NBS rate + live RSD preview (foreign only). */}
-                    <ExchangeRateRow
-                      control={rateControl}
-                      amountNum={paidAmountNum}
-                      inputId="payment-detail-rate"
-                    />
-                    {payment.is_variable_amount ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        Okvirno:{" "}
-                        {isForeignPayment && payment.original_amount != null ? (
-                          formatOriginalAmount(payment.original_amount, payment.currency)
-                        ) : (
-                          <Amount value={payment.amount} />
-                        )}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : view === "delete" ? (
-                <p className="text-sm text-muted-foreground">
-                  Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
-                  opozvati.
-                </p>
-              ) : view === "history" ? (
-                <PaymentHistoryList payment={payment} onRequestUndo={() => push("undo")} />
-              ) : view === "undo" ? (
-                <PaymentUndoConfirm
-                  paymentId={payment.id}
-                  paymentName={payment.name}
-                  onBack={pop}
-                  onDone={pop}
-                />
-              ) : (
-                <>
-                  {/* The bill's hero: amount first, state as badges. */}
-                  <div>
-                    <div className="text-3xl font-bold tracking-tight tabular-nums text-foreground">
-                      <Amount value={payment.amount} />
+                ) : view === "history" ? (
+                  <PaymentHistoryList payment={payment} onRequestUndo={() => push("undo")} />
+                ) : view === "undo" ? (
+                  <PaymentUndoConfirm
+                    paymentId={payment.id}
+                    paymentName={payment.name}
+                    onBack={pop}
+                    onDone={pop}
+                  />
+                ) : (
+                  <>
+                    {/* The bill's hero: amount first, state as badges. */}
+                    <div>
+                      <div className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">
+                        <Amount value={payment.amount} />
+                      </div>
+                      {payment.currency !== "RSD" && payment.original_amount != null ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                          {formatOriginalAmount(payment.original_amount, payment.currency)}
+                          {payment.exchange_rate != null
+                            ? ` · kurs ${formatRateInput(payment.exchange_rate)}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {payment.is_variable_amount ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Okvirni iznos - potvrđuje se pri svakom plaćanju
+                        </p>
+                      ) : null}
+                      <div className="mt-2">
+                        <DetailBadgeRow badges={statusBadges} />
+                      </div>
                     </div>
-                    {payment.currency !== "RSD" && payment.original_amount != null ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                        {formatOriginalAmount(payment.original_amount, payment.currency)}
-                        {payment.exchange_rate != null
-                          ? ` · kurs ${formatRateInput(payment.exchange_rate)}`
-                          : ""}
-                      </p>
-                    ) : null}
-                    {payment.is_variable_amount ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Okvirni iznos - potvrđuje se pri svakom plaćanju
-                      </p>
-                    ) : null}
-                    <div className="mt-2">
-                      <DetailBadgeRow badges={statusBadges} />
-                    </div>
-                  </div>
 
-                  {personIds.length > 0 ||
-                  linkTarget ||
-                  payment.description ||
-                  (payment.recurrence_period === "limited" && payment.remaining_occurrences) ? (
-                    <DetailInfoRows>
-                      {personIds.length > 0 ? (
-                        <DetailInfoRow label="Za">
-                          <MemberBadges personIds={personIds} />
-                        </DetailInfoRow>
-                      ) : null}
-                      {linkTarget ? (
-                        <DetailInfoRow label="Povezano sa">
-                          <span className="min-w-0">
-                            <PaymentLinkChip target={linkTarget} onClick={handleOpenLink} />
-                          </span>
-                        </DetailInfoRow>
-                      ) : null}
-                      {payment.description ? (
-                        <DetailInfoText label="Opis" value={payment.description} />
-                      ) : null}
-                      {payment.recurrence_period === "limited" && payment.remaining_occurrences ? (
-                        <DetailInfoText
-                          label="Preostalo"
-                          value={`${payment.remaining_occurrences} rata`}
-                        />
-                      ) : null}
-                    </DetailInfoRows>
-                  ) : null}
-
-                  {/* Every action as a visible row; the occurrence's ONE state
-                      action (mark paid / restore / resume) OPENS the list as
-                      the emphasized first row - the thing you came to do. */}
-                  <DetailActionList>
-                    {!readOnly && overrideActive ? (
-                      <DetailActionRow
-                        icon={ArrowUturnLeftIcon}
-                        label={
-                          cancelOverrideActive
-                            ? isRecurring
-                              ? "Vrati ratu"
-                              : "Vrati plaćanje"
-                            : "Vrati datum"
-                        }
-                        description={
-                          cancelOverrideActive
-                            ? "Poništava otkazivanje"
-                            : "Vraća prvobitni datum dospeća"
-                        }
-                        onClick={() => {
-                          void handleRestore();
-                        }}
-                        disabled={saving}
-                        tone="primary"
-                      />
-                    ) : !readOnly && payment.is_paused ? (
-                      <DetailActionRow
-                        icon={PlayIcon}
-                        label="Nastavi ponavljanje"
-                        description="Rate ponovo dospevaju po rasporedu"
-                        onClick={() => {
-                          void handleTogglePause();
-                        }}
-                        disabled={saving}
-                        tone="primary"
-                      />
-                    ) : canMarkPaid ? (
-                      <DetailActionRow
-                        icon={CheckIcon}
-                        label="Označi kao plaćeno"
-                        description={markPaidDescription}
-                        onClick={() => {
-                          void handleMarkAsPaid();
-                        }}
-                        disabled={saving}
-                        tone="primary"
-                      />
-                    ) : null}
-                    <DetailActionRow
-                      icon={PencilSquareIcon}
-                      label="Izmeni plaćanje"
-                      description="Naziv, iznos, ponavljanje, podsetnici…"
-                      onClick={handleEdit}
-                      disabled={saving}
-                    />
-                    <DetailActionRow
-                      icon={ClockIcon}
-                      label="Istorija plaćanja"
-                      description="Uplaćene i preskočene rate"
-                      onClick={() => push("history")}
-                      disabled={saving}
-                      chevron
-                    />
-                    {showOccurrenceActions ? (
-                      <>
-                        <DetailActionRow
-                          icon={CalendarDaysIcon}
-                          label={isRecurring ? "Pomeri ratu" : "Pomeri datum dospeća"}
-                          description={
-                            isRecurring
-                              ? "Samo ovu ratu - ostale po rasporedu"
-                              : "Promeni datum dospeća plaćanja"
-                          }
-                          onClick={openReschedule}
-                          disabled={saving}
-                        />
-                        <DetailActionRow
-                          icon={XCircleIcon}
-                          label={cancelCopy?.title ?? "Otkaži ratu"}
-                          description={
-                            isRecurring
-                              ? "Preskače ovu ratu i prelazi na sledeću"
-                              : "Ostaje zabeleženo kao otkazano"
-                          }
-                          onClick={openCancel}
-                          disabled={saving}
-                        />
-                        {canPause ? (
-                          <DetailActionRow
-                            icon={PauseIcon}
-                            label="Pauziraj ponavljanje"
-                            description="Serija miruje dok je ne nastaviš"
-                            onClick={() => {
-                              void handleTogglePause();
-                            }}
-                            disabled={saving}
+                    {personIds.length > 0 ||
+                    linkTarget ||
+                    payment.description ||
+                    (payment.recurrence_period === "limited" && payment.remaining_occurrences) ? (
+                      <DetailInfoRows>
+                        {personIds.length > 0 ? (
+                          <DetailInfoRow label="Za">
+                            <MemberBadges personIds={personIds} />
+                          </DetailInfoRow>
+                        ) : null}
+                        {linkTarget ? (
+                          <DetailInfoRow label="Povezano sa">
+                            <span className="min-w-0">
+                              <PaymentLinkChip target={linkTarget} onClick={handleOpenLink} />
+                            </span>
+                          </DetailInfoRow>
+                        ) : null}
+                        {payment.description ? (
+                          <DetailInfoText label="Opis" value={payment.description} />
+                        ) : null}
+                        {payment.recurrence_period === "limited" &&
+                        payment.remaining_occurrences ? (
+                          <DetailInfoText
+                            label="Preostalo"
+                            value={`${payment.remaining_occurrences} rata`}
                           />
                         ) : null}
-                      </>
+                      </DetailInfoRows>
                     ) : null}
-                    {!readOnly ? (
-                      <DetailActionRow
-                        icon={TrashIcon}
-                        label="Obriši plaćanje"
-                        description="Trajno briše plaćanje i istoriju"
-                        onClick={() => push("delete")}
-                        disabled={saving}
-                        tone="destructive"
-                      />
-                    ) : null}
-                  </DetailActionList>
-                </>
-              )}
-            </div>
-          ) : null}
 
-          {view === "reschedule" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                onClick={() => {
-                  void handleRescheduleSave();
-                }}
-                disabled={saving || !newDate || newDate === effectiveDue}
-              >
-                Sačuvaj
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "cancel" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleCancelConfirm();
-                }}
-                disabled={saving}
-              >
-                {cancelCopy?.title ?? "Otkaži ratu"}
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "confirm-amount" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                onClick={() => {
-                  void handleConfirmAmount();
-                }}
-                disabled={saving || confirmAmountDisabled}
-              >
-                <CheckIcon className="size-4" />
-                Označi kao plaćeno
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "delete" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleDelete();
-                }}
-                disabled={saving}
-              >
-                Obriši
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "history" ? (
-            <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={pop}
-                disabled={saving}
-              >
-                Nazad
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : null}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+                    {/* Every action as a visible row; the occurrence's ONE state
+                      action (mark paid / restore / resume) OPENS the list as
+                      the emphasized first row - the thing you came to do. */}
+                    <DetailActionList>
+                      {!readOnly && overrideActive ? (
+                        <DetailActionRow
+                          icon={ArrowUturnLeftIcon}
+                          label={
+                            cancelOverrideActive
+                              ? isRecurring
+                                ? "Vrati ratu"
+                                : "Vrati plaćanje"
+                              : "Vrati datum"
+                          }
+                          description={
+                            cancelOverrideActive
+                              ? "Poništava otkazivanje"
+                              : "Vraća prvobitni datum dospeća"
+                          }
+                          onClick={() => {
+                            void handleRestore();
+                          }}
+                          disabled={saving}
+                          tone="primary"
+                        />
+                      ) : !readOnly && payment.is_paused ? (
+                        <DetailActionRow
+                          icon={PlayIcon}
+                          label="Nastavi ponavljanje"
+                          description="Rate ponovo dospevaju po rasporedu"
+                          onClick={() => {
+                            void handleTogglePause();
+                          }}
+                          disabled={saving}
+                          tone="primary"
+                        />
+                      ) : canMarkPaid ? (
+                        <DetailActionRow
+                          icon={CheckIcon}
+                          label="Označi kao plaćeno"
+                          description={markPaidDescription}
+                          onClick={() => {
+                            void handleMarkAsPaid();
+                          }}
+                          disabled={saving}
+                          tone="primary"
+                        />
+                      ) : null}
+                      <DetailActionRow
+                        icon={PencilSquareIcon}
+                        label="Izmeni plaćanje"
+                        description="Naziv, iznos, ponavljanje, podsetnici…"
+                        onClick={handleEdit}
+                        disabled={saving}
+                      />
+                      <DetailActionRow
+                        icon={ClockIcon}
+                        label="Istorija plaćanja"
+                        description="Uplaćene i preskočene rate"
+                        onClick={() => push("history")}
+                        disabled={saving}
+                        chevron
+                      />
+                      {showOccurrenceActions ? (
+                        <>
+                          <DetailActionRow
+                            icon={CalendarDaysIcon}
+                            label={isRecurring ? "Pomeri ratu" : "Pomeri datum dospeća"}
+                            description={
+                              isRecurring
+                                ? "Samo ovu ratu - ostale po rasporedu"
+                                : "Promeni datum dospeća plaćanja"
+                            }
+                            onClick={openReschedule}
+                            disabled={saving}
+                          />
+                          <DetailActionRow
+                            icon={XCircleIcon}
+                            label={cancelCopy?.title ?? "Otkaži ratu"}
+                            description={
+                              isRecurring
+                                ? "Preskače ovu ratu i prelazi na sledeću"
+                                : "Ostaje zabeleženo kao otkazano"
+                            }
+                            onClick={openCancel}
+                            disabled={saving}
+                          />
+                          {canPause ? (
+                            <DetailActionRow
+                              icon={PauseIcon}
+                              label="Pauziraj ponavljanje"
+                              description="Serija miruje dok je ne nastaviš"
+                              onClick={() => {
+                                void handleTogglePause();
+                              }}
+                              disabled={saving}
+                            />
+                          ) : null}
+                        </>
+                      ) : null}
+                      {!readOnly ? (
+                        <DetailActionRow
+                          icon={TrashIcon}
+                          label="Obriši plaćanje"
+                          description="Trajno briše plaćanje i istoriju"
+                          onClick={() => push("delete")}
+                          disabled={saving}
+                          tone="destructive"
+                        />
+                      ) : null}
+                    </DetailActionList>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {view === "reschedule" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  onClick={() => {
+                    void handleRescheduleSave();
+                  }}
+                  disabled={saving || !newDate || newDate === effectiveDue}
+                >
+                  Sačuvaj
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "cancel" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleCancelConfirm();
+                  }}
+                  disabled={saving}
+                >
+                  {cancelCopy?.title ?? "Otkaži ratu"}
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "confirm-amount" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  onClick={() => {
+                    void handleConfirmAmount();
+                  }}
+                  disabled={saving || confirmAmountDisabled}
+                >
+                  <CheckIcon className="size-4" />
+                  Označi kao plaćeno
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "delete" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleDelete();
+                  }}
+                  disabled={saving}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "history" ? (
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={pop}
+                  disabled={saving}
+                >
+                  Nazad
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : null}
+          </ResponsiveDialogContent>
+        )}
+      />
 
       <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </>

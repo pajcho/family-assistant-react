@@ -146,7 +146,7 @@ export function MonthPicker({
             <button
               type="button"
               aria-label="Izaberi mesec i godinu"
-              className="min-w-[8.5rem] border-x border-border px-3 py-1.5 text-center text-sm font-bold tabular-nums text-foreground hover:bg-muted"
+              className="min-w-[8.5rem] border-x border-border px-3 py-1.5 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-muted"
             >
               {isAll ? (allOptionLabel ?? "Sve") : monthLabel(value)}
             </button>
@@ -162,7 +162,7 @@ export function MonthPicker({
               >
                 <ChevronLeftIcon className="size-4" />
               </button>
-              <span className="text-sm font-bold tabular-nums text-foreground">{gridYear}</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">{gridYear}</span>
               <button
                 type="button"
                 aria-label="Sledeća godina"
@@ -187,9 +187,9 @@ export function MonthPicker({
                     className={cn(
                       "rounded-md px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40",
                       selected
-                        ? "bg-accent font-bold text-accent-foreground"
+                        ? "bg-accent font-semibold text-accent-foreground"
                         : isCurrent
-                          ? "bg-accent-soft font-bold text-accent-deep hover:brightness-95"
+                          ? "bg-accent-soft font-semibold text-accent-deep hover:brightness-95"
                           : "text-foreground hover:bg-muted",
                     )}
                   >
@@ -216,7 +216,7 @@ export function MonthPicker({
                 className={cn(
                   "mt-2 w-full rounded-md border px-2 py-1.5 text-sm transition-colors",
                   isAll
-                    ? "border-accent bg-accent-soft font-bold text-accent-deep"
+                    ? "border-accent bg-accent-soft font-semibold text-accent-deep"
                     : "border-border text-foreground hover:bg-muted",
                 )}
               >

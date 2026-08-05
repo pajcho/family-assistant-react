@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_NAV_SLOTS,
   NAV_SECTIONS,
+  NAV_SECTION_MAP,
+  isNavSectionActive,
   normalizeNavSlots,
   resolveNavSectionKey,
   sectionForPathname,
@@ -87,5 +89,35 @@ describe("sectionForPathname", () => {
       if (section.search) continue;
       expect(sectionForPathname(section.to)).toBe(section.key);
     }
+  });
+});
+
+describe("isNavSectionActive", () => {
+  const porodica = NAV_SECTION_MAP.family;
+  const podesavanja = NAV_SECTION_MAP.settings;
+
+  it("lights Porodica - not Podešavanja - on its own link", () => {
+    expect(isNavSectionActive(porodica, "/settings", { tab: "family" })).toBe(true);
+    expect(isNavSectionActive(podesavanja, "/settings", { tab: "family" })).toBe(false);
+  });
+
+  it("gives Podešavanja the hub and every other tab", () => {
+    expect(isNavSectionActive(podesavanja, "/settings", {})).toBe(true);
+    expect(isNavSectionActive(podesavanja, "/settings", { tab: "notifications" })).toBe(true);
+    expect(isNavSectionActive(porodica, "/settings", {})).toBe(false);
+  });
+
+  it("matches subroutes but not bare prefixes", () => {
+    expect(isNavSectionActive(NAV_SECTION_MAP.lists, "/lists/abc-123", {})).toBe(true);
+    expect(isNavSectionActive(NAV_SECTION_MAP.lists, "/listsX", {})).toBe(false);
+  });
+
+  it("keeps Danas exact so every other screen turns it off", () => {
+    expect(isNavSectionActive(NAV_SECTION_MAP.today, "/", {})).toBe(true);
+    expect(isNavSectionActive(NAV_SECTION_MAP.today, "/kalendar", {})).toBe(false);
+  });
+
+  it("ignores search params on sections that do not share a path", () => {
+    expect(isNavSectionActive(NAV_SECTION_MAP.money, "/novac", { tab: "placanja" })).toBe(true);
   });
 });

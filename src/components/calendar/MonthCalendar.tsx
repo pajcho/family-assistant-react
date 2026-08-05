@@ -72,9 +72,11 @@ export function MonthCalendar({
     const endWeekMonday = parseISO(getWeekStart(last) + "T12:00:00");
     const end = format(addDays(endWeekMonday, 6), "yyyy-MM-dd");
     const startDate = parseISO(start + "T12:00:00");
-    const weekCount = Math.round(
-      (parseISO(end + "T12:00:00").getTime() - startDate.getTime()) / (7 * 86_400_000) + 1,
-    );
+    // Inclusive day span / 7. The +1 belongs to the DAY count - adding it after
+    // dividing by a week's ms rounded every month up to an extra trailing week.
+    const weekCount =
+      Math.round((parseISO(end + "T12:00:00").getTime() - startDate.getTime()) / 86_400_000 + 1) /
+      7;
     return {
       gridStart: start,
       gridEnd: end,
@@ -156,10 +158,10 @@ export function MonthCalendar({
   return (
     <div className="space-y-3">
       <div className="flex items-baseline gap-2.5 px-[3px]">
-        <span className="font-serif text-[27px] leading-none font-bold tracking-[-0.01em]">
+        <span className="font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
           {monthName}
         </span>
-        <span className="text-sm font-bold text-muted-foreground">
+        <span className="text-sm font-semibold text-muted-foreground">
           {format(monthDate, "yyyy")}.
         </span>
         <span className="flex-1" />
@@ -182,7 +184,7 @@ export function MonthCalendar({
           {DAY_LABELS_SHORT.map((label) => (
             <div
               key={label}
-              className="py-1 text-center text-[10px] font-extrabold tracking-wide text-muted-foreground uppercase"
+              className="py-1 text-center text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
             >
               {label}
             </div>
@@ -203,7 +205,7 @@ export function MonthCalendar({
                 })}
                 className={cn(
                   "flex aspect-[0.92] min-h-11 flex-col items-center justify-center gap-[3px] rounded-md border border-transparent",
-                  "text-[13.5px] font-bold tabular-nums transition-colors",
+                  "text-[13.5px] font-semibold tabular-nums transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   "lg:aspect-auto lg:h-[104px] lg:items-stretch lg:justify-start lg:gap-1 lg:p-1.5 lg:text-left",
                   outside && "opacity-35",
@@ -233,14 +235,14 @@ export function MonthCalendar({
                         backgroundColor: `color-mix(in srgb, ${chip.color} 16%, var(--card))`,
                         borderColor: chip.color,
                       }}
-                      className="truncate rounded-sm border-l-[3px] px-1.5 py-px text-[11px] leading-tight font-bold text-foreground"
+                      className="truncate rounded-sm border-l-[3px] px-1.5 py-px text-[11px] leading-tight font-semibold text-foreground"
                     >
                       {chip.time ? `${chip.time} ` : ""}
                       {chip.label}
                     </span>
                   ))}
                   {(chipsByDay.get(day)?.length ?? 0) > MAX_CHIPS ? (
-                    <span className="pl-1 text-[10.5px] font-extrabold text-muted-foreground">
+                    <span className="pl-1 text-[10.5px] font-bold text-muted-foreground">
                       + još {(chipsByDay.get(day)?.length ?? 0) - MAX_CHIPS}
                     </span>
                   ) : null}
@@ -255,7 +257,7 @@ export function MonthCalendar({
             {spans.map((span) => (
               <li
                 key={span.key}
-                className="flex items-center gap-[7px] px-1 text-[11.5px] font-bold text-muted-foreground"
+                className="flex items-center gap-[7px] px-1 text-[11.5px] font-semibold text-muted-foreground"
               >
                 <span
                   aria-hidden="true"
@@ -279,9 +281,7 @@ export function MonthCalendar({
           <SectionHeading as="div" className="flex-1">
             {formatPeekHeading(selectedDay, todayStr)}
           </SectionHeading>
-          <span className="shrink-0 text-[11.5px] font-extrabold text-accent-deep">
-            Otvori u agendi
-          </span>
+          <span className="shrink-0 text-[11.5px] font-bold text-accent-deep">Otvori u agendi</span>
         </button>
 
         {isLoading ? (

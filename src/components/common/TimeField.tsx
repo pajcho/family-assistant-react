@@ -182,12 +182,10 @@ export function TimeField({
       >
         <div className="flex flex-col gap-2">
           <div className="rounded-xl border border-border bg-card p-2.5 text-center shadow-card">
-            <div className="text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
+            <div className="text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
               Izabrano
             </div>
-            <div className="mt-0.5 text-2xl font-extrabold tracking-tight tabular-nums">
-              {preview}
-            </div>
+            <div className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums">{preview}</div>
           </div>
 
           <FieldGroupLabel>Sat</FieldGroupLabel>
@@ -263,7 +261,7 @@ export function TimeField({
                 onChange(null);
                 setOpen(false);
               }}
-              className="min-h-11 rounded-lg border border-border bg-card text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="min-h-11 rounded-lg border border-border bg-card text-sm font-normal text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Bez vremena
             </button>

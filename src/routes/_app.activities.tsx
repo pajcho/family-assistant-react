@@ -294,6 +294,9 @@ function ActivitiesPage() {
     replaceSchedule.isPending ||
     replaceParticipants.isPending;
 
+  const hasSchoolChip = school.blocks.length > 0;
+  const hasMemberChips = members.length > 1;
+
   const header = (
     <div className="flex flex-col gap-2.5">
       <ScreenHeaderRow
@@ -311,42 +314,54 @@ function ActivitiesPage() {
       />
       <div className="flex items-center gap-2">
         <IconButton icon={ChevronLeftIcon} aria-label="Prethodna nedelja" onClick={goPrevWeek} />
-        <div className="flex-1 text-center text-sm font-extrabold tabular-nums">{rangeLabel}</div>
+        <div className="flex-1 text-center text-sm font-bold tabular-nums">{rangeLabel}</div>
         <IconButton icon={ChevronRightIcon} aria-label="Sledeća nedelja" onClick={goNextWeek} />
       </div>
-      <FilterChipRow ariaLabel="Filteri rasporeda">
-        <FilterChip
-          active={showSchool}
-          onToggle={() => setShowSchool((v) => !v)}
-          icon={BookOpenIcon}
-        >
-          Prikaži školu
-        </FilterChip>
-        {!isCurrentWeek ? (
-          <FilterChip active={false} onToggle={goToToday} icon={ClockIcon}>
-            Ova sedmica
-          </FilterChip>
-        ) : null}
-        {members.length > 0 ? (
-          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
-        ) : null}
-        {/* "Sve" carries the neutral state so the member chips only light up
-            once someone is actually picked (same reading as Kalendar). */}
-        {members.length > 0 ? (
-          <FilterChip active={personFilter.size === 0} onToggle={() => setPersonFilter(new Set())}>
-            Svi
-          </FilterChip>
-        ) : null}
-        {members.map((member) => (
-          <PersonChip
-            key={member.id}
-            person={member}
-            active={personFilter.has(member.id)}
-            onToggle={() => togglePerson(member.id)}
-            shift={timeBandByPerson.get(member.id) ?? null}
-          />
-        ))}
-      </FilterChipRow>
+      {hasSchoolChip || !isCurrentWeek || hasMemberChips ? (
+        <FilterChipRow ariaLabel="Filteri rasporeda">
+          {/* Only once a school timetable actually exists (same gate as the
+              Kalendar week view) - school is set up via Opcije, not this chip. */}
+          {hasSchoolChip ? (
+            <FilterChip
+              active={showSchool}
+              onToggle={() => setShowSchool((v) => !v)}
+              icon={BookOpenIcon}
+            >
+              Prikaži školu
+            </FilterChip>
+          ) : null}
+          {!isCurrentWeek ? (
+            <FilterChip active={false} onToggle={goToToday} icon={ClockIcon}>
+              Ova sedmica
+            </FilterChip>
+          ) : null}
+          {hasMemberChips && (hasSchoolChip || !isCurrentWeek) ? (
+            <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+          ) : null}
+          {/* "Sve" carries the neutral state so the member chips only light up
+              once someone is actually picked (same reading as Kalendar). One
+              member = nobody to narrow to, so the whole group stays hidden. */}
+          {hasMemberChips ? (
+            <FilterChip
+              active={personFilter.size === 0}
+              onToggle={() => setPersonFilter(new Set())}
+            >
+              Sve
+            </FilterChip>
+          ) : null}
+          {hasMemberChips
+            ? members.map((member) => (
+                <PersonChip
+                  key={member.id}
+                  person={member}
+                  active={personFilter.has(member.id)}
+                  onToggle={() => togglePerson(member.id)}
+                  shift={timeBandByPerson.get(member.id) ?? null}
+                />
+              ))
+            : null}
+        </FilterChipRow>
+      ) : null}
     </div>
   );
 
@@ -550,7 +565,7 @@ function AllActivitiesList({
               <ItemCard dimmed={activity.is_paused}>
                 <ItemTile icon={SparklesIcon} color={tileColor} tone="accent" />
                 <ItemMain>
-                  <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-[1.25] font-bold tracking-[-0.01em]">
+                  <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-[1.25] font-semibold tracking-[-0.01em]">
                     <span className="min-w-0 truncate">{activity.name}</span>
                     {personIds.map((id) => (
                       <PersonDot

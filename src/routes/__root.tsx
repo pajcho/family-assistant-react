@@ -38,8 +38,8 @@ function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted px-4">
       <div className="max-w-md text-center">
-        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">404</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground">
+        <p className="text-sm font-normal text-blue-600 dark:text-blue-400">404</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
           Stranica nije pronađena
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">

@@ -260,13 +260,13 @@ export function WeekGrid({
             >
               <div
                 className={cn(
-                  "text-xs font-extrabold",
+                  "text-xs font-bold",
                   isToday(dh.dateStr) ? "text-accent-deep" : "text-foreground",
                 )}
               >
                 {dh.label}
               </div>
-              <div className="text-[10px] font-semibold tabular-nums text-muted-foreground">
+              <div className="text-[10px] font-normal tabular-nums text-muted-foreground">
                 {dh.dayNum}
               </div>
             </div>
@@ -298,7 +298,7 @@ export function WeekGrid({
             {todayDayIndex >= 0 && nowInViewport ? (
               <div
                 style={{ top: `${nowTopPx}px` }}
-                className="absolute right-1 -translate-y-1/2 rounded-full bg-neg px-1 text-[10px] font-extrabold tabular-nums text-white"
+                className="absolute right-1 -translate-y-1/2 rounded-full bg-neg px-1 text-[10px] font-bold tabular-nums text-white"
               >
                 {format(now, "HH:mm")}
               </div>
@@ -412,7 +412,7 @@ export function WeekGrid({
                       </span>
                       {isSameDayReschedule ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
                           style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Pomereno"
                         >
@@ -421,7 +421,7 @@ export function WeekGrid({
                       ) : null}
                       {isMovedAway ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
                           style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Pomereno u drugi dan"
                         >
@@ -430,7 +430,7 @@ export function WeekGrid({
                       ) : null}
                       {isMovedHere ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
                           style={{ backgroundColor: "var(--warn)", color: "white" }}
                           title="Premešten sa drugog dana"
                         >
@@ -439,7 +439,7 @@ export function WeekGrid({
                       ) : null}
                       {isCanceled ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
                           style={{ backgroundColor: "var(--neg)", color: "white" }}
                         >
                           ✕
@@ -447,7 +447,7 @@ export function WeekGrid({
                       ) : null}
                       {block.weekPattern !== "every" ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold uppercase"
+                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
                           style={{ backgroundColor: color, color: "white" }}
                         >
                           {block.weekPattern}
@@ -455,7 +455,7 @@ export function WeekGrid({
                       ) : null}
                       {block.recurrenceIntervalWeeks > 1 ? (
                         <span
-                          className="rounded-sm px-1 text-[8px] font-semibold tabular-nums"
+                          className="rounded-sm px-1 text-[8px] font-normal tabular-nums"
                           style={{ backgroundColor: color, color: "white" }}
                           title={`Svake ${block.recurrenceIntervalWeeks} nedelje`}
                         >
@@ -465,7 +465,7 @@ export function WeekGrid({
                     </div>
                     <div
                       className={cn(
-                        "truncate text-[11px] font-bold",
+                        "truncate text-[11px] font-semibold",
                         isCanceled
                           ? "text-muted-foreground line-through"
                           : isMovedAway
@@ -550,7 +550,7 @@ function SchoolBlock({
         <BookOpenIcon className="h-2.5 w-2.5 shrink-0" />
         <span className="tabular-nums">{block.startTime}</span>
       </div>
-      <div className="truncate text-[11px] font-bold text-foreground">{block.subject}</div>
+      <div className="truncate text-[11px] font-semibold text-foreground">{block.subject}</div>
       {block.room ? (
         <div className="truncate text-[9px] text-muted-foreground">{block.room}</div>
       ) : null}

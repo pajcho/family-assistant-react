@@ -181,7 +181,7 @@ export function ListMaster({ variant }: ListMasterProps) {
 
   const filterBar = (
     <div className={cn("flex flex-col gap-2", isSidebar ? "" : "sm:flex-row sm:items-center")}>
-      <FilterChipRow ariaLabel="Pristup" className={isSidebar ? "-mx-3 px-3" : undefined}>
+      <FilterChipRow ariaLabel="Pristup">
         {SCOPE_FILTERS.map((filter) => (
           <FilterChip
             key={filter.value}
@@ -226,7 +226,7 @@ export function ListMaster({ variant }: ListMasterProps) {
       <div className="flex h-full flex-col bg-card">
         <div className="shrink-0 border-b border-border px-3 py-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-bold">Liste</h2>
+            <h2 className="text-lg font-semibold">Liste</h2>
             <Button size="icon-sm" variant="ghost" onClick={openAdd} aria-label="Dodaj listu">
               <PlusIcon className="h-5 w-5" />
             </Button>
@@ -307,7 +307,7 @@ export function ListMaster({ variant }: ListMasterProps) {
       {!isLoading && filteredLists.length > 0 ? (
         <>
           <ul className="space-y-2.5">{rows}</ul>
-          <p className="mt-4 px-5 text-center text-[11.5px] font-semibold text-muted-foreground">
+          <p className="mt-4 px-5 text-center text-[11.5px] font-normal text-muted-foreground">
             Porodične liste vide svi članovi u realnom vremenu.
           </p>
         </>
@@ -378,7 +378,7 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className="min-w-0 truncate text-sm font-bold">{list.name}</span>
+            <span className="min-w-0 truncate text-sm font-semibold">{list.name}</span>
             {isFamily ? (
               <UserGroupIcon
                 className="h-3.5 w-3.5 shrink-0 text-accent-deep"
@@ -386,7 +386,7 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
               />
             ) : null}
           </div>
-          <span className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
             {active}
           </span>
         </div>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { toast } from "sonner";
 import { BanknotesIcon, QrCodeIcon, WalletIcon } from "@heroicons/react/24/outline";
@@ -13,7 +13,7 @@ import { useCreatePayment } from "@/hooks/usePayments";
 import { cn } from "@/lib/cn";
 
 // Same lazy chunk as the budget page - camera + zxing stay out of the main bundle.
-const ReceiptScanDialog = lazy(() => import("@/components/budget/receipt/ReceiptScanDialog"));
+import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 
 export type LinkedMoneyKind = "payment" | "expense" | "scan";
 
@@ -184,7 +184,7 @@ function ChooserRow({
     >
       <Icon className="size-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-bold">{label}</div>
+        <div className="text-sm font-semibold">{label}</div>
         <div className="text-xs text-muted-foreground">{description}</div>
       </div>
     </button>

@@ -108,7 +108,7 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
               type="button"
               onClick={() => setShift(option)}
               className={cn(
-                "min-h-11 flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                "min-h-11 flex-1 rounded-lg border px-3 py-2 text-sm font-normal transition-colors",
                 shift === option
                   ? "border-accent bg-accent-soft text-accent-deep"
                   : "border-border hover:bg-muted",

@@ -13,12 +13,8 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogFooter,
-} from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
   DetailActionRow,
@@ -65,11 +61,11 @@ import {
  * expenses at the bottom, each row opening its own detail.
  *
  * Reschedule, cancel-with-reason, the delete confirm and the money chooser
- * are sub-views on the sheet stack (see `useSheetStack`) - same sheet, "←"
- * back header, dismissal returns one level up. The money form and the linked
- * money detail HIDE this sheet (not close) and return here when done. Only
- * the full edit form closes the sheet and delegates to the page's form dialog
- * via `onEdit`.
+ * are sub-views on the sheet stack (see `useSheetStack`) - each opens as its
+ * own sheet ON TOP of this one, "←" back header, dismissal returns one level
+ * up. The money form and the linked money detail HIDE this sheet (not close)
+ * and return here when done. Only the full edit form closes the sheet and
+ * delegates to the page's form dialog via `onEdit`.
  */
 export type EventDetailDialogProps = {
   open: boolean;
@@ -88,8 +84,8 @@ export function EventDetailDialog({
   personIds = [],
   onEdit,
 }: EventDetailDialogProps) {
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, "detail");
+  const stack = useSheetStack<View>(open, onOpenChange, "detail");
+  const { push, pop, reset } = stack;
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
 
@@ -221,7 +217,7 @@ export function EventDetailDialog({
     }
   }
 
-  const title =
+  const titleFor = (view: View) =>
     view === "reschedule"
       ? "Pomeri događaj"
       : view === "cancel"
@@ -234,230 +230,242 @@ export function EventDetailDialog({
 
   return (
     <>
-      <ResponsiveDialog
-        key={dialogKey}
-        open={dialogOpen && !moneyRequest && !moneyTarget}
-        onOpenChange={handleOpenChange}
-      >
-        <ResponsiveDialogContent>
-          <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
-          {event ? (
-            <div className="space-y-4">
-              <DetailHero
-                icon={CalendarIcon}
-                tone="info"
-                title={event.name}
-                titleClassName={isCanceled ? "text-muted-foreground line-through" : undefined}
-                subtitle={formatEventTimeRange(event)}
-              />
-
-              {view === "money" ? (
-                <LinkedMoneyChooser
-                  onPick={(kind) => {
-                    // Hide (don't close) the sheet under the pre-linked form -
-                    // it returns to the root view once the form is done.
-                    reset();
-                    setMoneyRequest({ kind, link: { kind: "event", id: event.id } });
-                  }}
-                />
-              ) : view === "reschedule" ? (
-                <div className="space-y-4">
-                  <EventDateTimeFields
-                    value={dtValue}
-                    onChange={setDtValue}
-                    idPrefix="event-detail-reschedule"
+      <SheetStackViews
+        stack={stack}
+        hidden={!!moneyRequest || !!moneyTarget}
+        render={(view, level) => (
+          <ResponsiveDialogContent>
+            <SheetStackHeader
+              title={titleFor(view)}
+              srOnly={level === 0}
+              onBack={level === 0 ? undefined : pop}
+            />
+            {event ? (
+              <div className="space-y-4">
+                {/* Root only: a stacked sub-view sits ON TOP of this sheet,
+                    which already names the subject right above it - repeating
+                    the hero printed the same title twice on one screen. */}
+                {level === 0 ? (
+                  <DetailHero
+                    icon={CalendarIcon}
+                    tone="info"
+                    title={event.name}
+                    titleClassName={isCanceled ? "text-muted-foreground line-through" : undefined}
+                    subtitle={formatEventTimeRange(event)}
                   />
-                  <RescheduleSpanNote event={event} newDate={dtValue.date} />
-                  <div className="space-y-2">
-                    <Label htmlFor="event-detail-reschedule-reason">Razlog (opciono)</Label>
-                    <Textarea
-                      id="event-detail-reschedule-reason"
-                      value={rescheduleReason}
-                      onChange={(e) => setRescheduleReason(e.target.value)}
-                      placeholder="npr. termin pomeren zbog vremena"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              ) : view === "cancel" ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
-                    kalendaru. Možeš ga kasnije vratiti.
-                  </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="event-detail-cancel-reason">Razlog (opciono)</Label>
-                    <Textarea
-                      id="event-detail-cancel-reason"
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="npr. otkazano zbog kiše"
-                      rows={3}
-                    />
-                  </div>
-                </div>
-              ) : view === "delete" ? (
-                <p className="text-sm text-muted-foreground">
-                  Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
-                  opozvati.
-                </p>
-              ) : (
-                <>
-                  <DetailBadgeRow badges={statusBadges} />
+                ) : null}
 
-                  {personIds.length > 0 ||
-                  event.description ||
-                  event.notes ||
-                  (isCanceled && event.cancel_reason) ||
-                  event.reschedule_reason ? (
-                    <DetailInfoRows>
-                      {personIds.length > 0 ? (
-                        <DetailInfoRow label="Za">
-                          <MemberBadges personIds={personIds} />
-                        </DetailInfoRow>
-                      ) : null}
-                      {event.description ? (
-                        <DetailInfoText label="Opis" value={event.description} />
-                      ) : null}
-                      {event.notes ? (
-                        <DetailInfoText
-                          label="Napomena"
-                          value={event.notes}
-                          valueClassName="text-amber-700 dark:text-amber-400"
-                        />
-                      ) : null}
-                      {isCanceled && event.cancel_reason ? (
-                        <DetailInfoText label="Razlog otkazivanja" value={event.cancel_reason} />
-                      ) : null}
-                      {event.reschedule_reason ? (
-                        <DetailInfoText label="Razlog pomeranja" value={event.reschedule_reason} />
-                      ) : null}
-                    </DetailInfoRows>
-                  ) : null}
-
-                  <DetailActionList>
-                    {/* The state-fixing primary opens the list (same slot as
-                        the payment sheet's "Označi kao plaćeno"). */}
-                    {isCanceled ? (
-                      <DetailActionRow
-                        icon={ArrowUturnLeftIcon}
-                        label="Vrati događaj"
-                        description="Poništava otkazivanje"
-                        onClick={() => {
-                          void handleRestore();
-                        }}
-                        disabled={saving}
-                        tone="primary"
+                {view === "money" ? (
+                  <LinkedMoneyChooser
+                    onPick={(kind) => {
+                      // Hide (don't close) the sheet under the pre-linked form -
+                      // it returns to the root view once the form is done.
+                      reset();
+                      setMoneyRequest({ kind, link: { kind: "event", id: event.id } });
+                    }}
+                  />
+                ) : view === "reschedule" ? (
+                  <div className="space-y-4">
+                    <EventDateTimeFields
+                      value={dtValue}
+                      onChange={setDtValue}
+                      idPrefix="event-detail-reschedule"
+                    />
+                    <RescheduleSpanNote event={event} newDate={dtValue.date} />
+                    <div className="space-y-2">
+                      <Label htmlFor="event-detail-reschedule-reason">Razlog (opciono)</Label>
+                      <Textarea
+                        id="event-detail-reschedule-reason"
+                        value={rescheduleReason}
+                        onChange={(e) => setRescheduleReason(e.target.value)}
+                        placeholder="npr. termin pomeren zbog vremena"
+                        rows={2}
                       />
-                    ) : null}
-                    <DetailActionRow
-                      icon={PencilSquareIcon}
-                      label="Izmeni događaj"
-                      description="Naziv, datum, vreme, učesnici, opis…"
-                      onClick={handleEdit}
-                      disabled={saving}
-                    />
-                    {!isCanceled ? (
-                      <>
-                        <DetailActionRow
-                          icon={CalendarDaysIcon}
-                          label="Pomeri događaj"
-                          description="Novi datum ili vreme, uz razlog"
-                          onClick={openReschedule}
-                          disabled={saving}
-                        />
-                        <DetailActionRow
-                          icon={XCircleIcon}
-                          label="Otkaži događaj"
-                          description="Skida se sa rasporeda, ostaje u kalendaru"
-                          onClick={openCancel}
-                          disabled={saving}
-                        />
-                      </>
-                    ) : null}
-                    <DetailActionRow
-                      icon={BanknotesIcon}
-                      label="Dodaj plaćanje ili trošak"
-                      description="Plaćanje, trošak ili skeniran račun uz događaj"
-                      onClick={() => push("money")}
-                      disabled={saving}
-                    />
-                    <DetailActionRow
-                      icon={TrashIcon}
-                      label="Obriši događaj"
-                      description="Trajno uklanja događaj"
-                      onClick={() => push("delete")}
-                      disabled={saving}
-                      tone="destructive"
-                    />
-                  </DetailActionList>
+                    </div>
+                  </div>
+                ) : view === "cancel" ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Otkazati „{event.name}"? Neće se prikazivati na kontrolnoj tabli, ali ostaje u
+                      kalendaru. Možeš ga kasnije vratiti.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="event-detail-cancel-reason">Razlog (opciono)</Label>
+                      <Textarea
+                        id="event-detail-cancel-reason"
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="npr. otkazano zbog kiše"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                ) : view === "delete" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
+                    opozvati.
+                  </p>
+                ) : (
+                  <>
+                    <DetailBadgeRow badges={statusBadges} />
 
-                  {/* Linked payments + expenses (render nothing without any);
+                    {personIds.length > 0 ||
+                    event.description ||
+                    event.notes ||
+                    (isCanceled && event.cancel_reason) ||
+                    event.reschedule_reason ? (
+                      <DetailInfoRows>
+                        {personIds.length > 0 ? (
+                          <DetailInfoRow label="Za">
+                            <MemberBadges personIds={personIds} />
+                          </DetailInfoRow>
+                        ) : null}
+                        {event.description ? (
+                          <DetailInfoText label="Opis" value={event.description} />
+                        ) : null}
+                        {event.notes ? (
+                          <DetailInfoText
+                            label="Napomena"
+                            value={event.notes}
+                            valueClassName="text-amber-700 dark:text-amber-400"
+                          />
+                        ) : null}
+                        {isCanceled && event.cancel_reason ? (
+                          <DetailInfoText label="Razlog otkazivanja" value={event.cancel_reason} />
+                        ) : null}
+                        {event.reschedule_reason ? (
+                          <DetailInfoText
+                            label="Razlog pomeranja"
+                            value={event.reschedule_reason}
+                          />
+                        ) : null}
+                      </DetailInfoRows>
+                    ) : null}
+
+                    <DetailActionList>
+                      {/* The state-fixing primary opens the list (same slot as
+                        the payment sheet's "Označi kao plaćeno"). */}
+                      {isCanceled ? (
+                        <DetailActionRow
+                          icon={ArrowUturnLeftIcon}
+                          label="Vrati događaj"
+                          description="Poništava otkazivanje"
+                          onClick={() => {
+                            void handleRestore();
+                          }}
+                          disabled={saving}
+                          tone="primary"
+                        />
+                      ) : null}
+                      <DetailActionRow
+                        icon={PencilSquareIcon}
+                        label="Izmeni događaj"
+                        description="Naziv, datum, vreme, učesnici, opis…"
+                        onClick={handleEdit}
+                        disabled={saving}
+                      />
+                      {!isCanceled ? (
+                        <>
+                          <DetailActionRow
+                            icon={CalendarDaysIcon}
+                            label="Pomeri događaj"
+                            description="Novi datum ili vreme, uz razlog"
+                            onClick={openReschedule}
+                            disabled={saving}
+                          />
+                          <DetailActionRow
+                            icon={XCircleIcon}
+                            label="Otkaži događaj"
+                            description="Skida se sa rasporeda, ostaje u kalendaru"
+                            onClick={openCancel}
+                            disabled={saving}
+                          />
+                        </>
+                      ) : null}
+                      <DetailActionRow
+                        icon={BanknotesIcon}
+                        label="Dodaj plaćanje ili trošak"
+                        description="Plaćanje, trošak ili skeniran račun uz događaj"
+                        onClick={() => push("money")}
+                        disabled={saving}
+                      />
+                      <DetailActionRow
+                        icon={TrashIcon}
+                        label="Obriši događaj"
+                        description="Trajno uklanja događaj"
+                        onClick={() => push("delete")}
+                        disabled={saving}
+                        tone="destructive"
+                      />
+                    </DetailActionList>
+
+                    {/* Linked payments + expenses (render nothing without any);
                       a row opens that entry's detail over this sheet. */}
-                  <EventMoneySection eventId={event.id} onSelect={setMoneyTarget} />
-                </>
-              )}
-            </div>
-          ) : null}
+                    <EventMoneySection eventId={event.id} onSelect={setMoneyTarget} />
+                  </>
+                )}
+              </div>
+            ) : null}
 
-          {view === "money" ? (
-            <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={pop}
-                disabled={saving}
-              >
-                Nazad
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "reschedule" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                onClick={() => {
-                  void handleRescheduleSave();
-                }}
-                disabled={saving || !dtValue.date}
-              >
-                Sačuvaj
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "cancel" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleCancelConfirm();
-                }}
-                disabled={saving}
-              >
-                Otkaži događaj
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : view === "delete" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleDelete();
-                }}
-                disabled={saving}
-              >
-                Obriši
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : null}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+            {view === "money" ? (
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={pop}
+                  disabled={saving}
+                >
+                  Nazad
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "reschedule" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  onClick={() => {
+                    void handleRescheduleSave();
+                  }}
+                  disabled={saving || !dtValue.date}
+                >
+                  Sačuvaj
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "cancel" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleCancelConfirm();
+                  }}
+                  disabled={saving}
+                >
+                  Otkaži događaj
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : view === "delete" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleDelete();
+                  }}
+                  disabled={saving}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : null}
+          </ResponsiveDialogContent>
+        )}
+      />
 
       <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
       <LinkedMoneyViewer target={moneyTarget} onClose={() => setMoneyTarget(null)} />

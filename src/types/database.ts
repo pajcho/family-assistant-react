@@ -46,8 +46,9 @@ export interface Profile {
    */
   nav_slots: string[] | null;
   /**
-   * In-app accent color ("boja aplikacije"): "plava" (default) | "sljiva" |
-   * "kedar" | "cigla". NULL = never picked. Read through `normalizeAccent`.
+   * In-app accent color ("boja aplikacije"): "blue" (default) | "purple" |
+   * "green" | "brown" - English because it is stored, Serbian only in the
+   * labels. NULL = never picked. Read through `normalizeAccent`.
    * The brand outside the app (PWA icon, login mark, splash) stays blue.
    */
   accent: string | null;

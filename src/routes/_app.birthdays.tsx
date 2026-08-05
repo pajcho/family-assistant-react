@@ -217,7 +217,7 @@ function BirthdaysPage() {
         onReset={() => setHidePassed(true)}
       >
         <section className="space-y-1">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h4 className="text-xs font-normal tracking-wide text-muted-foreground uppercase">
             Prikaz
           </h4>
           <FilterSwitchRow

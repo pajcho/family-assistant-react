@@ -10,21 +10,21 @@ import { recurrenceLabel } from "@/utils/payment";
 function PaymentStatusPill({ payment }: { payment: Payment }) {
   if (payment.is_paid) {
     return (
-      <span className="rounded-full bg-pos-soft px-2 py-[3px] text-[10.5px] font-extrabold text-pos">
+      <span className="rounded-full bg-pos-soft px-2 py-[3px] text-[10.5px] font-bold text-pos">
         Plaćeno
       </span>
     );
   }
   if (payment.is_paused) {
     return (
-      <span className="rounded-full bg-muted px-2 py-[3px] text-[10.5px] font-extrabold text-muted-foreground">
+      <span className="rounded-full bg-muted px-2 py-[3px] text-[10.5px] font-bold text-muted-foreground">
         Pauzirano
       </span>
     );
   }
   if (isOverdue(payment.due_date)) {
     return (
-      <span className="rounded-full bg-neg-soft px-2 py-[3px] text-[10.5px] font-extrabold text-neg">
+      <span className="rounded-full bg-neg-soft px-2 py-[3px] text-[10.5px] font-bold text-neg">
         Prekoračeno
       </span>
     );
@@ -61,7 +61,7 @@ function MoneyRow({
         </div>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <span className="shrink-0 text-right text-sm font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
+      <span className="shrink-0 text-right text-sm font-bold tracking-[-0.01em] tabular-nums text-foreground">
         {amount}
       </span>
     </>
@@ -104,7 +104,7 @@ export function LinkedPaymentsList({
 
   return (
     <div className="space-y-3 rounded-xl border border-border p-3">
-      <p className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+      <p className="text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
         Plaćanja
       </p>
       <ul className="space-y-2">
@@ -160,7 +160,7 @@ export function LinkedExpensesList({
 
   return (
     <div className="space-y-3 rounded-xl border border-border p-3">
-      <p className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+      <p className="text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
         Troškovi
       </p>
       <ul className="space-y-2">

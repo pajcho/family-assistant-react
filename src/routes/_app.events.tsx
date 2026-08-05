@@ -322,12 +322,12 @@ function EventsPage() {
 
       {/* Quiet reveal for the default hide-completed view. */}
       {hiddenCompletedCount > 0 ? (
-        <p className="mt-4 text-center text-[11.5px] font-semibold text-muted-foreground">
+        <p className="mt-4 text-center text-[11.5px] font-normal text-muted-foreground">
           Sakriveno {hiddenCompletedCount} {hiddenCompletedCount === 1 ? "završen" : "završenih"} ·{" "}
           <button
             type="button"
             onClick={() => setHideCompleted(false)}
-            className="font-extrabold text-accent-deep underline-offset-4 hover:underline"
+            className="font-bold text-accent-deep underline-offset-4 hover:underline"
           >
             Prikaži
           </button>
@@ -344,7 +344,7 @@ function EventsPage() {
           <PersonFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
         </FilterSection>
         <section className="space-y-1">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h4 className="text-xs font-normal tracking-wide text-muted-foreground uppercase">
             Prikaz
           </h4>
           <FilterSwitchRow

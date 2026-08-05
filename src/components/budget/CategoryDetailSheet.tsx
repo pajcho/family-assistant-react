@@ -144,7 +144,7 @@ export function CategoryDetailSheet({
                 <Icon className="size-6" style={{ color: row.color }} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-extrabold text-foreground">{row.name}</p>
+                <p className="truncate text-lg font-bold text-foreground">{row.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {monthLabel(month)} · {catExpenses.length}{" "}
                   {catExpenses.length === 1 ? "trošak" : "troškova"}
@@ -154,7 +154,7 @@ export function CategoryDetailSheet({
 
             <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
               <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="text-[34px] font-black tracking-[-0.03em] tabular-nums text-foreground">
+                <span className="text-[34px] font-bold tracking-[-0.03em] tabular-nums text-foreground">
                   <Amount value={total} />
                 </span>
                 {limit ? (
@@ -175,7 +175,7 @@ export function CategoryDetailSheet({
                 </div>
               ) : null}
               {pct != null && pct >= 100 && limit ? (
-                <p className="mt-1.5 text-xs font-bold text-neg">
+                <p className="mt-1.5 text-xs font-semibold text-neg">
                   Preko limita za <Amount value={total - limit} round />
                 </p>
               ) : null}
@@ -197,7 +197,9 @@ export function CategoryDetailSheet({
                     <span
                       className={cn(
                         "text-[10px]",
-                        bar.month === month ? "font-bold text-foreground" : "text-muted-foreground",
+                        bar.month === month
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground",
                       )}
                     >
                       {monthLabel(bar.month).split(" ")[0].slice(0, 3)}
@@ -236,7 +238,7 @@ export function CategoryDetailSheet({
                   <button
                     type="button"
                     onClick={() => setLimitInput(String(suggestion))}
-                    className="text-xs font-semibold text-accent-deep underline-offset-4 hover:underline"
+                    className="text-xs font-normal text-accent-deep underline-offset-4 hover:underline"
                   >
                     Predlog: {suggestion.toLocaleString("sr-Latn-RS")} RSD (prosek prethodnih
                     meseci)
@@ -254,14 +256,14 @@ export function CategoryDetailSheet({
                 {catExpenses.map((e) => (
                   <div key={e.id} className="flex items-baseline justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <span className="block truncate font-semibold text-foreground">
+                      <span className="block truncate font-normal text-foreground">
                         {expenseTitle(e)}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {formatDate(e.spent_on)}
                       </span>
                     </div>
-                    <span className="shrink-0 text-right font-bold tabular-nums text-foreground">
+                    <span className="shrink-0 text-right font-semibold tabular-nums text-foreground">
                       <Amount value={e.amount} />
                       <AmountOriginal
                         amount={e.original_amount}

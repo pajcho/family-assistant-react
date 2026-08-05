@@ -3,7 +3,6 @@ import { format, parseISO } from "date-fns";
 import { ChevronRightIcon, LockClosedIcon, ReceiptPercentIcon } from "@heroicons/react/24/outline";
 
 import { Amount, AmountOriginal } from "@/components/common/Amount";
-import { EmptyState } from "@/components/common/EmptyState";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { GroupHeader, StatusPill } from "@/components/money/moneyUi";
 import { categoryIcon } from "@/components/budget/categoryIcons";
@@ -101,12 +100,12 @@ function ExpenseRow({
             siblings, so the EUR annotation can never push the meta row down. */}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-[15px] leading-tight font-bold tracking-[-0.01em]">
+            <span className="truncate text-[15px] leading-tight font-semibold tracking-[-0.01em]">
               {primary}
             </span>
             <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
           </span>
-          <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground">
+          <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground">
             {category ? <span className="truncate">{category.name}</span> : null}
             {isPayment ? (
               <StatusPill tone="warn">
@@ -128,12 +127,12 @@ function ExpenseRow({
             ) : null}
           </span>
         </span>
-        <span className="shrink-0 text-right text-[15px] font-extrabold tracking-[-0.01em] tabular-nums">
+        <span className="shrink-0 text-right text-[15px] font-bold tracking-[-0.01em] tabular-nums">
           <Amount value={expense.amount} />
           <AmountOriginal
             amount={expense.original_amount}
             currency={expense.currency}
-            className="block text-[10.5px] font-semibold"
+            className="block text-[10.5px] font-normal"
           />
         </span>
         <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -177,22 +176,19 @@ export function BudgetTimeline({
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [expenses]);
 
-  if (dayGroups.length === 0) {
-    return (
-      <EmptyState
-        variant="filter"
-        description={
-          'Nema troškova za ovaj mesec. Probaj drugi mesec ili dodaj trošak preko „Dodaj".'
-        }
-      />
-    );
-  }
-
+  // Empty months and empty filter results are the parent's job (BudgetPage
+  // renders the EmptyState variants) - this component always has rows.
   return (
     <div>
-      {dayGroups.map(([day, rows]) => (
+      {dayGroups.map(([day, rows], i) => (
         <section key={day}>
-          <GroupHeader title={dayTitle(day, today, yesterday, tomorrow)} count={rows.length} />
+          {/* Day groups sit tighter than the Pregled modules, and the first one
+              opens the tab right under the chips - no gap to bridge there. */}
+          <GroupHeader
+            title={dayTitle(day, today, yesterday, tomorrow)}
+            count={rows.length}
+            className={i === 0 ? "mt-1" : "mt-6"}
+          />
           <ul className="space-y-2">
             {rows.map((expense) => (
               <ExpenseRow

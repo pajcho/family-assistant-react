@@ -199,7 +199,7 @@ export function WeekStrip({
           <button
             type="button"
             aria-label={`${monthLabel} - izaberi dan`}
-            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-semibold text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none/60"
+            className="mb-1.5 inline-flex items-center gap-1 rounded-md px-1 text-sm font-normal text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none/60"
           >
             {monthLabel}
             <ChevronDownIcon className="size-3.5 text-muted-foreground" />
@@ -282,9 +282,9 @@ export function WeekStrip({
                         className={cn(
                           "flex size-7 items-center justify-center rounded-full text-sm tabular-nums transition-colors",
                           isActive
-                            ? "bg-blue-600 font-semibold text-white dark:bg-blue-500"
+                            ? "bg-blue-600 font-normal text-white dark:bg-blue-500"
                             : isToday
-                              ? "font-semibold text-blue-600 dark:text-blue-400"
+                              ? "font-normal text-blue-600 dark:text-blue-400"
                               : selectable
                                 ? "font-medium text-foreground hover:bg-muted/60"
                                 : "text-muted-foreground",

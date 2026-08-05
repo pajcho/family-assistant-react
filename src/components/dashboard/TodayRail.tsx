@@ -45,13 +45,13 @@ export function TodayRail({
         <Link
           to="/novac"
           search={{ tab: "placanja" }}
-          className="flex items-center gap-2.5 rounded-xl bg-neg-soft px-3.5 py-3 text-[13.5px] font-bold text-neg transition-transform active:scale-[0.99]"
+          className="flex items-center gap-2.5 rounded-xl bg-neg-soft px-3.5 py-3 text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.99]"
         >
           <ExclamationTriangleIcon className="size-[17px] flex-none" />
           <span>
             Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
           </span>
-          <span className="ml-auto font-extrabold tabular-nums">
+          <span className="ml-auto font-bold tabular-nums">
             <Amount value={overdueTotal} round />
           </span>
         </Link>
@@ -91,13 +91,13 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
   return (
     <div className="rounded-xl border border-border bg-card p-3.5 shadow-card">
       <div className="flex items-baseline gap-2">
-        <span className="font-serif text-[19px] font-bold tracking-tight">
+        <span className="font-serif text-[19px] font-semibold tracking-tight">
           {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
         </span>
         <Link
           to="/kalendar"
           search={{ view: "mesec" }}
-          className="ml-auto text-[11.5px] font-bold text-accent-deep hover:underline"
+          className="ml-auto text-[11.5px] font-semibold text-accent-deep hover:underline"
         >
           Otvori kalendar
         </Link>
@@ -107,7 +107,7 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
         {["po", "ut", "sr", "če", "pe", "su", "ne"].map((wd) => (
           <div
             key={wd}
-            className="pb-0.5 text-center text-[9.5px] font-extrabold text-muted-foreground uppercase"
+            className="pb-0.5 text-center text-[9.5px] font-bold text-muted-foreground uppercase"
           >
             {wd}
           </div>
@@ -121,13 +121,17 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
               aria-label={cell.day}
               aria-current={isToday ? "date" : undefined}
               onClick={() => {
+                // `resetScroll: false`: the agenda scrolls itself to the day,
+                // and the router's own scroll pass would cancel that jump
+                // (see the note in routes/_app.kalendar.tsx).
                 void navigate({
                   to: "/kalendar",
                   search: { view: "agenda", day: cell.day },
+                  resetScroll: false,
                 });
               }}
               className={cn(
-                "flex aspect-[1.1] flex-col items-center justify-center gap-0.5 rounded-sm border border-transparent text-xs font-bold tabular-nums transition-colors",
+                "flex aspect-[1.1] flex-col items-center justify-center gap-0.5 rounded-sm border border-transparent text-xs font-semibold tabular-nums transition-colors",
                 cell.outside && "opacity-30",
                 isToday ? "border-accent text-accent-deep" : "hover:bg-muted",
               )}
@@ -159,20 +163,20 @@ function NextDays({ today, items }: { today: string; items: ReadonlyArray<Agenda
   return (
     <div className="rounded-xl border border-border bg-card p-3.5 shadow-card">
       <div className="flex items-center gap-2">
-        <h4 className="text-[11.5px] font-extrabold tracking-wider text-muted-foreground uppercase">
+        <h4 className="text-[11.5px] font-bold tracking-wider text-muted-foreground uppercase">
           Sledeći dani
         </h4>
         <Link
           to="/kalendar"
           search={{ view: "agenda" }}
-          className="ml-auto text-[11.5px] font-bold text-accent-deep hover:underline"
+          className="ml-auto text-[11.5px] font-semibold text-accent-deep hover:underline"
         >
           Sve
         </Link>
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-2 text-[12.5px] font-semibold text-muted-foreground">
+        <p className="mt-2 text-[12.5px] font-normal text-muted-foreground">
           Do kraja meseca nema ničega.
         </p>
       ) : (
@@ -182,14 +186,15 @@ function NextDays({ today, items }: { today: string; items: ReadonlyArray<Agenda
               key={agendaItemKey(item)}
               to="/kalendar"
               search={{ view: "agenda", day: item.date }}
+              resetScroll={false}
               className="flex items-center gap-2 border-b border-border py-2 text-[13px] last:border-b-0 hover:bg-muted"
             >
-              <span className="w-12 flex-none text-[11.5px] font-extrabold text-muted-foreground uppercase tabular-nums">
+              <span className="w-12 flex-none text-[11.5px] font-bold text-muted-foreground uppercase tabular-nums">
                 {format(parseISO(`${item.date}T12:00:00`), "EEEEEE d.", { locale: srLocale })}
               </span>
-              <span className="min-w-0 flex-1 truncate font-semibold">{itemLabel(item)}</span>
+              <span className="min-w-0 flex-1 truncate font-normal">{itemLabel(item)}</span>
               {item.kind === "payment" ? (
-                <span className="flex-none text-[12.5px] font-extrabold tabular-nums">
+                <span className="flex-none text-[12.5px] font-bold tabular-nums">
                   <Amount value={item.payment.amount} round />
                 </span>
               ) : (

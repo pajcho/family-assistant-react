@@ -1,11 +1,11 @@
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { useCreateExpense } from "@/hooks/useExpenses";
 
-const ReceiptScanDialog = lazy(() => import("@/components/budget/receipt/ReceiptScanDialog"));
+import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 
 export type ExpenseQuickAddFlowProps = {
   open: boolean;

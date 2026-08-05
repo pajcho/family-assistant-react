@@ -14,16 +14,35 @@ export function Amount({
   value,
   round = false,
   className,
+  codeWhenFits = false,
 }: {
   value: number;
   round?: boolean;
   className?: string;
+  /**
+   * Show "RSD" only when it fits beside the number (for cramped containers
+   * like the weekly grid's ~85px columns): the row wraps and anything past the
+   * first line is clipped away, so a too-long suffix vanishes instead of
+   * overflowing the card. The code stays in the DOM, so screen readers still
+   * announce the currency.
+   */
+  codeWhenFits?: boolean;
 }) {
   const n = round ? Math.round(value) : value;
   return (
-    <span className={cn("whitespace-nowrap", className)}>
+    <span
+      className={cn(
+        codeWhenFits
+          ? "flex max-h-[1.3em] flex-wrap items-baseline overflow-hidden leading-tight"
+          : "whitespace-nowrap",
+        className,
+      )}
+    >
       {n.toLocaleString("sr-Latn-RS")}
-      <span className="ml-[3px] text-[0.7em] font-extrabold tracking-[0.04em] text-muted-foreground">
+      {/* Dimmer and lighter than the number it trails: at full
+          `muted-foreground` weight the code competed with the value instead of
+          annotating it. */}
+      <span className="ml-[3px] text-[0.72em] font-medium tracking-[0.03em] text-muted-foreground/70">
         RSD
       </span>
     </span>
@@ -50,7 +69,7 @@ export function AmountOriginal({
   if (currency === "RSD" || amount == null) return null;
   const text = formatOriginalAmount(amount, currency);
   return (
-    <span className={cn("whitespace-nowrap tabular-nums text-muted-foreground", className)}>
+    <span className={cn("whitespace-nowrap tabular-nums text-muted-foreground/70", className)}>
       {parens ? `(${text})` : text}
     </span>
   );

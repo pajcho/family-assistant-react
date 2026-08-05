@@ -9,16 +9,12 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogFooter,
-} from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/common/DateField";
-import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
+import { FieldGroupLabel, FormInput, FormSelect } from "@/components/common/FormControls";
 import { SwitchRow } from "@/components/common/SwitchRow";
 import type { Income, IncomeEntry, Profile } from "@/types/database";
 import { useCreateIncome, useDeleteIncome, useIncomes, useUpdateIncome } from "@/hooks/useIncomes";
@@ -35,6 +31,7 @@ import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import { Amount } from "@/components/common/Amount";
 import { monthLabel } from "@/utils/budget";
+import { sanitizeDecimalInput } from "@/utils/currency";
 
 export type IncomesSheetProps = {
   open: boolean;
@@ -42,9 +39,6 @@ export type IncomesSheetProps = {
   /** The budget month being viewed ("YYYY-MM") - confirmations land here. */
   month: string;
 };
-
-const SELECT_CHROME =
-  "min-h-11 w-full min-w-0 cursor-pointer rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /** Last day of a "YYYY-MM" month (JS Date month is 0-based; day 0 → prev month). */
 function clampDayInMonth(month: string, day: number): string {
@@ -103,11 +97,8 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   const deleteIncome = useDeleteIncome();
   const deleteEntry = useDeleteIncomeEntry();
 
-  const { view, atRoot, push, pop, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<View>(
-    open,
-    onOpenChange,
-    { kind: "list" },
-  );
+  const stack = useSheetStack<View>(open, onOpenChange, { kind: "list" });
+  const { push, pop } = stack;
   const [showConfirmed, setShowConfirmed] = useState(false);
 
   // Keep the high-frequency pending work in focus on every new open.
@@ -150,7 +141,7 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
     );
   };
 
-  const title =
+  const titleFor = (view: View) =>
     view.kind === "list"
       ? `Prihodi - ${monthLabel(month)}`
       : view.kind === "sources"
@@ -188,352 +179,358 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   };
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent>
-        <SheetStackHeader
-          title={title}
-          onBack={atRoot ? undefined : back}
-          backAriaLabel={
-            view.kind === "source" || view.kind === "delete-source"
-              ? "Nazad na redovne prihode"
-              : "Nazad na prihode"
-          }
-          description={
-            view.kind === "list" ? (
-              <span className="flex flex-wrap items-center gap-x-1.5">
-                <span>
-                  <Amount value={confirmedTotal} /> potvrđeno
+    <SheetStackViews
+      stack={stack}
+      render={(view, level) => (
+        <ResponsiveDialogContent>
+          <SheetStackHeader
+            title={titleFor(view)}
+            onBack={level === 0 ? undefined : back}
+            backAriaLabel={
+              view.kind === "source" || view.kind === "delete-source"
+                ? "Nazad na redovne prihode"
+                : "Nazad na prihode"
+            }
+            description={
+              view.kind === "list" ? (
+                <span className="flex flex-wrap items-center gap-x-1.5">
+                  <span>
+                    <Amount value={confirmedTotal} /> potvrđeno
+                  </span>
+                  {pendingSources.length > 0 ? (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{pendingSources.length} za potvrdu</span>
+                    </>
+                  ) : null}
                 </span>
-                {pendingSources.length > 0 ? (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>{pendingSources.length} za potvrdu</span>
-                  </>
-                ) : null}
-              </span>
-            ) : view.kind === "sources" ? (
-              <span className="flex flex-wrap items-center gap-x-1.5">
-                <span>Aktivno: {activeSources.length}</span>
-                {activeSources.length > 0 ? (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>
-                      <Amount value={expectedTotal} /> očekivano mesečno
-                    </span>
-                  </>
-                ) : null}
-              </span>
-            ) : undefined
-          }
-        />
+              ) : view.kind === "sources" ? (
+                <span className="flex flex-wrap items-center gap-x-1.5">
+                  <span>Aktivno: {activeSources.length}</span>
+                  {activeSources.length > 0 ? (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        <Amount value={expectedTotal} /> očekivano mesečno
+                      </span>
+                    </>
+                  ) : null}
+                </span>
+              ) : undefined
+            }
+          />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* LIST screen                                                       */}
-        {/* ---------------------------------------------------------------- */}
-        {view.kind === "list" ? (
-          <div className="flex flex-col gap-5">
-            {pendingSources.length > 0 ? (
-              <section className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-semibold tracking-wide text-foreground uppercase">
-                    Za potvrdu
-                  </h3>
-                  <Badge variant="secondary">{pendingSources.length}</Badge>
-                </div>
-                <ul className="flex flex-col gap-2">
-                  {pendingSources.map((source) => (
-                    <li
-                      key={source.id}
-                      className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-xs"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-card-foreground">
-                          {source.name}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                          {personChip(source.person_id)}
-                          <span className="whitespace-nowrap">
-                            očekivano <Amount value={source.amount} />
-                          </span>
-                        </div>
-                      </div>
-                      <Button size="sm" onClick={() => push({ kind: "confirm", source })}>
-                        Potvrdi
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-
-            {entries.length > 0 ? (
-              <section className="flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                  aria-expanded={confirmedRowsVisible}
-                  onClick={() => setShowConfirmed((visible) => !visible)}
-                >
-                  <span className="text-xs font-semibold tracking-wide text-foreground uppercase">
-                    Potvrđeno
-                  </span>
-                  <Badge variant="outline">{entries.length}</Badge>
-                  <span className="ml-auto text-sm font-semibold text-foreground">
-                    <Amount value={confirmedTotal} />
-                  </span>
-                  {confirmedRowsVisible ? (
-                    <ChevronUpIcon className="size-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDownIcon className="size-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {confirmedRowsVisible ? (
+          {/* ---------------------------------------------------------------- */}
+          {/* LIST screen                                                       */}
+          {/* ---------------------------------------------------------------- */}
+          {view.kind === "list" ? (
+            <div className="flex flex-col gap-5">
+              {pendingSources.length > 0 ? (
+                <section className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-normal tracking-wide text-foreground uppercase">
+                      Za potvrdu
+                    </h3>
+                    <Badge variant="secondary">{pendingSources.length}</Badge>
+                  </div>
                   <ul className="flex flex-col gap-2">
-                    {entries.map((entry) => (
+                    {pendingSources.map((source) => (
                       <li
-                        key={entry.id}
-                        className="flex items-center rounded-xl border bg-card shadow-xs"
+                        key={source.id}
+                        className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-xs"
                       >
-                        <button
-                          type="button"
-                          aria-label={`Izmeni prihod ${entry.name}`}
-                          onClick={() => push({ kind: "entry", entry })}
-                          className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-card-foreground">
-                                {entry.name}
-                              </span>
-                              <Badge variant={entry.is_one_time ? "secondary" : "outline"}>
-                                {entry.is_one_time ? "jednokratno" : "redovno"}
-                              </Badge>
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                              {personChip(entry.person_id)}
-                              {entry.received_on ? (
-                                <span className="whitespace-nowrap">
-                                  {entry.received_on.slice(8, 10)}.{entry.received_on.slice(5, 7)}.
-                                </span>
-                              ) : null}
-                            </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-normal text-card-foreground">
+                            {source.name}
                           </div>
-                          <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
-                            <Amount value={entry.amount} />
-                          </span>
-                          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                        </button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="mr-2 text-muted-foreground hover:text-destructive"
-                          aria-label={`Obriši prihod ${entry.name}`}
-                          onClick={() => push({ kind: "delete-entry", entry })}
-                        >
-                          <TrashIcon />
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                            {personChip(source.person_id)}
+                            <span className="whitespace-nowrap">
+                              očekivano <Amount value={source.amount} />
+                            </span>
+                          </div>
+                        </div>
+                        <Button size="sm" onClick={() => push({ kind: "confirm", source })}>
+                          Potvrdi
                         </Button>
                       </li>
                     ))}
                   </ul>
-                ) : null}
-              </section>
-            ) : pendingSources.length === 0 ? (
-              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-5 text-center">
-                <p className="text-sm font-medium text-foreground">
-                  Još nema prihoda za ovaj mesec
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Dodaj jednokratni prihod ili podesi redovni prihod.
-                </p>
-              </div>
-            ) : null}
+                </section>
+              ) : null}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => push({ kind: "one-time" })}
-            >
-              <PlusIcon data-icon="inline-start" />
-              Dodaj jednokratni prihod
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => push({ kind: "sources" })}
-              className="group flex w-full items-center gap-3 rounded-xl border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <BanknotesIcon className="size-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground">Redovni prihodi</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {activeSources.length > 0 ? (
-                    <>
-                      Aktivno: {activeSources.length} · očekivano <Amount value={expectedTotal} />{" "}
-                      mesečno
-                    </>
-                  ) : (
-                    "Dodaj prihod koji se ponavlja svakog meseca"
-                  )}
-                </span>
-              </span>
-              <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </button>
-          </div>
-        ) : null}
-
-        {view.kind === "sources" ? (
-          <div className="flex flex-col gap-4">
-            {incomes.length === 0 ? (
-              <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-6 text-center">
-                <p className="text-sm font-medium text-foreground">Još nema redovnih prihoda</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Dodaj platu ili drugi prihod koji očekuješ svakog meseca.
-                </p>
-              </div>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {incomes.map((income) => (
-                  <li
-                    key={income.id}
-                    className="flex items-center rounded-xl border bg-card shadow-xs"
+              {entries.length > 0 ? (
+                <section className="flex flex-col gap-2.5">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    aria-expanded={confirmedRowsVisible}
+                    onClick={() => setShowConfirmed((visible) => !visible)}
                   >
-                    <button
-                      type="button"
-                      aria-label={`Izmeni redovni prihod ${income.name}`}
-                      onClick={() => push({ kind: "source", income })}
-                      className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-card-foreground">
-                            {income.name}
-                          </span>
-                          {!income.active ? <Badge variant="secondary">pauzirano</Badge> : null}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                          {personChip(income.person_id)}
-                          <span className="whitespace-nowrap">{income.day_of_month}. u mesecu</span>
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
-                        <Amount value={income.amount} />
-                      </span>
-                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                    </button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="mr-2 text-muted-foreground hover:text-destructive"
-                      aria-label={`Obriši redovni prihod ${income.name}`}
-                      onClick={() => push({ kind: "delete-source", income })}
-                    >
-                      <TrashIcon />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    <span className="text-xs font-normal tracking-wide text-foreground uppercase">
+                      Potvrđeno
+                    </span>
+                    <Badge variant="outline">{entries.length}</Badge>
+                    <span className="ml-auto text-sm font-normal text-foreground">
+                      <Amount value={confirmedTotal} />
+                    </span>
+                    {confirmedRowsVisible ? (
+                      <ChevronUpIcon className="size-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDownIcon className="size-4 text-muted-foreground" />
+                    )}
+                  </button>
 
-            <Button
-              type="button"
-              className="w-full"
-              onClick={() => push({ kind: "source", income: null })}
-            >
-              <PlusIcon data-icon="inline-start" />
-              Novi redovni prihod
-            </Button>
-          </div>
-        ) : null}
+                  {confirmedRowsVisible ? (
+                    <ul className="flex flex-col gap-2">
+                      {entries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="flex items-center rounded-xl border bg-card shadow-xs"
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Izmeni prihod ${entry.name}`}
+                            onClick={() => push({ kind: "entry", entry })}
+                            className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm font-medium text-card-foreground">
+                                  {entry.name}
+                                </span>
+                                <Badge variant={entry.is_one_time ? "secondary" : "outline"}>
+                                  {entry.is_one_time ? "jednokratno" : "redovno"}
+                                </Badge>
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                                {personChip(entry.person_id)}
+                                {entry.received_on ? (
+                                  <span className="whitespace-nowrap">
+                                    {entry.received_on.slice(8, 10)}.{entry.received_on.slice(5, 7)}
+                                    .
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-sm font-normal tabular-nums text-card-foreground">
+                              <Amount value={entry.amount} />
+                            </span>
+                            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="mr-2 text-muted-foreground hover:text-destructive"
+                            aria-label={`Obriši prihod ${entry.name}`}
+                            onClick={() => push({ kind: "delete-entry", entry })}
+                          >
+                            <TrashIcon />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+              ) : pendingSources.length === 0 ? (
+                <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-5 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    Još nema prihoda za ovaj mesec
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Dodaj jednokratni prihod ili podesi redovni prihod.
+                  </p>
+                </div>
+              ) : null}
 
-        {view.kind === "delete-entry" ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Obrisati prihod „{view.entry.name}" od <Amount value={view.entry.amount} />? Ova
-              radnja se ne može opozvati.
-            </p>
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={deleteEntry.isPending}>
-                Nazad
-              </Button>
               <Button
-                variant="destructive"
-                disabled={deleteEntry.isPending}
-                onClick={() => {
-                  void handleDeleteEntry(view.entry);
-                }}
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => push({ kind: "one-time" })}
               >
-                Obriši
+                <PlusIcon data-icon="inline-start" />
+                Dodaj jednokratni prihod
               </Button>
-            </ResponsiveDialogFooter>
-          </>
-        ) : null}
 
-        {view.kind === "delete-source" ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Obrisati redovni prihod „{view.income.name}"? Već potvrđeni prihodi iz prethodnih
-              meseci ostaju sačuvani.
-            </p>
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={deleteIncome.isPending}>
-                Nazad
-              </Button>
+              <button
+                type="button"
+                onClick={() => push({ kind: "sources" })}
+                className="group flex w-full items-center gap-3 rounded-xl border bg-muted/30 p-3 text-left transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <BanknotesIcon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-normal text-foreground">Redovni prihodi</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {activeSources.length > 0 ? (
+                      <>
+                        Aktivno: {activeSources.length} · očekivano <Amount value={expectedTotal} />{" "}
+                        mesečno
+                      </>
+                    ) : (
+                      "Dodaj prihod koji se ponavlja svakog meseca"
+                    )}
+                  </span>
+                </span>
+                <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+          ) : null}
+
+          {view.kind === "sources" ? (
+            <div className="flex flex-col gap-4">
+              {incomes.length === 0 ? (
+                <div className="rounded-xl border border-dashed bg-muted/30 px-4 py-6 text-center">
+                  <p className="text-sm font-medium text-foreground">Još nema redovnih prihoda</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Dodaj platu ili drugi prihod koji očekuješ svakog meseca.
+                  </p>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {incomes.map((income) => (
+                    <li
+                      key={income.id}
+                      className="flex items-center rounded-xl border bg-card shadow-xs"
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Izmeni redovni prihod ${income.name}`}
+                        onClick={() => push({ kind: "source", income })}
+                        className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-normal text-card-foreground">
+                              {income.name}
+                            </span>
+                            {!income.active ? <Badge variant="secondary">pauzirano</Badge> : null}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                            {personChip(income.person_id)}
+                            <span className="whitespace-nowrap">
+                              {income.day_of_month}. u mesecu
+                            </span>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-sm font-normal tabular-nums text-card-foreground">
+                          <Amount value={income.amount} />
+                        </span>
+                        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="mr-2 text-muted-foreground hover:text-destructive"
+                        aria-label={`Obriši redovni prihod ${income.name}`}
+                        onClick={() => push({ kind: "delete-source", income })}
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <Button
-                variant="destructive"
-                disabled={deleteIncome.isPending}
-                onClick={() => {
-                  void handleDeleteSource(view.income);
-                }}
+                type="button"
+                className="w-full"
+                onClick={() => push({ kind: "source", income: null })}
               >
-                Obriši
+                <PlusIcon data-icon="inline-start" />
+                Novi redovni prihod
               </Button>
-            </ResponsiveDialogFooter>
-          </>
-        ) : null}
+            </div>
+          ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* FORM screens (swap the body in place, "← Nazad" returns to list)  */}
-        {/* ---------------------------------------------------------------- */}
-        {view.kind === "confirm" ? (
-          <EntryForm
-            month={month}
-            members={members}
-            source={view.source}
-            defaultReceivedOn={defaultReceivedOn}
-            onDone={back}
-          />
-        ) : null}
+          {view.kind === "delete-entry" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Obrisati prihod „{view.entry.name}" od <Amount value={view.entry.amount} />? Ova
+                radnja se ne može opozvati.
+              </p>
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={deleteEntry.isPending}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteEntry.isPending}
+                  onClick={() => {
+                    void handleDeleteEntry(view.entry);
+                  }}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            </>
+          ) : null}
 
-        {view.kind === "entry" ? (
-          <EntryForm
-            month={month}
-            members={members}
-            entry={view.entry}
-            defaultReceivedOn={defaultReceivedOn}
-            onDone={back}
-          />
-        ) : null}
+          {view.kind === "delete-source" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Obrisati redovni prihod „{view.income.name}"? Već potvrđeni prihodi iz prethodnih
+                meseci ostaju sačuvani.
+              </p>
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={deleteIncome.isPending}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteIncome.isPending}
+                  onClick={() => {
+                    void handleDeleteSource(view.income);
+                  }}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            </>
+          ) : null}
 
-        {view.kind === "one-time" ? (
-          <EntryForm
-            month={month}
-            members={members}
-            defaultReceivedOn={defaultReceivedOn}
-            onDone={back}
-          />
-        ) : null}
+          {/* ---------------------------------------------------------------- */}
+          {/* FORM screens (swap the body in place, "← Nazad" returns to list)  */}
+          {/* ---------------------------------------------------------------- */}
+          {view.kind === "confirm" ? (
+            <EntryForm
+              month={month}
+              members={members}
+              source={view.source}
+              defaultReceivedOn={defaultReceivedOn}
+              onDone={back}
+            />
+          ) : null}
 
-        {view.kind === "source" ? (
-          <SourceForm income={view.income} members={members} onDone={back} />
-        ) : null}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+          {view.kind === "entry" ? (
+            <EntryForm
+              month={month}
+              members={members}
+              entry={view.entry}
+              defaultReceivedOn={defaultReceivedOn}
+              onDone={back}
+            />
+          ) : null}
+
+          {view.kind === "one-time" ? (
+            <EntryForm
+              month={month}
+              members={members}
+              defaultReceivedOn={defaultReceivedOn}
+              onDone={back}
+            />
+          ) : null}
+
+          {view.kind === "source" ? (
+            <SourceForm income={view.income} members={members} onDone={back} />
+          ) : null}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }
 
@@ -653,7 +650,7 @@ function EntryForm({
           <FormInput
             id="entry-amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
             inputMode="decimal"
             placeholder="0"
             autoFocus={isLinked}
@@ -674,15 +671,14 @@ function EntryForm({
           <FieldGroupLabel>
             <label htmlFor="entry-person">Član (opciono)</label>
           </FieldGroupLabel>
-          <select
+          <FormSelect
             id="entry-person"
             value={personId ?? ""}
             onChange={(e) => setPersonId(e.target.value || null)}
-            className={SELECT_CHROME}
           >
             <option value="">Bez člana</option>
             {memberOptions(members)}
-          </select>
+          </FormSelect>
         </div>
       ) : null}
       <ResponsiveDialogFooter>
@@ -768,7 +764,7 @@ function SourceForm({
           <FormInput
             id="source-amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
             inputMode="decimal"
             placeholder="0"
             required
@@ -795,15 +791,14 @@ function SourceForm({
         <FieldGroupLabel>
           <label htmlFor="source-person">Član (opciono)</label>
         </FieldGroupLabel>
-        <select
+        <FormSelect
           id="source-person"
           value={personId ?? ""}
           onChange={(e) => setPersonId(e.target.value || null)}
-          className={SELECT_CHROME}
         >
           <option value="">Bez člana</option>
           {memberOptions(members)}
-        </select>
+        </FormSelect>
       </div>
       <SwitchRow
         title="Aktivan"

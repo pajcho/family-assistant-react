@@ -28,7 +28,7 @@ export function ThemeRow() {
       <span className="grid size-[34px] shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent-deep">
         <MoonIcon className="size-[17px]" />
       </span>
-      <span className="flex-1 text-[14.5px] font-bold">Izgled</span>
+      <span className="flex-1 text-[14.5px] font-semibold">Izgled</span>
       <div
         role="radiogroup"
         aria-label="Tema"
@@ -42,7 +42,7 @@ export function ThemeRow() {
             aria-checked={mode === value}
             onClick={() => setMode(value)}
             className={cn(
-              "flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-[13px] font-bold transition-colors",
+              "flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-[13px] font-semibold transition-colors",
               mode === value ? "bg-accent-soft text-accent-deep" : "text-muted-foreground",
             )}
           >
@@ -60,35 +60,31 @@ export function AccentRow() {
 
   return (
     <div className="border-b border-border px-[13px] py-3 last:border-b-0">
-      <div className="flex items-center gap-[11px]">
+      {/* Swatches inline with the title, the same shape as a member's colour
+          picker: four colours need no labels next to them, and a labelled
+          button each turned one setting into a block of four cards. Wraps to
+          its own line on narrow phones. */}
+      <div className="flex min-h-[52px] flex-wrap items-center gap-x-[11px] gap-y-2">
         <span className="grid size-[34px] shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent-deep">
           <SwatchIcon className="size-[17px]" />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[14.5px] font-bold">Boja aplikacije</span>
-          <span className="mt-px block text-xs font-semibold text-muted-foreground">
-            Lični akcenat - važi samo za tebe, na svim uređajima.
-          </span>
-        </span>
+        <span className="flex-1 text-[14.5px] font-semibold">Boja aplikacije</span>
+        <div role="radiogroup" aria-label="Boja aplikacije" className="flex items-center gap-0.5">
+          {ACCENT_OPTIONS.map((option) => (
+            <AccentSwatch
+              key={option.key}
+              optionKey={option.key}
+              label={option.label}
+              swatch={option.swatch}
+              selected={accent === option.key}
+              onSelect={() => setAccent(option.key)}
+            />
+          ))}
+        </div>
       </div>
-      <div
-        role="radiogroup"
-        aria-label="Boja aplikacije"
-        className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
-      >
-        {ACCENT_OPTIONS.map((option) => (
-          <AccentSwatch
-            key={option.key}
-            optionKey={option.key}
-            label={option.label}
-            swatch={option.swatch}
-            selected={accent === option.key}
-            onSelect={() => setAccent(option.key)}
-          />
-        ))}
-      </div>
-      <p className="mt-2.5 text-xs font-semibold text-muted-foreground">
-        Prijava i ikonica aplikacije ostaju plavi.
+      <p className="text-xs font-normal text-muted-foreground">
+        Lični akcenat - važi samo za tebe, na svim uređajima. Prijava i ikonica aplikacije ostaju
+        plavi.
       </p>
     </div>
   );
@@ -112,22 +108,23 @@ function AccentSwatch({
       type="button"
       role="radio"
       aria-checked={selected}
+      aria-label={label}
+      title={label}
       onClick={onSelect}
       data-accent-option={optionKey}
       className={cn(
-        "flex min-h-11 items-center gap-2 rounded-md border px-2.5 py-2 text-[13px] font-bold transition-colors",
+        "grid size-11 shrink-0 place-items-center rounded-full border-2 transition-transform",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        selected ? "border-accent bg-accent-soft text-accent-deep" : "border-border",
+        selected ? "border-foreground" : "border-transparent hover:scale-110",
       )}
     >
       <span
-        className="grid size-5 shrink-0 place-items-center rounded-full"
+        className="grid size-7 place-items-center rounded-full"
         style={{ backgroundColor: swatch }}
         aria-hidden="true"
       >
-        {selected ? <CheckIcon className="size-3.5 text-white" /> : null}
+        {selected ? <CheckIcon className="size-4 text-white" /> : null}
       </span>
-      {label}
     </button>
   );
 }

@@ -52,10 +52,10 @@ function LoginPage() {
         <div className="flex size-[74px] items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_14px_30px_-12px_var(--color-blue-600)]">
           <UserGroupIcon className="size-9" />
         </div>
-        <h1 className="mt-4 text-[28px] leading-tight font-black tracking-tight">
+        <h1 className="mt-4 text-[28px] leading-tight font-bold tracking-tight">
           Porodični asistent
         </h1>
-        <p className="mt-1 text-sm font-semibold text-muted-foreground">
+        <p className="mt-1 text-sm font-normal text-muted-foreground">
           Kalendar, plaćanja, budžet i liste -<br />
           sve što porodica deli, na jednom mestu.
         </p>
@@ -106,17 +106,17 @@ function LoginPage() {
               </button>
             </div>
           </div>
-          {errorMessage ? <p className="text-sm font-semibold text-neg">{errorMessage}</p> : null}
+          {errorMessage ? <p className="text-sm font-normal text-neg">{errorMessage}</p> : null}
           <Button
             type="submit"
             disabled={submitting}
-            className="h-12 w-full bg-blue-600 text-base font-extrabold text-white hover:bg-blue-700"
+            className="h-12 w-full bg-blue-600 text-base font-bold text-white hover:bg-blue-700"
           >
             {submitting ? "Prijavljivanje…" : "Prijavi se"}
           </Button>
         </form>
 
-        <p className="mt-auto pt-10 text-center text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
+        <p className="mt-auto pt-10 text-center text-[11.5px] leading-relaxed font-normal text-muted-foreground">
           Instaliraj kao aplikaciju: Podeli pa „Add to Home Screen".
         </p>
       </main>

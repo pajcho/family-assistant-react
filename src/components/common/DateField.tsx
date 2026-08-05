@@ -319,7 +319,10 @@ export function DateField({
             </>
           ) : null}
           <FieldGroupLabel>Izaberi godinu</FieldGroupLabel>
-          <div className="grid max-h-[46vh] grid-cols-4 gap-1.5 overflow-y-auto overscroll-contain pr-0.5">
+          {/* No max-height of its own: the overlay (popover panel on desktop,
+              sheet body on mobile) is the scroll area, and a grid that scrolls
+              inside a panel that also scrolls is a trap on both. */}
+          <div className="grid grid-cols-4 gap-1.5">
             {yearRange(mode, today.date.getFullYear(), cursor.year).map((year) => (
               <Chip
                 key={year}
@@ -390,8 +393,10 @@ export function DateField({
               className="flex min-h-11 items-baseline gap-2 rounded-md px-1 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               aria-label="Promeni mesec i godinu"
             >
-              <span className="font-serif text-xl font-bold tracking-tight">{monthCaption}</span>
-              <span className="text-sm font-bold text-muted-foreground tabular-nums">
+              <span className="font-serif text-xl font-semibold tracking-tight">
+                {monthCaption}
+              </span>
+              <span className="text-sm font-semibold text-muted-foreground tabular-nums">
                 {cursor.year}.
               </span>
               <ChevronDownIcon
@@ -422,7 +427,7 @@ export function DateField({
             {WEEKDAY_SHORT_SR.map((day) => (
               <div
                 key={day}
-                className="py-1 text-center text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
+                className="py-1 text-center text-[10px] font-semibold tracking-wide text-muted-foreground uppercase"
               >
                 {day}
               </div>
@@ -456,7 +461,7 @@ export function DateField({
                   onKeyDown={handleGridKeyDown}
                   onClick={() => commit(cell.iso)}
                   className={cn(
-                    "flex aspect-[1.15] min-h-11 flex-col items-center justify-center gap-0.5 rounded-md border border-transparent text-sm font-semibold tabular-nums transition-colors",
+                    "flex aspect-[1.15] min-h-11 flex-col items-center justify-center gap-0.5 rounded-md border border-transparent text-sm font-normal tabular-nums transition-colors",
                     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     "disabled:pointer-events-none disabled:opacity-25",
                     !cell.inMonth && "opacity-40",
@@ -491,7 +496,7 @@ export function DateField({
                 onChange(null);
                 setOpen(false);
               }}
-              className="min-h-11 rounded-lg border border-border bg-card text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="min-h-11 rounded-lg border border-border bg-card text-sm font-normal text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Bez datuma
             </button>

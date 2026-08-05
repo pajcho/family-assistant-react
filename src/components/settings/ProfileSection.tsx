@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/lib/supabase";
 import { readFunctionsError } from "@/utils/functionsError";
+import { getDisplayName } from "@/utils/identity";
 
 /**
  * "Lični podaci" - the settings sub-screen behind the profile card at the top
@@ -108,7 +109,7 @@ function ProfileCard() {
       <CardHeader>
         <CardTitle>Lični podaci</CardTitle>
         <CardDescription>
-          Ime i prezime se koriste za inicijale i prikaz u meniju. Email se može promeniti i
+          Ime se prikazuje kroz aplikaciju, prezime samo u inicijalima. Email se može promeniti i
           primenjuje se odmah.
         </CardDescription>
       </CardHeader>
@@ -117,10 +118,13 @@ function ProfileCard() {
           <div className="flex items-center gap-4">
             <UserAvatar {...identity} className="h-14 w-14 text-base" />
             <div className="min-w-0">
-              <div className="truncate text-sm font-bold">
-                {firstName || lastName ? `${firstName} ${lastName}`.trim() : user?.email}
+              {/* Previews what the app will actually show, which is the first
+                  name - not the two fields concatenated. No email fallback:
+                  the email already sits on the line below. */}
+              <div className="truncate text-sm font-semibold">
+                {getDisplayName({ ...identity, email: null }) || "Bez imena"}
               </div>
-              <div className="truncate text-xs font-semibold text-muted-foreground">
+              <div className="truncate text-xs font-normal text-muted-foreground">
                 {user?.email}
               </div>
             </div>
@@ -162,7 +166,7 @@ function ProfileCard() {
               autoComplete="email"
               required
             />
-            <p className="text-xs font-semibold text-muted-foreground">
+            <p className="text-xs font-normal text-muted-foreground">
               Email se primenjuje odmah, bez dodatne potvrde.
             </p>
           </div>

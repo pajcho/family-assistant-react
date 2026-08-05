@@ -53,7 +53,14 @@ export function TodayWeekStrip({
             aria-current={isToday ? "date" : undefined}
             aria-label={count > 0 ? `${spokenDay} - ${count} ${stavkeLabel(count)}` : spokenDay}
             onClick={() => {
-              void navigate({ to: "/kalendar", search: { view: "agenda", day } });
+              // `resetScroll: false`: the agenda scrolls itself to `day`, and
+              // the router's own scroll pass would land on top of that jump and
+              // cancel it (see the note in routes/_app.kalendar.tsx).
+              void navigate({
+                to: "/kalendar",
+                search: { view: "agenda", day },
+                resetScroll: false,
+              });
             }}
             className={cn(
               "flex-1 rounded-md border border-transparent py-1 text-center transition-colors",
@@ -62,10 +69,10 @@ export function TodayWeekStrip({
               !isToday && "text-muted-foreground",
             )}
           >
-            <span className="block text-[9px] font-extrabold tracking-wide uppercase opacity-85">
+            <span className="block text-[9px] font-bold tracking-wide uppercase opacity-85">
               {WEEKDAY_INITIALS[dow]}
             </span>
-            <span className="mt-px block text-sm font-extrabold tabular-nums">
+            <span className="mt-px block text-sm font-bold tabular-nums">
               {Number(day.slice(8, 10))}
             </span>
             <span className="mt-0.5 flex h-1 items-center justify-center gap-px">

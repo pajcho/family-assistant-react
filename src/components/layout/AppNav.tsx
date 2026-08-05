@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useMatchRoute } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   CheckIcon,
   LockClosedIcon,
@@ -17,13 +17,14 @@ import {
   NAV_SECTIONS,
   NAV_SECTION_MAP,
   UNSLOTTABLE_SECTIONS,
+  isNavSectionActive,
   normalizeNavSlots,
   type NavSection,
   type NavSectionKey,
 } from "@/components/layout/navSections";
-import { GlobalAddSheet } from "@/components/common/GlobalAddSheet";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
-import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { useAppCommands } from "@/hooks/useAppCommands";
 import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useProfile, useUpdateNavSlots } from "@/hooks/useProfile";
 import { readNavRecents } from "@/lib/navRecents";
@@ -50,8 +51,8 @@ export function MobileBottomNav() {
   // bar sandwiched between the form and the keyboard; unmounting it is the
   // one reliable fix (see useIsKeyboardOpen).
   const keyboardOpen = useIsKeyboardOpen();
+  const { openAdd } = useAppCommands();
   const { profile } = useProfile();
-  const [addOpen, setAddOpen] = useState(false);
   // Until the profile loads this renders the default layout - same bar every
   // new user sees, so there's no blank state, just a quick swap for the few
   // who customized.
@@ -76,7 +77,7 @@ export function MobileBottomNav() {
       <button
         type="button"
         aria-label="Dodaj"
-        onClick={() => setAddOpen(true)}
+        onClick={openAdd}
         className="-mt-3.5 flex size-[54px] flex-none items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-[0_10px_22px_-8px_var(--accent)] transition-transform active:scale-90"
       >
         <PlusIcon className="size-6" />
@@ -84,22 +85,12 @@ export function MobileBottomNav() {
 
       {right ? <BottomTab section={NAV_SECTION_MAP[right]} /> : <span className="flex-1" />}
       <MeniSheet slots={slots} />
-
-      <GlobalAddSheet open={addOpen} onOpenChange={setAddOpen} />
     </nav>
   );
 }
 
 function BottomTab({ section }: { section: NavSection }) {
-  return (
-    <AppNavLink
-      to={section.to}
-      search={section.search}
-      label={section.label}
-      icon={section.icon}
-      className="flex-1"
-    />
-  );
+  return <AppNavLink section={section} className="flex-1" />;
 }
 
 type MeniView = "root" | "edit";
@@ -112,20 +103,16 @@ type MeniView = "root" | "edit";
  */
 function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
   const [open, setOpen] = useState(false);
-  const { view, pop, push, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<MeniView>(
-    open,
-    setOpen,
-    "root",
-  );
-  const matchRoute = useMatchRoute();
+  const stack = useSheetStack<MeniView>(open, setOpen, "root");
+  const { pop, push } = stack;
+  const { pathname, search } = useLocation();
   const updateNavSlots = useUpdateNavSlots();
 
   const isMoreRoute = NAV_SECTIONS.some(
     (section) =>
       section.key !== FIXED_SECTION &&
       !slots.includes(section.key) &&
-      !section.search &&
-      !!matchRoute({ to: section.to, fuzzy: true }),
+      isNavSectionActive(section, pathname, search),
   );
 
   // Re-read on every open - visits are recorded globally (in the _app route), the
@@ -161,89 +148,92 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
         aria-label="Meni"
         onClick={() => setOpen(true)}
         className={cn(
-          "flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-extrabold transition-colors",
+          "flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-bold transition-colors",
           isMoreRoute ? "text-accent-deep" : "text-muted-foreground",
         )}
       >
         <RectangleGroupIcon className="size-[21px] shrink-0" />
         <span>Meni</span>
       </button>
-      <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-        <ResponsiveDialogContent className="sm:max-w-md">
-          {view === "root" ? (
-            <>
-              <SheetStackHeader title="Meni" />
-              {recents.length > 0 ? (
-                <div className="mb-3">
-                  <p className="mb-2 text-[11.5px] font-extrabold tracking-wider text-muted-foreground uppercase">
-                    Nedavno
-                  </p>
-                  <div className="flex gap-1.5 overflow-x-auto">
-                    {recents.map((key) => {
-                      const section = NAV_SECTION_MAP[key];
-                      return (
-                        <Link
-                          key={key}
-                          to={section.to}
-                          search={section.search}
-                          onClick={close}
-                          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-bold"
-                        >
-                          <section.icon className="size-4 text-muted-foreground" />
-                          <span>{section.label}</span>
-                        </Link>
-                      );
-                    })}
+      <SheetStackViews
+        stack={stack}
+        render={(view) => (
+          <ResponsiveDialogContent className="sm:max-w-md">
+            {view === "root" ? (
+              <>
+                <SheetStackHeader title="Meni" />
+                {recents.length > 0 ? (
+                  <div className="mb-3">
+                    <p className="mb-2 text-[11.5px] font-bold tracking-wider text-muted-foreground uppercase">
+                      Nedavno
+                    </p>
+                    <div className="flex gap-1.5 overflow-x-auto">
+                      {recents.map((key) => {
+                        const section = NAV_SECTION_MAP[key];
+                        return (
+                          <Link
+                            key={key}
+                            to={section.to}
+                            search={section.search}
+                            onClick={close}
+                            className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold"
+                          >
+                            <section.icon className="size-4 text-muted-foreground" />
+                            <span>{section.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
+                ) : null}
+                <div className="grid grid-cols-3 gap-2">
+                  {NAV_SECTIONS.map((section) => (
+                    <SectionTile key={`${section.key}`} section={section} onNavigate={close} />
+                  ))}
                 </div>
-              ) : null}
-              <div className="grid grid-cols-3 gap-2">
-                {NAV_SECTIONS.map((section) => (
-                  <SectionTile key={`${section.key}`} section={section} onNavigate={close} />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => push("edit")}
-                className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm font-bold transition-transform active:scale-[0.98]"
-              >
-                <PencilSquareIcon className="size-[17px] text-muted-foreground" />
-                <span className="flex-1">
-                  Uredi traku
-                  <span className="block text-xs font-semibold text-muted-foreground">
-                    Danas je uvek prvo mesto · {MAX_FREE_SLOTS} slobodna slota
+                <button
+                  type="button"
+                  onClick={() => push("edit")}
+                  className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm font-semibold transition-transform active:scale-[0.98]"
+                >
+                  <PencilSquareIcon className="size-[17px] text-muted-foreground" />
+                  <span className="flex-1">
+                    Uredi traku
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      Danas je uvek prvo mesto · {MAX_FREE_SLOTS} slobodna slota
+                    </span>
                   </span>
-                </span>
-              </button>
-            </>
-          ) : (
-            <>
-              <SheetStackHeader
-                title="Uredi traku"
-                onBack={pop}
-                description={`Danas i Meni su uvek u traci, plus (+) je u sredini. Izaberi ${MAX_FREE_SLOTS} stavke za slobodna mesta - sve ostalo ostaje u meniju.`}
-              />
-              <p className="mb-2 text-xs font-bold text-muted-foreground" aria-live="polite">
-                Izabrano: {slots.length}/{MAX_FREE_SLOTS}
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {slottable.map((section) =>
-                  section.key === FIXED_SECTION ? (
-                    <FixedSlotTile key={section.key} section={section} />
-                  ) : (
-                    <EditSlotTile
-                      key={section.key}
-                      section={section}
-                      selected={slots.includes(section.key)}
-                      onToggle={() => toggleSlot(section.key)}
-                    />
-                  ),
-                )}
-              </div>
-            </>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+                </button>
+              </>
+            ) : (
+              <>
+                <SheetStackHeader
+                  title="Uredi traku"
+                  onBack={pop}
+                  description={`Danas i Meni su uvek u traci, plus (+) je u sredini. Izaberi ${MAX_FREE_SLOTS} stavke za slobodna mesta - sve ostalo ostaje u meniju.`}
+                />
+                <p className="mb-2 text-xs font-semibold text-muted-foreground" aria-live="polite">
+                  Izabrano: {slots.length}/{MAX_FREE_SLOTS}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {slottable.map((section) =>
+                    section.key === FIXED_SECTION ? (
+                      <FixedSlotTile key={section.key} section={section} />
+                    ) : (
+                      <EditSlotTile
+                        key={section.key}
+                        section={section}
+                        selected={slots.includes(section.key)}
+                        onToggle={() => toggleSlot(section.key)}
+                      />
+                    ),
+                  )}
+                </div>
+              </>
+            )}
+          </ResponsiveDialogContent>
+        )}
+      />
     </>
   );
 }
@@ -251,18 +241,15 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
 /** Shared tile chrome for the Meni grid and the slot editor. */
 function tileClass(active: boolean): string {
   return cn(
-    "relative flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3.5 text-xs font-bold transition-colors",
+    "relative flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3.5 text-xs font-semibold transition-colors",
     active ? "border-accent bg-accent-soft text-accent-deep" : "border-border bg-card",
   );
 }
 
 /** Root-view tile: navigates and closes the sheet. */
 function SectionTile({ section, onNavigate }: { section: NavSection; onNavigate: () => void }) {
-  const matchRoute = useMatchRoute();
-  const active =
-    section.to === "/"
-      ? !!matchRoute({ to: "/" })
-      : !section.search && !!matchRoute({ to: section.to, fuzzy: true });
+  const { pathname, search } = useLocation();
+  const active = isNavSectionActive(section, pathname, search);
 
   return (
     <Link

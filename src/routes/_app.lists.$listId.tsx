@@ -268,8 +268,15 @@ function ListDetailLoaded({
         />
       </div>
 
-      <p className="mt-4 px-5 text-center text-[11.5px] font-semibold text-muted-foreground">
+      {/* Two hints, one per input method - the gestures below only exist on a
+          touch screen, and a mouse gets the row's own hover controls instead.
+          `pointer:` (not a width breakpoint) because that is what decides
+          which affordances the rows actually render. */}
+      <p className="mt-4 hidden px-5 text-center text-[11.5px] font-normal text-muted-foreground pointer-coarse:block">
         Prevuci desno = završeno · prevuci levo = obriši · drži i prevuci = redosled.
+      </p>
+      <p className="mt-4 hidden px-5 text-center text-[11.5px] font-normal text-muted-foreground pointer-fine:block">
+        Klikni kvadratić = završeno · pređi mišem preko stavke za izmenu, brisanje i redosled.
       </p>
 
       <ListFormDialog
@@ -359,12 +366,10 @@ function ListHeader({
     <header className="flex items-center gap-2">
       {showBack ? <BackRow onBack={onBack} /> : null}
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-xl leading-tight font-extrabold tracking-tight">
-          {list.name}
-        </h1>
+        <h1 className="truncate text-xl leading-tight font-bold tracking-tight">{list.name}</h1>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <Pill tone={list.scope === "family" ? "accent" : "muted"}>{scopeLabel}</Pill>
-          <span className="text-[12.5px] font-semibold text-muted-foreground">
+          <span className="text-[12.5px] font-normal text-muted-foreground">
             {active} {active === 1 ? "aktivna" : "aktivnih"}
             {completed > 0 ? ` · ${completed} završeno` : ""}
           </span>

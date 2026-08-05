@@ -99,7 +99,7 @@ export function EmptyState({
             </div>
           ) : null}
           {title ? (
-            <p className="text-base font-bold text-balance text-foreground">{title}</p>
+            <p className="text-base font-semibold text-balance text-foreground">{title}</p>
           ) : null}
           {description ? (
             <p className={cn("text-sm text-pretty text-muted-foreground", title && "mt-1")}>
@@ -119,7 +119,7 @@ export function EmptyState({
                   key={example.label}
                   type="button"
                   onClick={example.onClick}
-                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
+                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
                 >
                   + {example.label}
                 </button>
@@ -140,7 +140,7 @@ export function EmptyState({
           className,
         )}
       >
-        {title ? <p className="text-sm font-bold text-foreground">{title}</p> : null}
+        {title ? <p className="text-sm font-semibold text-foreground">{title}</p> : null}
         {description ? (
           <p className={cn("text-sm text-muted-foreground", title && "mt-1")}>{description}</p>
         ) : null}
@@ -148,7 +148,7 @@ export function EmptyState({
           <button
             type="button"
             onClick={secondaryAction.onClick}
-            className="mt-2 text-sm font-bold text-accent-deep underline-offset-4 hover:underline"
+            className="mt-2 text-sm font-semibold text-accent-deep underline-offset-4 hover:underline"
           >
             {secondaryAction.label}
           </button>
@@ -176,7 +176,7 @@ export function EmptyState({
         </div>
       ) : null}
       {title ? (
-        <p className={cn("text-base font-bold text-balance text-foreground", Icon && "mt-3")}>
+        <p className={cn("text-base font-semibold text-balance text-foreground", Icon && "mt-3")}>
           {title}
         </p>
       ) : null}
@@ -198,7 +198,7 @@ export function EmptyState({
               key={example.label}
               type="button"
               onClick={example.onClick}
-              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
+              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
             >
               + {example.label}
             </button>
@@ -209,7 +209,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={secondaryAction.onClick}
-          className="mt-3 block w-full text-sm font-bold text-accent-deep underline-offset-4 hover:underline"
+          className="mt-3 block w-full text-sm font-semibold text-accent-deep underline-offset-4 hover:underline"
         >
           {secondaryAction.label}
         </button>

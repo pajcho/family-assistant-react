@@ -2,7 +2,7 @@ import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { fallbackColorForProfile, profileColorName } from "@/utils/activity";
+import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName, getInitials } from "@/utils/identity";
 import type { Profile } from "@/types/database";
 
@@ -19,7 +19,7 @@ export type MemberListProps = {
 };
 
 /** Status pill shared by every role tag on a row. */
-const PILL = "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold";
+const PILL = "rounded-full px-2 py-[3px] text-[10.5px] font-bold";
 
 /**
  * The master pane: every family member as a selectable row. Selection is local
@@ -40,7 +40,7 @@ export function MemberList({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2 pl-1">
-        <h2 className="flex items-center gap-2 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+        <h2 className="flex items-center gap-2 text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
           Članovi
           <span className="rounded-full border border-border bg-card px-2 text-[10.5px] tabular-nums">
             {members.length}
@@ -81,7 +81,6 @@ function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberR
     getDisplayName({ firstName: member.first_name, lastName: member.last_name, email: null }) ||
     "Bez imena";
   const color = member.color ?? fallbackColorForProfile(member.id);
-  const colorName = profileColorName(color);
   const initials = getInitials({
     firstName: member.first_name,
     lastName: member.last_name,
@@ -109,7 +108,7 @@ function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberR
       )}
     >
       <span
-        className="grid size-[38px] shrink-0 place-items-center rounded-[14px] text-[13px] font-extrabold text-white"
+        className="grid size-[38px] shrink-0 place-items-center rounded-[14px] text-[13px] font-bold text-white"
         style={{ backgroundColor: color }}
         aria-hidden="true"
       >
@@ -117,19 +116,12 @@ function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberR
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-[15px] font-bold text-foreground">{name}</span>
+          <span className="truncate text-[15px] font-semibold text-foreground">{name}</span>
           {isCurrent ? (
-            <span className="text-[12.5px] font-semibold text-muted-foreground">(ti)</span>
+            <span className="text-[12.5px] font-normal text-muted-foreground">(ti)</span>
           ) : null}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1">
-          {/* The palette's fruit names give the colour something to be called
-              out loud ("boja: kivi") - same hex values, just a nameable one. */}
-          {colorName ? (
-            <span className="mr-0.5 text-[12.5px] font-semibold text-muted-foreground">
-              boja: {colorName}
-            </span>
-          ) : null}
           {tags.map((tag) => (
             <span key={tag.label} className={cn(PILL, tag.tone)}>
               {tag.label}

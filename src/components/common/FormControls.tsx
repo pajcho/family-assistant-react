@@ -1,6 +1,8 @@
 import type { ComponentProps, ComponentType, ReactNode, SVGProps } from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
+import { sanitizeDecimalInput } from "@/utils/currency";
 
 /**
  * The redesign's shared form vocabulary ("Šljiva"): every entry form is built
@@ -20,7 +22,7 @@ export function FieldGroupLabel({ children, className, ...props }: ComponentProp
   return (
     <div
       className={cn(
-        "mt-1 mb-2 flex items-center gap-2 px-0.5 text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase",
+        "mt-1 mb-2 flex items-center gap-2 px-0.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase",
         className,
       )}
       {...props}
@@ -58,7 +60,7 @@ export function Chip({ selected = false, children, hint, grow, className, ...pro
       type="button"
       aria-pressed={selected}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3.5 py-2 text-[13px] font-semibold transition-colors",
+        "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3.5 py-2 text-[13px] font-normal transition-colors",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
         "disabled:pointer-events-none disabled:opacity-50",
         grow && "flex-1",
@@ -140,7 +142,7 @@ export function Tile({
       {...props}
     >
       <Icon className="size-5 shrink-0" style={iconColor ? { color: iconColor } : undefined} />
-      <span className="w-full truncate text-[11px] leading-tight font-semibold">{label}</span>
+      <span className="w-full truncate text-[11px] leading-tight font-normal">{label}</span>
     </button>
   );
 }
@@ -168,6 +170,37 @@ export function FormInput({ className, ...props }: ComponentProps<"input">) {
       )}
       {...props}
     />
+  );
+}
+
+/**
+ * Native `<select>` in {@link FormInput} chrome.
+ *
+ * The browser's own caret is suppressed (`appearance-none`) and redrawn as the
+ * app's chevron, inset like every other row's chevron. Left native, the OS arrow
+ * hugs the field's right edge and reads as a different control language than
+ * the picker rows sitting directly above it in the same form.
+ */
+export function FormSelect({ className, children, ...props }: ComponentProps<"select">) {
+  return (
+    <div className="relative">
+      <select
+        className={cn(
+          "min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-border bg-card py-2.5 pr-10 pl-3.5",
+          "text-base font-medium text-foreground transition-colors",
+          "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
+          "disabled:pointer-events-none disabled:opacity-50",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
   );
 }
 
@@ -210,10 +243,10 @@ export function BigValueCard({
         className,
       )}
     >
-      <div className="text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
+      <div className="text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
         {label}
       </div>
-      <div className="mt-1 text-3xl font-extrabold tracking-tight tabular-nums">{children}</div>
+      <div className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{children}</div>
       {footer}
     </div>
   );
@@ -244,31 +277,43 @@ export function AmountInputCard({
   required?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3.5 text-center shadow-card">
-      <label
-        htmlFor={id}
-        className="text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase"
-      >
-        {label}
-      </label>
-      <div className="mt-1 flex items-baseline justify-center gap-1.5">
+    <div className="space-y-2">
+      {/* Label left, currency picker right - the pre-redesign arrangement. The
+          picker belongs beside the label, not below the rate row: it decides
+          what you are about to type, so it has to be read BEFORE the field. */}
+      <div className="flex items-center justify-between gap-2">
+        <label
+          htmlFor={id}
+          className="px-0.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase"
+        >
+          {label}
+        </label>
+        {currencyToggle}
+      </div>
+      <div className="relative">
         <input
           id={id}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          // Digits + one separator only. `inputMode` merely asks for the
+          // numeric keypad; it does not stop a hardware keyboard (or a mobile
+          // keyboard the user switched) from putting letters in an amount.
+          onChange={(e) => onChange(sanitizeDecimalInput(e.target.value))}
           inputMode="decimal"
           required={required}
           placeholder="0"
           className={cn(
-            "min-w-0 flex-1 bg-transparent text-right text-3xl font-extrabold tracking-tight tabular-nums outline-none",
-            "placeholder:text-muted-foreground/50",
+            "h-14 w-full rounded-lg border border-border bg-card pr-14 pl-3.5",
+            "text-right text-3xl font-bold tracking-tight tabular-nums transition-colors",
+            "placeholder:font-normal placeholder:text-muted-foreground/50",
+            "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
           )}
         />
         {/* Currency is always a CODE, never a symbol. */}
-        <span className="shrink-0 text-sm font-bold text-muted-foreground">{currencyCode}</span>
+        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm font-medium text-muted-foreground/75">
+          {currencyCode}
+        </span>
       </div>
       {footer}
-      {currencyToggle ? <div className="mt-2.5">{currencyToggle}</div> : null}
     </div>
   );
 }
@@ -298,7 +343,7 @@ export function ControlRow({
         <Icon className="size-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold">{label}</div>
+        <div className="text-sm font-normal">{label}</div>
         {description ? (
           <div className="text-[11.5px] leading-snug text-muted-foreground">{description}</div>
         ) : null}
@@ -338,7 +383,7 @@ export function SegmentedPills<T extends string>({
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            "min-h-9 rounded-full border px-3.5 py-1 text-xs font-bold tracking-wide transition-colors",
+            "min-h-9 rounded-full border px-3.5 py-1 text-xs font-semibold tracking-wide transition-colors",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             value === option.value
               ? "border-accent bg-accent text-accent-foreground"

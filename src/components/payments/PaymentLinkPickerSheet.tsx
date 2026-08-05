@@ -122,7 +122,7 @@ export function PaymentLinkPickerSheet({
           if (group.length === 0) return null;
           return (
             <div key={kind} className="space-y-2">
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <p className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                 {label}
               </p>
               <ul className="space-y-2">{group.map(renderOption)}</ul>

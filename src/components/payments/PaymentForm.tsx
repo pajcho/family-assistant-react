@@ -178,7 +178,7 @@ export function recurrenceSummary(form: PaymentFormState): string {
 }
 
 export type PaymentFormProps = {
-  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives a sub-view opening over the form. */
   form: PaymentFormState;
   setForm: Dispatch<SetStateAction<PaymentFormState>>;
   /** Dialog-owned currency control (same reason). */
@@ -477,7 +477,7 @@ export function PaymentForm({
         ) : null}
       </div>
       {hasHistory ? (
-        <p className="text-xs font-semibold text-warn">
+        <p className="text-xs font-normal text-warn">
           Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
         </p>
       ) : null}

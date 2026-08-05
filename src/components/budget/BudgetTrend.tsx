@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { GroupHeader } from "@/components/money/moneyUi";
 import { useExpenses } from "@/hooks/useExpenses";
 import { monthOf, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
@@ -69,10 +70,8 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
   const max = Math.max(1, ...bars.map((b) => b.total));
 
   return (
-    <section className="mt-8">
-      <h2 className="mb-2 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
-        Trend (6 meseci)
-      </h2>
+    <section>
+      <GroupHeader title="Trend (6 meseci)" />
       <div className="flex items-end justify-between gap-2 rounded-xl border border-border bg-card p-4 shadow-card">
         {bars.map((bar) => {
           const isSelected = bar.month === month;
@@ -89,7 +88,7 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
               <span
                 className={cn(
                   "text-[10px] tabular-nums",
-                  isSelected ? "font-extrabold text-foreground" : "text-muted-foreground",
+                  isSelected ? "font-bold text-foreground" : "text-muted-foreground",
                 )}
               >
                 {compact(bar.total)}
@@ -108,7 +107,7 @@ export function BudgetTrend({ month, onSelectMonth }: BudgetTrendProps) {
               <span
                 className={cn(
                   "text-[11px]",
-                  isSelected ? "font-bold text-foreground" : "text-muted-foreground",
+                  isSelected ? "font-semibold text-foreground" : "text-muted-foreground",
                 )}
               >
                 {shortMonthLabel(bar.month)}

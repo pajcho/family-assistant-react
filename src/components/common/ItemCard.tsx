@@ -115,7 +115,7 @@ export function ItemTitle({ className, children }: { className?: string; childre
   return (
     <span
       className={cn(
-        "flex flex-wrap items-center gap-1.5 text-[15px] leading-[1.25] font-bold tracking-[-0.01em]",
+        "flex flex-wrap items-center gap-1.5 text-[15px] leading-[1.25] font-semibold tracking-[-0.01em]",
         className,
       )}
     >
@@ -128,7 +128,7 @@ export function ItemMeta({ className, children }: { className?: string; children
   return (
     <span
       className={cn(
-        "flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-[1.35] font-semibold text-muted-foreground",
+        "flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-[1.35] font-normal text-muted-foreground",
         className,
       )}
     >
@@ -148,9 +148,7 @@ export function ItemSide({ className, children }: { className?: string; children
 
 /** `.ktime` - the bold tabular clock in the trailing column. */
 export function ItemTime({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <span className={cn("text-[14.5px] font-extrabold tabular-nums", className)}>{children}</span>
-  );
+  return <span className={cn("text-[14.5px] font-bold tabular-nums", className)}>{children}</span>;
 }
 
 /** A person's colour as a 7px dot - rides at the end of a card title. */

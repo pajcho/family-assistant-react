@@ -65,7 +65,7 @@ export function PaymentTipSheet({
                 }))
               }
               className={cn(
-                "flex min-h-11 w-full items-center justify-between rounded-lg border bg-card px-3.5 py-2.5 text-sm font-semibold transition-colors",
+                "flex min-h-11 w-full items-center justify-between rounded-lg border bg-card px-3.5 py-2.5 text-sm font-normal transition-colors",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
                 "disabled:pointer-events-none disabled:opacity-50",
                 selected
@@ -80,7 +80,7 @@ export function PaymentTipSheet({
         })}
       </div>
       {hasHistory ? (
-        <p className="text-xs font-semibold text-warn">
+        <p className="text-xs font-normal text-warn">
           Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
         </p>
       ) : null}

@@ -51,7 +51,7 @@ function ListsIndex() {
   // dialog, same deep-link the dashboard "Dodaj → Lista" uses).
   return (
     <DetailPlaceholder>
-      <span className="block text-base font-bold text-foreground">Još nemaš nijednu listu</span>
+      <span className="block text-base font-semibold text-foreground">Još nemaš nijednu listu</span>
       <span className="mt-1 block">
         Napravi prvu listu - npr. „Šoping" deljenu sa porodicom ili „Lične obaveze".
       </span>

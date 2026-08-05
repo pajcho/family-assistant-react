@@ -221,6 +221,32 @@ U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesi
   (izgubljen pri prepisivanju okvira) - popravljeno.
 - Ograda: Lighthouse i dalje moze samo login (ostali ekrani traze sesiju).
 
+## Prolaz praznih ekrana za nove korisnike (2026-08-05)
+
+Prodjeni SVI ekrani kao svez nalog (lokalno: novi.korisnik@example.com / novi1234,
+porodica "Novakovi", bez podataka), mobil + desktop. Ispravke iz prolaza:
+
+- MonthCalendar: weekCount formula je SVAKOM mesecu dodavala suvisnu (praznu)
+  sedmu nedelju - +1 je pripadao broju dana, ne kolicniku.
+- Filter clanova se krije kad porodica ima jednog clana (nema po kome da se
+  filtrira): Danas, Kalendar, Novac > Troskovi/Placanja, Aktivnosti.
+- "Google" cip u Kalendar filterima se pojavljuje tek kad porodica stvarno ima
+  preslikane Google dogadjaje (novi hook useHasExternalEvents; cip ostaje dok
+  je selektovan da se moze iskljuciti).
+- Novac > Troskovi: pravi starter empty state ("Jos nema troskova" + Dodaj
+  trosak) umesto jedne recenice; odvojeni slucajevi prazan mesec ("Dodaj
+  trosak" link) i prazni filteri ("Ocisti filtere"). Empty logika preseljena
+  iz BudgetTimeline u BudgetPage.
+- Aktivnosti: "Prikazi skolu" cip tek kad skolski raspored postoji (ista
+  kapija kao Kalendar > Nedelja); ceo filter red se krije kad je prazan.
+- Prikaz imena bez postavljenog imena: naslov vise ne ponavlja email (kartica
+  u Podesavanjima, Licni podaci pregled, sidebar mini profil -> "Bez imena" /
+  "Profil", email ostaje u podnaslovu).
+- Prvi koraci: "Dopuni svoj profil" vodi pravo u /settings?tab=profile (ne na hub).
+
+Svesno NIJE menjano: prazna dnevna zaglavlja u Kalendar > Agenda ispod starter
+kartice (dokumentovana odluka - agenda se cita kao kontinuiran kalendar).
+
 ## Odluke donete tokom rada
 
 - Akcenat se cuva u bazi: migracija `20260804090000_profiles_accent.sql` (kolona
@@ -311,7 +337,10 @@ Traka C (Kalendar) i F (sekundarni ekrani):
 
 Integracija (traka I):
 
-- Nedeljni prikaz vise ne skroluje vodoravno na telefonu: sedam kolona staje na
-  ekran (~46px po danu, kao u prototipu), a celodnevni cipovi se ispod `sm`
-  svode na ikonicu jer ime ne moze da stane. Ranije se videlo 1,7 dana, sto je
-  nedeljnom prikazu oduzimalo jedini razlog postojanja.
+- Nedeljni prikaz je PROBAN bez vodoravnog skrola (sedam kolona od ~46px staje
+  na telefon, kao u prototipu) pa VRACEN na 140px kolone + vodoravni skrol
+  (2026-08-05, na zahtev korisnika): na 46px je svaki blok neprepoznatljiva
+  traka i labele su morale da se sakriju ispod `sm`, a nedelja koja se ne cita
+  ne vredi ni da se vidi cela. Uz to: mreza sada skroluje u OBA smera unutar
+  svog okvira (`AppScreen fillBody`), pa su zaglavlje dana i satnica levo
+  stvarno lepljivi, i otvara se na danasnjem danu i tekucem satu.

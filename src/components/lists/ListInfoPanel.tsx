@@ -45,7 +45,7 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
         </ResponsiveDialogHeader>
 
         <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
             Lista
           </h3>
           <dl className="space-y-2 rounded-lg bg-muted p-3 text-sm">
@@ -64,7 +64,7 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
 
         {list.list_items.length > 0 ? (
           <section className="mt-4 space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
               Aktivnost stavki
             </h3>
             <ul className="divide-y divide-border rounded-lg border border-border">
@@ -88,7 +88,7 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
                         {item.name}
                       </span>
                       {item.is_completed ? (
-                        <span className="shrink-0 rounded-full bg-pos-soft px-2 py-0.5 text-xs font-bold text-pos">
+                        <span className="shrink-0 rounded-full bg-pos-soft px-2 py-0.5 text-xs font-semibold text-pos">
                           Završeno
                         </span>
                       ) : null}

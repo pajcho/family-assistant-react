@@ -1,5 +1,6 @@
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
+import { useHasExternalEvents } from "@/hooks/useExternalEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { AGENDA_KINDS, type AgendaFilter, type AgendaKind } from "@/utils/agendaFilters";
@@ -42,17 +43,28 @@ export function AgendaFilters({
   isActive,
 }: AgendaFiltersProps) {
   const { members } = useFamilyMembers();
+  const hasExternalEvents = useHasExternalEvents();
 
   // Only what is actually selected is lit - "Sve" holds the neutral state.
   const kindActive = (kind: AgendaKind) => filter.kinds.has(kind);
   const personActive = (id: string) => filter.personIds.has(id);
+
+  // "Google" is only a real facet once the family actually mirrors a calendar;
+  // until then the chip filters on a source that cannot produce items. It stays
+  // while selected so a lit chip can always be un-picked.
+  const kinds = AGENDA_KINDS.filter(
+    (kind) => kind !== "external" || hasExternalEvents || kindActive(kind),
+  );
+  // Same reasoning for a one-member (brand-new) family: there is nobody to
+  // narrow to, so the member half of the row says nothing.
+  const memberChips = members.length > 1 ? members : [];
 
   return (
     <FilterChipRow ariaLabel="Filteri">
       <FilterChip active={!isActive} onToggle={reset}>
         Sve
       </FilterChip>
-      {AGENDA_KINDS.map((kind) => (
+      {kinds.map((kind) => (
         <FilterChip
           key={kind}
           active={kindActive(kind)}
@@ -62,10 +74,10 @@ export function AgendaFilters({
           {AGENDA_KIND_META[kind].label}
         </FilterChip>
       ))}
-      {members.length > 0 ? (
+      {memberChips.length > 0 ? (
         <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
       ) : null}
-      {members.map((member) => (
+      {memberChips.map((member) => (
         <FilterChip
           key={member.id}
           active={personActive(member.id)}

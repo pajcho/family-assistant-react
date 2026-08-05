@@ -55,16 +55,27 @@ export function PickerOverlay({
         <PopoverContent
           align="start"
           collisionPadding={12}
-          className={cn("w-[21rem] max-w-[calc(100vw-1.5rem)] p-3", contentClassName)}
+          className={cn(
+            "flex w-[21rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden p-3",
+            // Radix reports how much room is left on the chosen side but does
+            // NOT clamp the panel to it - without this a tall panel (the birth
+            // year grid) simply runs off the top of the window.
+            "max-h-[var(--radix-popover-content-available-height)]",
+            contentClassName,
+          )}
           // The panel owns its own focus order; stealing focus onto the
           // popover root first makes the arrow-key grid feel a step behind.
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="mb-2 flex flex-col gap-0.5">
-            <p className="text-sm font-semibold">{title}</p>
+          <div className="mb-2 flex flex-none flex-col gap-0.5">
+            <p className="text-sm font-normal">{title}</p>
             {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
           </div>
-          {children}
+          {/* The panel is the scroll area, so a picker never needs an inner
+              one (nested scrollbars on a date grid are miserable to use). */}
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+            {children}
+          </div>
         </PopoverContent>
       </Popover>
     );

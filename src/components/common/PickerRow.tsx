@@ -51,14 +51,14 @@ export function PickerRow({
       {...props}
     >
       {icon ? <span className="shrink-0 text-muted-foreground">{icon}</span> : null}
-      <span className="flex-1 text-sm font-semibold">{title}</span>
+      <span className="flex-1 text-sm font-normal">{title}</span>
       {summary ? (
-        <span className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-semibold text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-normal text-muted-foreground">
           {summary}
         </span>
       ) : null}
       {count ? (
-        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-accent-foreground">
+        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
           {count}
         </span>
       ) : null}

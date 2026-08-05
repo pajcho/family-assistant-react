@@ -77,7 +77,7 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
         <div key={agendaItemKey(entry.item)}>
           {index === nextIndex ? <NowLine now={now} /> : null}
           <div className={cn("mb-2 flex items-stretch gap-2.5", entry.past && "opacity-40")}>
-            <div className="w-11 flex-none pt-3 text-right text-[12.5px] font-extrabold text-muted-foreground tabular-nums">
+            <div className="w-11 flex-none pt-3 text-right text-[12.5px] font-bold text-muted-foreground tabular-nums">
               {entry.startTime}
             </div>
             <TimelineCard
@@ -89,7 +89,7 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
               // (as the prototype does) reads as noise on a phone.
               side={
                 entry.endTime ? (
-                  <span className="text-[12.5px] font-semibold text-muted-foreground tabular-nums">
+                  <span className="text-[12.5px] font-normal text-muted-foreground tabular-nums">
                     do {entry.endTime}
                   </span>
                 ) : null
@@ -118,7 +118,7 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
 
 function GroupHeader({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-1 mt-4 mb-2 text-[11.5px] font-extrabold tracking-wider text-muted-foreground uppercase">
+    <div className="mx-1 mt-4 mb-2 text-[11.5px] font-bold tracking-wider text-muted-foreground uppercase">
       {children}
     </div>
   );
@@ -128,7 +128,7 @@ function NowLine({ now }: { now: Date }) {
   const label = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   return (
     <div className="my-3 flex items-center gap-2" aria-hidden="true">
-      <span className="flex-none text-[10.5px] font-extrabold tracking-wider text-accent-deep uppercase">
+      <span className="flex-none text-[10.5px] font-bold tracking-wider text-accent-deep uppercase">
         Sada · {label}
       </span>
       <span className="h-0.5 flex-1 rounded-full bg-accent opacity-65" />
@@ -179,7 +179,7 @@ function Pill({ tone, children }: { tone: Tone | "neg"; children: ReactNode }) {
   return (
     <span
       className={cn(
-        "rounded-full px-2 py-0.5 text-[10.5px] font-extrabold whitespace-nowrap",
+        "rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap",
         tone === "accent" && "bg-accent-soft text-accent-deep",
         tone === "info" && "bg-info-soft text-info",
         tone === "warn" && "bg-warn-soft text-warn",
@@ -217,11 +217,11 @@ function TimelineCard({
     >
       {content.square}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-tight font-bold tracking-tight">
+        <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-tight font-semibold tracking-tight">
           {content.title}
         </span>
         {content.meta ? (
-          <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] leading-snug font-semibold text-muted-foreground">
+          <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] leading-snug font-normal text-muted-foreground">
             {content.meta}
           </span>
         ) : null}
@@ -336,7 +336,7 @@ function cardContent(
           </>
         ),
         side: (
-          <span className="text-[15px] font-extrabold tabular-nums">
+          <span className="text-[15px] font-bold tabular-nums">
             <Amount value={item.payment.amount} round />
           </span>
         ),
@@ -375,7 +375,7 @@ function SpanChip({
     <button
       type="button"
       onClick={onClick}
-      className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-accent bg-accent-soft px-3 py-2.5 text-left text-[13px] font-bold transition-transform active:scale-[0.98]"
+      className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-accent bg-accent-soft px-3 py-2.5 text-left text-[13px] font-semibold transition-transform active:scale-[0.98]"
     >
       <span className="text-accent-deep">
         {item.kind === "birthday" ? (
@@ -387,7 +387,7 @@ function SpanChip({
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">{content.title}</span>
-      <span className="flex-none text-xs font-semibold text-muted-foreground">{sub}</span>
+      <span className="flex-none text-xs font-normal text-muted-foreground">{sub}</span>
     </button>
   );
 }

@@ -150,7 +150,7 @@ export function ExpensePersonSelect({
 }
 
 export type ExpenseFormProps = {
-  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives a sub-view opening over the form. */
   form: ExpenseFormState;
   setForm: Dispatch<SetStateAction<ExpenseFormState>>;
   /** Dialog-owned currency control (same reason). */

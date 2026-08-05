@@ -63,9 +63,7 @@ export function FilterSheet({ open, onOpenChange, isActive, onReset, children }:
 export function FilterSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-2">
-      <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h4>
+      <h4 className="text-xs font-normal tracking-wide text-muted-foreground uppercase">{title}</h4>
       <div className="flex flex-wrap gap-2">{children}</div>
     </section>
   );
@@ -143,7 +141,7 @@ export function AppliedFilterChips({
       {filters.map((f) => (
         <span
           key={f.key}
-          className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent-soft py-0.5 pr-1 pl-2.5 text-xs font-bold text-accent-deep"
+          className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent-soft py-0.5 pr-1 pl-2.5 text-xs font-semibold text-accent-deep"
         >
           {f.color ? (
             <span

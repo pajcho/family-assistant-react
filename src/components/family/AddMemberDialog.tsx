@@ -126,10 +126,10 @@ export function AddMemberDialog({ open, onOpenChange, onCreated }: AddMemberDial
               className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-accent"
             />
             <label htmlFor="add-with-login" className="min-w-0 cursor-pointer">
-              <span className="block text-[14.5px] font-bold text-foreground">
+              <span className="block text-[14.5px] font-semibold text-foreground">
                 Napravi i nalog (login)
               </span>
-              <span className="mt-0.5 block text-xs font-semibold text-muted-foreground">
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
                 Član će moći sam da se prijavi email-om i lozinkom.
               </span>
             </label>

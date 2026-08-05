@@ -157,7 +157,7 @@ function PaymentTimelineRow({
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1">
-            <span className="font-extrabold tracking-[-0.01em] tabular-nums text-foreground">
+            <span className="font-bold tracking-[-0.01em] tabular-nums text-foreground">
               <Amount value={item.amount} />
             </span>
             <AmountOriginal
@@ -168,7 +168,7 @@ function PaymentTimelineRow({
             {chip ? (
               <span
                 className={cn(
-                  "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold",
+                  "rounded-full px-2 py-[3px] text-[10.5px] font-bold",
                   CHIP_TONE[chip.tone],
                 )}
               >
@@ -235,14 +235,14 @@ export function PaymentTimeline({
     <div className="space-y-6">
       {overdueItems.length > 0 ? (
         <section className="rounded-xl border border-neg/25 bg-neg-soft p-3">
-          <h2 className="flex items-center gap-2 text-sm font-extrabold text-neg">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-neg">
             <ExclamationTriangleIcon className="size-4" />
             Prekoračeno
             <span className="ml-auto flex items-center gap-2">
-              <span className="text-xs font-extrabold tracking-[-0.01em] tabular-nums">
+              <span className="text-xs font-bold tracking-[-0.01em] tabular-nums">
                 <Amount value={overdueItems.reduce((sum, i) => sum + i.amount, 0)} />
               </span>
-              <span className="rounded-full bg-neg/15 px-2 py-[3px] text-[10.5px] font-extrabold tabular-nums">
+              <span className="rounded-full bg-neg/15 px-2 py-[3px] text-[10.5px] font-bold tabular-nums">
                 {overdueItems.length}
               </span>
             </span>

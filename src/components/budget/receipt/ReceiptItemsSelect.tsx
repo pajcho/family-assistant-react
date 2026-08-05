@@ -54,7 +54,7 @@ function ClaimChip({ categoryId }: { categoryId: string | null | undefined }) {
   return (
     <span
       className={cn(
-        "inline-flex max-w-28 shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] leading-tight font-extrabold",
+        "inline-flex max-w-28 shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] leading-tight font-bold",
         // Categories carry their own colour; the fallback follows the tokens.
         !category && "bg-muted text-muted-foreground",
       )}
@@ -82,14 +82,14 @@ export function ReceiptItemsSelect({
     <div className="space-y-2">
       {free.length > 1 ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-muted-foreground">
+          <span className="text-xs font-semibold text-muted-foreground">
             {selected.size} od {free.length} {stavkeLabel(free.length)}
           </span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs font-bold text-accent-deep"
+            className="h-7 px-2 text-xs font-semibold text-accent-deep"
             disabled={disabled}
             onClick={() => onSetAll(!allSelected)}
           >
@@ -134,7 +134,7 @@ export function ReceiptItemsSelect({
                   <CheckIcon className="size-4" strokeWidth={3} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-semibold text-foreground">
+                  <span className="block truncate text-[13.5px] font-normal text-foreground">
                     {line.name}
                   </span>
                   {line.quantity != null && line.quantity !== 1 ? (
@@ -144,7 +144,7 @@ export function ReceiptItemsSelect({
                   ) : null}
                 </span>
                 {isClaimed ? <ClaimChip categoryId={line.claimedCategoryId} /> : null}
-                <span className="shrink-0 text-[13.5px] font-extrabold text-foreground tabular-nums">
+                <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
                   <Amount value={line.total} />
                 </span>
               </label>

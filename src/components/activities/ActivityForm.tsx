@@ -163,7 +163,7 @@ export function initialActivityFormState(
 }
 
 export type ActivityFormProps = {
-  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives a sub-view opening over the form. */
   form: ActivityFormState;
   setForm: Dispatch<SetStateAction<ActivityFormState>>;
   activity?: Activity | null;
@@ -281,7 +281,7 @@ export function ActivityForm({
         onChange={(person_ids) => setForm((s) => ({ ...s, person_ids }))}
       />
       {form.person_ids.length === 0 ? (
-        <p className="px-0.5 text-[11px] font-semibold text-warn">Izaberi bar jednog učesnika.</p>
+        <p className="px-0.5 text-[11px] font-normal text-warn">Izaberi bar jednog učesnika.</p>
       ) : null}
     </div>
   );
@@ -436,7 +436,7 @@ export function ActivityForm({
       <div>
         <button
           type="button"
-          className="min-h-11 text-sm font-semibold text-muted-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="min-h-11 text-sm font-normal text-muted-foreground underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           onClick={() => setShowSeason((v) => !v)}
         >
           {showSeason ? "Sakrij sezonu" : "Postavi sezonu (od / do)"}

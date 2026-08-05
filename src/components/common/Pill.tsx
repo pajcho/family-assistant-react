@@ -37,7 +37,7 @@ export function Pill({
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px]",
-        "text-[10.5px] leading-none font-extrabold tracking-[0.02em] whitespace-nowrap",
+        "text-[10.5px] leading-none font-bold tracking-[0.02em] whitespace-nowrap",
         TONE_CLASS[tone],
         className,
       )}

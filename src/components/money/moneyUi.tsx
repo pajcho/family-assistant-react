@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import type { ComponentProps, ComponentType, ReactNode, SVGProps } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -71,7 +71,7 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] leading-tight font-extrabold tracking-[0.02em] whitespace-nowrap",
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] leading-tight font-bold tracking-[0.02em] whitespace-nowrap",
         TONE_TILE[tone],
         className,
       )}
@@ -85,6 +85,11 @@ export function StatusPill({
  * Uppercase group heading with an optional count bubble and a right-aligned
  * action ("Po kategorijama ... Uredi ›"). `tone="neg"` is the Prekoračeno
  * group, the one heading that carries colour.
+ *
+ * The `mt-8` is the section rhythm for the whole Novac hub - it must NOT be a
+ * `first:` variant, because every caller wraps the header in its own
+ * `<section>`, which would make `:first-child` match every single time and
+ * flatten the gap everywhere. A header that opens a screen passes `mt-1`.
  */
 export function GroupHeader({
   title,
@@ -102,7 +107,7 @@ export function GroupHeader({
   return (
     <div
       className={cn(
-        "mx-[3px] mt-4 mb-2 flex items-center gap-2 text-[11.5px] font-extrabold tracking-[0.08em] uppercase first:mt-1",
+        "mx-[3px] mt-8 mb-2 flex items-center gap-2 text-[11.5px] font-bold tracking-[0.08em] uppercase",
         tone === "neg" ? "text-neg" : "text-muted-foreground",
         className,
       )}
@@ -130,7 +135,7 @@ export function GroupHeaderAction({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1 rounded-sm text-[12.5px] font-bold tracking-normal text-accent-deep normal-case focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="flex items-center gap-1 rounded-sm text-[12.5px] font-semibold tracking-normal text-accent-deep normal-case focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       {children}
     </button>
@@ -167,7 +172,7 @@ export function FilterChip({
       onClick={onClick}
       aria-pressed={ariaPressed ? active : undefined}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-bold transition-colors",
+        "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         active
           ? "border-accent bg-accent text-accent-foreground"
@@ -192,25 +197,33 @@ export function ChipRow({ className, children }: { className?: string; children:
 /**
  * Header icon button ("iconbtn"): the tile reads as 38px, but the button
  * itself is a full 44px touch target with the tile centred inside it.
+ *
+ * Leftover props are spread onto the `<button>`, so this can also be handed to
+ * a Radix `asChild` trigger (the header's "Dodaj" menu). `active` is only for
+ * real toggles - leave it off and no `aria-pressed` is emitted, which is what a
+ * menu trigger wants (it carries aria-expanded instead).
  */
 export function HeaderIconButton({
   icon: Icon,
   label,
-  onClick,
-  active = false,
+  active,
+  className,
+  ...props
 }: {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
-  onClick: () => void;
   active?: boolean;
-}) {
+} & Omit<ComponentProps<"button">, "aria-label" | "children">) {
   return (
     <button
       type="button"
-      onClick={onClick}
       aria-label={label}
       aria-pressed={active}
-      className="grid size-11 shrink-0 place-items-center rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className={cn(
+        "grid size-11 shrink-0 place-items-center rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        className,
+      )}
+      {...props}
     >
       <span
         className={cn(

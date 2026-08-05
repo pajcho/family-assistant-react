@@ -73,7 +73,7 @@ export function FamilyTab() {
     return (
       <div className="space-y-6">
         <FamilyNameCard canManage={false} />
-        <div className="flex items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-[13.5px] font-bold text-warn">
+        <div className="flex items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-[13.5px] font-semibold text-warn">
           <LockClosedIcon className="size-[18px] shrink-0" aria-hidden="true" />
           Samo administrator porodice može da menja članove, naloge i boje.
         </div>

@@ -220,7 +220,7 @@ function BandPreview({
   const grid = useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
   return (
     <div className="rounded-md border border-border p-2 text-xs">
-      <div className="mb-1 font-bold text-foreground">{title}</div>
+      <div className="mb-1 font-semibold text-foreground">{title}</div>
       <ol className="space-y-0.5">
         {grid.map((slot) => (
           <Fragment key={slot.periodIndex}>

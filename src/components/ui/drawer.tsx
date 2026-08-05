@@ -11,12 +11,13 @@ const DRAWER_EXIT_DURATION_MS = 500;
 
 /**
  * Radix locks scroll from inside the overlay component. That lock can be
- * released out of order when one drawer closes while another opens, or when
- * SheetStack remounts a dismissed sub-view during Vaul's exit transition.
+ * released out of order when one drawer closes while another opens - which is
+ * exactly what a stacked SheetStack sub-view does on its way out.
  *
  * Keep a second, app-owned lock tied to the Drawer root's open state. The
  * reference count handles overlapping drawers; delayed release bridges both
- * Vaul's exit animation and SheetStack's close -> remount -> reopen hop.
+ * Vaul's exit animation and the moment a stacked sub-view closes over a
+ * sheet that is still open underneath it.
  */
 let activeDrawerScrollLocks = 0;
 

@@ -5,6 +5,7 @@ import {
   ArrowRightOnRectangleIcon,
   BellIcon,
   BanknotesIcon,
+  CommandLineIcon,
   DevicePhoneMobileIcon,
   GlobeAltIcon,
   PencilSquareIcon,
@@ -37,6 +38,8 @@ import {
   NAV_SECTION_MAP,
   normalizeNavSlots,
 } from "@/components/layout/navSections";
+import { Kbd } from "@/components/common/Kbd";
+import { useAppCommands } from "@/hooks/useAppCommands";
 import { getDisplayName } from "@/utils/identity";
 import { serbianPlural } from "@/utils/plural";
 
@@ -104,7 +107,7 @@ export function SettingsScreen({
             >
               <ArrowLeftIcon className="size-5" />
             </button>
-            <h1 className="truncate text-[23px] leading-tight font-extrabold tracking-tight">
+            <h1 className="truncate text-[23px] leading-tight font-bold tracking-tight">
               {SECTION_TITLES[section]}
             </h1>
           </div>
@@ -134,13 +137,16 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
   const { members } = useFamilyMembers();
   const { enabled } = useEnabledCurrencies();
   const { connections } = useGoogleCalendar();
+  const { openShortcuts } = useAppCommands();
 
   const identity = {
     firstName: profile?.first_name ?? null,
     lastName: profile?.last_name ?? null,
     email: user?.email ?? null,
   };
-  const displayName = getDisplayName(identity);
+  // No email fallback here: the subtitle right below already shows the email,
+  // and a fresh profile would repeat it as its own title.
+  const displayName = getDisplayName({ ...identity, email: null }) || "Bez imena";
 
   const memberCount = members.length;
   const memberLabel = serbianPlural(memberCount, {
@@ -163,10 +169,10 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
       <div className="flex items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 shadow-card">
         <UserAvatar {...identity} className="size-14 text-lg" gravatarSize={160} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[17px] leading-tight font-extrabold tracking-[-0.01em]">
+          <div className="truncate text-[17px] leading-tight font-bold tracking-[-0.01em]">
             {displayName}
           </div>
-          <div className="mt-0.5 truncate text-[12.5px] font-semibold text-muted-foreground">
+          <div className="mt-0.5 truncate text-[12.5px] font-normal text-muted-foreground">
             {[user?.email, family?.name, isAdmin ? "Administrator" : null]
               .filter(Boolean)
               .join(" · ")}
@@ -241,6 +247,17 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
           label="Donja traka"
           hint="Danas i Meni su uvek u traci · 2 slobodna mesta"
           value={slotLabels}
+        />
+        {/* `?` opens the same sheet, but only on a layout where `?` is easy to
+            reach - and only if you already know it exists. This row is how you
+            find out. Desktop-only: there is no keyboard to shortcut on a phone. */}
+        <SettingsRow
+          className="hidden lg:flex"
+          icon={CommandLineIcon}
+          label="Prečice na tastaturi"
+          hint="Kretanje i radnje bez miša"
+          value={<Kbd keys={["?"]} />}
+          onClick={openShortcuts}
         />
         <SettingsRow
           icon={DevicePhoneMobileIcon}

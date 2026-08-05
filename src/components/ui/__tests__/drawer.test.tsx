@@ -2,7 +2,7 @@ import { useState } from "react";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -21,27 +21,26 @@ function PlainDrawer({ open }: { open: boolean }) {
 
 function StackDrawer() {
   const [open, setOpen] = useState(true);
-  const { view, atRoot, push, dialogOpen, dialogKey, handleOpenChange } = useSheetStack(
-    open,
-    setOpen,
-    "root",
-  );
+  const stack = useSheetStack(open, setOpen, "root");
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent>
-        <SheetStackHeader title={view} />
-        {atRoot ? (
-          <button type="button" onClick={() => push("sub")}>
-            Open sub-view
-          </button>
-        ) : (
-          <button type="button" onClick={() => handleOpenChange(false)}>
-            Dismiss sub-view
-          </button>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+    <SheetStackViews
+      stack={stack}
+      render={(view, level) => (
+        <ResponsiveDialogContent>
+          <SheetStackHeader title={view} />
+          {level === 0 ? (
+            <button type="button" onClick={() => stack.push("sub")}>
+              Open sub-view
+            </button>
+          ) : (
+            <button type="button" onClick={() => stack.dismiss(level)}>
+              Dismiss sub-view
+            </button>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }
 
@@ -68,18 +67,23 @@ describe("Drawer scroll lock", () => {
     expect(document.documentElement).toHaveClass("dialog-open");
   });
 
-  it("keeps the page locked through a SheetStack dismiss and remount", () => {
+  it("keeps the page locked while a stacked sub-view opens and closes over it", () => {
     vi.useFakeTimers();
-    const { getByRole } = render(<StackDrawer />);
+    const { getByRole, getByText } = render(<StackDrawer />);
 
+    // Two overlays open at once. The sub-view sits ON TOP of the root, so Radix
+    // marks the root `aria-hidden` - hence `getByText`, not `getByRole`, for the
+    // covered level. The scroll lock is reference counted, so the sub-view
+    // closing must not release it while the root is still up.
     fireEvent.click(getByRole("button", { name: "Open sub-view" }));
-    fireEvent.click(getByRole("button", { name: "Dismiss sub-view" }));
-
-    act(() => vi.advanceTimersByTime(200));
-    expect(getByRole("heading", { name: "root" })).toBeInTheDocument();
+    expect(getByRole("heading", { name: "sub" })).toBeInTheDocument();
+    expect(getByText("root")).toBeInTheDocument();
     expect(document.documentElement).toHaveClass("dialog-open");
 
-    act(() => vi.advanceTimersByTime(300));
+    fireEvent.click(getByRole("button", { name: "Dismiss sub-view" }));
+    expect(getByText("root")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(500));
     expect(document.documentElement).toHaveClass("dialog-open");
   });
 });

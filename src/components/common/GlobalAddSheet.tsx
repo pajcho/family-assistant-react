@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import {
   BanknotesIcon,
@@ -36,7 +36,7 @@ import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/respo
 
 // Lazy chunk: the scanner pulls in the camera code + the QR decoder, so it
 // must stay out of the main bundle even though the "+" is always on screen.
-const ReceiptScanDialog = lazy(() => import("@/components/budget/receipt/ReceiptScanDialog"));
+import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 
 type AddKind = "expense" | "payment" | "event" | "activity" | "birthday" | "list";
 
@@ -88,8 +88,8 @@ export function GlobalAddSheet({
               <QrCodeIcon className="size-6" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-extrabold">Skeniraj račun</span>
-              <span className="block text-xs font-semibold opacity-85">
+              <span className="block text-[15px] font-bold">Skeniraj račun</span>
+              <span className="block text-xs font-normal opacity-85">
                 QR sa fiskalnog računa - stavke stižu same
               </span>
             </span>
@@ -101,7 +101,7 @@ export function GlobalAddSheet({
                 key={tile.kind}
                 type="button"
                 onClick={() => start(tile.kind)}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 text-left text-[13.5px] font-bold transition-transform active:scale-[0.96]"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 text-left text-[13.5px] font-semibold transition-transform active:scale-[0.96]"
               >
                 <span className="flex size-9 flex-none items-center justify-center rounded-md bg-accent-soft text-accent-deep">
                   <tile.icon className="size-[17px]" />

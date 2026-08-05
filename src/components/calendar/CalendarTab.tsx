@@ -47,11 +47,11 @@ export function CalendarTab() {
               <div key={conn.id} className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14.5px] font-bold text-foreground">
+                    <div className="truncate text-[14.5px] font-semibold text-foreground">
                       {conn.google_account_email}
                     </div>
                     {conn.needs_reauth ? null : (
-                      <div className="text-xs font-semibold text-muted-foreground">Povezano</div>
+                      <div className="text-xs font-normal text-muted-foreground">Povezano</div>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -80,7 +80,7 @@ export function CalendarTab() {
                     the account row so the long sentence isn't squeezed next to
                     the buttons. */}
                 {conn.needs_reauth ? (
-                  <div className="flex items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-[13.5px] font-bold text-warn">
+                  <div className="flex items-center gap-2.5 rounded-[15px] bg-warn-soft px-[13px] py-[11px] text-[13.5px] font-semibold text-warn">
                     <ExclamationTriangleIcon className="size-[18px] shrink-0" aria-hidden="true" />
                     Veza je istekla - poveži ponovo da bi sinhronizacija nastavila.
                   </div>
@@ -109,7 +109,7 @@ export function CalendarTab() {
           </Button>
         </div>
 
-        <p className="text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
+        <p className="text-[11.5px] leading-relaxed font-normal text-muted-foreground">
           Napomena: dok je aplikacija u Google „testing" režimu, veza može isteći nakon 7 dana, pa
           će biti potrebno ponovno povezivanje.
         </p>
@@ -132,15 +132,13 @@ function ConnectionCalendars({
   onSharingChange,
 }: ConnectionCalendarsProps) {
   if (isLoading) {
-    return (
-      <p className="pl-1 text-xs font-semibold text-muted-foreground">Učitavanje kalendara…</p>
-    );
+    return <p className="pl-1 text-xs font-normal text-muted-foreground">Učitavanje kalendara…</p>;
   }
   if (isError) {
-    return <p className="pl-1 text-xs font-semibold text-warn">Greška pri učitavanju kalendara.</p>;
+    return <p className="pl-1 text-xs font-normal text-warn">Greška pri učitavanju kalendara.</p>;
   }
   if (calendars.length === 0) {
-    return <p className="pl-1 text-xs font-semibold text-muted-foreground">Nema kalendara.</p>;
+    return <p className="pl-1 text-xs font-normal text-muted-foreground">Nema kalendara.</p>;
   }
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
@@ -152,14 +150,14 @@ function ConnectionCalendars({
               className="size-3 shrink-0 rounded-full"
               style={{ backgroundColor: cal.color ?? "var(--muted-foreground)" }}
             />
-            <span className="truncate text-sm font-semibold text-foreground">
+            <span className="truncate text-sm font-normal text-foreground">
               {cal.summary ?? cal.google_calendar_id}
               {cal.is_primary ? <span className="text-muted-foreground"> (primarni)</span> : null}
             </span>
           </div>
           {typeof cal.event_count === "number" ? (
             <span
-              className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground"
+              className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground"
               title="Događaja pronađeno (oko godinu dana unapred)"
             >
               {cal.event_count}
@@ -197,7 +195,7 @@ function SharingSelect({ value, onChange }: SharingSelectProps) {
         onChange={(e) => onChange(e.target.value as GoogleCalendarSharing)}
         aria-label="Deljenje kalendara"
         className={cn(
-          "h-9 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm font-semibold shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30",
+          "h-9 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm font-normal shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30",
           "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         )}
       >
@@ -234,7 +232,7 @@ function ImportPrefs() {
 
   return (
     <div className="space-y-2 border-t border-border pt-4">
-      <h4 className="text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+      <h4 className="text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
         Šta uvozim sa Google-a
       </h4>
       <PrefRow
@@ -258,7 +256,7 @@ function ImportPrefs() {
         onChange={() => toggle("import_work_markers")}
         disabled={disabled}
       />
-      <p className="text-[11.5px] leading-relaxed font-semibold text-muted-foreground">
+      <p className="text-[11.5px] leading-relaxed font-normal text-muted-foreground">
         Obični događaji se uvek uvoze. Promena odmah re-sinhronizuje tvoje kalendare.
       </p>
     </div>
@@ -290,7 +288,7 @@ function PrefRow({
       />
       <label
         htmlFor={`gcal-pref-${id}`}
-        className="cursor-pointer text-[14.5px] font-bold text-foreground"
+        className="cursor-pointer text-[14.5px] font-semibold text-foreground"
       >
         {label}
       </label>

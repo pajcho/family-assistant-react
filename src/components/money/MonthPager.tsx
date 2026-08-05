@@ -76,7 +76,7 @@ export function MonthPager({
           <button
             type="button"
             aria-label="Izaberi mesec i godinu"
-            className="min-w-[7.5rem] rounded-sm px-2 py-1 text-center text-sm font-extrabold tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="min-w-[7.5rem] rounded-sm px-2 py-1 text-center text-sm font-bold tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {isAll ? (allOptionLabel ?? "Sve") : monthLabel(value)}
           </button>
@@ -88,7 +88,7 @@ export function MonthPager({
               label="Prethodna godina"
               onClick={() => setGridYear((y) => y - 1)}
             />
-            <span className="text-sm font-extrabold tabular-nums">{gridYear}</span>
+            <span className="text-sm font-bold tabular-nums">{gridYear}</span>
             <PagerArrow
               icon={ChevronRightIcon}
               label="Sledeća godina"
@@ -106,7 +106,7 @@ export function MonthPager({
                   type="button"
                   onClick={() => pick(month)}
                   className={cn(
-                    "rounded-sm px-2 py-2 text-sm font-bold transition-colors",
+                    "rounded-sm px-2 py-2 text-sm font-semibold transition-colors",
                     selected
                       ? "bg-accent text-accent-foreground"
                       : isCurrent
@@ -123,7 +123,7 @@ export function MonthPager({
             <button
               type="button"
               onClick={() => pick(current)}
-              className="rounded-sm px-2 py-2 text-left text-sm font-bold text-accent-deep hover:bg-muted"
+              className="rounded-sm px-2 py-2 text-left text-sm font-semibold text-accent-deep hover:bg-muted"
             >
               Ovaj mesec
             </button>
@@ -132,7 +132,7 @@ export function MonthPager({
                 type="button"
                 onClick={() => pick(ALL_MONTHS)}
                 className={cn(
-                  "rounded-sm px-2 py-2 text-left text-sm font-bold hover:bg-muted",
+                  "rounded-sm px-2 py-2 text-left text-sm font-semibold hover:bg-muted",
                   isAll ? "text-accent-deep" : "text-muted-foreground",
                 )}
               >

@@ -1,31 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { endOfMonth, format } from "date-fns";
-import {
-  ChevronRightIcon,
-  ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
-  SunIcon,
-} from "@heroicons/react/24/outline";
+import { ChevronRightIcon, ExclamationTriangleIcon, SunIcon } from "@heroicons/react/24/outline";
 
 import { Amount } from "@/components/common/Amount";
+import { ProfileAvatarLink, SearchIconButton } from "@/components/common/ScreenActions";
 import { DayTimeline } from "@/components/dashboard/DayTimeline";
 import { FirstStepsCard } from "@/components/dashboard/FirstStepsCard";
 import { PersonFilterRow } from "@/components/dashboard/PersonFilterRow";
 import { TodayRail } from "@/components/dashboard/TodayRail";
 import { TodayWeekStrip } from "@/components/dashboard/TodayWeekStrip";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
-import { AppScreen } from "@/components/layout/AppScreen";
-import { UserAvatar } from "@/components/layout/UserAvatar";
+import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { useAgenda } from "@/hooks/useAgenda";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { useAgendaEditForms } from "@/components/dashboard/useAgendaEditForms";
-import { useAuth } from "@/hooks/useAuth";
 import { useFirstSteps } from "@/hooks/useFirstSteps";
 import { useOverduePayments } from "@/hooks/useOverduePayments";
 import { useProfile } from "@/hooks/useProfile";
-import { useSearchDialog } from "@/hooks/useSearchDialog";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useToday } from "@/hooks/useToday";
 import { getWeekStart } from "@/utils/activity";
@@ -53,9 +46,7 @@ import { placanjaLabel } from "@/utils/plural";
  */
 export function TodayScreen() {
   const { str: today, date: todayDate } = useToday();
-  const { profile, familyId } = useProfile();
-  const { user } = useAuth();
-  const { openSearch } = useSearchDialog();
+  const { familyId } = useProfile();
   const navigate = useNavigate();
 
   const filters = useAgendaFilters();
@@ -119,59 +110,43 @@ export function TodayScreen() {
     prevDismissedRef.current = firstSteps.dismissed;
   }, [firstSteps.dismissed]);
 
-  const identity = {
-    firstName: profile?.first_name ?? null,
-    lastName: profile?.last_name ?? null,
-    email: user?.email ?? null,
-  };
-
   const dateLabel = format(todayDate, "EEEE, d. MMMM", { locale: srLocale });
   const filterActive = isAgendaFilterActive(filters.filter);
 
   const header = (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-2.5">
-        <div className="min-w-0 flex-1">
-          <div className="font-serif text-[13.5px] italic text-muted-foreground">
-            {greetingFor(todayDate)}
-          </div>
-          <h1 className="truncate text-[22px] leading-tight font-black tracking-tight">
-            {dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
-          </h1>
-        </div>
-        {firstSteps.dismissed ? (
-          <button
-            type="button"
-            onClick={firstSteps.unhide}
-            disabled={firstSteps.hiding}
-            aria-label="Prikaži Prve korake"
-            title="Prikaži Prve korake"
-            className="grid size-[34px] flex-none place-items-center rounded-md text-base transition-colors hover:bg-muted"
-          >
-            <span
-              className={waveHand ? "animate-wave inline-block" : "inline-block"}
-              onAnimationEnd={() => setWaveHand(false)}
-            >
-              👋
-            </span>
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={openSearch}
-          aria-label="Pretraga"
-          className="grid size-[34px] flex-none place-items-center rounded-md border border-border bg-card text-foreground shadow-card transition-transform active:scale-90"
-        >
-          <MagnifyingGlassIcon className="size-[17px]" />
-        </button>
-        <Link
-          to="/settings"
-          aria-label="Profil i podešavanja"
-          className="flex-none rounded-md transition-transform active:scale-90"
-        >
-          <UserAvatar {...identity} className="size-[34px] rounded-md" />
-        </Link>
-      </div>
+      {/* Same row component and same two chrome controls as Kalendar and Novac:
+          the title block sizes itself there, so the screens stay pixel-identical
+          instead of each rolling its own header. */}
+      <ScreenHeaderRow
+        subtitle={greetingFor(todayDate)}
+        title={dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
+        actions={
+          <>
+            {firstSteps.dismissed ? (
+              <button
+                type="button"
+                onClick={firstSteps.unhide}
+                disabled={firstSteps.hiding}
+                aria-label="Prikaži Prve korake"
+                title="Prikaži Prve korake"
+                // Ghost tile on the IconButton's 40px footprint (44px target),
+                // so it sits level with the search and avatar next to it.
+                className="relative grid size-10 flex-none place-items-center rounded-md text-[19px] transition-colors after:absolute after:-inset-0.5 after:content-[''] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <span
+                  className={waveHand ? "animate-wave inline-block" : "inline-block"}
+                  onAnimationEnd={() => setWaveHand(false)}
+                >
+                  👋
+                </span>
+              </button>
+            ) : null}
+            <SearchIconButton />
+            <ProfileAvatarLink />
+          </>
+        }
+      />
 
       {/* On desktop the strip and the filters belong to the timeline column,
           not to the full width - a seven-day strip stretched over 1000px reads
@@ -192,6 +167,7 @@ export function TodayScreen() {
     <AppScreen
       header={header}
       contentClassName="mx-auto w-full max-w-3xl lg:max-w-[1010px]"
+      headerClassName="lg:px-8"
       bodyClassName="lg:px-8"
     >
       <div className="lg:grid lg:grid-cols-[minmax(0,640px)_320px] lg:items-start lg:gap-6">
@@ -206,13 +182,13 @@ export function TodayScreen() {
                   onClick={() => {
                     void navigate({ to: "/novac", search: { tab: "placanja" } });
                   }}
-                  className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-bold text-neg transition-transform active:scale-[0.98] lg:hidden"
+                  className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.98] lg:hidden"
                 >
                   <ExclamationTriangleIcon className="size-[17px] flex-none" />
                   <span>
                     Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
                   </span>
-                  <span className="ml-auto font-extrabold tabular-nums">
+                  <span className="ml-auto font-bold tabular-nums">
                     <Amount value={overdueTotal} round />
                   </span>
                   <ChevronRightIcon className="size-[15px] flex-none" />
@@ -277,7 +253,7 @@ function TodayEmpty({
 }) {
   if (filterActive) {
     return (
-      <p className="py-10 text-center text-sm font-semibold text-muted-foreground">
+      <p className="py-10 text-center text-sm font-normal text-muted-foreground">
         Nema stavki za izabrane filtere.
       </p>
     );
@@ -300,13 +276,13 @@ function TodayEmpty({
         <SunIcon className="size-7 text-warn" />
       </div>
       <p className="font-serif text-base text-foreground italic">{title}</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed font-semibold text-muted-foreground">
+      <p className="mt-1 text-[12.5px] leading-relaxed font-normal text-muted-foreground">
         {description}
       </p>
       <Link
         to="/kalendar"
         search={{ view: "agenda" }}
-        className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-accent-deep hover:underline"
+        className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-accent-deep hover:underline"
       >
         Pogledaj kalendar →
       </Link>

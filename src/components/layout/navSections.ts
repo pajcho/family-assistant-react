@@ -153,3 +153,32 @@ export function sectionForPathname(pathname: string): NavSectionKey | null {
   }
   return null;
 }
+
+/** True when every search param the section links with is on the location. */
+function searchMatches(section: NavSection, search: Record<string, unknown>): boolean {
+  return Object.entries(section.search ?? {}).every(([key, value]) => search[key] === value);
+}
+
+/**
+ * Whether a nav item is the one the current location belongs to - what every
+ * surface (rail, bottom bar, Meni grid) highlights.
+ *
+ * Porodica and Podešavanja share `/settings`, so the pathname alone can't tell
+ * them apart: `?tab=family` is Porodica's, and Podešavanja owns the hub plus
+ * every other tab. Without that split, following the rail's own Porodica link
+ * lit up Podešavanja instead.
+ */
+export function isNavSectionActive(
+  section: NavSection,
+  pathname: string,
+  search: Record<string, unknown>,
+): boolean {
+  if (section.to === "/") return pathname === "/";
+  if (pathname !== section.to && !pathname.startsWith(`${section.to}/`)) return false;
+
+  const siblings = NAV_SECTIONS.filter((other) => other.to === section.to);
+  if (siblings.length < 2) return true;
+  if (section.search) return searchMatches(section, search);
+  // The plain section (Podešavanja) takes whatever none of its siblings claim.
+  return !siblings.some((other) => other.search && searchMatches(other, search));
+}

@@ -10,12 +10,8 @@ import {
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogFooter,
-} from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
   DetailActionRow,
@@ -88,8 +84,8 @@ export function BirthdayDetailDialog({
   birthday,
   onEdit,
 }: BirthdayDetailDialogProps) {
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, "detail");
+  const stack = useSheetStack<View>(open, onOpenChange, "detail");
+  const { push, pop, reset } = stack;
   const deleteMutation = useDeleteBirthday();
   const saving = deleteMutation.isPending;
   const paymentsQuery = usePaymentsList();
@@ -159,139 +155,148 @@ export function BirthdayDetailDialog({
   const days = birthday ? daysUntilBirthday(birthday.birth_date) : 0;
   const nextAge = birthday ? currentAge(birthday.birth_date) + 1 : 0;
 
-  const title = view === "delete" ? "Obriši rođendan" : "Detalji rođendana";
+  const titleFor = (view: View) => (view === "delete" ? "Obriši rođendan" : "Detalji rođendana");
   const hidden = !!moneyRequest || !!moneyTarget || !!viewedCelebration || !!celebrationForm;
 
   return (
     <>
-      <ResponsiveDialog
-        key={dialogKey}
-        open={dialogOpen && !hidden}
-        onOpenChange={handleOpenChange}
-      >
-        <ResponsiveDialogContent>
-          <SheetStackHeader title={title} srOnly={atRoot} onBack={atRoot ? undefined : pop} />
-          {birthday ? (
-            <div className="space-y-4">
-              <DetailHero
-                icon={CakeIcon}
-                tone="accent"
-                title={birthday.name}
-                subtitle={`Rođendan · ${formatDate(birthday.birth_date)}`}
-              />
-
-              {view === "delete" ? (
-                <p className="text-sm text-muted-foreground">
-                  Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
-                  opozvati.
-                </p>
-              ) : (
-                <>
-                  <DetailBadgeRow
-                    badges={[
-                      {
-                        label: daysLabel(days),
-                        tone: days <= 1 ? "accent" : "neutral",
-                      },
-                      {
-                        label: ageLabel(nextAge),
-                        tone: "neutral",
-                      },
-                    ]}
+      <SheetStackViews
+        stack={stack}
+        hidden={hidden}
+        render={(view, level) => (
+          <ResponsiveDialogContent>
+            <SheetStackHeader
+              title={titleFor(view)}
+              srOnly={level === 0}
+              onBack={level === 0 ? undefined : pop}
+            />
+            {birthday ? (
+              <div className="space-y-4">
+                {/* Root only: a stacked sub-view sits ON TOP of this sheet,
+                    which already names the subject right above it - repeating
+                    the hero printed the same title twice on one screen. */}
+                {level === 0 ? (
+                  <DetailHero
+                    icon={CakeIcon}
+                    tone="accent"
+                    title={birthday.name}
+                    subtitle={`Rođendan · ${formatDate(birthday.birth_date)}`}
                   />
+                ) : null}
 
-                  {birthday.description || celebration ? (
-                    <DetailInfoRows>
-                      {birthday.description ? (
-                        <DetailInfoText label="Opis" value={birthday.description} />
-                      ) : null}
-                      {celebration ? (
-                        <button
-                          type="button"
-                          onClick={() => setViewedCelebration(celebration)}
-                          className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:text-pink-400"
-                        >
-                          <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
-                          <span className="min-w-0 flex-1 truncate text-left">
-                            {celebration.name} · {formatDate(celebration.date)}
-                          </span>
-                          <ChevronRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground" />
-                        </button>
-                      ) : null}
-                    </DetailInfoRows>
-                  ) : null}
-
-                  <DetailActionList>
-                    <DetailActionRow
-                      icon={PencilSquareIcon}
-                      label="Izmeni rođendan"
-                      description="Ime, datum rođenja, opis"
-                      onClick={handleEdit}
-                      disabled={saving}
+                {view === "delete" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
+                    opozvati.
+                  </p>
+                ) : (
+                  <>
+                    <DetailBadgeRow
+                      badges={[
+                        {
+                          label: daysLabel(days),
+                          tone: days <= 1 ? "accent" : "neutral",
+                        },
+                        {
+                          label: ageLabel(nextAge),
+                          tone: "neutral",
+                        },
+                      ]}
                     />
-                    {!celebration ? (
+
+                    {birthday.description || celebration ? (
+                      <DetailInfoRows>
+                        {birthday.description ? (
+                          <DetailInfoText label="Opis" value={birthday.description} />
+                        ) : null}
+                        {celebration ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewedCelebration(celebration)}
+                            className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:text-pink-400"
+                          >
+                            <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
+                            <span className="min-w-0 flex-1 truncate text-left">
+                              {celebration.name} · {formatDate(celebration.date)}
+                            </span>
+                            <ChevronRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground" />
+                          </button>
+                        ) : null}
+                      </DetailInfoRows>
+                    ) : null}
+
+                    <DetailActionList>
                       <DetailActionRow
-                        icon={SparklesIcon}
-                        label="Organizuj proslavu"
-                        description="Zakaži proslavu kao događaj"
-                        onClick={() => {
-                          setCelebrationError(null);
-                          setCelebrationForm({ mode: "create" });
-                        }}
+                        icon={PencilSquareIcon}
+                        label="Izmeni rođendan"
+                        description="Ime, datum rođenja, opis"
+                        onClick={handleEdit}
                         disabled={saving}
                       />
-                    ) : null}
-                    <DetailActionRow
-                      icon={BanknotesIcon}
-                      label="Dodaj plaćanje za poklon"
-                      description="Prati poklon kao plaćanje uz rođendan"
-                      onClick={() =>
-                        setMoneyRequest({
-                          kind: "payment",
-                          link: { kind: "birthday", id: birthday.id },
-                        })
-                      }
-                      disabled={saving}
-                    />
-                    <DetailActionRow
-                      icon={TrashIcon}
-                      label="Obriši rođendan"
-                      description="Trajno uklanja rođendan"
-                      onClick={() => push("delete")}
-                      disabled={saving}
-                      tone="destructive"
-                    />
-                  </DetailActionList>
+                      {!celebration ? (
+                        <DetailActionRow
+                          icon={SparklesIcon}
+                          label="Organizuj proslavu"
+                          description="Zakaži proslavu kao događaj"
+                          onClick={() => {
+                            setCelebrationError(null);
+                            setCelebrationForm({ mode: "create" });
+                          }}
+                          disabled={saving}
+                        />
+                      ) : null}
+                      <DetailActionRow
+                        icon={BanknotesIcon}
+                        label="Dodaj plaćanje za poklon"
+                        description="Prati poklon kao plaćanje uz rođendan"
+                        onClick={() =>
+                          setMoneyRequest({
+                            kind: "payment",
+                            link: { kind: "birthday", id: birthday.id },
+                          })
+                        }
+                        disabled={saving}
+                      />
+                      <DetailActionRow
+                        icon={TrashIcon}
+                        label="Obriši rođendan"
+                        description="Trajno uklanja rođendan"
+                        onClick={() => push("delete")}
+                        disabled={saving}
+                        tone="destructive"
+                      />
+                    </DetailActionList>
 
-                  {/* Poklon tracking: payments linked to this birthday (renders
+                    {/* Poklon tracking: payments linked to this birthday (renders
                       nothing without any); a row opens that payment's detail. */}
-                  <LinkedPaymentsList
-                    payments={linkedPayments}
-                    onSelect={(payment) => setMoneyTarget({ kind: "payment", payment })}
-                  />
-                </>
-              )}
-            </div>
-          ) : null}
+                    <LinkedPaymentsList
+                      payments={linkedPayments}
+                      onSelect={(payment) => setMoneyTarget({ kind: "payment", payment })}
+                    />
+                  </>
+                )}
+              </div>
+            ) : null}
 
-          {view === "delete" ? (
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={saving}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleDelete();
-                }}
-                disabled={saving}
-              >
-                Obriši
-              </Button>
-            </ResponsiveDialogFooter>
-          ) : null}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+            {view === "delete" ? (
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={pop} disabled={saving}>
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleDelete();
+                  }}
+                  disabled={saving}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            ) : null}
+          </ResponsiveDialogContent>
+        )}
+      />
 
       <LinkedMoneyFlow request={moneyRequest} onClose={() => setMoneyRequest(null)} />
       <LinkedMoneyViewer target={moneyTarget} onClose={() => setMoneyTarget(null)} />

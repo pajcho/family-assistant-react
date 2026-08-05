@@ -5,6 +5,7 @@ import { MobileBottomNav } from "@/components/layout/AppNav";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useAccentSync } from "@/hooks/useAccent";
+import { AppCommandsProvider } from "@/hooks/useAppCommands";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamilyChannel } from "@/hooks/useFamilyChannel";
 import { SearchDialogProvider } from "@/hooks/useSearchDialog";
@@ -61,20 +62,22 @@ function AppLayout() {
   return (
     <AuthGate>
       <SearchDialogProvider>
-        <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
-          {/* >= lg: the nav rail. Below that it renders nothing and the bottom
+        <AppCommandsProvider>
+          <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+            {/* >= lg: the nav rail. Below that it renders nothing and the bottom
               bar takes over. */}
-          <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* The screen area. `min-h-0` is what makes the inner scroll
+            <AppSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              {/* The screen area. `min-h-0` is what makes the inner scroll
                 container actually scroll instead of stretching the frame. */}
-            <div className="relative min-h-0 flex-1">
-              <Outlet />
+              <div className="relative min-h-0 flex-1">
+                <Outlet />
+              </div>
+              <MobileBottomNav />
             </div>
-            <MobileBottomNav />
+            <PullToRefresh />
           </div>
-          <PullToRefresh />
-        </div>
+        </AppCommandsProvider>
       </SearchDialogProvider>
     </AuthGate>
   );

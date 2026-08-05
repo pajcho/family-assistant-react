@@ -311,7 +311,7 @@ export function ListBody({
             <button
               type="button"
               onClick={() => setShowCompleted((s) => !s)}
-              className="flex w-full items-center gap-1 rounded-md px-2 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-1 rounded-md px-2 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
             >
               {showCompleted ? (
                 <ChevronUpIcon className="h-3.5 w-3.5" />
@@ -391,7 +391,7 @@ function CategorizedItems({
     <div className="space-y-2">
       {groups.map((g) => (
         <div key={g.category}>
-          <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="px-2 pb-1 text-xs font-normal uppercase tracking-wide text-muted-foreground">
             {CATEGORY_LABEL[g.category]}
           </h3>
           <ul className="space-y-0.5">{g.items.map((item) => renderRow(item))}</ul>

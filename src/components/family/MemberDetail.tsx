@@ -33,12 +33,7 @@ import {
 import { useCreateMemberLogin, useDisableMemberLogin } from "@/hooks/useFamilyLogin";
 import { useDeleteSchoolShiftAnchor, useUpsertSchoolShiftAnchor } from "@/hooks/useSchoolShifts";
 import { cn } from "@/lib/cn";
-import {
-  PROFILE_COLOR_PALETTE,
-  fallbackColorForProfile,
-  getThisWeekStart,
-  profileColorName,
-} from "@/utils/activity";
+import { PROFILE_COLOR_PALETTE, fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import type { Profile } from "@/types/database";
 
@@ -59,7 +54,7 @@ export type MemberDetailProps = {
 };
 
 /** Status pill sizing shared by the role badges in the header. */
-const PILL = "rounded-full px-2 py-[3px] text-[10.5px] font-extrabold";
+const PILL = "rounded-full px-2 py-[3px] text-[10.5px] font-bold";
 
 /**
  * The detail pane for one family member. Every mutation here is admin-only at
@@ -97,7 +92,7 @@ export function MemberDetail({
         <button
           type="button"
           onClick={onBack}
-          className="-mx-1 flex min-h-11 items-center gap-1 px-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="-mx-1 flex min-h-11 items-center gap-1 px-1 text-sm font-normal text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           Svi članovi
@@ -120,10 +115,10 @@ export function MemberDetail({
           />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-lg font-bold text-foreground">
+          <div className="truncate text-lg font-semibold text-foreground">
             {name}
             {isSelf ? (
-              <span className="ml-1.5 text-sm font-semibold text-muted-foreground">(ti)</span>
+              <span className="ml-1.5 text-sm font-normal text-muted-foreground">(ti)</span>
             ) : null}
           </div>
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -297,7 +292,7 @@ export function MemberDetail({
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <h3 className="flex items-center gap-1.5 text-[11.5px] font-extrabold tracking-[0.08em] text-muted-foreground uppercase">
+    <h3 className="flex items-center gap-1.5 text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
       {icon}
       {title}
     </h3>
@@ -339,14 +334,14 @@ function ToggleRow({
         htmlFor={id}
         className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}
       >
-        <span className="flex items-center gap-1.5 text-[14.5px] font-bold text-foreground">
+        <span className="flex items-center gap-1.5 text-[14.5px] font-semibold text-foreground">
           <span className="text-muted-foreground">{icon}</span>
           {label}
         </span>
-        <span className="mt-0.5 block text-xs font-semibold text-muted-foreground">
+        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
           {description}
         </span>
-        {hint ? <span className="mt-0.5 block text-xs font-semibold text-warn">{hint}</span> : null}
+        {hint ? <span className="mt-0.5 block text-xs font-normal text-warn">{hint}</span> : null}
       </label>
     </div>
   );
@@ -411,19 +406,20 @@ function NameEditor({ member }: { member: Profile }) {
 
 function ColorPicker({ member }: { member: Profile }) {
   const updateColor = useUpdateProfileColor();
-  const selectedColorName = profileColorName(member.color);
   return (
     <section className="space-y-2">
       <SectionTitle icon={<SwatchIcon className="h-4 w-4" />} title="Boja" />
-      <div className="flex flex-wrap gap-0.5">
-        {PROFILE_COLOR_PALETTE.map((c) => (
+      {/* Swatches only. A colour is a colour - naming the eight of them gave
+          the UI sentences ("izabrana boja: borovnica") that carried nothing the
+          swatch itself doesn't already say. */}
+      <div className="flex flex-wrap gap-0.5" role="radiogroup" aria-label="Boja člana">
+        {PROFILE_COLOR_PALETTE.map((c, i) => (
           <button
             key={c}
             type="button"
-            // Fruit names instead of hex: the palette is fixed, so every colour
-            // has a name a person can actually say out loud.
-            aria-label={profileColorName(c) ?? `Boja ${c}`}
-            title={profileColorName(c) ?? undefined}
+            role="radio"
+            aria-checked={member.color === c}
+            aria-label={`Boja ${i + 1}`}
             onClick={() => updateColor.mutate({ profileId: member.id, color: c })}
             className={cn(
               "grid size-11 place-items-center rounded-full border-2 transition-transform hover:scale-110",
@@ -439,11 +435,7 @@ function ColorPicker({ member }: { member: Profile }) {
         ))}
       </div>
       {member.color == null ? (
-        <p className="text-xs font-semibold text-muted-foreground">Trenutno automatska boja.</p>
-      ) : selectedColorName ? (
-        <p className="text-xs font-semibold text-muted-foreground">
-          Izabrana boja: {selectedColorName}.
-        </p>
+        <p className="text-xs font-normal text-muted-foreground">Trenutno automatska boja.</p>
       ) : null}
     </section>
   );

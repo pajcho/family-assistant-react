@@ -197,7 +197,7 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted px-4 py-8 text-center">
         <VideoCameraSlashIcon className="size-8 text-muted-foreground" />
-        <p className="text-sm font-bold text-foreground">
+        <p className="text-sm font-semibold text-foreground">
           {state === "denied" ? "Kamera nije dozvoljena" : "Kamera nije dostupna"}
         </p>
         <p className="max-w-xs text-xs text-muted-foreground">
@@ -231,13 +231,13 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
       </div>
 
       {state === "starting" ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-[12.5px] font-bold text-white/85">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-[12.5px] font-semibold text-white/85">
           Uključujem kameru…
         </div>
       ) : null}
 
       {hint ? (
-        <div className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-center text-[12.5px] font-bold text-white/85">
+        <div className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-center text-[12.5px] font-semibold text-white/85">
           {hint}
         </div>
       ) : null}
