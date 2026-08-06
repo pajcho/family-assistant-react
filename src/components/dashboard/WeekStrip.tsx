@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { getDefaultClassNames } from "react-day-picker";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { Calendar } from "@/components/ui/calendar";
 import { IconButton } from "@/components/common/IconButton";
 import { NowPill } from "@/components/common/NowPill";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PickerOverlay } from "@/components/common/PickerOverlay";
 import { cn } from "@/lib/cn";
 import { getWeekStart } from "@/utils/activity";
 import { srLocale } from "@/utils/date";
@@ -216,34 +217,48 @@ export function WeekStrip({
           sm IconButton, so the line sits at the same height with or without
           arrows - switching calendar views must not shift the label. */}
       <div className="mb-1 flex min-h-[34px] items-center gap-2">
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger asChild>
+        {/* Daleki skok: na desktopu popover uz naslov, na mobilnom bottom
+            sheet - date picker je na telefonu uvek modal (app-wide pravilo). */}
+        <PickerOverlay
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          title="Izaberi dan"
+          contentClassName="w-auto"
+          trigger={({ onOpen }) => (
             <button
               type="button"
+              onClick={onOpen}
               aria-label={`${monthLabel} - izaberi dan`}
               className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-[13.5px] font-semibold transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <span className="truncate">{monthLabel}</span>
               <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
             </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto p-0">
-            <Calendar
-              mode="single"
-              locale={srLocale}
-              selected={activeDate}
-              defaultMonth={activeDate ?? fromDate}
-              startMonth={fromDate}
-              endMonth={maxDate}
-              disabled={{ before: fromDate, after: maxDate }}
-              onSelect={(date) => {
-                if (!date) return;
-                setPickerOpen(false);
-                onJumpToDay(format(date, "yyyy-MM-dd"));
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+          )}
+        >
+          {/* U sheetu mreža nosi PUNU širinu modala (ćelije narastu), u
+              popoveru ostaje prirodna širina - klase ispod menjaju samo
+              shadcn-ove `w-fit`/`p-3` default-e na root elementu. */}
+          <Calendar
+            mode="single"
+            locale={srLocale}
+            selected={activeDate}
+            defaultMonth={activeDate ?? fromDate}
+            startMonth={fromDate}
+            endMonth={maxDate}
+            disabled={{ before: fromDate, after: maxDate }}
+            className="bg-transparent p-0 sm:p-3"
+            classNames={{
+              root: cn("w-full sm:w-fit", getDefaultClassNames().root),
+              month_grid: cn("w-full", getDefaultClassNames().month_grid),
+            }}
+            onSelect={(date) => {
+              if (!date) return;
+              setPickerOpen(false);
+              onJumpToDay(format(date, "yyyy-MM-dd"));
+            }}
+          />
+        </PickerOverlay>
         <span className="min-w-1 flex-1" />
         {nowPill?.show ? <NowPill label={nowPill.label} onClick={nowPill.onClick} /> : null}
         {showArrows ? (

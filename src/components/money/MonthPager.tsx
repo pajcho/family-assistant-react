@@ -9,13 +9,15 @@ import { monthName, shiftMonth } from "@/utils/budget";
 
 /**
  * Novac's month row - the same header the calendar's Mesec view has, so the two
- * month screens read as one control: serif month name on the left (the title
- * doubles as the month/year grid trigger), small card arrows on the right, and
- * a NowPill back to the current month whenever you are off it.
+ * month screens read as one control: month name on the left (the title doubles
+ * as the month/year grid trigger), small card arrows on the right, and a
+ * NowPill back to the current month whenever you are off it.
  *
  * Replaced the centered `‹ Oktobar 2026 ›` pager (2026-08): two detached
  * arrows around a bare label read as an empty divider cutting the screen, and
- * the way back to the current month was buried in the popover.
+ * the way back to the current month was buried in the popover. The serif
+ * display title went with it (2026-08-06) - the label now matches the calendar
+ * views' month line exactly, so Kalendar and Novac read as one system.
  */
 
 /** Sentinel month value for the payments "all time" view. */
@@ -40,7 +42,7 @@ export function MonthPager({
   const baseMonth = isAll ? current : value;
 
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
+    <div className={cn("flex min-h-[34px] items-center gap-2", className)}>
       <MonthGridPopover
         value={isAll ? null : value}
         onPick={onChange}
@@ -53,17 +55,12 @@ export function MonthPager({
         <button
           type="button"
           aria-label="Izaberi mesec i godinu"
-          className="-mx-1 flex min-w-0 items-baseline gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-[13.5px] font-semibold transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <span className="truncate font-serif text-[27px] leading-none font-semibold tracking-[-0.01em]">
-            {isAll ? (allOptionLabel ?? "Sve") : monthName(value)}
+          <span className="truncate">
+            {isAll ? (allOptionLabel ?? "Sve") : `${monthName(value)} ${value.slice(0, 4)}`}
           </span>
-          {isAll ? null : (
-            <span className="text-sm font-semibold text-muted-foreground tabular-nums">
-              {value.slice(0, 4)}.
-            </span>
-          )}
-          <ChevronDownIcon className="size-4 shrink-0 self-center text-muted-foreground" />
+          <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </MonthGridPopover>
       <span className="min-w-1 flex-1" />

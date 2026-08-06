@@ -195,6 +195,48 @@ Predlog: https://claude.ai/code/artifact/d8b011aa-b20f-4ffd-bd24-5acdbdea21a3
 - [x] Provere: check + test (374) + build zeleno; rucni prolaz na dev serveru (mobil/desktop,
       svetla/tamna tema, zeleni akcenat demo naloga)
 
+### Lane K - Mobilni prolaz: hrom kalendara, mesecni karusel, modali (2026-08-06)
+
+Prolaz po korisnickim zamerkama posle trake J, sve na mobilnom (desktop nepromenjen).
+
+- [x] Kalendar (sve tri): ispod `lg` u fiksnom headeru ostaje SAMO naslov; Segmented i filter
+      cipovi idu u telo i skroluju sa sadrzajem, a nedeljna traka je jedina lepljiva - u
+      sticky kutiji u telu (`CalendarScreen`), cija se visina meri (ResizeObserver) i salje
+      agendi kao `stickyOffset` (`--agenda-sticky-top`), pa dnevni headeri i skok-na-dan
+      racunaju offset i parkiraju ISPOD trake
+- [x] Kalendar > Nedelja na mobilnom: mreza pune visine, vertikalu skroluje stranica
+      (`pageScroll`); `overscroll-x-contain` (NE `overscroll-contain` - potonje guta
+      vertikalno prevlacenje preko mreze); BEZ auto-scrolla na "sada" (odvlacio je tabove sa
+      ekrana cim se otvori prikaz), umesto toga se fokusirani dan CENTRIRA vodoravno
+- [x] Kalendar > Mesec: bez auto-selekcije 1. u mesecu - danas je jedini dan koji sistem sam
+      bira; selekcija je trajna preko promene meseca (peek lista kesira redove van prozora
+      upita dok korisnik ne tapne drugi dan); lepljiv je red izabranog dana
+- [x] Kalendar > Mesec: vertikalni swipe = pravi translateY karusel (prev/next mreze kao
+      `inert` stranice, commit tek posle animacije + layoutEffect reset na `monthAnchor`);
+      deljena granicna nedelja se NE duplira (susedna stranica je ispusta, distanca klizanja
+      kraca za red, dimovanje se preokrene na commit)
+- [x] `calendar/WeekTimeGridShell` - JEDNA rama nedeljne mreze za Kalendar > Nedelja i
+      /activities `WeekGrid`: kolone 56px + 7x260px (<sm) / 1fr (sm+), lepljivo zaglavlje dana
+      sa lepljivim uglom (fix: na Aktivnostima je red dana isao PREKO satnice), lepljiva
+      satnica, "sada" linija/bedz, opcioni "Ceo dan" red. Sirine i lepljivost se od sada
+      menjaju samo tu
+- [x] Novac: naslov meseca smanjen na isti stil kao na Kalendaru (13.5px semibold + chevron),
+      umesto serifnog 27px - dva mesecna ekrana citaju se kao jedna kontrola
+- [x] Date pickeri na mobilnom su MODAL (bottom sheet), popover ostaje samo na desktopu:
+      `MonthGridPopover` (Kalendar > Mesec, Novac), `WeekStrip` mini-kalendar (full-width
+      mreza u sheetu), `PeriodPicker/MonthPicker` (Dogadjaji, Rodjendani)
+- [x] Isti obrazac i za menije akcija: "Akcije liste" na `lists/$listId` je na mobilnom sheet
+      sa `DetailActionRow` redovima (destruktivna poslednja), na desktopu ostaje dropdown
+- [x] Sheet visina: `ResponsiveDialogContent` vise NEMA stalan `min-h-[60vh]` - sheet je tacno
+      koliko sadrzaj trazi (kapa `max-h-[90vh]`), a pod od 60vh se ukljucuje samo dok je
+      tastatura otvorena (`useIsKeyboardOpen`), jer je to jedini razlog zbog kog je i postojao
+      (iOS pojas izmedju kratkog sheeta i tastature). Nema per-sheet propa za visinu
+- [x] Globalni "+": "Skeniraj racun" vise nije akcentom ispunjen heroj nego ista plocica kao
+      ostale, samo pune sirine; plocice dobile app-ov focus prsten (podrazumevani prsten
+      pregledaca je amber = boja upozorenja)
+- [x] Provere: check + test (374) + build zeleno; rucni prolaz na dev serveru (mobil 375px i
+      desktop, sve tri kalendar strane, Novac, Aktivnosti, Liste, pickeri)
+
 ## Paralelizacija (predlog za agente/worktree-ove)
 
 - Agent 1: A, zatim B, zatim pomaze I
@@ -379,3 +421,9 @@ Integracija (traka I):
   ne vredi ni da se vidi cela. Uz to: mreza sada skroluje u OBA smera unutar
   svog okvira (`AppScreen fillBody`), pa su zaglavlje dana i satnica levo
   stvarno lepljivi, i otvara se na danasnjem danu i tekucem satu.
+- DOPUNA (traka K, 2026-08-06): kolone su prosirene sa 140px na 260px - iste kao
+  na /activities, jer su dve strane sada na istoj rami (`WeekTimeGridShell`).
+  Dvoosni skrol vazi jos samo na desktopu; na mobilnom mreza ide pune visine a
+  vertikalu nosi stranica, pa zaglavlje dana tamo ne moze da bude lepljivo -
+  ulogu "gde sam u nedelji" preuzima lepljiva nedeljna traka iznad. Otvaranje na
+  tekucem satu je uklonjeno (vidi traku K), ostaje centriranje danasnjeg dana.

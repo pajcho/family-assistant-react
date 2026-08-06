@@ -15,9 +15,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DetailActionList, DetailActionRow } from "@/components/common/DetailSheet";
 import { IconButton } from "@/components/common/IconButton";
 import { MarkdownText } from "@/components/common/MarkdownText";
 import { Pill } from "@/components/common/Pill";
+import { SheetStackHeader } from "@/components/common/SheetStack";
 import { AppScreen } from "@/components/layout/AppScreen";
 import {
   DropdownMenu,
@@ -26,6 +28,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  useIsDesktop,
+} from "@/components/ui/responsive-dialog";
 import { ListBody } from "@/components/lists/ListBody";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import { ListInfoPanel } from "@/components/lists/ListInfoPanel";
@@ -361,6 +368,18 @@ function ListHeader({
   const active = list.list_items.filter((i) => !i.is_completed).length;
   const completed = list.list_items.filter((i) => i.is_completed).length;
   const scopeLabel = list.scope === "family" ? "Porodica" : "Lično";
+  const canExport = list.list_items.length > 0;
+
+  // The actions menu: an anchored dropdown on desktop, a bottom sheet of
+  // DetailActionRow rows on phones (the DetailSheet convention) - an anchored
+  // menu at the top-right corner is a stretch for the thumb and easy to
+  // mis-tap. One action at a time: a row closes the sheet, then runs.
+  const isDesktop = useIsDesktop();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const runAction = (action: () => void) => {
+    setMenuOpen(false);
+    action();
+  };
 
   return (
     <header className="flex items-center gap-2">
@@ -397,55 +416,101 @@ function ListHeader({
 
       <IconButton icon={InformationCircleIcon} aria-label="Detalji liste" onClick={onShowInfo} />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <IconButton icon={EllipsisVerticalIcon} aria-label="Akcije liste" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onEdit}>
-            <PencilIcon className="h-4 w-4" />
-            Izmeni listu
-          </DropdownMenuItem>
-          {/* Duplicate copies the list's settings (name, scope, description,
-              retention) into a fresh list; the form offers "Kopiraj i stavke"
-              to also clone the items as not-completed. Grouped with "Izmeni"
-              since both are "set up a list" actions. */}
-          <DropdownMenuItem onSelect={onDuplicate}>
-            <DocumentDuplicateIcon className="h-4 w-4" />
-            Dupliraj listu
-          </DropdownMenuItem>
-          {/* Export entries - disabled on empty lists (the file would be empty). */}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => exportListAsMarkdown(list)}
-            disabled={list.list_items.length === 0}
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-            Eksportuj (Markdown)
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => exportListAsCsv(list)}
-            disabled={list.list_items.length === 0}
-          >
-            <TableCellsIcon className="h-4 w-4" />
-            Eksportuj (CSV)
-          </DropdownMenuItem>
-          {completed > 0 ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onClearCompleted}>
-                <TrashIcon className="h-4 w-4" />
-                Obriši završene ({completed})
-              </DropdownMenuItem>
-            </>
-          ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-            <TrashIcon className="h-4 w-4" />
-            Obriši listu
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {isDesktop ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <IconButton icon={EllipsisVerticalIcon} aria-label="Akcije liste" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit}>
+              <PencilIcon className="h-4 w-4" />
+              Izmeni listu
+            </DropdownMenuItem>
+            {/* Duplicate copies the list's settings (name, scope, description,
+                retention) into a fresh list; the form offers "Kopiraj i stavke"
+                to also clone the items as not-completed. Grouped with "Izmeni"
+                since both are "set up a list" actions. */}
+            <DropdownMenuItem onSelect={onDuplicate}>
+              <DocumentDuplicateIcon className="h-4 w-4" />
+              Dupliraj listu
+            </DropdownMenuItem>
+            {/* Export entries - disabled on empty lists (the file would be empty). */}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => exportListAsMarkdown(list)} disabled={!canExport}>
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              Eksportuj (Markdown)
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => exportListAsCsv(list)} disabled={!canExport}>
+              <TableCellsIcon className="h-4 w-4" />
+              Eksportuj (CSV)
+            </DropdownMenuItem>
+            {completed > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onClearCompleted}>
+                  <TrashIcon className="h-4 w-4" />
+                  Obriši završene ({completed})
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+              <TrashIcon className="h-4 w-4" />
+              Obriši listu
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <>
+          <IconButton
+            icon={EllipsisVerticalIcon}
+            aria-label="Akcije liste"
+            onClick={() => setMenuOpen(true)}
+          />
+          <ResponsiveDialog open={menuOpen} onOpenChange={setMenuOpen}>
+            <ResponsiveDialogContent>
+              <SheetStackHeader title="Akcije liste" />
+              <DetailActionList>
+                <DetailActionRow
+                  icon={PencilIcon}
+                  label="Izmeni listu"
+                  onClick={() => runAction(onEdit)}
+                />
+                <DetailActionRow
+                  icon={DocumentDuplicateIcon}
+                  label="Dupliraj listu"
+                  onClick={() => runAction(onDuplicate)}
+                />
+                <DetailActionRow
+                  icon={ArrowDownTrayIcon}
+                  label="Eksportuj (Markdown)"
+                  disabled={!canExport}
+                  onClick={() => runAction(() => exportListAsMarkdown(list))}
+                />
+                <DetailActionRow
+                  icon={TableCellsIcon}
+                  label="Eksportuj (CSV)"
+                  disabled={!canExport}
+                  onClick={() => runAction(() => exportListAsCsv(list))}
+                />
+                {completed > 0 ? (
+                  <DetailActionRow
+                    icon={TrashIcon}
+                    label={`Obriši završene (${completed})`}
+                    onClick={() => runAction(onClearCompleted)}
+                  />
+                ) : null}
+                <DetailActionRow
+                  icon={TrashIcon}
+                  label="Obriši listu"
+                  tone="destructive"
+                  onClick={() => runAction(onDelete)}
+                />
+              </DetailActionList>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
+        </>
+      )}
     </header>
   );
 }
