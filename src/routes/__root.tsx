@@ -36,13 +36,13 @@ function RootLayout() {
 
 function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
       <div className="max-w-md text-center">
-        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">404</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+        <p className="text-sm font-normal text-blue-600 dark:text-blue-400">404</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
           Stranica nije pronađena
         </h1>
-        <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-3 text-sm text-muted-foreground">
           Tražena stranica ne postoji ili je premeštena.
         </p>
         <div className="mt-6">

@@ -10,21 +10,21 @@ import { recurrenceLabel } from "@/utils/payment";
 function PaymentStatusPill({ payment }: { payment: Payment }) {
   if (payment.is_paid) {
     return (
-      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+      <span className="rounded-full bg-pos-soft px-2 py-[3px] text-[10.5px] font-bold text-pos">
         Plaćeno
       </span>
     );
   }
   if (payment.is_paused) {
     return (
-      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+      <span className="rounded-full bg-muted px-2 py-[3px] text-[10.5px] font-bold text-muted-foreground">
         Pauzirano
       </span>
     );
   }
   if (isOverdue(payment.due_date)) {
     return (
-      <span className="rounded bg-red-200 px-1.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-800/60 dark:text-red-200">
+      <span className="rounded-full bg-neg-soft px-2 py-[3px] text-[10.5px] font-bold text-neg">
         Prekoračeno
       </span>
     );
@@ -56,14 +56,12 @@ function MoneyRow({
     <>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-            {title}
-          </span>
+          <span className="truncate text-sm font-medium text-foreground">{title}</span>
           {pill}
         </div>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <span className="shrink-0 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+      <span className="shrink-0 text-right text-sm font-bold tracking-[-0.01em] tabular-nums text-foreground">
         {amount}
       </span>
     </>
@@ -77,10 +75,10 @@ function MoneyRow({
       type="button"
       onClick={onSelect}
       aria-label={selectLabel}
-      className="-mx-1.5 flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-700/40"
+      className="-mx-1.5 flex w-full items-center justify-between gap-3 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       {body}
-      <ChevronRightIcon className="-ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500" />
+      <ChevronRightIcon className="-ml-1.5 size-4 shrink-0 text-muted-foreground" />
     </button>
   );
 }
@@ -105,8 +103,10 @@ export function LinkedPaymentsList({
   if (payments.length === 0) return null;
 
   return (
-    <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
-      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Plaćanja</p>
+    <div className="space-y-3 rounded-xl border border-border p-3">
+      <p className="text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+        Plaćanja
+      </p>
       <ul className="space-y-2">
         {payments.map((payment) => (
           <li key={payment.id}>
@@ -159,8 +159,10 @@ export function LinkedExpensesList({
   if (expenses.length === 0) return null;
 
   return (
-    <div className="space-y-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
-      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Troškovi</p>
+    <div className="space-y-3 rounded-xl border border-border p-3">
+      <p className="text-[11.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+        Troškovi
+      </p>
       <ul className="space-y-2">
         {expenses.map((expense) => (
           <li key={expense.id}>

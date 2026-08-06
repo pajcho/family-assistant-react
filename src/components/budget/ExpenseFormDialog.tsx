@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
   ResponsiveDialogFooter,
@@ -13,7 +12,7 @@ import {
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { Amount } from "@/components/common/Amount";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
@@ -33,6 +32,7 @@ import {
   type ExpenseFormState,
   type ExpenseFormViewKind,
 } from "@/components/budget/ExpenseForm";
+import { preloadReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 import type { Expense } from "@/types/database";
 import { useToday } from "@/hooks/useToday";
 
@@ -63,7 +63,7 @@ type View = { kind: "form" | ExpenseFormViewKind | "delete" | "link" };
  * The "Brzi unos" shell around <ExpenseForm> - same architecture as
  * PaymentFormDialog: the dialog owns the SheetStack (mobile "Više detalja"
  * row pushes the Detalji sub-view into this same sheet), the form state +
- * currency control (so the SheetStack's mobile close→reopen hop can't drop
+ * currency control (so a sub-view opening over the form can't drop
  * what the user typed), the reseed on open, and the pinned mobile footer.
  * On desktop the form renders fully expanded, exactly as before.
  */
@@ -97,6 +97,14 @@ export function ExpenseFormDialog({
   const todayRef = useRef(today.str);
   todayRef.current = today.str;
 
+  // "Skeniraj račun" closes this dialog and opens the scanner. That chunk is
+  // heavy (camera + zxing-wasm) and nothing is on screen while it downloads, so
+  // a cold click reads as "the dialog just closed". Warm it as soon as the form
+  // is open - by the time the row is clicked the hop is instant.
+  useEffect(() => {
+    if (open && onScanReceipt) preloadReceiptScanDialog();
+  }, [open, onScanReceipt]);
+
   useEffect(() => {
     if (!open) return;
     const link = parsePaymentLinkSeed(linkSeed);
@@ -109,17 +117,16 @@ export function ExpenseFormDialog({
   }, [open, expense, linkSeed, resetCurrency, resetStack]);
 
   const isEdit = !!expense?.id;
-  const view = stack.view;
   const isDesktop = useIsDesktop();
 
-  const mobileFooter =
+  const mobileFooterFor = (view: View) =>
     !isDesktop && view.kind === "form" ? (
       isEdit ? (
         <div className="flex items-center justify-between gap-2">
           <Button
             type="button"
             variant="ghost"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="text-neg hover:bg-neg-soft hover:text-neg"
             onClick={() => stack.push({ kind: "delete" })}
             disabled={saving || deleting}
           >
@@ -158,106 +165,105 @@ export function ExpenseFormDialog({
     ) : undefined;
 
   return (
-    <ResponsiveDialog
-      key={stack.dialogKey}
-      open={stack.dialogOpen}
-      onOpenChange={stack.handleOpenChange}
-    >
-      <ResponsiveDialogContent stickyFooter={mobileFooter}>
-        {view.kind === "form" ? (
-          <>
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>
-                {isEdit ? "Izmeni trošak" : "Dodaj trošak"}
-              </ResponsiveDialogTitle>
-              <ResponsiveDialogDescription className="sr-only">
-                Unesi iznos i izaberi kategoriju troška.
-              </ResponsiveDialogDescription>
-            </ResponsiveDialogHeader>
-            {error ? (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {error}
-              </div>
-            ) : null}
-            <ExpenseForm
-              form={form}
-              setForm={setForm}
-              ca={ca}
-              expense={expense}
-              saving={saving}
-              onSubmit={onSubmit}
-              onCancel={() => onOpenChange(false)}
-              onScanReceipt={onScanReceipt}
-              onOpenView={(kind) => stack.push({ kind })}
-              onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
-            />
-          </>
-        ) : view.kind === "category" ? (
-          <>
-            <SheetStackHeader title="Kategorija" onBack={stack.pop} />
-            <CategoryGridPicker
-              value={form.category_id}
-              onChange={(category_id) => {
-                setForm((s) => ({ ...s, category_id }));
-                // Nothing else to configure here - selection pops right back.
-                stack.pop();
-              }}
-            />
-          </>
-        ) : view.kind === "delete" ? (
-          <>
-            <SheetStackHeader title="Obriši trošak" onBack={stack.pop} />
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Obrisati ovaj trošak (<Amount value={expense?.amount ?? 0} />
-              )? Ova radnja se ne može opozvati.
-            </p>
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={stack.pop} disabled={deleting}>
-                Nazad
-              </Button>
-              <Button variant="destructive" onClick={onDelete} disabled={deleting}>
-                {deleting ? "Brišem…" : "Obriši"}
-              </Button>
-            </ResponsiveDialogFooter>
-          </>
-        ) : view.kind === "link" ? (
-          <>
-            <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
-            <PaymentLinkPickerSheet
-              value={form.link}
-              onChange={(link) => setForm((s) => ({ ...s, link }))}
-              onDone={stack.pop}
-              kinds={EXPENSE_LINK_KINDS}
-            />
-          </>
-        ) : (
-          <>
-            <SheetStackHeader title="Detalji" onBack={stack.pop} />
-            <div className="space-y-4">
-              <ExpensePersonSelect
-                value={form.person_id}
-                onChange={(person_id) => setForm((s) => ({ ...s, person_id }))}
+    <SheetStackViews
+      stack={stack}
+      render={(view) => (
+        <ResponsiveDialogContent stickyFooter={mobileFooterFor(view)}>
+          {view.kind === "form" ? (
+            <>
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle>
+                  {isEdit ? "Izmeni trošak" : "Dodaj trošak"}
+                </ResponsiveDialogTitle>
+                <ResponsiveDialogDescription className="sr-only">
+                  Unesi iznos i izaberi kategoriju troška.
+                </ResponsiveDialogDescription>
+              </ResponsiveDialogHeader>
+              {error ? (
+                <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {error}
+                </div>
+              ) : null}
+              <ExpenseForm
+                form={form}
+                setForm={setForm}
+                ca={ca}
+                expense={expense}
+                saving={saving}
+                onSubmit={onSubmit}
+                onCancel={() => onOpenChange(false)}
+                onScanReceipt={onScanReceipt}
+                onOpenView={(kind) => stack.push({ kind })}
+                onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
               />
-              <div className="space-y-2">
-                <Label htmlFor="expense-note">Beleška</Label>
-                <Input
-                  id="expense-note"
-                  value={form.note}
-                  onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))}
-                  placeholder="npr. pijaca"
-                />
-              </div>
-              <PaymentLinkField
+            </>
+          ) : view.kind === "category" ? (
+            <>
+              <SheetStackHeader title="Kategorija" onBack={stack.pop} />
+              <CategoryGridPicker
+                value={form.category_id}
+                onChange={(category_id) => {
+                  setForm((s) => ({ ...s, category_id }));
+                  // Nothing else to configure here - selection pops right back.
+                  stack.pop();
+                }}
+              />
+            </>
+          ) : view.kind === "delete" ? (
+            <>
+              <SheetStackHeader title="Obriši trošak" onBack={stack.pop} />
+              <p className="text-sm text-muted-foreground">
+                Obrisati ovaj trošak (<Amount value={expense?.amount ?? 0} />
+                )? Ova radnja se ne može opozvati.
+              </p>
+              <ResponsiveDialogFooter>
+                <Button variant="outline" onClick={stack.pop} disabled={deleting}>
+                  Nazad
+                </Button>
+                <Button variant="destructive" onClick={onDelete} disabled={deleting}>
+                  {deleting ? "Brišem…" : "Obriši"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </>
+          ) : view.kind === "link" ? (
+            <>
+              <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
+              <PaymentLinkPickerSheet
                 value={form.link}
                 onChange={(link) => setForm((s) => ({ ...s, link }))}
+                onDone={stack.pop}
                 kinds={EXPENSE_LINK_KINDS}
-                // Mobile-only sub-view: full-sheet picker instead of a popover.
-                onOpenPicker={() => stack.push({ kind: "link" })}
               />
-            </div>
-          </>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+            </>
+          ) : (
+            <>
+              <SheetStackHeader title="Detalji" onBack={stack.pop} />
+              <div className="space-y-4">
+                <ExpensePersonSelect
+                  value={form.person_id}
+                  onChange={(person_id) => setForm((s) => ({ ...s, person_id }))}
+                />
+                <div className="space-y-2">
+                  <Label htmlFor="expense-note">Beleška</Label>
+                  <Input
+                    id="expense-note"
+                    value={form.note}
+                    onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))}
+                    placeholder="npr. pijaca"
+                  />
+                </div>
+                <PaymentLinkField
+                  value={form.link}
+                  onChange={(link) => setForm((s) => ({ ...s, link }))}
+                  kinds={EXPENSE_LINK_KINDS}
+                  // Mobile-only sub-view: full-sheet picker instead of a popover.
+                  onOpenPicker={() => stack.push({ kind: "link" })}
+                />
+              </div>
+            </>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

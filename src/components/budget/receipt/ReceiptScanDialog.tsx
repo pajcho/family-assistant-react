@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { ArrowUpTrayIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
   ResponsiveDialogHeader,
@@ -12,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   ClaimConflictError,
   DuplicateReceiptError,
@@ -54,7 +53,7 @@ import { decodeQrFromFile } from "./receiptQr";
  * dialog's sheet stack (see `useSheetStack`), and the preview's field values
  * AND line selection live in this component: dismissing a sub-view
  * (swipe-down, tap outside) returns to the preview instead of throwing away
- * the parsed receipt, and the stack's mobile close→reopen hop can't drop what
+ * the parsed receipt, and a sub-view opening over the preview can't drop what
  * the user already picked.
  */
 
@@ -130,11 +129,11 @@ export default function ReceiptScanDialog({
   // The preview's sub-views ride this dialog's sheet stack, so a drawer
   // dismissal inside "Stavke"/"Kategorija"/"Detalji" pops back to the preview
   // (the parsed receipt survives); only a dismissal at the root closes the flow.
-  const { view, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<ReceiptPreviewView>(open, onOpenChange, "main");
+  const stack = useSheetStack<ReceiptPreviewView>(open, onOpenChange, "main");
+  const { push, pop, reset } = stack;
 
-  // The preview's field values - owned here so the stack's mobile close→reopen
-  // hop (which remounts the sheet content) can't drop them.
+  // The preview's field values - owned here so a sub-view opening on top (and
+  // the preview remounting behind it) can't drop them.
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -150,7 +149,7 @@ export default function ReceiptScanDialog({
   }, [merchantCategory.data]);
 
   // Reset everything whenever the dialog closes so the next open starts fresh.
-  // (The sheet stack resets itself on close - see useSheetStack.)
+  // (The sheet stack rearms itself on the next open - see useSheetStack.)
   useEffect(() => {
     if (!open) {
       setMode("capture");
@@ -424,190 +423,204 @@ export default function ReceiptScanDialog({
           : "Skeniraj račun";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
-        {/* Preview renders its own header (it drives its own sub-view stack);
+    <SheetStackViews
+      stack={stack}
+      render={(view) => (
+        <ResponsiveDialogContent className="sm:max-w-md">
+          {/* Preview renders its own header (it drives its own sub-view stack);
             every other mode gets the plain dialog header here. */}
-        {mode !== "preview" ? (
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription className="sr-only">
-              Skeniraj QR kod fiskalnog računa da uvezeš trošak.
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-        ) : null}
+          {mode !== "preview" ? (
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className="sr-only">
+                Skeniraj QR kod fiskalnog računa da uvezeš trošak.
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
+          ) : null}
 
-        {mode === "capture" ? (
-          <div className="space-y-4">
-            {/* Only mount the camera while open, so closing releases it. */}
-            {open ? <ReceiptCamera onDecode={runImport} /> : null}
+          {mode === "capture" ? (
+            <div className="space-y-4">
+              {/* Only mount the camera while open, so closing releases it. */}
+              {open ? <ReceiptCamera onDecode={runImport} /> : null}
 
-            {captureError ? (
-              <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                <ExclamationTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                <span>{captureError}</span>
+              {captureError ? (
+                <div className="flex items-start gap-2 rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                  <ExclamationTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>{captureError}</span>
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                ili
+                <span className="h-px flex-1 bg-border" />
               </div>
-            ) : null}
 
-            <div className="flex items-center gap-3 text-xs text-gray-400">
-              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-              ili
-              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-            </div>
+              {/* Paste link fallback. */}
+              <div className="space-y-2">
+                <Label htmlFor="receipt-url">Nalepi link sa računa</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="receipt-url"
+                    value={pasteValue}
+                    onChange={(e) => {
+                      setPasteValue(e.target.value);
+                      if (pasteError) setPasteError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handlePaste();
+                      }
+                    }}
+                    inputMode="url"
+                    placeholder="https://suf.purs.gov.rs/v/?vl=…"
+                    aria-invalid={!!pasteError}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePaste}
+                    disabled={!pasteValue.trim()}
+                  >
+                    Učitaj
+                  </Button>
+                </div>
+                {pasteError ? <p className="text-xs font-normal text-neg">{pasteError}</p> : null}
+              </div>
 
-            {/* Paste link fallback. */}
-            <div className="space-y-2">
-              <Label htmlFor="receipt-url">Nalepi link sa računa</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="receipt-url"
-                  value={pasteValue}
-                  onChange={(e) => {
-                    setPasteValue(e.target.value);
-                    if (pasteError) setPasteError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handlePaste();
-                    }
-                  }}
-                  inputMode="url"
-                  placeholder="https://suf.purs.gov.rs/v/?vl=…"
-                  aria-invalid={!!pasteError}
+              {/* Upload image fallback. */}
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void handleFile(e.target.files?.[0])}
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handlePaste}
-                  disabled={!pasteValue.trim()}
+                  className="w-full"
+                  disabled={uploadBusy}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  Učitaj
+                  <ArrowUpTrayIcon className="size-4" />
+                  {uploadBusy ? "Čitam sliku…" : "Otpremi sliku"}
                 </Button>
+                {uploadError ? <p className="text-xs font-normal text-neg">{uploadError}</p> : null}
               </div>
-              {pasteError ? (
-                <p className="text-xs text-red-600 dark:text-red-400">{pasteError}</p>
-              ) : null}
             </div>
+          ) : null}
 
-            {/* Upload image fallback. */}
-            <div className="space-y-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => void handleFile(e.target.files?.[0])}
+          {mode === "loading" ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12">
+              <span
+                className="size-8 animate-spin rounded-full border-2 border-border border-t-accent"
+                aria-hidden="true"
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={uploadBusy}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ArrowUpTrayIcon className="size-4" />
-                {uploadBusy ? "Čitam sliku…" : "Otpremi sliku"}
-              </Button>
-              {uploadError ? (
-                <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
-              ) : null}
+              <p className="text-sm text-muted-foreground">Učitavam račun…</p>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {mode === "loading" ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-12">
-            <span
-              className="size-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400"
-              aria-hidden="true"
+          {mode === "preview" && receipt ? (
+            <ReceiptPreview
+              receipt={receipt}
+              lines={lines}
+              selectable={selectable}
+              selected={selected}
+              onToggleLine={(idx) => {
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(idx)) next.delete(idx);
+                  else next.add(idx);
+                  return next;
+                });
+              }}
+              onSetAllLines={(select) => {
+                setSelected(
+                  select ? new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)) : new Set(),
+                );
+              }}
+              selectedSum={selectedSum}
+              partial={partial}
+              saving={saveReceipt.isPending}
+              error={saveError}
+              view={view}
+              onOpenView={push}
+              onBack={pop}
+              categoryId={categoryId}
+              onCategoryChange={(id) => {
+                categoryTouched.current = true;
+                setCategoryId(id);
+              }}
+              personId={personId}
+              onPersonChange={setPersonId}
+              note={note}
+              onNoteChange={setNote}
+              onCancel={() => onOpenChange(false)}
+              onSave={handleSave}
             />
-            <p className="text-sm text-gray-600 dark:text-gray-300">Učitavam račun…</p>
-          </div>
-        ) : null}
+          ) : null}
 
-        {mode === "preview" && receipt ? (
-          <ReceiptPreview
-            receipt={receipt}
-            lines={lines}
-            selectable={selectable}
-            selected={selected}
-            onToggleLine={(idx) => {
-              setSelected((prev) => {
-                const next = new Set(prev);
-                if (next.has(idx)) next.delete(idx);
-                else next.add(idx);
-                return next;
-              });
-            }}
-            onSetAllLines={(select) => {
-              setSelected(
-                select ? new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)) : new Set(),
-              );
-            }}
-            selectedSum={selectedSum}
-            partial={partial}
-            saving={saveReceipt.isPending}
-            error={saveError}
-            view={view}
-            onOpenView={push}
-            onBack={pop}
-            categoryId={categoryId}
-            onCategoryChange={(id) => {
-              categoryTouched.current = true;
-              setCategoryId(id);
-            }}
-            personId={personId}
-            onPersonChange={setPersonId}
-            note={note}
-            onNoteChange={setNote}
-            onCancel={() => onOpenChange(false)}
-            onSave={handleSave}
-          />
-        ) : null}
-
-        {mode === "chain" && chainInfo ? (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Trošak je sačuvan. Na računu je preostalo još {chainInfo.count}{" "}
-              {stavkeLabel(chainInfo.count)} (<Amount value={chainInfo.sum} />) - želiš li da ih
-              dodaš kao poseban trošak, npr. u drugoj kategoriji?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Završi
-              </Button>
-              <Button type="button" onClick={handleChainContinue}>
-                Dodaj ostatak kao novi trošak
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {mode === "duplicate" ? (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Ovaj račun je već dodat u budžet. Nećemo ga dodati dvaput.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Zatvori
-              </Button>
-              {duplicateMonth && onJumpToMonth ? (
+          {mode === "chain" && chainInfo ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Trošak je sačuvan. Na računu je preostalo još {chainInfo.count}{" "}
+                {stavkeLabel(chainInfo.count)} (<Amount value={chainInfo.sum} />) - želiš li da ih
+                dodaš kao poseban trošak, npr. u drugoj kategoriji?
+              </p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
-                  onClick={() => {
-                    onJumpToMonth(duplicateMonth);
-                    onOpenChange(false);
-                  }}
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={() => onOpenChange(false)}
                 >
-                  Prikaži u budžetu
+                  Završi
                 </Button>
-              ) : null}
+                <Button
+                  type="button"
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={handleChainContinue}
+                >
+                  Dodaj ostatak kao novi trošak
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : null}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+          ) : null}
+
+          {mode === "duplicate" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Ovaj račun je već dodat u budžet. Nećemo ga dodati dvaput.
+              </p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Zatvori
+                </Button>
+                {duplicateMonth && onJumpToMonth ? (
+                  <Button
+                    type="button"
+                    className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                    onClick={() => {
+                      onJumpToMonth(duplicateMonth);
+                      onOpenChange(false);
+                    }}
+                  >
+                    Prikaži u budžetu
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

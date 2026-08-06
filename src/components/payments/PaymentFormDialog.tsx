@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
 import {
@@ -62,8 +61,8 @@ type View = { kind: "form" | PaymentFormViewKind | "link" };
  *   - the SheetStack - the mobile picker rows (Tip plaćanja / Kategorija /
  *     Više detalja) push sub-views into this same sheet, "←" pops back;
  *   - the form state + currency control - lifted here so the SheetStack's
- *     mobile close→reopen hop (which remounts the dialog subtree via
- *     `dialogKey`) can't drop what the user already typed;
+ *     sub-view opening over the form (which remounts the form's subtree
+ *     behind it) can't drop what the user already typed;
  *   - the reseed: state resets on every open and when the edited payment /
  *     its async-loaded assignees change.
  *
@@ -124,13 +123,12 @@ export function PaymentFormDialog({
   }, [open, payment, initialName, personSeed, linkSeed, resetCurrency, resetStack]);
 
   const title = payment ? "Izmeni plaćanje" : "Dodaj plaćanje";
-  const view = stack.view;
   const isDesktop = useIsDesktop();
 
   // Mobile root view pins the actions below the scroll area (thumb reach,
   // nothing hides behind them); the submit reaches the form via `form=`.
   // Desktop and sub-views keep no pinned bar.
-  const mobileFooter =
+  const mobileFooterFor = (view: View) =>
     !isDesktop && view.kind === "form" ? (
       <div className="flex gap-2">
         <Button
@@ -148,77 +146,76 @@ export function PaymentFormDialog({
     ) : undefined;
 
   return (
-    <ResponsiveDialog
-      key={stack.dialogKey}
-      open={stack.dialogOpen}
-      onOpenChange={stack.handleOpenChange}
-    >
-      <ResponsiveDialogContent stickyFooter={mobileFooter}>
-        {view.kind === "form" ? (
-          <>
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-            </ResponsiveDialogHeader>
-            {error ? (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {error}
-              </div>
-            ) : null}
-            <PaymentForm
-              form={form}
-              setForm={setForm}
-              ca={ca}
-              payment={payment}
-              hasHistory={hasHistory}
-              saving={saving}
-              onSubmit={onSubmit}
-              onCancel={() => onOpenChange(false)}
-              onOpenView={(kind) => stack.push({ kind })}
-            />
-          </>
-        ) : view.kind === "tip" ? (
-          <>
-            <SheetStackHeader title="Tip plaćanja" onBack={stack.pop} />
-            <PaymentTipSheet
-              form={form}
-              setForm={setForm}
-              hasHistory={!!hasHistory}
-              isEdit={!!payment?.id}
-            />
-          </>
-        ) : view.kind === "category" ? (
-          <>
-            <SheetStackHeader title="Kategorija" onBack={stack.pop} />
-            <CategoryGridPicker
-              value={form.category_id}
-              onChange={(category_id) => {
-                setForm((s) => ({ ...s, category_id }));
-                // Nothing else to configure here - selection pops right back.
-                stack.pop();
-              }}
-            />
-          </>
-        ) : view.kind === "link" ? (
-          <>
-            <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
-            <PaymentLinkPickerSheet
-              value={form.link}
-              onChange={(link) => setForm((s) => ({ ...s, link }))}
-              onDone={stack.pop}
-            />
-          </>
-        ) : (
-          <>
-            <SheetStackHeader title="Detalji" onBack={stack.pop} />
-            <PaymentDetailsSheet
-              form={form}
-              setForm={setForm}
-              isEdit={!!payment?.id}
-              onOpenLink={() => stack.push({ kind: "link" })}
-            />
-          </>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+    <SheetStackViews
+      stack={stack}
+      render={(view) => (
+        <ResponsiveDialogContent stickyFooter={mobileFooterFor(view)}>
+          {view.kind === "form" ? (
+            <>
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+              </ResponsiveDialogHeader>
+              {error ? (
+                <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {error}
+                </div>
+              ) : null}
+              <PaymentForm
+                form={form}
+                setForm={setForm}
+                ca={ca}
+                payment={payment}
+                hasHistory={hasHistory}
+                saving={saving}
+                onSubmit={onSubmit}
+                onCancel={() => onOpenChange(false)}
+                onOpenView={(kind) => stack.push({ kind })}
+              />
+            </>
+          ) : view.kind === "tip" ? (
+            <>
+              <SheetStackHeader title="Tip plaćanja" onBack={stack.pop} />
+              <PaymentTipSheet
+                form={form}
+                setForm={setForm}
+                hasHistory={!!hasHistory}
+                isEdit={!!payment?.id}
+              />
+            </>
+          ) : view.kind === "category" ? (
+            <>
+              <SheetStackHeader title="Kategorija" onBack={stack.pop} />
+              <CategoryGridPicker
+                value={form.category_id}
+                onChange={(category_id) => {
+                  setForm((s) => ({ ...s, category_id }));
+                  // Nothing else to configure here - selection pops right back.
+                  stack.pop();
+                }}
+              />
+            </>
+          ) : view.kind === "link" ? (
+            <>
+              <SheetStackHeader title="Poveži sa" onBack={stack.pop} />
+              <PaymentLinkPickerSheet
+                value={form.link}
+                onChange={(link) => setForm((s) => ({ ...s, link }))}
+                onDone={stack.pop}
+              />
+            </>
+          ) : (
+            <>
+              <SheetStackHeader title="Detalji" onBack={stack.pop} />
+              <PaymentDetailsSheet
+                form={form}
+                setForm={setForm}
+                isEdit={!!payment?.id}
+                onOpenLink={() => stack.push({ kind: "link" })}
+              />
+            </>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

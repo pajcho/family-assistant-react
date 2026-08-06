@@ -5,13 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ReminderSelect } from "@/components/ui/reminder-select";
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import {
   EventForm,
@@ -46,7 +45,7 @@ type View = { kind: "form" | EventFormViewKind };
  * The "Brzi unos" shell around <EventForm> - same architecture as
  * PaymentFormDialog: dialog-owned SheetStack (mobile "Više detalja" pushes
  * the Detalji sub-view into the same sheet), dialog-owned form state (so the
- * mobile close→reopen hop keeps what was typed), reseed on open / entity /
+ * a sub-view opening over the form keeps what was typed), reseed on open / entity /
  * defaults change, pinned mobile footer. Desktop renders fully expanded.
  */
 export function EventFormDialog({
@@ -89,10 +88,9 @@ export function EventFormDialog({
   }, [open, event, personSeed, defaultsSeed, resetStack]);
 
   const title = titleOverride ?? (event ? "Izmeni događaj" : "Dodaj događaj");
-  const view = stack.view;
   const isDesktop = useIsDesktop();
 
-  const mobileFooter =
+  const mobileFooterFor = (view: View) =>
     !isDesktop && view.kind === "form" ? (
       <div className="flex gap-2">
         <Button
@@ -110,75 +108,74 @@ export function EventFormDialog({
     ) : undefined;
 
   return (
-    <ResponsiveDialog
-      key={stack.dialogKey}
-      open={stack.dialogOpen}
-      onOpenChange={stack.handleOpenChange}
-    >
-      <ResponsiveDialogContent stickyFooter={mobileFooter}>
-        {view.kind === "form" ? (
-          <>
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-            </ResponsiveDialogHeader>
-            {error ? (
-              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {error}
-              </div>
-            ) : null}
-            <EventForm
-              form={form}
-              setForm={setForm}
-              event={event}
-              saving={saving}
-              onSubmit={onSubmit}
-              onCancel={() => onOpenChange(false)}
-              onOpenView={(kind) => stack.push({ kind })}
-            />
-          </>
-        ) : (
-          <>
-            <SheetStackHeader title="Detalji" onBack={stack.pop} />
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">Opis</Label>
-                <Input
-                  id="description"
-                  value={form.description}
-                  onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
-                  placeholder="detalji događaja"
-                />
-              </div>
-              <MemberMultiSelect
-                label="Za koga (opciono)"
-                value={form.personIds}
-                onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
-              />
-              {/* Reminders anchor to a start_time, so this only shows once one
-                  is set on the main form (matches the desktop gating). */}
-              {!form.allDay && form.start_time ? (
-                <div className="space-y-2">
-                  <Label htmlFor="reminder">Podsetnik</Label>
-                  <ReminderSelect
-                    id="reminder"
-                    value={form.remind_minutes_before}
-                    onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
-                  />
+    <SheetStackViews
+      stack={stack}
+      render={(view) => (
+        <ResponsiveDialogContent stickyFooter={mobileFooterFor(view)}>
+          {view.kind === "form" ? (
+            <>
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+              </ResponsiveDialogHeader>
+              {error ? (
+                <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {error}
                 </div>
               ) : null}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
-                <Input
-                  id="notes"
-                  value={form.notes}
-                  onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-                  placeholder="npr. Kupljena knjiga, ostalo za pakovanje"
+              <EventForm
+                form={form}
+                setForm={setForm}
+                event={event}
+                saving={saving}
+                onSubmit={onSubmit}
+                onCancel={() => onOpenChange(false)}
+                onOpenView={(kind) => stack.push({ kind })}
+              />
+            </>
+          ) : (
+            <>
+              <SheetStackHeader title="Detalji" onBack={stack.pop} />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="description">Opis</Label>
+                  <Input
+                    id="description"
+                    value={form.description}
+                    onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+                    placeholder="detalji događaja"
+                  />
+                </div>
+                <MemberMultiSelect
+                  label="Za koga (opciono)"
+                  value={form.personIds}
+                  onChange={(personIds) => setForm((s) => ({ ...s, personIds }))}
                 />
+                {/* Reminders anchor to a start_time, so this only shows once one
+                  is set on the main form (matches the desktop gating). */}
+                {!form.allDay && form.start_time ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="reminder">Podsetnik</Label>
+                    <ReminderSelect
+                      id="reminder"
+                      value={form.remind_minutes_before}
+                      onChange={(value) => setForm((s) => ({ ...s, remind_minutes_before: value }))}
+                    />
+                  </div>
+                ) : null}
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Napomene (poklon, itd.)</Label>
+                  <Input
+                    id="notes"
+                    value={form.notes}
+                    onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
+                    placeholder="npr. Kupljena knjiga, ostalo za pakovanje"
+                  />
+                </div>
               </div>
-            </div>
-          </>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+            </>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

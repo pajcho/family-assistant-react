@@ -94,7 +94,7 @@ export function PasswordCard() {
   };
 
   return (
-    <Card>
+    <Card className="shadow-card">
       <CardHeader>
         <CardTitle>Lozinka</CardTitle>
         <CardDescription>
@@ -134,7 +134,11 @@ export function PasswordCard() {
             disabled={saving}
           />
 
-          {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+          {error ? (
+            <p className="rounded-[15px] bg-neg-soft px-[13px] py-[11px] text-[13.5px] font-semibold text-neg">
+              {error}
+            </p>
+          ) : null}
 
           <div className="flex justify-end">
             <Button type="submit" disabled={saving || !filled}>
@@ -179,12 +183,12 @@ function PasswordField({ id, label, value, onValueChange, hint, ...props }: Pass
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Sakrij lozinku" : "Prikaži lozinku"}
           aria-pressed={visible}
-          className="absolute top-1/2 right-1 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+          className="absolute top-1/2 right-1 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
         >
           {visible ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
         </button>
       </div>
-      {hint ? <p className="text-xs text-gray-500 dark:text-gray-400">{hint}</p> : null}
+      {hint ? <p className="text-xs font-normal text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

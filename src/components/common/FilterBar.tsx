@@ -118,8 +118,8 @@ export function FilterBar({
 
 /**
  * The "Filteri" trigger - outline pill with a funnel icon and a count badge;
- * turns blue while any non-default filter is applied. Shared by every list
- * page and the dashboard so the affordance reads identically everywhere.
+ * takes the accent while any non-default filter is applied. Shared by every
+ * list page so the affordance reads identically everywhere.
  */
 export function FilterTriggerButton({
   count = 0,
@@ -132,8 +132,7 @@ export function FilterTriggerButton({
       variant="outline"
       className={cn(
         "relative shrink-0",
-        count > 0 &&
-          "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50",
+        count > 0 && "border-accent bg-accent-soft text-accent-deep hover:brightness-95",
         className,
       )}
       {...props}
@@ -143,7 +142,7 @@ export function FilterTriggerButton({
       {/* Overlaid on the corner so appearing/disappearing never changes the
           button's width - the toolbar row can't reflow when a filter lands. */}
       {count > 0 ? (
-        <span className="absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-semibold text-white tabular-nums shadow-sm">
+        <span className="absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground tabular-nums shadow-sm">
           {count}
         </span>
       ) : null}

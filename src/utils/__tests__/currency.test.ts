@@ -8,6 +8,7 @@ import {
   formatRateInput,
   normalizeEnabledCurrencies,
   parseDecimal,
+  sanitizeDecimalInput,
 } from "@/utils/currency";
 
 describe("parseDecimal", () => {
@@ -87,5 +88,30 @@ describe("formatRateInput", () => {
     expect(formatRateInput(117.3751)).toBe("117,3751");
     expect(parseDecimal(formatRateInput(117.3751))).toBe(117.3751);
     expect(formatRateInput(117)).toBe("117");
+  });
+});
+
+describe("sanitizeDecimalInput", () => {
+  it("drops letters and symbols as they are typed", () => {
+    expect(sanitizeDecimalInput("q2asd")).toBe("2");
+    expect(sanitizeDecimalInput("1 200 RSD")).toBe("1200");
+    expect(sanitizeDecimalInput("-50")).toBe("50");
+  });
+
+  it("keeps one separator and either flavour of it", () => {
+    expect(sanitizeDecimalInput("12,50")).toBe("12,50");
+    expect(sanitizeDecimalInput("12.50")).toBe("12.50");
+    expect(sanitizeDecimalInput("1.2.3")).toBe("1.23");
+    expect(sanitizeDecimalInput("1,2,3")).toBe("1,23");
+  });
+
+  it("leaves partial input alone so typing is not fought", () => {
+    expect(sanitizeDecimalInput("")).toBe("");
+    expect(sanitizeDecimalInput("12,")).toBe("12,");
+    expect(sanitizeDecimalInput(",5")).toBe(",5");
+  });
+
+  it("stays parseable by parseDecimal", () => {
+    expect(parseDecimal(sanitizeDecimalInput("1a2,5b0"))).toBe(12.5);
   });
 });

@@ -51,9 +51,7 @@ function ListsIndex() {
   // dialog, same deep-link the dashboard "Dodaj → Lista" uses).
   return (
     <DetailPlaceholder>
-      <span className="block text-base font-semibold text-gray-900 dark:text-white">
-        Još nemaš nijednu listu
-      </span>
+      <span className="block text-base font-semibold text-foreground">Još nemaš nijednu listu</span>
       <span className="mt-1 block">
         Napravi prvu listu - npr. „Šoping" deljenu sa porodicom ili „Lične obaveze".
       </span>
@@ -83,8 +81,8 @@ function resolveInitialList(lists: ListWithItems[]): string | null {
 function DetailPlaceholder({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <ClipboardDocumentListIcon className="h-10 w-10 text-gray-300 dark:text-gray-600" />
-      <p className="mt-3 max-w-xs text-sm text-gray-500 dark:text-gray-400">{children}</p>
+      <ClipboardDocumentListIcon className="h-10 w-10 text-muted-foreground/50" />
+      <p className="mt-3 max-w-xs text-sm text-muted-foreground">{children}</p>
     </div>
   );
 }

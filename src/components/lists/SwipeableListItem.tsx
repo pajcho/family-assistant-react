@@ -201,7 +201,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
           slides over it. */}
       {showLeftReveal ? (
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-start gap-2 bg-emerald-500 px-4 text-white"
+          className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-start gap-2 bg-pos px-4 text-white"
           style={{ width: Math.max(0, dx), opacity: leftOpacity }}
         >
           <CheckIcon className="h-5 w-5" />
@@ -209,7 +209,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
       ) : null}
       {showRightReveal ? (
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end gap-2 bg-red-500 px-4 text-white"
+          className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end gap-2 bg-neg px-4 text-white"
           style={{ width: Math.max(0, -dx), opacity: rightOpacity }}
         >
           <TrashIcon className="h-5 w-5" />

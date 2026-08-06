@@ -1,6 +1,17 @@
 import { format } from "date-fns";
+import { CalendarIcon, GiftIcon } from "@heroicons/react/24/outline";
 
+import {
+  ItemCard,
+  ItemMain,
+  ItemMeta,
+  ItemSide,
+  ItemTile,
+  ItemTime,
+  ItemTitle,
+} from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { Pill, type PillTone } from "@/components/common/Pill";
 import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
 import { formatDate } from "@/utils/date";
@@ -14,11 +25,11 @@ import {
 } from "@/utils/event";
 
 /**
- * Compact tappable row in the /events timeline - the PaymentTimelineRow
- * shape: name + time on the first line, meta + state chip on the second. No
+ * Tappable row in the /events timeline - the shared `.kcard`: type tile, name
+ * + state pill, one meta line, and the time (or span length) on the right. No
  * inline actions; the tap opens `EventDetailDialog`, which carries them all.
- * `showDate` prefixes the meta with the date (flat search results span
- * months; grouped rows get the date from their day header).
+ * `showDate` prefixes the meta with the date (flat search results span months;
+ * grouped rows get the date from their day header).
  */
 export function EventTimelineRow({
   event,
@@ -36,22 +47,12 @@ export function EventTimelineRow({
   const dimmed = isCanceled || isEnded;
   const isMulti = isMultiDayEvent(event);
   const ongoing = !dimmed && isEventOngoing(event, format(new Date(), "yyyy-MM-dd"));
-  const chip = isCanceled
-    ? {
-        label: "Otkazano",
-        className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-      }
+  const chip: { label: string; tone: PillTone } | null = isCanceled
+    ? { label: "Otkazano", tone: "neg" }
     : isEnded
-      ? {
-          label: "Završeno",
-          className: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-        }
+      ? { label: "Završeno", tone: "muted" }
       : ongoing
-        ? {
-            label: "U toku",
-            className:
-              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-          }
+        ? { label: "U toku", tone: "pos" }
         : null;
 
   // Multi-day rows swap the right-hand time for the span length ("3 dana"),
@@ -71,49 +72,28 @@ export function EventTimelineRow({
     .join(" · ");
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(event)}
-      className={cn(
-        "block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/70",
-        dimmed && "opacity-60",
-      )}
-    >
-      <span className="flex items-baseline gap-2">
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate font-medium text-gray-900 dark:text-gray-100",
-            isCanceled && "text-gray-500 line-through dark:text-gray-500",
-          )}
-        >
-          {event.name}
-        </span>
-        <span className="shrink-0 text-sm tabular-nums text-gray-500 dark:text-gray-400">
-          {isMulti ? eventDurationLabel(event) : timeRange}
-        </span>
-      </span>
-      {meta || personIds.length > 0 || chip ? (
-        <span className="mt-0.5 flex items-center gap-2">
-          <span className="flex min-w-0 flex-1 items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            {meta ? <span className="truncate">{meta}</span> : null}
-            {personIds.length > 0 ? (
-              <span className="shrink-0">
-                <MemberBadges personIds={personIds} size="xs" />
-              </span>
-            ) : null}
-          </span>
-          {chip ? (
-            <span
-              className={cn(
-                "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
-                chip.className,
-              )}
-            >
-              {chip.label}
-            </span>
-          ) : null}
-        </span>
-      ) : null}
-    </button>
+    <ItemCard onClick={() => onSelect(event)} dimmed={dimmed}>
+      {/* A celebration linked to a birthday reads as a gift, not a generic
+          calendar entry - it is the one event kind with its own origin. */}
+      <ItemTile
+        icon={event.birthday_id ? GiftIcon : CalendarIcon}
+        tone={event.birthday_id ? "accent" : "info"}
+      />
+      <ItemMain>
+        <ItemTitle>
+          <span className={cn("min-w-0 truncate", isCanceled && "line-through")}>{event.name}</span>
+          {chip ? <Pill tone={chip.tone}>{chip.label}</Pill> : null}
+        </ItemTitle>
+        {meta || personIds.length > 0 ? (
+          <ItemMeta>
+            {meta ? <span className="min-w-0 truncate">{meta}</span> : null}
+            {personIds.length > 0 ? <MemberBadges personIds={personIds} size="xs" /> : null}
+          </ItemMeta>
+        ) : null}
+      </ItemMain>
+      <ItemSide>
+        <ItemTime>{isMulti ? eventDurationLabel(event) : timeRange}</ItemTime>
+      </ItemSide>
+    </ItemCard>
   );
 }

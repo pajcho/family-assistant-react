@@ -6,18 +6,34 @@ import { cn } from "@/lib/cn";
 /**
  * Shared visual language for entity DETAIL sheets (payment / event / birthday /
  * activity occurrence / Google event): a hero row on top, state as badge
- * pills, label-value info rows, then every action as a big bordered row with
- * icon + label + description (the BlockActionDialog pattern). Sub-flows keep
- * living on the sheet stack (see `useSheetStack`); these are only the shared
- * building blocks each dialog composes.
+ * pills, label-value info rows in a bordered card, then every action as a big
+ * bordered row with icon + label + description.
+ *
+ * The ORDER of the actions is domain knowledge that lives in each dialog and
+ * must not change (payment: Označi kao plaćeno -> Izmeni -> Istorija -> Pomeri
+ * -> Otkaži -> Pauziraj -> Obriši). These are only the shared pieces each
+ * dialog composes; sub-flows keep living on the sheet stack (`useSheetStack`).
  */
+
+/** Semantic colourways for the hero square and badge pills. */
+export type DetailTone = "accent" | "pos" | "warn" | "neg" | "info" | "neutral";
+
+const TONE_SURFACE: Record<DetailTone, string> = {
+  accent: "bg-accent-soft text-accent-deep",
+  pos: "bg-pos-soft text-pos",
+  warn: "bg-warn-soft text-warn",
+  neg: "bg-neg-soft text-neg",
+  info: "bg-info-soft text-info",
+  neutral: "bg-muted text-muted-foreground",
+};
 
 export type DetailHeroProps = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
-  /** Colorway of the icon circle, e.g. "bg-amber-100 dark:bg-amber-900/50". */
-  iconWrapClassName: string;
-  /** Icon colorway, e.g. "text-amber-600 dark:text-amber-400". */
-  iconClassName: string;
+  /** Semantic colourway of the icon square. Defaults to the app accent. */
+  tone?: DetailTone;
+  /** Escape hatch for member-coloured heroes; overrides `tone`. */
+  iconWrapClassName?: string;
+  iconClassName?: string;
   title: ReactNode;
   /** Extra classes on the title (e.g. line-through for canceled entities). */
   titleClassName?: string;
@@ -26,6 +42,7 @@ export type DetailHeroProps = {
 
 export function DetailHero({
   icon: Icon,
+  tone = "accent",
   iconWrapClassName,
   iconClassName,
   title,
@@ -33,25 +50,20 @@ export function DetailHero({
   subtitle,
 }: DetailHeroProps) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-center gap-3 pb-1">
       <div
         className={cn(
-          "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
-          iconWrapClassName,
+          "grid size-[50px] shrink-0 place-items-center rounded-[17px]",
+          iconWrapClassName ?? TONE_SURFACE[tone],
         )}
       >
-        <Icon className={cn("h-6 w-6", iconClassName)} />
+        <Icon className={cn("size-6", iconClassName)} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate text-lg font-semibold text-gray-900 dark:text-gray-100",
-            titleClassName,
-          )}
-        >
-          {title}
-        </p>
-        {subtitle ? <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p> : null}
+        <p className={cn("truncate text-lg leading-tight font-bold", titleClassName)}>{title}</p>
+        {subtitle ? (
+          <p className="mt-0.5 text-[13px] font-normal text-muted-foreground">{subtitle}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -59,8 +71,10 @@ export function DetailHero({
 
 export type DetailBadge = {
   label: string;
-  /** Pill colorway, e.g. "bg-emerald-100 text-emerald-700 …". */
-  className: string;
+  /** Semantic colourway; `className` still wins when both are given. */
+  tone?: DetailTone;
+  /** Raw pill classes - kept for call sites with bespoke colours. */
+  className?: string;
 };
 
 /** The state pills under the hero. Renders nothing without badges. */
@@ -71,7 +85,10 @@ export function DetailBadgeRow({ badges }: { badges: ReadonlyArray<DetailBadge> 
       {badges.map((badge) => (
         <span
           key={badge.label}
-          className={cn("rounded-full px-2 py-0.5 text-xs font-medium", badge.className)}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+            badge.className ?? TONE_SURFACE[badge.tone ?? "neutral"],
+          )}
         >
           {badge.label}
         </span>
@@ -80,10 +97,10 @@ export function DetailBadgeRow({ badges }: { badges: ReadonlyArray<DetailBadge> 
   );
 }
 
-/** Hairline-divided label-value list ("Za", "Opis", …). */
+/** Hairline-divided label-value card ("Za", "Kategorija", "Podsetnik", …). */
 export function DetailInfoRows({ children }: { children: ReactNode }) {
   return (
-    <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
+    <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card text-[13.5px]">
       {children}
     </div>
   );
@@ -91,10 +108,13 @@ export function DetailInfoRows({ children }: { children: ReactNode }) {
 
 export function DetailInfoRow({
   label,
+  icon: Icon,
   align = "center",
   children,
 }: {
   label: string;
+  /** Leading glyph, matching the prototype's ".drow svg". */
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   /** "baseline" for multi-line text values, "center" for badges/chips. */
   align?: "center" | "baseline";
   children: ReactNode;
@@ -102,33 +122,34 @@ export function DetailInfoRow({
   return (
     <div
       className={cn(
-        "flex justify-between gap-3 py-2.5",
+        "flex justify-between gap-2.5 px-3.5 py-2.5",
         align === "center" ? "items-center" : "items-baseline",
       )}
     >
-      <span className="shrink-0 text-gray-500 dark:text-gray-400">{label}</span>
+      {Icon ? (
+        <Icon className="size-4 shrink-0 self-center text-muted-foreground" aria-hidden="true" />
+      ) : null}
+      <span className="min-w-0 flex-1 font-normal text-muted-foreground">{label}</span>
       {children}
     </div>
   );
 }
 
-/** Convenience info row for plain text values (right-aligned, medium weight). */
+/** Convenience info row for plain text values (right-aligned, bold). */
 export function DetailInfoText({
   label,
+  icon,
   value,
   valueClassName,
 }: {
   label: string;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   value: ReactNode;
   valueClassName?: string;
 }) {
   return (
-    <DetailInfoRow label={label} align="baseline">
-      <span
-        className={cn("text-right font-medium text-gray-900 dark:text-gray-100", valueClassName)}
-      >
-        {value}
-      </span>
+    <DetailInfoRow label={label} icon={icon} align="baseline">
+      <span className={cn("text-right font-semibold tabular-nums", valueClassName)}>{value}</span>
     </DetailInfoRow>
   );
 }
@@ -144,8 +165,9 @@ export type DetailActionRowProps = {
   onClick?: () => void;
   disabled?: boolean;
   /**
-   * "primary" is the sheet's ONE emphasized (emerald) action - the last row.
-   * "destructive" for delete-like rows, "muted" for quiet state-restores.
+   * "primary" is the sheet's ONE emphasized action and always sits FIRST;
+   * "destructive" is the delete row and always sits LAST. "muted" is for quiet
+   * state-restores.
    */
   tone?: DetailActionTone;
   /** Right chevron for drill-in rows that open a sub-view rather than act. */
@@ -157,35 +179,34 @@ const ACTION_TONE_CLASSES: Record<
   { row: string; icon: string; label: string; description: string }
 > = {
   default: {
-    row: "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
-    icon: "text-gray-700 dark:text-gray-200",
-    label: "text-gray-900 dark:text-gray-100",
+    row: "border-border bg-card hover:bg-muted",
+    icon: "text-muted-foreground",
+    label: "text-foreground",
     description: "text-muted-foreground",
   },
   muted: {
-    row: "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
-    icon: "text-gray-500",
-    label: "text-gray-900 dark:text-gray-100",
+    row: "border-border bg-card hover:bg-muted",
+    icon: "text-muted-foreground/70",
+    label: "text-muted-foreground",
     description: "text-muted-foreground",
   },
   primary: {
-    row: "border-emerald-300 bg-emerald-50/60 hover:bg-emerald-50 dark:border-emerald-800/70 dark:bg-emerald-900/15 dark:hover:bg-emerald-900/25",
-    icon: "text-emerald-600 dark:text-emerald-400",
-    label: "text-emerald-800 dark:text-emerald-300",
-    description: "text-emerald-700/70 dark:text-emerald-400/70",
+    row: "border-accent bg-accent text-accent-foreground hover:bg-accent/90",
+    icon: "text-accent-foreground",
+    label: "text-accent-foreground",
+    description: "text-accent-foreground/80",
   },
   destructive: {
-    row: "border-red-200 hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-950/30",
-    icon: "text-red-600 dark:text-red-400",
-    label: "text-red-600 dark:text-red-400",
+    row: "border-border bg-card hover:bg-neg-soft",
+    icon: "text-neg",
+    label: "text-neg",
     description: "text-muted-foreground",
   },
 };
 
 /**
  * One action as a bordered, thumb-friendly row: icon + label + short
- * description of what will happen. Extracted from BlockActionDialog so every
- * detail sheet renders identical rows.
+ * description of what will happen.
  */
 export function DetailActionRow({
   icon: Icon,
@@ -199,22 +220,22 @@ export function DetailActionRow({
 }: DetailActionRowProps) {
   const classes = ACTION_TONE_CLASSES[tone];
   const rowClassName = cn(
-    "flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
-    "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none",
+    "flex min-h-11 w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
     "disabled:cursor-not-allowed disabled:opacity-50",
     classes.row,
   );
   const body = (
     <>
-      <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", classes.icon)} />
+      <Icon className={cn("size-[17px] shrink-0", classes.icon)} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <div className={cn("text-sm font-medium", classes.label)}>{label}</div>
+        <div className={cn("text-sm font-semibold", classes.label)}>{label}</div>
         {description ? (
-          <div className={cn("text-xs", classes.description)}>{description}</div>
+          <div className={cn("text-xs leading-snug", classes.description)}>{description}</div>
         ) : null}
       </div>
       {chevron ? (
-        <ChevronRightIcon className="mt-1 size-4 shrink-0 text-gray-400 dark:text-gray-500" />
+        <ChevronRightIcon className={cn("size-4 shrink-0", classes.icon)} aria-hidden="true" />
       ) : null}
     </>
   );
@@ -241,5 +262,5 @@ export function DetailActionRow({
 
 /** Uniform spacing wrapper around a sheet's DetailActionRow stack. */
 export function DetailActionList({ children }: { children: ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
+  return <div className="flex flex-col gap-2">{children}</div>;
 }

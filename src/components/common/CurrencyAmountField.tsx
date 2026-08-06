@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Amount } from "@/components/common/Amount";
-import { Input } from "@/components/ui/input";
+import { FormInput, SegmentedPills } from "@/components/common/FormControls";
 import { Label } from "@/components/ui/label";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
-import { convertToRsd, currencySymbol, formatRateInput, parseDecimal } from "@/utils/currency";
+import {
+  convertToRsd,
+  currencySymbol,
+  formatRateInput,
+  parseDecimal,
+  sanitizeDecimalInput,
+} from "@/utils/currency";
 import { formatDate } from "@/utils/date";
-import { cn } from "@/lib/cn";
 
 /**
  * Shared multi-currency plumbing for the entry forms (ExpenseForm,
@@ -156,35 +161,23 @@ export function CurrencyToggle({
   value,
   onChange,
   options,
+  className,
 }: {
   value: string;
   onChange: (code: string) => void;
   options: string[];
+  className?: string;
 }) {
   if (options.length <= 1) return null;
+  // Currency is always a CODE (RSD / EUR), never a symbol - the app-wide rule.
   return (
-    <div
-      role="group"
-      aria-label="Valuta"
-      className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700"
-    >
-      {options.map((code) => (
-        <button
-          key={code}
-          type="button"
-          aria-pressed={value === code}
-          onClick={() => onChange(code)}
-          className={cn(
-            "rounded-md px-2.5 py-0.5 text-xs font-medium transition-colors",
-            value === code
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
-          )}
-        >
-          {code}
-        </button>
-      ))}
-    </div>
+    <SegmentedPills
+      value={value}
+      onChange={onChange}
+      options={options}
+      ariaLabel="Valuta"
+      className={className}
+    />
   );
 }
 
@@ -207,21 +200,21 @@ export function ExchangeRateRow({
   if (!c.isForeign) return null;
   const rsdPreview = c.preview(amountNum);
   return (
-    <div className="space-y-1">
+    <div className="mt-2 space-y-1 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left">
       <div className="flex items-center gap-2">
-        <Label htmlFor={inputId} className="shrink-0 text-xs text-muted-foreground">
+        <Label htmlFor={inputId} className="shrink-0 text-xs font-semibold text-muted-foreground">
           Kurs
         </Label>
-        <Input
+        <FormInput
           id={inputId}
           value={c.rateInput}
-          onChange={(e) => c.setRateInput(e.target.value)}
+          onChange={(e) => c.setRateInput(sanitizeDecimalInput(e.target.value))}
           inputMode="decimal"
           required
           placeholder={c.rateLoading ? "…" : "0,00"}
-          className="h-9 w-28 text-right text-sm tabular-nums"
+          className="w-28 py-1.5 text-right tabular-nums"
         />
-        <span className="min-w-0 flex-1 truncate text-right text-sm font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold tabular-nums">
           {rsdPreview != null ? (
             <>
               = <Amount value={rsdPreview} />

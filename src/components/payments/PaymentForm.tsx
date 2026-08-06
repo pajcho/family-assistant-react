@@ -3,13 +3,11 @@ import {
   AdjustmentsHorizontalIcon,
   ArrowPathIcon,
   BanknotesIcon,
+  PauseIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
 import { useIsDesktop } from "@/components/ui/responsive-dialog";
@@ -18,9 +16,16 @@ import {
   ExchangeRateRow,
   type CurrencyAmountControl,
 } from "@/components/common/CurrencyAmountField";
-import { DateQuickPick } from "@/components/common/DateQuickPick";
+import { DateField } from "@/components/common/DateField";
+import {
+  AmountInputCard,
+  FieldGroupLabel,
+  FieldHint,
+  FormInput,
+} from "@/components/common/FormControls";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import { PickerRow } from "@/components/common/PickerRow";
+import { SwitchRow } from "@/components/common/SwitchRow";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategorySelect } from "@/components/budget/CategorySelect";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
@@ -173,7 +178,7 @@ export function recurrenceSummary(form: PaymentFormState): string {
 }
 
 export type PaymentFormProps = {
-  /** Dialog-owned state - survives the SheetStack mobile close→reopen hop. */
+  /** Dialog-owned state - survives a sub-view opening over the form. */
   form: PaymentFormState;
   setForm: Dispatch<SetStateAction<PaymentFormState>>;
   /** Dialog-owned currency control (same reason). */
@@ -312,44 +317,34 @@ export function PaymentForm({
       (form.remind_days_before != null ? 1 : 0);
 
     return (
-      <form id="payment-form" className="space-y-4" onSubmit={handleSubmit}>
-        <div className="space-y-2">
-          <Label htmlFor="name">Naziv *</Label>
-          <Input
-            id="name"
-            value={form.name}
-            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-            required
-            placeholder="npr. Internet račun"
-          />
-        </div>
+      <form id="payment-form" className="space-y-3" onSubmit={handleSubmit}>
+        <FormInput
+          id="name"
+          value={form.name}
+          onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+          required
+          placeholder="Naziv - npr. Internet račun *"
+          aria-label="Naziv"
+        />
         {/* Amount - the star, mirroring ExpenseForm's quick-add field. */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="amount">{amountLabel}</Label>
+        <AmountInputCard
+          id="amount"
+          label={amountLabel}
+          value={form.amount}
+          onChange={(amount) => setForm((s) => ({ ...s, amount }))}
+          currencyCode={currencySymbol(ca.currency)}
+          currencyToggle={
             <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
-          </div>
-          <div className="relative">
-            <Input
-              id="amount"
-              value={form.amount}
-              onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
-              inputMode="decimal"
-              required
-              placeholder="0"
-              className="h-14 pr-14 text-right text-3xl font-semibold tabular-nums"
+          }
+          footer={
+            <ExchangeRateRow
+              control={ca}
+              amountNum={parseDecimal(form.amount)}
+              inputId="payment-rate"
             />
-            <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-muted-foreground">
-              {currencySymbol(ca.currency)}
-            </span>
-          </div>
-          <ExchangeRateRow
-            control={ca}
-            amountNum={parseDecimal(form.amount)}
-            inputId="payment-rate"
-          />
-        </div>
-        <DateQuickPick
+          }
+        />
+        <DateField
           id="due_date"
           label="Datum dospeća *"
           value={form.due_date}
@@ -362,9 +357,9 @@ export function PaymentForm({
             summary={recurrenceSummary(form)}
             icon={
               form.recurrence_period === "one-time" ? (
-                <BanknotesIcon className="size-4" />
+                <BanknotesIcon className="size-[17px]" />
               ) : (
-                <ArrowPathIcon className="size-4" />
+                <ArrowPathIcon className="size-[17px]" />
               )
             }
             onClick={() => onOpenView("tip")}
@@ -382,10 +377,10 @@ export function PaymentForm({
               selectedCategory ? (
                 (() => {
                   const Icon = categoryIcon(selectedCategory.icon);
-                  return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
+                  return <Icon className="size-[17px]" style={{ color: selectedCategory.color }} />;
                 })()
               ) : (
-                <TagIcon className="size-4" />
+                <TagIcon className="size-[17px]" />
               )
             }
             onClick={() => onOpenView("category")}
@@ -397,7 +392,7 @@ export function PaymentForm({
                 ? detailParts.join(" · ")
                 : "Opis · za koga · poveži sa · podsetnik"
             }
-            icon={<AdjustmentsHorizontalIcon className="size-4" />}
+            icon={<AdjustmentsHorizontalIcon className="size-[17px]" />}
             count={detailCount}
             onClick={() => onOpenView("details")}
           />
@@ -406,12 +401,14 @@ export function PaymentForm({
     );
   }
 
-  // --- Desktop: classic fully-expanded layout (unchanged) ---
+  // --- Desktop: fully-expanded layout, same field order ---
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="name">Naziv *</Label>
-        <Input
+    <form className="space-y-3" onSubmit={handleSubmit}>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="name">Naziv *</label>
+        </FieldGroupLabel>
+        <FormInput
           id="name"
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -419,9 +416,11 @@ export function PaymentForm({
           placeholder="npr. Internet račun"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Opis</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="description">Opis</label>
+        </FieldGroupLabel>
+        <FormInput
           id="description"
           value={form.description}
           onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -448,9 +447,11 @@ export function PaymentForm({
       {/* Tip drives the conditional fields below it (Ponavljanje, Preostalo
           uplata, Promenljiv iznos), so it sits ABOVE Iznos/Datum - the birač
           comes first, then everything that depends on it. */}
-      <div className={cn("grid gap-4", showIntervalSelect ? "grid-cols-2" : "grid-cols-1")}>
-        <div className="space-y-2">
-          <Label htmlFor="recurrence_period">Tip</Label>
+      <div className={cn("grid gap-3", showIntervalSelect ? "grid-cols-2" : "grid-cols-1")}>
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="recurrence_period">Tip</label>
+          </FieldGroupLabel>
           <NativeSelect
             id="recurrence_period"
             value={form.recurrence_period}
@@ -461,8 +462,10 @@ export function PaymentForm({
           />
         </div>
         {showIntervalSelect ? (
-          <div className="space-y-2">
-            <Label htmlFor="recurrence_interval">Ponavljanje</Label>
+          <div>
+            <FieldGroupLabel>
+              <label htmlFor="recurrence_interval">Ponavljanje</label>
+            </FieldGroupLabel>
             <NativeSelect
               id="recurrence_interval"
               value={form.recurrence_interval}
@@ -474,14 +477,16 @@ export function PaymentForm({
         ) : null}
       </div>
       {hasHistory ? (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs font-normal text-warn">
           Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
         </p>
       ) : null}
       {form.recurrence_period === "limited" ? (
-        <div className="space-y-2">
-          <Label htmlFor="remaining">Preostalo uplata</Label>
-          <Input
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="remaining">Preostalo uplata</label>
+          </FieldGroupLabel>
+          <FormInput
             id="remaining"
             value={form.remaining_occurrences}
             onChange={(e) => setForm((s) => ({ ...s, remaining_occurrences: e.target.value }))}
@@ -491,86 +496,64 @@ export function PaymentForm({
           />
         </div>
       ) : null}
-      {/* Iznos - full-width, mirroring ExpenseForm: label and currency toggle
-          share the row, the input carries the currency symbol as a suffix,
-          and the NBS-rate row slots directly underneath. */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="amount">{amountLabel}</Label>
+      {/* Iznos - the same big amount card as the mobile layout and the expense
+          form; the NBS-rate row slots inside it. */}
+      <AmountInputCard
+        id="amount"
+        label={amountLabel}
+        value={form.amount}
+        onChange={(amount) => setForm((s) => ({ ...s, amount }))}
+        currencyCode={currencySymbol(ca.currency)}
+        currencyToggle={
           <CurrencyToggle value={ca.currency} onChange={ca.setCurrency} options={currencies} />
-        </div>
-        <div className="relative">
-          <Input
-            id="amount"
-            value={form.amount}
-            onChange={(e) => setForm((s) => ({ ...s, amount: e.target.value }))}
-            inputMode="decimal"
-            required
-            placeholder="0"
-            className="pr-12 text-right tabular-nums"
+        }
+        footer={
+          <ExchangeRateRow
+            control={ca}
+            amountNum={parseDecimal(form.amount)}
+            inputId="payment-rate"
           />
-          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">
-            {currencySymbol(ca.currency)}
-          </span>
-        </div>
-        <ExchangeRateRow
-          control={ca}
-          amountNum={parseDecimal(form.amount)}
-          inputId="payment-rate"
-        />
-      </div>
+        }
+      />
       {/* Variable amount sits directly under Iznos - it describes the amount,
           not the date. Recurring-only concept (režije koje variraju); the
           toggle depends on the Tip value, not on whether the Tip select is
           enabled - so it still shows for a payment with history you want to
           convert to variable. */}
       {isRecurring ? (
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.is_variable_amount}
-              onChange={(e) => setForm((s) => ({ ...s, is_variable_amount: e.target.checked }))}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">Promenljiv iznos</span>
-          </label>
-          {form.is_variable_amount ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Uneseni iznos je okvirni - pri svakom označavanju kao plaćeno potvrđuješ tačan iznos.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="space-y-2">
-        <Label htmlFor="due_date">Datum dospeća *</Label>
-        <DatePicker
-          id="due_date"
-          value={form.due_date}
-          onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
-          placeholder="Datum dospeća"
+        <SwitchRow
+          icon={ArrowPathIcon}
+          title="Promenljiv iznos"
+          description="Okvirni iznos - potvrđuje se pri svakom plaćanju"
+          checked={form.is_variable_amount}
+          onChange={(is_variable_amount) => setForm((s) => ({ ...s, is_variable_amount }))}
         />
-      </div>
-      {showPauseToggle ? (
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.is_paused}
-              onChange={(e) => setForm((s) => ({ ...s, is_paused: e.target.checked }))}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">Pauziraj plaćanje</span>
-          </label>
-          {form.is_paused ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Dok je pauzirano, plaćanje se neće prikazivati kao dospelo.
-            </p>
-          ) : null}
-        </div>
       ) : null}
-      <div className="space-y-2">
-        <Label htmlFor="payment-reminder">Podsetnik</Label>
+      <DateField
+        id="due_date"
+        label="Datum dospeća *"
+        value={form.due_date}
+        onChange={(value) => setForm((s) => ({ ...s, due_date: value }))}
+        placeholder="Datum dospeća"
+      />
+      {showPauseToggle ? (
+        <>
+          <SwitchRow
+            icon={PauseIcon}
+            title="Pauziraj plaćanje"
+            description="Serija miruje dok je ne nastaviš"
+            checked={form.is_paused}
+            onChange={(is_paused) => setForm((s) => ({ ...s, is_paused }))}
+          />
+          {form.is_paused ? (
+            <FieldHint>Dok je pauzirano, plaćanje se neće prikazivati kao dospelo.</FieldHint>
+          ) : null}
+        </>
+      ) : null}
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="payment-reminder">Podsetnik</label>
+        </FieldGroupLabel>
         <ReminderSelect
           id="payment-reminder"
           value={form.remind_days_before}

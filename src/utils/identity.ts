@@ -3,6 +3,13 @@
  * filled in so far. Profile fields are optional, so each helper degrades
  * gracefully: name → email → "?".
  *
+ * ONE household, so the display name is the FIRST NAME only - inside a family
+ * everybody is "Milan", never "Milan Petrović", and repeating the same surname
+ * on every row, chip and filter was pure noise (the chips in particular were
+ * twice as wide as they needed to be). The surname is still stored and edited;
+ * it just feeds the initials now. Two members sharing a first name is a problem
+ * for the day it happens.
+ *
  * The initials helper is deliberately "smart" about emails: if the user
  * hasn't set a name yet, we split the local part on common separators
  * (dot / dash / underscore / plus) so `nikola.pajic@gmail.com` shows as
@@ -21,9 +28,9 @@ function clean(value: string | null | undefined): string {
 
 export function getDisplayName({ firstName, lastName, email }: IdentityInput): string {
   const f = clean(firstName);
-  const l = clean(lastName);
-  if (f && l) return `${f} ${l}`;
   if (f) return f;
+  // No first name: the surname alone still beats an email address.
+  const l = clean(lastName);
   if (l) return l;
   return clean(email);
 }

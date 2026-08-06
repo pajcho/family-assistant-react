@@ -90,49 +90,37 @@ const eventItem: AgendaItem = {
   personIds: [],
 };
 
-/** The row's leading child is the time gutter. */
-function gutterOf(row: HTMLElement): HTMLElement {
-  return row.firstElementChild as HTMLElement;
+function renderRow(item: AgendaItem, dateLabel?: string) {
+  render(
+    <ul>
+      <AgendaItemRow item={item} onClick={() => {}} dateLabel={dateLabel} />
+    </ul>,
+  );
+  return screen.getByRole("button");
 }
 
-describe("AgendaItemRow time gutter", () => {
+describe("AgendaItemRow time column", () => {
+  it("shows a timed event's start time", () => {
+    expect(renderRow(eventItem)).toHaveTextContent("11:00");
+  });
+
   it.each([
     ["birthday", birthdayItem],
     ["payment", paymentItem],
-  ])("drops the empty gutter on phones so a time-less %s starts hard left", (_kind, item) => {
-    render(
-      <ul>
-        <AgendaItemRow item={item} onClick={() => {}} />
-      </ul>,
-    );
-
-    const gutter = gutterOf(screen.getByRole("button"));
-    expect(gutter).toHaveTextContent("");
-    expect(gutter.className).toContain("hidden");
-    // …but the column returns from `sm` up, where rows still line up.
-    expect(gutter.className).toContain("sm:block");
+  ])("renders a time-less %s without a clock", (_kind, item) => {
+    // Time-less kinds keep the trailing column for their amount (payments) or
+    // drop it entirely (birthdays) - either way no HH:mm is invented.
+    expect(renderRow(item).textContent ?? "").not.toMatch(/\d{2}:\d{2}/);
   });
 
-  it("keeps the gutter at every width once it carries a label", () => {
-    const { rerender } = render(
-      <ul>
-        <AgendaItemRow item={eventItem} onClick={() => {}} />
-      </ul>,
-    );
+  it("carries the due date in the meta line when 'Prekoračeno' passes one", () => {
+    // A payment is date-less everywhere except the overdue section, which hands
+    // the row its due date so you can tell how late it is.
+    expect(renderRow(paymentItem, "19. jul")).toHaveTextContent("dospelo 19. jul");
+  });
 
-    expect(gutterOf(screen.getByRole("button"))).toHaveTextContent("11:00");
-    expect(gutterOf(screen.getByRole("button")).className).not.toContain("hidden");
-
-    // A payment is time-less everywhere except "Prekoračeno", where the row
-    // carries its due date - that label has to survive on phones too.
-    rerender(
-      <ul>
-        <AgendaItemRow item={paymentItem} onClick={() => {}} dateLabel="19. jul" />
-      </ul>,
-    );
-    const gutter = gutterOf(screen.getByRole("button"));
-    expect(gutter).toHaveTextContent("19. jul");
-    expect(gutter.className).not.toContain("hidden");
+  it("annotates a recurring payment with its period", () => {
+    expect(renderRow(paymentItem)).toHaveTextContent("mesečno");
   });
 });
 
@@ -154,68 +142,44 @@ describe("AgendaItemRow multi-day event slices", () => {
   };
 
   it("labels the first day 'od HH:mm' with its span position", () => {
-    render(
-      <ul>
-        <AgendaItemRow
-          item={{
-            ...sliceBase,
-            date: "2026-07-27",
-            isAllDay: false,
-            startTime: "09:00",
-            endTime: null,
-            dayIndex: 1,
-            totalDays: 3,
-          }}
-          onClick={() => {}}
-        />
-      </ul>,
-    );
-    const row = screen.getByRole("button");
-    expect(gutterOf(row)).toHaveTextContent("od 09:00");
+    const row = renderRow({
+      ...sliceBase,
+      date: "2026-07-27",
+      isAllDay: false,
+      startTime: "09:00",
+      endTime: null,
+      dayIndex: 1,
+      totalDays: 3,
+    });
+    expect(row).toHaveTextContent("od 09:00");
     expect(row).toHaveTextContent("Dan 1/3");
   });
 
   it("labels middle days 'ceo dan'", () => {
-    render(
-      <ul>
-        <AgendaItemRow
-          item={{
-            ...sliceBase,
-            date: "2026-07-28",
-            isAllDay: true,
-            startTime: null,
-            endTime: null,
-            dayIndex: 2,
-            totalDays: 3,
-          }}
-          onClick={() => {}}
-        />
-      </ul>,
-    );
-    const row = screen.getByRole("button");
-    expect(gutterOf(row)).toHaveTextContent("ceo dan");
+    const row = renderRow({
+      ...sliceBase,
+      date: "2026-07-28",
+      isAllDay: true,
+      startTime: null,
+      endTime: null,
+      dayIndex: 2,
+      totalDays: 3,
+    });
+    expect(row).toHaveTextContent("ceo dan");
     expect(row).toHaveTextContent("Dan 2/3");
   });
 
   it("labels the last day 'do HH:mm'", () => {
-    render(
-      <ul>
-        <AgendaItemRow
-          item={{
-            ...sliceBase,
-            date: "2026-07-29",
-            isAllDay: true,
-            startTime: null,
-            endTime: "15:00",
-            dayIndex: 3,
-            totalDays: 3,
-          }}
-          onClick={() => {}}
-        />
-      </ul>,
-    );
-    const row = screen.getByRole("button");
-    expect(gutterOf(row)).toHaveTextContent("do 15:00");
+    const row = renderRow({
+      ...sliceBase,
+      date: "2026-07-29",
+      isAllDay: true,
+      startTime: null,
+      endTime: "15:00",
+      dayIndex: 3,
+      totalDays: 3,
+    });
+    expect(row).toHaveTextContent("do 15:00");
     expect(row).toHaveTextContent("Dan 3/3");
   });
 });

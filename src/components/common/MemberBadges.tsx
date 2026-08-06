@@ -45,7 +45,7 @@ export function MemberBadges({ personIds, max = 4, size = "sm", className }: Mem
             key={id}
             title={name}
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-full font-medium text-white ring-2 ring-white dark:ring-gray-800",
+              "flex shrink-0 items-center justify-center rounded-full font-medium text-white ring-2 ring-card",
               sizeClass,
             )}
             style={{ backgroundColor: color }}
@@ -57,7 +57,7 @@ export function MemberBadges({ personIds, max = 4, size = "sm", className }: Mem
       {overflow > 0 ? (
         <span
           className={cn(
-            "flex shrink-0 items-center justify-center rounded-full bg-gray-300 font-medium text-gray-700 ring-2 ring-white dark:bg-gray-600 dark:text-gray-200 dark:ring-gray-800",
+            "flex shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground ring-2 ring-card",
             sizeClass,
           )}
         >

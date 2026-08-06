@@ -1,0 +1,398 @@
+import type { ComponentProps, ComponentType, ReactNode, SVGProps } from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
+
+import { cn } from "@/lib/cn";
+import { sanitizeDecimalInput } from "@/utils/currency";
+
+/**
+ * The redesign's shared form vocabulary ("Šljiva"): every entry form is built
+ * out of these pieces, so a chip in the expense form and a chip in the payment
+ * form are literally the same element. Semantic tokens only, never raw palette
+ * classes.
+ *
+ * Sizing rules baked in on purpose:
+ *   - every text input is >=16px so iOS never zooms on focus;
+ *   - every tappable control is >=44px tall (`min-h-11`);
+ *   - amounts and times are `tabular-nums`, currency is a CODE (RSD), never a
+ *     symbol.
+ */
+
+/** Section header above a chip row / grid (".gh" in the prototype). */
+export function FieldGroupLabel({ children, className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "mt-1 mb-2 flex items-center gap-2 px-0.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Quiet explanatory line under a field group (".secfoot"). */
+export function FieldHint({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p className={cn("px-0.5 pt-1 text-xs leading-relaxed text-muted-foreground", className)}>
+      {children}
+    </p>
+  );
+}
+
+export type ChipProps = Omit<ComponentProps<"button">, "children"> & {
+  selected?: boolean;
+  children: ReactNode;
+  /** Secondary text rendered dimmer on the same line ("Danas pon 5."). */
+  hint?: ReactNode;
+  /** Stretch to fill its flex/grid track (minute chips, hour grid). */
+  grow?: boolean;
+};
+
+/**
+ * The one chip (".qbtn"). Selection is announced with `aria-pressed`, not
+ * colour alone.
+ */
+export function Chip({ selected = false, children, hint, grow, className, ...props }: ChipProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={cn(
+        "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3.5 py-2 text-[13px] font-normal transition-colors",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50",
+        grow && "flex-1",
+        selected
+          ? "border-accent bg-accent-soft text-accent-deep"
+          : "border-border bg-card text-muted-foreground hover:bg-muted",
+        className,
+      )}
+      {...props}
+    >
+      <span className="truncate">{children}</span>
+      {hint ? <span className="text-[11px] font-medium opacity-70">{hint}</span> : null}
+    </button>
+  );
+}
+
+/** Wrapping row of chips (".qrow"). */
+export function ChipRow({ className, ...props }: ComponentProps<"div">) {
+  return <div className={cn("flex flex-wrap gap-1.5", className)} {...props} />;
+}
+
+/** Single-select chip row driven by a value list - the app's radio pattern. */
+export function ChipSelect<T extends string | number | null>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{ value: T; label: string; hint?: string }>;
+  ariaLabel?: string;
+}) {
+  return (
+    <ChipRow role="group" aria-label={ariaLabel}>
+      {options.map((option) => (
+        <Chip
+          key={String(option.value)}
+          selected={value === option.value}
+          hint={option.hint}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </Chip>
+      ))}
+    </ChipRow>
+  );
+}
+
+/** Icon + label tile in the 4-column category grid (".cat"). */
+export function Tile({
+  icon: Icon,
+  iconColor,
+  label,
+  selected = false,
+  onClick,
+  className,
+  ...props
+}: {
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  iconColor?: string;
+  label: string;
+  selected?: boolean;
+  onClick: () => void;
+} & Omit<ComponentProps<"button">, "onClick">) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "flex min-h-11 flex-col items-center gap-1.5 rounded-lg border px-1.5 py-2.5 text-center transition-colors",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+        selected
+          ? "border-accent bg-accent-soft text-accent-deep"
+          : "border-border bg-card text-muted-foreground hover:bg-muted",
+        className,
+      )}
+      {...props}
+    >
+      <Icon className="size-5 shrink-0" style={iconColor ? { color: iconColor } : undefined} />
+      <span className="w-full truncate text-[11px] leading-tight font-normal">{label}</span>
+    </button>
+  );
+}
+
+/** 4-column tile grid (".catgrid"). */
+export function TileGrid({ className, ...props }: ComponentProps<"div">) {
+  return <div className={cn("grid grid-cols-4 gap-1.5", className)} {...props} />;
+}
+
+/**
+ * Text input in form chrome (".finp"). `text-base` on every breakpoint is
+ * deliberate: 16px is the threshold below which iOS Safari zooms the page on
+ * focus, and a zoomed sheet is the single worst thing that can happen to a
+ * mobile form.
+ */
+export function FormInput({ className, ...props }: ComponentProps<"input">) {
+  return (
+    <input
+      className={cn(
+        "min-h-11 w-full rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground transition-colors",
+        "placeholder:font-normal placeholder:text-muted-foreground",
+        "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/**
+ * Native `<select>` in {@link FormInput} chrome.
+ *
+ * The browser's own caret is suppressed (`appearance-none`) and redrawn as the
+ * app's chevron, inset like every other row's chevron. Left native, the OS arrow
+ * hugs the field's right edge and reads as a different control language than
+ * the picker rows sitting directly above it in the same form.
+ */
+export function FormSelect({ className, children, ...props }: ComponentProps<"select">) {
+  return (
+    <div className="relative">
+      <select
+        className={cn(
+          "min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-border bg-card py-2.5 pr-10 pl-3.5",
+          "text-base font-medium text-foreground transition-colors",
+          "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
+          "disabled:pointer-events-none disabled:opacity-50",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
+  );
+}
+
+/** Multi-line sibling of {@link FormInput}. */
+export function FormTextarea({ className, ...props }: ComponentProps<"textarea">) {
+  return (
+    <textarea
+      className={cn(
+        "min-h-20 w-full rounded-lg border border-border bg-card px-3.5 py-2.5 text-base font-medium text-foreground transition-colors",
+        "placeholder:font-normal placeholder:text-muted-foreground",
+        "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/**
+ * The big centred value card at the top of a form (".fbig") - amount, scanned
+ * receipt total, picked time. `children` is the value; `footer` carries the
+ * conversion line or the currency segment.
+ */
+export function BigValueCard({
+  label,
+  children,
+  footer,
+  className,
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card p-3.5 text-center shadow-card",
+        className,
+      )}
+    >
+      <div className="text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+        {label}
+      </div>
+      <div className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{children}</div>
+      {footer}
+    </div>
+  );
+}
+
+/**
+ * The amount field shared by the expense and payment forms: one big centred
+ * value with the numeric keypad, the currency CODE beside it and slots for the
+ * NBS conversion line (`footer`) and the currency segment (`currencyToggle`).
+ */
+export function AmountInputCard({
+  id,
+  label,
+  value,
+  onChange,
+  currencyCode,
+  currencyToggle,
+  footer,
+  required = true,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  currencyCode: string;
+  currencyToggle?: ReactNode;
+  footer?: ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      {/* Label left, currency picker right - the pre-redesign arrangement. The
+          picker belongs beside the label, not below the rate row: it decides
+          what you are about to type, so it has to be read BEFORE the field. */}
+      <div className="flex items-center justify-between gap-2">
+        <label
+          htmlFor={id}
+          className="px-0.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase"
+        >
+          {label}
+        </label>
+        {currencyToggle}
+      </div>
+      <div className="relative">
+        <input
+          id={id}
+          value={value}
+          // Digits + one separator only. `inputMode` merely asks for the
+          // numeric keypad; it does not stop a hardware keyboard (or a mobile
+          // keyboard the user switched) from putting letters in an amount.
+          onChange={(e) => onChange(sanitizeDecimalInput(e.target.value))}
+          inputMode="decimal"
+          required={required}
+          placeholder="0"
+          className={cn(
+            "h-14 w-full rounded-lg border border-border bg-card pr-14 pl-3.5",
+            "text-right text-3xl font-bold tracking-tight tabular-nums transition-colors",
+            "placeholder:font-normal placeholder:text-muted-foreground/50",
+            "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
+          )}
+        />
+        {/* Currency is always a CODE, never a symbol. */}
+        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm font-medium text-muted-foreground/75">
+          {currencyCode}
+        </span>
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+/** Toggle row with an icon, label, optional sub-label and a control (".swrow2"). */
+export function ControlRow({
+  icon: Icon,
+  label,
+  description,
+  control,
+  className,
+}: {
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
+  label: ReactNode;
+  description?: ReactNode;
+  control: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-11 items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5",
+        className,
+      )}
+    >
+      {Icon ? (
+        <Icon className="size-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-normal">{label}</div>
+        {description ? (
+          <div className="text-[11.5px] leading-snug text-muted-foreground">{description}</div>
+        ) : null}
+      </div>
+      {control}
+    </div>
+  );
+}
+
+/** Pill segmented control - currency codes, small either/or choices (".curseg"). */
+export function SegmentedPills<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+  className,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<T> | ReadonlyArray<{ value: T; label: string }>;
+  ariaLabel: string;
+  className?: string;
+}) {
+  const normalized = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option,
+  ) as ReadonlyArray<{ value: T; label: string }>;
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className={cn("flex justify-center gap-1.5", className)}
+    >
+      {normalized.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "min-h-9 rounded-full border px-3.5 py-1 text-xs font-semibold tracking-wide transition-colors",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            value === option.value
+              ? "border-accent bg-accent text-accent-foreground"
+              : "border-border text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}

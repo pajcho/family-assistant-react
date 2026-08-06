@@ -7,8 +7,8 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
-import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { ShiftSetupForm } from "@/components/activities/ShiftSetupForm";
 import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
@@ -50,11 +50,10 @@ function memberName(member: Profile | undefined): string {
 
 /**
  * The "Opcije" hub - a bottom sheet (drawer on mobile) that collects the
- * page's secondary controls. Instead of closing on every action, it navigates
- * in place (sheet stack): clicking an option swaps the sheet's content to that
- * editor with a "← Nazad" header that returns to the hub, and dismissing the
- * editor (swipe / tap outside) also lands back on the hub. One overlay, no
- * stacking.
+ * page's secondary controls. Instead of closing on every action, it drills in
+ * (sheet stack): clicking an option opens that editor as a sheet ON TOP of the
+ * hub with a "← Nazad" header, and dismissing the editor (swipe / tap outside)
+ * lands back on the hub, which never went anywhere.
  *
  * Member management (add / remove / colors / logins) lives on the Porodica
  * settings tab - the "Porodica i članovi" button just redirects there.
@@ -69,19 +68,18 @@ export function ActivityOptionsSheet({
   bell,
 }: ActivityOptionsSheetProps) {
   const navigate = useNavigate();
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, { kind: "hub" });
+  const stack = useSheetStack<View>(open, onOpenChange, { kind: "hub" });
+  const { view, push, pop, reset } = stack;
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const back = pop;
 
   // A sub-view that needs a member but can't find one (e.g. deleted) falls
   // back to the hub defensively.
-  const focusedMember =
-    view.kind === "shift" || view.kind === "timetable" ? memberById.get(view.personId) : undefined;
+  const memberFor = (v: View) =>
+    v.kind === "shift" || v.kind === "timetable" ? memberById.get(v.personId) : undefined;
   const focusedMemberMissing =
-    (view.kind === "shift" || view.kind === "timetable") && !focusedMember;
-  const effectiveView: View = focusedMemberMissing ? { kind: "hub" } : view;
+    (view.kind === "shift" || view.kind === "timetable") && !memberFor(view);
 
   // A member can disappear through another session while their editor is
   // open. Render the hub immediately, then discard the invalid stack entry so
@@ -90,58 +88,69 @@ export function ActivityOptionsSheet({
     if (focusedMemberMissing) reset();
   }, [focusedMemberMissing, reset]);
 
-  const title =
-    effectiveView.kind === "hub"
+  const titleFor = (v: View, member: Profile | undefined) =>
+    v.kind === "hub"
       ? "Opcije"
-      : effectiveView.kind === "shift"
-        ? `Smena - ${memberName(focusedMember)}`
-        : effectiveView.kind === "timetable"
-          ? `Raspored - ${memberName(focusedMember)}`
+      : v.kind === "shift"
+        ? `Smena - ${memberName(member)}`
+        : v.kind === "timetable"
+          ? `Raspored - ${memberName(member)}`
           : "Satnica zvona";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
-        <SheetStackHeader
-          title={title}
-          onBack={effectiveView.kind !== "hub" && !atRoot ? back : undefined}
-          backAriaLabel="Nazad na opcije"
-        />
+    <SheetStackViews
+      stack={stack}
+      render={(rawView, level) => {
+        const focusedMember = memberFor(rawView);
+        const missing =
+          (rawView.kind === "shift" || rawView.kind === "timetable") && !focusedMember;
+        const effectiveView: View = missing ? { kind: "hub" } : rawView;
+        return (
+          <ResponsiveDialogContent className="sm:max-w-md">
+            <SheetStackHeader
+              title={titleFor(effectiveView, focusedMember)}
+              onBack={effectiveView.kind !== "hub" && level > 0 ? back : undefined}
+              backAriaLabel="Nazad na opcije"
+            />
 
-        {effectiveView.kind === "hub" ? (
-          <Hub
-            members={members}
-            anchorsByPersonId={anchorsByPersonId}
-            timeBandByPerson={timeBandByPerson}
-            onPick={push}
-            onManageFamily={() => {
-              onOpenChange(false);
-              void navigate({ to: "/settings", search: { tab: "family" } });
-            }}
-          />
-        ) : null}
+            {effectiveView.kind === "hub" ? (
+              <Hub
+                members={members}
+                anchorsByPersonId={anchorsByPersonId}
+                timeBandByPerson={timeBandByPerson}
+                onPick={push}
+                onManageFamily={() => {
+                  onOpenChange(false);
+                  void navigate({ to: "/settings", search: { tab: "family" } });
+                }}
+              />
+            ) : null}
 
-        {effectiveView.kind === "shift" && focusedMember ? (
-          <ShiftSetupForm
-            member={focusedMember}
-            anchor={anchorsByPersonId.get(focusedMember.id)}
-            onClose={back}
-          />
-        ) : null}
+            {effectiveView.kind === "shift" && focusedMember ? (
+              <ShiftSetupForm
+                member={focusedMember}
+                anchor={anchorsByPersonId.get(focusedMember.id)}
+                onClose={back}
+              />
+            ) : null}
 
-        {effectiveView.kind === "timetable" && focusedMember ? (
-          <TimetableEditorPanel
-            member={focusedMember}
-            anchor={anchorsByPersonId.get(focusedMember.id)}
-            entries={entries}
-            bell={bell}
-            onDone={back}
-          />
-        ) : null}
+            {effectiveView.kind === "timetable" && focusedMember ? (
+              <TimetableEditorPanel
+                member={focusedMember}
+                anchor={anchorsByPersonId.get(focusedMember.id)}
+                entries={entries}
+                bell={bell}
+                onDone={back}
+              />
+            ) : null}
 
-        {effectiveView.kind === "bell" ? <BellSchedulePanel bell={bell} onClose={back} /> : null}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+            {effectiveView.kind === "bell" ? (
+              <BellSchedulePanel bell={bell} onClose={back} />
+            ) : null}
+          </ResponsiveDialogContent>
+        );
+      }}
+    />
   );
 }
 
@@ -169,7 +178,7 @@ function Hub({
     <div className="space-y-4">
       {students.length > 0 ? (
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
             Škola po detetu
           </h3>
           <ul className="space-y-2">
@@ -178,17 +187,14 @@ function Hub({
               const name = memberName(member);
               const band = timeBandByPerson.get(member.id) ?? null;
               return (
-                <li
-                  key={member.id}
-                  className="space-y-2 rounded-md border border-gray-200 p-2.5 dark:border-gray-700"
-                >
+                <li key={member.id} className="space-y-2 rounded-md border border-border p-2.5">
                   <div className="flex items-center gap-2">
                     <span
                       className="inline-block size-3 rounded-full"
                       style={{ backgroundColor: color }}
                       aria-hidden="true"
                     />
-                    <span className="flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span className="flex-1 truncate text-sm font-semibold text-foreground">
                       {name}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
@@ -225,7 +231,7 @@ function Hub({
       ) : null}
 
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
           Podešavanja
         </h3>
         <Button

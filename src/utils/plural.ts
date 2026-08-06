@@ -22,3 +22,8 @@ export function serbianPlural(
 export function stavkeLabel(count: number): string {
   return serbianPlural(count, { one: "stavka", few: "stavke", many: "stavki" });
 }
+
+/** "placanje / placanja / placanja" for a count (1 placanje, 2 placanja, 5 placanja). */
+export function placanjaLabel(count: number): string {
+  return serbianPlural(count, { one: "plaćanje", few: "plaćanja", many: "plaćanja" });
+}

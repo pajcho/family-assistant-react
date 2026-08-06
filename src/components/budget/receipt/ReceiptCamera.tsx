@@ -93,8 +93,8 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
       }
 
       // zxing-wasm fallback: sample only the centre square of the frame - the
-      // square viewport renders the video with object-cover, so that region is
-      // exactly what the user sees (and 2-4× fewer pixels to decode).
+      // viewport renders the video with object-cover, so that region covers
+      // the scan frame the user aims with (and 2-4× fewer pixels to decode).
       const w = video.videoWidth;
       const h = video.videoHeight;
       if (!w || !h) return false;
@@ -195,12 +195,12 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
 
   if (state === "denied" || state === "unavailable") {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
-        <VideoCameraSlashIcon className="size-8 text-gray-400" />
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted px-4 py-8 text-center">
+        <VideoCameraSlashIcon className="size-8 text-muted-foreground" />
+        <p className="text-sm font-semibold text-foreground">
           {state === "denied" ? "Kamera nije dozvoljena" : "Kamera nije dostupna"}
         </p>
-        <p className="max-w-xs text-xs text-gray-500 dark:text-gray-400">
+        <p className="max-w-xs text-xs text-muted-foreground">
           Zalepi link sa računa ili otpremi sliku QR koda ispod.
         </p>
       </div>
@@ -208,7 +208,7 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
   }
 
   return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black">
+    <div className="relative h-[300px] w-full overflow-hidden rounded-2xl bg-[#17121C]">
       <video
         ref={videoRef}
         className="size-full object-cover"
@@ -219,25 +219,25 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
 
       {/* Scan-frame overlay with a subtle scanning line. */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="relative size-3/5">
+        <div className="relative aspect-square h-3/5">
           <span className="absolute top-0 left-0 size-6 rounded-tl-lg border-t-2 border-l-2 border-white/90" />
           <span className="absolute top-0 right-0 size-6 rounded-tr-lg border-t-2 border-r-2 border-white/90" />
           <span className="absolute bottom-0 left-0 size-6 rounded-bl-lg border-b-2 border-l-2 border-white/90" />
           <span className="absolute right-0 bottom-0 size-6 rounded-br-lg border-r-2 border-b-2 border-white/90" />
           {state === "streaming" ? (
-            <span className="animate-scanline absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-blue-400/80 shadow-[0_0_8px_rgba(96,165,250,0.9)]" />
+            <span className="animate-scanline absolute inset-x-2 top-1/2 h-0.5 rounded-full bg-accent shadow-[0_0_14px_2px_var(--accent)]" />
           ) : null}
         </div>
       </div>
 
       {state === "starting" ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-white">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-[12.5px] font-semibold text-white/85">
           Uključujem kameru…
         </div>
       ) : null}
 
       {hint ? (
-        <div className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-center text-xs text-white">
+        <div className="absolute inset-x-0 bottom-0 bg-black/60 px-3 py-2 text-center text-[12.5px] font-semibold text-white/85">
           {hint}
         </div>
       ) : null}
@@ -249,8 +249,10 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
           aria-pressed={torchOn}
           aria-label={torchOn ? "Ugasi baterijsku lampu" : "Upali baterijsku lampu"}
           className={cn(
-            "absolute top-3 right-3 flex size-10 items-center justify-center rounded-full backdrop-blur transition-colors",
-            torchOn ? "bg-amber-400 text-amber-950" : "bg-black/50 text-white hover:bg-black/70",
+            "absolute top-3 right-3 flex size-11 items-center justify-center rounded-full backdrop-blur transition-colors",
+            // Lit state uses warn-soft as the glyph: white vanishes on the
+            // dark theme's lighter --warn.
+            torchOn ? "bg-warn text-warn-soft" : "bg-black/50 text-white hover:bg-black/70",
           )}
         >
           <BoltIcon className="size-5" />

@@ -1,18 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
+  ChevronRightIcon,
   ClipboardDocumentListIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   UserGroupIcon,
+  UserIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
+import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { IconButton } from "@/components/common/IconButton";
+import {
+  ItemCard,
+  ItemMain,
+  ItemMeta,
+  ItemSide,
+  ItemTile,
+  ItemTitle,
+} from "@/components/common/ItemCard";
+import { Pill } from "@/components/common/Pill";
+import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { previewLine } from "@/components/common/MarkdownText";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
@@ -167,27 +180,20 @@ export function ListMaster({ variant }: ListMasterProps) {
   );
 
   const filterBar = (
-    <div
-      className={cn(
-        "flex flex-col gap-2",
-        isSidebar ? "" : "sm:flex-row sm:items-center sm:justify-between",
-      )}
-    >
-      <div className="flex flex-wrap gap-1.5">
+    <div className={cn("flex flex-col gap-2", isSidebar ? "" : "sm:flex-row sm:items-center")}>
+      <FilterChipRow ariaLabel="Pristup">
         {SCOPE_FILTERS.map((filter) => (
-          <Button
+          <FilterChip
             key={filter.value}
-            variant={scopeFilter === filter.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setScopeFilter(filter.value)}
-            aria-pressed={scopeFilter === filter.value}
+            active={scopeFilter === filter.value}
+            onToggle={() => setScopeFilter(filter.value)}
           >
             {filter.label}
-          </Button>
+          </FilterChip>
         ))}
-      </div>
+      </FilterChipRow>
       <div className={cn("relative", isSidebar ? "w-full" : "w-full sm:max-w-xs")}>
-        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
           value={search}
@@ -201,7 +207,7 @@ export function ListMaster({ variant }: ListMasterProps) {
             type="button"
             onClick={() => setSearch("")}
             aria-label="Obriši pretragu"
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
           >
             <XMarkIcon className="h-4 w-4" />
           </button>
@@ -217,10 +223,10 @@ export function ListMaster({ variant }: ListMasterProps) {
   // ---- Desktop sidebar: fixed header + filters, scrollable row region ----
   if (isSidebar) {
     return (
-      <div className="flex h-full flex-col bg-white dark:bg-gray-800">
-        <div className="shrink-0 border-b border-gray-200 px-3 py-3 dark:border-gray-700">
+      <div className="flex h-full flex-col bg-card">
+        <div className="shrink-0 border-b border-border px-3 py-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Liste</h2>
+            <h2 className="text-lg font-semibold">Liste</h2>
             <Button size="icon-sm" variant="ghost" onClick={openAdd} aria-label="Dodaj listu">
               <PlusIcon className="h-5 w-5" />
             </Button>
@@ -232,7 +238,7 @@ export function ListMaster({ variant }: ListMasterProps) {
             <ListMasterSkeleton variant="sidebar" />
           ) : showEmpty ? (
             <div className="px-2 py-8 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-300">Još nemaš nijednu listu.</p>
+              <p className="text-sm text-muted-foreground">Još nemaš nijednu listu.</p>
               <Button onClick={openAdd} size="sm" className="mt-3">
                 <PlusIcon className="mr-1.5 h-4 w-4" />
                 Dodaj listu
@@ -240,7 +246,7 @@ export function ListMaster({ variant }: ListMasterProps) {
             </div>
           ) : showNoMatches ? (
             <div className="px-2 py-8 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-300">Nema rezultata.</p>
+              <p className="text-sm text-muted-foreground">Nema rezultata.</p>
               <Button variant="outline" size="sm" onClick={clearFilters} className="mt-3">
                 Poništi filtere
               </Button>
@@ -255,25 +261,26 @@ export function ListMaster({ variant }: ListMasterProps) {
   }
 
   // ---- Mobile page: normal flow, deep-links into the detail page ----
+  const header = (
+    <div className="flex flex-col gap-2.5">
+      <ScreenHeaderRow
+        title="Liste"
+        actions={
+          <>
+            <IconButton icon={PlusIcon} aria-label="Dodaj listu" onClick={openAdd} />
+          </>
+        }
+      />
+      {showFilters ? filterBar : null}
+    </div>
+  );
+
   return (
-    <div className="animate-fade-in">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Liste</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Šoping, obaveze i sve ostalo. Porodične liste vide svi članovi u realnom vremenu.
-          </p>
-        </div>
-        <AddButton label="Dodaj listu" onClick={openAdd} />
-      </div>
-
-      {showFilters ? <div className="mt-4">{filterBar}</div> : null}
-
+    <AppScreen header={header}>
       {isLoading ? <ListMasterSkeleton variant="page" /> : null}
 
       {showEmpty ? (
         <EmptyState
-          className="mt-6"
           icon={ClipboardDocumentListIcon}
           tone="purple"
           title="Još nemaš nijednu listu"
@@ -290,7 +297,6 @@ export function ListMaster({ variant }: ListMasterProps) {
 
       {showNoMatches ? (
         <EmptyState
-          className="mt-6"
           variant="filter"
           title="Nijedna lista ne odgovara filteru"
           description="Probaj drugačiju pretragu ili promeni filter pristupa."
@@ -299,13 +305,16 @@ export function ListMaster({ variant }: ListMasterProps) {
       ) : null}
 
       {!isLoading && filteredLists.length > 0 ? (
-        <div className="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="divide-y divide-gray-100 dark:divide-gray-700">{rows}</div>
-        </div>
+        <>
+          <ul className="space-y-2.5">{rows}</ul>
+          <p className="mt-4 px-5 text-center text-[11.5px] font-normal text-muted-foreground">
+            Porodične liste vide svi članovi u realnom vremenu.
+          </p>
+        </>
       ) : null}
 
       {dialog}
-    </div>
+    </AppScreen>
   );
 }
 
@@ -334,28 +343,27 @@ function ListMasterSkeleton({ variant }: { variant: MasterVariant }) {
   }
 
   return (
-    <div
-      role="status"
-      aria-busy="true"
-      className="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-    >
+    <div role="status" aria-busy="true" className="space-y-2.5">
       <span className="sr-only">Učitavanje</span>
-      <div className="divide-y divide-gray-100 dark:divide-gray-700">
-        {widths.map((width, i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-3">
-            <span className="min-w-0 flex-1">
-              <Skeleton className={cn("h-5", width)} />
-            </span>
-            <Skeleton className="h-4 w-5 shrink-0" />
-          </div>
-        ))}
-      </div>
+      {widths.map((width, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3"
+        >
+          <Skeleton className="size-[42px] shrink-0 rounded-lg" />
+          <span className="min-w-0 flex-1">
+            <Skeleton className={cn("h-4", width)} />
+          </span>
+          <Skeleton className="h-4 w-5 shrink-0" />
+        </div>
+      ))}
     </div>
   );
 }
 
 function ListMasterRow({ list, variant }: { list: ListWithItems; variant: MasterVariant }) {
   const active = list.list_items.filter((i) => !i.is_completed).length;
+  const completed = list.list_items.length - active;
   const isFamily = list.scope === "family";
 
   if (variant === "sidebar") {
@@ -365,31 +373,25 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
         params={{ listId: list.id }}
         activeOptions={{ exact: true }}
         className="block rounded-md px-3 py-2 transition-colors"
-        activeProps={{
-          className: "bg-blue-50 dark:bg-blue-900/30",
-        }}
-        inactiveProps={{
-          className: "hover:bg-gray-100 dark:hover:bg-gray-700/50",
-        }}
+        activeProps={{ className: "bg-accent-soft" }}
+        inactiveProps={{ className: "hover:bg-muted" }}
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-              {list.name}
-            </span>
+            <span className="min-w-0 truncate text-sm font-semibold">{list.name}</span>
             {isFamily ? (
               <UserGroupIcon
-                className="h-3.5 w-3.5 shrink-0 text-purple-500 dark:text-purple-400"
+                className="h-3.5 w-3.5 shrink-0 text-accent-deep"
                 aria-label="Porodična lista"
               />
             ) : null}
           </div>
-          <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
             {active}
           </span>
         </div>
         {list.description && previewLine(list.description) ? (
-          <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {previewLine(list.description)}
           </p>
         ) : null}
@@ -397,33 +399,35 @@ function ListMasterRow({ list, variant }: { list: ListWithItems; variant: Master
     );
   }
 
+  const meta = [
+    `${active} ${active === 1 ? "aktivna" : "aktivnih"}`,
+    completed > 0 ? `${completed} završeno` : null,
+    list.description ? previewLine(list.description) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <Link
-      to="/lists/$listId"
-      params={{ listId: list.id }}
-      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="min-w-0 truncate text-base font-medium text-gray-900 dark:text-gray-100">
-            {list.name}
-          </span>
-          {isFamily ? (
-            <UserGroupIcon
-              className="h-4 w-4 shrink-0 text-purple-500 dark:text-purple-400"
-              aria-label="Porodična lista"
-            />
-          ) : null}
-        </div>
-        {list.description && previewLine(list.description) ? (
-          <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-            {previewLine(list.description)}
-          </p>
-        ) : null}
-      </div>
-      <span className="shrink-0 text-sm tabular-nums text-gray-500 dark:text-gray-400">
-        {active}
-      </span>
-    </Link>
+    <li>
+      <Link to="/lists/$listId" params={{ listId: list.id }} className="block">
+        <ItemCard>
+          <ItemTile icon={isFamily ? UserGroupIcon : UserIcon} tone="accent" />
+          <ItemMain>
+            <ItemTitle>
+              <span className="min-w-0 truncate">{list.name}</span>
+              {isFamily ? <Pill>porodična</Pill> : null}
+            </ItemTitle>
+            {meta ? (
+              <ItemMeta>
+                <span className="min-w-0 truncate">{meta}</span>
+              </ItemMeta>
+            ) : null}
+          </ItemMain>
+          <ItemSide>
+            <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+          </ItemSide>
+        </ItemCard>
+      </Link>
+    </li>
   );
 }

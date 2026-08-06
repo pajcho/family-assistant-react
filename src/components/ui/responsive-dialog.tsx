@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/cn";
+import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import {
   Dialog,
   DialogClose,
@@ -137,6 +138,7 @@ function ResponsiveDialogContent({
   ...props
 }: ContentProps) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogContent");
+  const keyboardOpen = useIsKeyboardOpen();
 
   if (isDesktop) {
     return (
@@ -159,15 +161,22 @@ function ResponsiveDialogContent({
   return (
     <DrawerContent
       className={cn(
-        // 90vh is the cap. The `min-h-[60vh]` keeps short forms (e.g.
-        // the 3-field list form) from leaving a visible band of page
-        // background between the drawer's bottom and the iOS keyboard
-        // - without it, iOS Safari positions the short fixed-bottom
-        // drawer relative to the visualViewport bottom and the page
-        // shows through above the keyboard.
+        // A sheet is exactly as tall as its content, capped at 90vh. No
+        // minimum: dead space under a short sheet is the thing people
+        // notice first, and it is never what the content asked for.
+        //
+        // The ONE exception is the iOS keyboard. A short fixed-bottom
+        // drawer is positioned against the visualViewport bottom there, so
+        // the page shows through in the band between the sheet and the
+        // keyboard. The 60vh floor covers that band - and it only has to
+        // exist while the keyboard does, which is what the hook tells us
+        // (it flips on `focusin`, so the floor is in place before the
+        // keyboard finishes animating up). Every sheet gets this for free;
+        // none of them has to opt out of a floor it never needed.
         // The keyboard-aware scroll of focused inputs is Vaul's job
         // (repositionInputs, on by default).
-        "data-[vaul-drawer-direction=bottom]:max-h-[90vh] data-[vaul-drawer-direction=bottom]:min-h-[60vh]",
+        "data-[vaul-drawer-direction=bottom]:max-h-[90vh]",
+        keyboardOpen && "data-[vaul-drawer-direction=bottom]:min-h-[60vh]",
         className,
       )}
       {...props}

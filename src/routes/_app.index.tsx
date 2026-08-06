@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { DashboardScope } from "@/components/dashboard/DashboardScope";
+import { TodayScreen } from "@/components/dashboard/TodayScreen";
 
-/** "Danas" - today's agenda + overdue. Uskoro is its own route (`/uskoro`); the
- *  nav switches between them. */
+/** "Danas" - one timeline for today, with overdue money pinned above it. */
 export const Route = createFileRoute("/_app/")({
-  component: () => <DashboardScope scope="danas" />,
+  component: TodayScreen,
 });

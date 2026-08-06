@@ -180,7 +180,7 @@ export function TimetableEditorPanel({
       </p>
 
       {!anchor ? (
-        <div className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+        <div className="rounded-md bg-warn-soft p-2.5 text-xs text-warn">
           Ovo dete nema postavljenu smenu - raspored se prikazuje kao jutarnji (nedelja A). Postavi
           smenu da bi se A/B i popodne računali ispravno.
         </div>
@@ -199,8 +199,8 @@ export function TimetableEditorPanel({
                 className={cn(
                   "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
                   variant === v
-                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
-                    : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+                    ? "border-accent bg-accent-soft text-accent-deep"
+                    : "border-border hover:bg-muted",
                 )}
               >
                 Nedelja {v}
@@ -229,8 +229,8 @@ export function TimetableEditorPanel({
               className={cn(
                 "rounded-md border px-3 py-1.5 text-sm transition-colors",
                 day === d
-                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
-                  : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+                  ? "border-accent bg-accent-soft text-accent-deep"
+                  : "border-border hover:bg-muted",
               )}
             >
               {DAY_LABELS_FULL[d]}
@@ -254,7 +254,7 @@ export function TimetableEditorPanel({
         </div>
         <div className="space-y-1.5">
           <Label>Pregled vremena</Label>
-          <div className="rounded-md border border-gray-200 p-2 text-sm dark:border-gray-700">
+          <div className="rounded-md border border-border p-2 text-sm">
             {lines.length === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">
                 Upiši predmete da vidiš vremena.
@@ -275,7 +275,7 @@ export function TimetableEditorPanel({
                         </span>
                       </li>
                       {slot?.bigBreakAfter ? (
-                        <li className="py-0.5 text-center text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                        <li className="py-0.5 text-center text-[10px] uppercase tracking-wide text-warn">
                           - veliki odmor -
                         </li>
                       ) : null}

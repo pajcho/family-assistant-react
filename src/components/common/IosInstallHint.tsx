@@ -57,21 +57,19 @@ export function IosInstallHint() {
     <div
       role="dialog"
       aria-label="Dodaj na početni ekran"
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-md rounded-xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-md rounded-xl border border-border bg-white/95 p-4 shadow-lg backdrop-blur/95"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
     >
       <button
         type="button"
         aria-label="Zatvori"
         onClick={dismiss}
-        className="absolute right-2 top-2 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+        className="absolute right-2 top-2 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-muted-foreground"
       >
         <XMarkIcon className="h-5 w-5" />
       </button>
-      <p className="pr-8 text-sm font-medium text-gray-900 dark:text-gray-100">
-        Instaliraj aplikaciju
-      </p>
-      <p className="mt-1 pr-2 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+      <p className="pr-8 text-sm font-medium text-foreground">Instaliraj aplikaciju</p>
+      <p className="mt-1 pr-2 text-xs leading-relaxed text-muted-foreground">
         Dodaj Porodični Asistent na početni ekran za bržu prečicu i puni ekran. U Safariju otvori
         meni{" "}
         <ArrowUpOnSquareIcon className="inline h-4 w-4 -translate-y-0.5 text-blue-600 dark:text-blue-400" />{" "}

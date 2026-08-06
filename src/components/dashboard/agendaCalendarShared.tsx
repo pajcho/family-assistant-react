@@ -26,13 +26,14 @@ export const GRID_BOTTOM_PADDING_PX = 12;
 const MIN_BLOCK_HEIGHT_PX = 24;
 /** Synthetic duration for a timed event with no end time. */
 const DEFAULT_EVENT_MINUTES = 60;
-/** blue-500 - matches the event row icon / list accent. */
-const EVENT_COLOR = "#3b82f6";
-/** sky-500 - the mirrored-Google-event accent (distinct from native blue). */
-const EXTERNAL_COLOR = "#0ea5e9";
+/** The semantic "info" token - events and mirrored Google events share it. */
+const EVENT_COLOR = "var(--info)";
+const EXTERNAL_COLOR = "var(--info)";
 
-export type TimedEntry = { startTime: string; endTime: string; item: AgendaItem };
-export type PositionedEntry = Laned<TimedEntry> & { topPx: number; heightPx: number };
+export type TimeSpan = { startTime: string; endTime: string };
+export type TimedEntry = TimeSpan & { item: AgendaItem };
+export type Positioned<T> = Laned<T> & { topPx: number; heightPx: number };
+export type PositionedEntry = Positioned<TimedEntry>;
 
 export function isAllDayItem(item: AgendaItem): boolean {
   switch (item.kind) {
@@ -95,7 +96,7 @@ export function splitAgendaItems(items: ReadonlyArray<AgendaItem>): {
 }
 
 /** Fit-to-content hour window (±1h, default 7-21 when empty), half-hour aligned. */
-export function computeRange(entries: ReadonlyArray<TimedEntry>): {
+export function computeRange(entries: ReadonlyArray<TimeSpan>): {
   startMin: number;
   endMin: number;
 } {
@@ -135,11 +136,16 @@ export function expandRangeToNow(
   };
 }
 
-/** Lane + position timed entries against a (possibly shared) start-of-axis. */
-export function positionEntries(
-  entries: ReadonlyArray<TimedEntry>,
+/**
+ * Lane + position timed entries against a (possibly shared) start-of-axis.
+ * Generic over the payload so the weekly grid can lane school classes into the
+ * SAME sweep as agenda items - a class that overlaps a training then sits
+ * beside it instead of under it.
+ */
+export function positionEntries<T extends TimeSpan>(
+  entries: ReadonlyArray<T>,
   startMin: number,
-): PositionedEntry[] {
+): Positioned<T>[] {
   return assignLanes([...entries]).map((p) => ({
     ...p,
     topPx:
@@ -253,22 +259,22 @@ export function TimedBlock({
         height: `${block.heightPx}px`,
         left: `calc(${leftPct}% + 2px)`,
         width: `calc(${widthPct}% - 4px)`,
-        backgroundColor: `${color}1F`,
+        // color-mix (not a hex alpha suffix) because `color` may be a CSS
+        // variable from the token layer as well as a member's hex.
+        backgroundColor: `color-mix(in srgb, ${color} 16%, var(--card))`,
         borderLeftColor: color,
       }}
       className={cn(
-        "absolute overflow-hidden rounded-md border border-l-4 border-transparent px-1.5 py-0.5 text-left",
-        "hover:brightness-110 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none",
+        "absolute overflow-hidden rounded-sm border border-l-[3px] border-transparent px-1.5 py-0.5 text-left",
+        "hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         "transition-[filter]",
         isPast && "opacity-60",
       )}
     >
-      <div className="text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
+      <div className="text-[9.5px] font-normal tabular-nums text-muted-foreground">
         {block.startTime}-{block.endTime}
       </div>
-      <div className="truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
-        {label}
-      </div>
+      <div className="truncate text-[11px] font-semibold text-foreground">{label}</div>
     </button>
   );
 }
@@ -280,44 +286,34 @@ export function TimedBlock({
  * colored 3px left border echoes the timed blocks below.
  */
 const ALL_DAY_CARD =
-  "block w-full rounded-md border border-l-[3px] px-2 py-1 text-left transition-colors " +
-  "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none";
-const PAYMENT_TINT =
-  "border-amber-300/70 border-l-amber-500 bg-amber-50 hover:bg-amber-100 " +
-  "dark:border-amber-500/25 dark:border-l-amber-400 dark:bg-amber-500/10 dark:hover:bg-amber-500/20";
-const EVENT_TINT =
-  "border-blue-300/70 border-l-blue-500 bg-blue-50 hover:bg-blue-100 " +
-  "dark:border-blue-500/25 dark:border-l-blue-400 dark:bg-blue-500/10 dark:hover:bg-blue-500/20";
-const BIRTHDAY_TINT =
-  "border-emerald-300/70 border-l-emerald-500 bg-emerald-50 hover:bg-emerald-100 " +
-  "dark:border-emerald-500/25 dark:border-l-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20";
+  "block w-full rounded-sm border border-l-[3px] px-2 py-1 text-left transition-colors " +
+  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+const PAYMENT_TINT = "border-warn/30 border-l-warn bg-warn-soft hover:brightness-95";
+const EVENT_TINT = "border-info/30 border-l-info bg-info-soft hover:brightness-95";
+const BIRTHDAY_TINT = "border-pos/30 border-l-pos bg-pos-soft hover:brightness-95";
 
 export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () => void }) {
   if (item.kind === "payment") {
-    // A future repetition (not the live due_date occurrence) → read-only + dimmed
-    // + "Nadolazeće" tag (matches the list). The live occurrence stays tappable
-    // even when due in the future.
+    // A future repetition (not the live due_date occurrence) → read-only. The
+    // live occurrence stays tappable even when due in the future.
     const upcoming = isUpcomingPaymentOccurrence(item);
-    // Two rows so the narrow weekly columns stay readable: name on its own line
-    // (up to two), then amount + tag + members underneath, aligned past the icon.
+    // Two fixed rows so a 140px column can never clip anything: name truncates
+    // on its own line, the amount sits alone on the second (at ~65px it always
+    // fits). No "Nadolazeće" tag and no member badges here - "upcoming" is
+    // carried by style alone (dashed border + dimmed), and both stay visible
+    // in the list and the detail dialog.
     const inner = (
       <>
-        <div className="flex min-w-0 items-start gap-1.5">
-          <BanknotesIcon className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span className="line-clamp-2 min-w-0 text-[11px] leading-snug font-medium text-gray-900 dark:text-gray-100">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <BanknotesIcon className="size-3.5 shrink-0 text-warn" />
+          <span className="min-w-0 truncate text-[11px] leading-snug font-semibold text-foreground">
             {item.payment.name}
           </span>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5">
-          <span className="text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-            <Amount value={item.payment.amount} round />
-          </span>
-          {upcoming ? (
-            <span className="rounded bg-amber-200/60 px-1 py-px text-[9px] font-medium tracking-wide text-amber-700 uppercase dark:bg-amber-500/25 dark:text-amber-200">
-              Nadolazeće
-            </span>
-          ) : null}
-          {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+        {/* No indent under the icon - at the narrowest columns (~85px between
+            `sm` and lg desktops) the number needs every pixel. */}
+        <div className="text-[10.5px] font-bold tabular-nums text-warn">
+          <Amount value={item.payment.amount} round codeWhenFits />
         </div>
       </>
     );
@@ -329,7 +325,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
           className={cn(
             ALL_DAY_CARD,
             PAYMENT_TINT,
-            "cursor-default opacity-60 hover:bg-amber-50 dark:hover:bg-amber-500/10",
+            "cursor-default border-dashed opacity-60 hover:brightness-100",
           )}
         >
           {inner}
@@ -350,8 +346,8 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         onClick={onClick}
         className={cn(ALL_DAY_CARD, BIRTHDAY_TINT, "flex items-center gap-1.5")}
       >
-        <CakeIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+        <CakeIcon className="size-3.5 shrink-0 text-pos" />
+        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">
           {item.birthday.name}
         </span>
       </button>
@@ -366,11 +362,15 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
       <button
         type="button"
         onClick={onClick}
-        style={{ backgroundColor: `${color}14`, borderColor: `${color}55`, borderLeftColor: color }}
+        style={{
+          backgroundColor: `color-mix(in srgb, ${color} 14%, var(--card))`,
+          borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+          borderLeftColor: color,
+        }}
         className={cn(ALL_DAY_CARD, "flex items-center gap-1.5 hover:brightness-95")}
       >
         <GlobeAltIcon className="size-3.5 shrink-0" style={{ color }} />
-        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">
           {item.event.title ?? "(bez naslova)"}
         </span>
         {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
@@ -393,12 +393,12 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
         onClick={onClick}
         className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
       >
-        <CalendarIcon className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-        <span className="min-w-0 truncate text-[11px] font-medium text-gray-900 dark:text-gray-100">
+        <CalendarIcon className="size-3.5 shrink-0 text-info" />
+        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">
           {item.event.name}
         </span>
         {suffix ? (
-          <span className="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
+          <span className="shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground">
             {suffix}
           </span>
         ) : null}
@@ -414,7 +414,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
       onClick={onClick}
       className={cn(ALL_DAY_CARD, EVENT_TINT, "flex items-center gap-1.5")}
     >
-      <CalendarIcon className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+      <CalendarIcon className="size-3.5 shrink-0 text-info" />
     </button>
   );
 }

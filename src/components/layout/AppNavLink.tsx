@@ -1,40 +1,41 @@
-import type { ComponentType, SVGProps } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/cn";
+import { isNavSectionActive, type NavSection } from "@/components/layout/navSections";
 
 /**
- * Single nav item. Stacks icon-above-label on mobile (`flex-col`),
- * inline icon+label on `md:` and up (`flex-row`). Active state = gray pill.
- * The breakpoint matches AppNav's mobile/desktop flip (768px) so the bottom
- * tab bar's row layout and the top inline nav switch at the same width.
+ * Single nav item, used by both the mobile bottom bar (icon above a small
+ * label) and the desktop inline row (icon beside the label, from `lg`).
+ *
+ * Active state is the accent itself, not a filled pill: the redesigned bar is
+ * a quiet strip and a highlighted background would fight the elevated "+".
+ *
+ * The highlight comes from {@link isNavSectionActive} rather than the router's
+ * own `activeProps`: Porodica and Podešavanja share a pathname, and only the
+ * `tab` search param says which of the two the location belongs to.
  */
 
 interface AppNavLinkProps {
-  to: string;
-  label: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  section: NavSection;
   className?: string;
 }
 
-export function AppNavLink({ to, label, icon: Icon, className }: AppNavLinkProps) {
+export function AppNavLink({ section, className }: AppNavLinkProps) {
+  const { pathname, search } = useLocation();
+  const active = isNavSectionActive(section, pathname, search);
+  const Icon = section.icon;
+
   return (
     <Link
-      to={to}
-      activeOptions={{ exact: to === "/" }}
+      to={section.to}
+      search={section.search}
       className={cn(
-        "flex flex-col items-center gap-0.5 rounded-md px-3 py-2 text-sm font-medium transition-colors md:flex-row md:gap-2 md:px-2 md:py-1.5",
+        "flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-bold transition-colors lg:flex-row lg:gap-2 lg:px-2.5 lg:py-1.5 lg:text-sm lg:font-medium",
+        active ? "text-accent-deep lg:bg-accent-soft" : "text-muted-foreground lg:hover:bg-muted",
         className,
       )}
-      activeProps={{
-        className: "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white",
-      }}
-      inactiveProps={{
-        className:
-          "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white",
-      }}
     >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span>{label}</span>
+      <Icon className="size-[21px] shrink-0 lg:size-5" />
+      <span>{section.label}</span>
     </Link>
   );
 }

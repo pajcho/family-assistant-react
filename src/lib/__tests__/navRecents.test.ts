@@ -12,26 +12,26 @@ describe("navRecents", () => {
   });
 
   it("records most-recent-first", () => {
-    recordNavRecent("budget");
+    recordNavRecent("money");
     recordNavRecent("events");
-    expect(readNavRecents()).toEqual(["events", "budget"]);
+    expect(readNavRecents()).toEqual(["events", "money"]);
   });
 
   it("moves a repeated visit to the front instead of duplicating", () => {
-    recordNavRecent("budget");
+    recordNavRecent("money");
     recordNavRecent("events");
-    recordNavRecent("budget");
-    expect(readNavRecents()).toEqual(["budget", "events"]);
+    recordNavRecent("money");
+    expect(readNavRecents()).toEqual(["money", "events"]);
   });
 
   it("caps the stored list", () => {
     for (const key of [
-      "danas",
-      "uskoro",
+      "today",
+      "calendar",
       "activities",
       "events",
-      "payments",
-      "budget",
+      "birthdays",
+      "money",
       "lists",
     ] as const) {
       recordNavRecent(key);
@@ -39,13 +39,21 @@ describe("navRecents", () => {
     const recents = readNavRecents();
     expect(recents).toHaveLength(6);
     expect(recents[0]).toBe("lists");
-    expect(recents).not.toContain("danas");
+    expect(recents).not.toContain("today");
+  });
+
+  it("maps pre-redesign keys forward and dedupes the collapsed ones", () => {
+    window.localStorage.setItem(
+      "nav.recents.v1",
+      JSON.stringify(["uskoro", "payments", "budget", "lists"]),
+    );
+    expect(readNavRecents()).toEqual(["calendar", "money", "lists"]);
   });
 
   it("ignores garbage in storage", () => {
     window.localStorage.setItem("nav.recents.v1", "not json");
     expect(readNavRecents()).toEqual([]);
-    window.localStorage.setItem("nav.recents.v1", JSON.stringify(["nope", 5, "budget"]));
-    expect(readNavRecents()).toEqual(["budget"]);
+    window.localStorage.setItem("nav.recents.v1", JSON.stringify(["nope", 5, "money"]));
+    expect(readNavRecents()).toEqual(["money"]);
   });
 });

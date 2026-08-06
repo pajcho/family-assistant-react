@@ -51,3 +51,28 @@ export function useExternalEventsList(filters: ExternalEventFilters = {}) {
 
   return query;
 }
+
+/**
+ * Whether ANY mirrored Google event is visible to this member, family-wide and
+ * date-independent. Drives the calendar filter's "Google" chip: a family that
+ * never connected Google Calendar shouldn't be offered a filter for a source
+ * that cannot produce items. Same query-key family as the list above, so the
+ * `useFamilyChannel` broadcast invalidation refreshes it when a sync lands.
+ */
+export function useHasExternalEvents(): boolean {
+  const { familyId } = useProfile();
+  const query = useQuery({
+    queryKey: ["external_calendar_events", familyId, "any"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("external_calendar_events")
+        .select("id", { count: "exact", head: true })
+        .limit(1);
+      if (error) return false;
+      return (count ?? 0) > 0;
+    },
+    enabled: !!familyId,
+    staleTime: 5 * 60_000,
+  });
+  return query.data ?? false;
+}

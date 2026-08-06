@@ -67,15 +67,11 @@ export function PaymentLinkPickerSheet({
           className={cn(
             "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-            isSelected
-              ? "border-blue-600 bg-blue-600/10"
-              : "border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
+            isSelected ? "border-blue-600 bg-blue-600/10" : "border-border hover:bg-muted",
           )}
         >
           <PaymentLinkIcon kind={option.kind} className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
-            {option.name}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-foreground">{option.name}</span>
           {option.personIds.length > 0 ? (
             <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
           ) : null}
@@ -111,7 +107,7 @@ export function PaymentLinkPickerSheet({
             onChange(null);
             onDone();
           }}
-          className="flex w-full items-center gap-2.5 rounded-lg border border-gray-200 px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="flex w-full items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
         >
           <XMarkIcon className="size-4 shrink-0" />
           Ukloni vezu
@@ -126,7 +122,7 @@ export function PaymentLinkPickerSheet({
           if (group.length === 0) return null;
           return (
             <div key={kind} className="space-y-2">
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <p className="text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                 {label}
               </p>
               <ul className="space-y-2">{group.map(renderOption)}</ul>

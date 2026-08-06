@@ -32,7 +32,7 @@ import {
  * Više detalja) that swap the sheet to a sub-view with a "←" header; desktop
  * shows everything inline. Fully CONTROLLED: the hosting `ReceiptScanDialog`
  * owns the sub-view, the field values AND the line selection (the stack's
- * mobile close→reopen hop remounts this component - local state would lose
+ * a sub-view opening over the preview remounts this component - local state would lose
  * what the user picked).
  */
 
@@ -110,18 +110,18 @@ export function ReceiptPreview({
   const nothingSelected = selectable && selected.size === 0;
 
   const amountHero = (
-    <div className="text-center">
-      <div className="text-4xl font-semibold tabular-nums text-gray-900 dark:text-white">
+    <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-card">
+      <div className="text-[34px] font-bold tracking-[-0.03em] text-foreground tabular-nums">
         <Amount value={heroAmount} />
       </div>
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] text-muted-foreground">
         {receipt.merchant ? (
-          <span className="font-medium text-gray-700 dark:text-gray-200">{receipt.merchant}</span>
+          <span className="font-semibold text-foreground">{receipt.merchant}</span>
         ) : null}
         <span>· {formatReceiptDate(receipt.issuedAt)}</span>
       </div>
       {showReceiptTotal ? (
-        <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+        <div className="mt-1 text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
           Ceo račun · <Amount value={receipt.totalAmount} />
         </div>
       ) : null}
@@ -133,7 +133,7 @@ export function ReceiptPreview({
       ? receipt.warnings.map((warning) => (
           <p
             key={warning}
-            className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+            className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-normal text-warn"
           >
             {warning}
           </p>
@@ -144,7 +144,7 @@ export function ReceiptPreview({
   // and a note that this receipt can only be saved whole.
   const mismatchNote =
     hasItems && !selectable ? (
-      <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+      <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-normal text-warn">
         Stavke se ne poklapaju sa ukupnim iznosom, pa račun može da se doda samo ceo.
       </p>
     ) : null;
@@ -160,16 +160,23 @@ export function ReceiptPreview({
       disabled={saving}
     />
   ) : (
-    <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+    <ul className="rounded-2xl border border-border bg-card px-3 shadow-card">
       {lines.map((it) => (
-        <li key={it.idx} className="flex items-center gap-2 px-3 py-2 text-sm">
-          <span className="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-200">
-            {it.name}
+        <li
+          key={it.idx}
+          className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13.5px] font-normal text-foreground">
+              {it.name}
+            </span>
+            {it.quantity != null && it.quantity !== 1 ? (
+              <span className="block text-[11px] text-muted-foreground tabular-nums">
+                ×{it.quantity}
+              </span>
+            ) : null}
           </span>
-          {it.quantity != null && it.quantity !== 1 ? (
-            <span className="shrink-0 text-xs text-gray-400 tabular-nums">×{it.quantity}</span>
-          ) : null}
-          <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
+          <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
             <Amount value={it.total} />
           </span>
         </li>
@@ -210,7 +217,7 @@ export function ReceiptPreview({
         <SheetStackHeader title="Stavke" onBack={onBack} />
         <div className="space-y-3">
           {selectable ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Odčekiraj stavke koje ne pripadaju ovom trošku - možeš da ih dodaš kao poseban trošak
               odmah posle čuvanja.
             </p>
@@ -235,20 +242,29 @@ export function ReceiptPreview({
 
   // --- Main view ---
   const footer = (
-    <div className="flex justify-end gap-2 pt-1">
-      <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
+    <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+        onClick={onCancel}
+        disabled={saving}
+      >
         Odustani
       </Button>
-      <Button type="button" disabled={saving || nothingSelected} onClick={onSave}>
+      <Button
+        type="button"
+        className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+        disabled={saving || nothingSelected}
+        onClick={onSave}
+      >
         {saving ? "Čuvam…" : "Sačuvaj trošak"}
       </Button>
     </div>
   );
 
   const errorBlock = error ? (
-    <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-      {error}
-    </div>
+    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">{error}</div>
   ) : null;
 
   const freeCount = lines.filter((l) => !l.claimed).length;

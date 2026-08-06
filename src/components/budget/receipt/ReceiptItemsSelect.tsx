@@ -1,9 +1,11 @@
 import { useMemo } from "react";
+import { CheckIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { Amount } from "@/components/common/Amount";
+import { cn } from "@/lib/cn";
 import { stavkeLabel } from "@/utils/plural";
 
 /**
@@ -51,11 +53,13 @@ function ClaimChip({ categoryId }: { categoryId: string | null | undefined }) {
   const Icon = category ? categoryIcon(category.icon) : null;
   return (
     <span
-      className="inline-flex max-w-28 shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+      className={cn(
+        "inline-flex max-w-28 shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[10.5px] leading-tight font-bold",
+        // Categories carry their own colour; the fallback follows the tokens.
+        !category && "bg-muted text-muted-foreground",
+      )}
       style={
-        category
-          ? { backgroundColor: `${category.color}22`, color: category.color }
-          : { backgroundColor: "#9ca3af22", color: "#6b7280" }
+        category ? { backgroundColor: `${category.color}22`, color: category.color } : undefined
       }
     >
       {Icon ? <Icon className="size-2.5 shrink-0" /> : null}
@@ -78,14 +82,14 @@ export function ReceiptItemsSelect({
     <div className="space-y-2">
       {free.length > 1 ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-semibold text-muted-foreground">
             {selected.size} od {free.length} {stavkeLabel(free.length)}
           </span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-xs font-semibold text-accent-deep"
             disabled={disabled}
             onClick={() => onSetAll(!allSelected)}
           >
@@ -93,43 +97,54 @@ export function ReceiptItemsSelect({
           </Button>
         </div>
       ) : null}
-      <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+      <ul className="rounded-2xl border border-border bg-card px-3 shadow-card">
         {lines.map((line) => {
           const isClaimed = !!line.claimed;
           const checked = selected.has(line.idx);
           return (
-            <li key={line.idx}>
+            <li key={line.idx} className="border-b border-border last:border-b-0">
               <label
-                className={
-                  isClaimed
-                    ? "flex cursor-default items-center gap-2 px-3 py-2 text-sm opacity-60"
-                    : "flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                }
+                className={cn(
+                  "flex w-full cursor-pointer items-center gap-2.5 py-2.5 text-left transition-opacity",
+                  isClaimed && "cursor-default opacity-60",
+                  !isClaimed && !checked && "opacity-45",
+                )}
               >
+                {/* Native checkbox for semantics + keyboard; the box next to it
+                    is the visual (the input itself can't carry the tick). */}
                 <input
                   type="checkbox"
                   checked={checked}
                   disabled={disabled || isClaimed}
                   onChange={() => onToggle(line.idx)}
-                  className="h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-default dark:border-gray-600 dark:bg-gray-700 dark:text-blue-500"
+                  className="peer sr-only"
                 />
                 <span
-                  className={
-                    "min-w-0 flex-1 truncate " +
-                    (isClaimed
-                      ? "text-gray-500 dark:text-gray-400"
-                      : "text-gray-700 dark:text-gray-200")
-                  }
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-6 shrink-0 place-items-center rounded-[9px] border-2 bg-card ring-offset-card transition-colors",
+                    "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2",
+                    // The tick is pos-soft, not white: white vanishes on the
+                    // dark theme's lighter --pos.
+                    checked
+                      ? "border-pos bg-pos text-pos-soft"
+                      : "border-dashed border-border text-transparent",
+                  )}
                 >
-                  {line.name}
+                  <CheckIcon className="size-4" strokeWidth={3} />
                 </span>
-                {line.quantity != null && line.quantity !== 1 ? (
-                  <span className="shrink-0 text-xs text-gray-400 tabular-nums">
-                    ×{line.quantity}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-normal text-foreground">
+                    {line.name}
                   </span>
-                ) : null}
+                  {line.quantity != null && line.quantity !== 1 ? (
+                    <span className="block text-[11px] text-muted-foreground tabular-nums">
+                      ×{line.quantity}
+                    </span>
+                  ) : null}
+                </span>
                 {isClaimed ? <ClaimChip categoryId={line.claimedCategoryId} /> : null}
-                <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
+                <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
                   <Amount value={line.total} />
                 </span>
               </label>

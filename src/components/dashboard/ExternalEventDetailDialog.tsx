@@ -17,6 +17,7 @@ import {
   DetailInfoRows,
   DetailInfoText,
 } from "@/components/common/DetailSheet";
+import { FormSelect } from "@/components/common/FormControls";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { useExternalEventLocal } from "@/hooks/useExternalEventLocal";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
@@ -64,12 +65,7 @@ function PersonAssignSelect({
   onChange: (value: string | null) => void;
 }) {
   return (
-    <select
-      id={id}
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || null)}
-      className="h-9 w-44 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
-    >
+    <FormSelect id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
       <option value="">Niko</option>
       {members.map((m) => (
         <option key={m.id} value={m.id}>
@@ -77,7 +73,7 @@ function PersonAssignSelect({
             "Bez imena"}
         </option>
       ))}
-    </select>
+    </FormSelect>
   );
 }
 
@@ -124,8 +120,7 @@ export function ExternalEventDetailDialog({
           <div className="space-y-4">
             <DetailHero
               icon={GlobeAltIcon}
-              iconWrapClassName="bg-sky-100 dark:bg-sky-900/50"
-              iconClassName="text-sky-600 dark:text-sky-400"
+              tone="info"
               title={event.title ?? "(bez naslova)"}
               subtitle={formatDate(event.local_date)}
             />
@@ -193,7 +188,7 @@ export function ExternalEventDetailDialog({
               </DetailActionList>
             ) : null}
 
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Događaj iz tvog Google kalendara - samo za prikaz. Izmene radi u Google-u.
             </p>
           </div>

@@ -27,6 +27,9 @@ export const Route = createFileRoute("/_app/lists")({
 });
 
 function ListsLayout() {
+  // Below lg each child route owns its own <AppScreen> (the master list and
+  // the list detail are separate full screens), so the layout gets out of the
+  // way entirely.
   const isWide = useIsWide();
   return isWide ? <ListsSplit /> : <Outlet />;
 }
@@ -42,11 +45,10 @@ function ListsSplit() {
   });
 
   return (
-    // Fill the viewport below the sticky 56px nav, minus <main>'s pt-6 + pb-6
-    // (24px each) = 6.5rem - so the page itself never scrolls on /lists at lg;
-    // each panel scrolls internally instead. `100dvh` (not vh) keeps it stable
-    // against mobile URL-bar / safe-area changes.
-    <div className="h-[calc(100dvh-6.5rem)] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+    // Fills the screen area of the app frame (which is itself fixed at
+    // 100dvh), so the page never scrolls on /lists at lg - each panel scrolls
+    // internally instead.
+    <div className="h-full overflow-hidden border-t border-border">
       <Group
         orientation="horizontal"
         className="h-full"
@@ -71,14 +73,10 @@ function ListsSplit() {
             the library extends the actual hit target for comfortable dragging.
             Tints on hover and while dragging (:active). */}
         <Separator className="group relative w-2 cursor-col-resize bg-transparent outline-none">
-          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200 transition-colors group-hover:bg-blue-400 group-active:bg-blue-500 dark:bg-gray-700 dark:group-hover:bg-blue-500" />
+          <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-accent group-active:bg-accent" />
         </Separator>
 
-        <Panel
-          id="detail"
-          minSize="360px"
-          className="h-full overflow-y-auto bg-white p-6 dark:bg-gray-800"
-        >
+        <Panel id="detail" minSize="360px" className="h-full overflow-y-auto bg-card p-6">
           <Outlet />
         </Panel>
       </Group>

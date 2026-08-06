@@ -11,12 +11,13 @@ import {
 import { format, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TimePicker } from "@/components/ui/time-picker";
-import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { DateField } from "@/components/common/DateField";
+import { PickerRowPair } from "@/components/common/PickerRow";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { TimeField } from "@/components/common/TimeField";
 import { DetailActionList, DetailActionRow } from "@/components/common/DetailSheet";
 import {
   LinkedMoneyChooser,
@@ -111,9 +112,12 @@ function BlockActionSheet({
   // and the money-add chooser are sub-views on the sheet stack ("←" back
   // header, dismissal returns to the list). Reset when the dialog opens for a
   // new block so stale state from the previous occurrence doesn't carry over.
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } = useSheetStack<
-    "actions" | "cancel" | "reschedule" | "money"
-  >(open, onOpenChange, "actions");
+  const stack = useSheetStack<"actions" | "cancel" | "reschedule" | "money">(
+    open,
+    onOpenChange,
+    "actions",
+  );
+  const { push, pop, reset } = stack;
   useEffect(() => {
     reset();
   }, [block?.scheduleId, block?.date, reset]);
@@ -172,125 +176,129 @@ function BlockActionSheet({
   };
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen && !hidden} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent>
-        <SheetStackHeader
-          title={
-            view === "cancel"
-              ? "Otkaži termin"
-              : view === "reschedule"
-                ? "Pomeri termin"
-                : view === "money"
-                  ? "Dodaj uz aktivnost"
-                  : (activity?.name ?? "Aktivnost")
-          }
-          onBack={atRoot ? undefined : pop}
-        />
+    <SheetStackViews
+      stack={stack}
+      hidden={hidden}
+      render={(view, level) => (
+        <ResponsiveDialogContent>
+          <SheetStackHeader
+            title={
+              view === "cancel"
+                ? "Otkaži termin"
+                : view === "reschedule"
+                  ? "Pomeri termin"
+                  : view === "money"
+                    ? "Dodaj uz aktivnost"
+                    : (activity?.name ?? "Aktivnost")
+            }
+            onBack={level === 0 ? undefined : pop}
+          />
 
-        {/* Subtitle: person + occurrence date + current state (if overridden).
+          {/* Subtitle: person + occurrence date + current state (if overridden).
             The money chooser is activity-level, so the occurrence context
             (subtitle + time banner) stays out of it. */}
-        {view !== "money" ? (
-          <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <span
-              className="inline-block size-2.5 rounded-full"
-              style={{ backgroundColor: color }}
-              aria-hidden="true"
-            />
-            <span className="font-medium text-gray-900 dark:text-gray-100">{personName}</span>
-            <span>·</span>
-            <span>{dateLabel}</span>
-          </div>
-        ) : null}
+          {view !== "money" ? (
+            <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <span
+                className="inline-block size-2.5 rounded-full"
+                style={{ backgroundColor: color }}
+                aria-hidden="true"
+              />
+              <span className="font-medium text-foreground">{personName}</span>
+              <span>·</span>
+              <span>{dateLabel}</span>
+            </div>
+          ) : null}
 
-        {view === "money" ? null : hasOverride ? (
-          <OverrideBanner
-            action={overrideAction!}
-            originalDate={originalDate}
-            originalStart={block.override!.originalStartTime}
-            originalEnd={block.override!.originalEndTime}
-            // For moved blocks we pull the target time pair from
-            // rescheduledStartTime (set on the moved-away ghost) or fall
-            // back to the block's own times (which are the override times
-            // on moved-here / same-day reschedule).
-            newDate={block.override!.movedTo ?? (block.override!.movedFrom ? block.date : null)}
-            newStart={block.override!.rescheduledStartTime ?? block.startTime}
-            newEnd={block.override!.rescheduledEndTime ?? block.endTime}
-            note={block.override!.note}
-          />
-        ) : (
-          <div className="mb-4 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800/60 dark:text-gray-200">
-            Redovan termin:{" "}
-            <span className="font-medium tabular-nums">
-              {block.startTime}-{block.endTime}
-            </span>
-          </div>
-        )}
-
-        {view === "actions" ? (
-          <>
-            <ActionList
-              isCanceled={isCanceled}
-              isRescheduled={isRescheduled}
-              saving={upsertOverride.isPending || deleteOverride.isPending}
-              onEdit={handleEdit}
-              onCancel={() => push("cancel")}
-              onReschedule={() => push("reschedule")}
-              onRestore={() => void handleRestore()}
-              onAddMoney={activity ? () => push("money") : undefined}
+          {view === "money" ? null : hasOverride ? (
+            <OverrideBanner
+              action={overrideAction!}
+              originalDate={originalDate}
+              originalStart={block.override!.originalStartTime}
+              originalEnd={block.override!.originalEndTime}
+              // For moved blocks we pull the target time pair from
+              // rescheduledStartTime (set on the moved-away ghost) or fall
+              // back to the block's own times (which are the override times
+              // on moved-here / same-day reschedule).
+              newDate={block.override!.movedTo ?? (block.override!.movedFrom ? block.date : null)}
+              newStart={block.override!.rescheduledStartTime ?? block.startTime}
+              newEnd={block.override!.rescheduledEndTime ?? block.endTime}
+              note={block.override!.note}
             />
-            {/* Payments + expenses already linked to this activity (with the
+          ) : (
+            <div className="mb-4 rounded-md bg-muted px-3 py-2 text-sm text-foreground/60">
+              Redovan termin:{" "}
+              <span className="font-medium tabular-nums">
+                {block.startTime}-{block.endTime}
+              </span>
+            </div>
+          )}
+
+          {view === "actions" ? (
+            <>
+              <ActionList
+                isCanceled={isCanceled}
+                isRescheduled={isRescheduled}
+                saving={upsertOverride.isPending || deleteOverride.isPending}
+                onEdit={handleEdit}
+                onCancel={() => push("cancel")}
+                onReschedule={() => push("reschedule")}
+                onRestore={() => void handleRestore()}
+                onAddMoney={activity ? () => push("money") : undefined}
+              />
+              {/* Payments + expenses already linked to this activity (with the
                 per-month attendance breakdown) - renders nothing while there
                 are none; a row opens that entry's detail. */}
-            {activity ? (
-              <div className="mt-4 space-y-4">
-                <ActivityMoneySection activity={activity} onSelect={onSelectMoney} />
-              </div>
-            ) : null}
-          </>
-        ) : view === "money" && activity ? (
-          <LinkedMoneyChooser
-            onPick={(kind) => {
-              // Hide (don't close) the sheet under the pre-linked form - it
-              // returns to the action list once the form is done.
-              reset();
-              onAddMoney(kind, activity);
-            }}
-          />
-        ) : view === "cancel" ? (
-          <CancelForm
-            saving={upsertOverride.isPending}
-            onBack={pop}
-            onConfirm={(note) => void handleCancel(note)}
-          />
-        ) : view === "reschedule" ? (
-          <RescheduleForm
-            block={block}
-            originalDate={originalDate}
-            saving={upsertOverride.isPending}
-            onCancel={pop}
-            onSubmit={async (newDate, startTime, endTime, note) => {
-              try {
-                await upsertOverride.mutateAsync({
-                  schedule_id: block.scheduleId,
-                  person_id: block.personId,
-                  date: originalDate,
-                  action: "reschedule",
-                  override_start_time: startTime,
-                  override_end_time: endTime,
-                  // Hook normalizes "same as original" to NULL.
-                  override_date: newDate,
-                  note: note || null,
-                });
-                onOpenChange(false);
-              } catch {
-                // toast surfaced by hook
-              }
-            }}
-          />
-        ) : null}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+              {activity ? (
+                <div className="mt-4 space-y-4">
+                  <ActivityMoneySection activity={activity} onSelect={onSelectMoney} />
+                </div>
+              ) : null}
+            </>
+          ) : view === "money" && activity ? (
+            <LinkedMoneyChooser
+              onPick={(kind) => {
+                // Hide (don't close) the sheet under the pre-linked form - it
+                // returns to the action list once the form is done.
+                reset();
+                onAddMoney(kind, activity);
+              }}
+            />
+          ) : view === "cancel" ? (
+            <CancelForm
+              saving={upsertOverride.isPending}
+              onBack={pop}
+              onConfirm={(note) => void handleCancel(note)}
+            />
+          ) : view === "reschedule" ? (
+            <RescheduleForm
+              block={block}
+              originalDate={originalDate}
+              saving={upsertOverride.isPending}
+              onCancel={pop}
+              onSubmit={async (newDate, startTime, endTime, note) => {
+                try {
+                  await upsertOverride.mutateAsync({
+                    schedule_id: block.scheduleId,
+                    person_id: block.personId,
+                    date: originalDate,
+                    action: "reschedule",
+                    override_start_time: startTime,
+                    override_end_time: endTime,
+                    // Hook normalizes "same as original" to NULL.
+                    override_date: newDate,
+                    note: note || null,
+                  });
+                  onOpenChange(false);
+                } catch {
+                  // toast surfaced by hook
+                }
+              }}
+            />
+          ) : null}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }
 
@@ -525,9 +533,9 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-1.5">
-        <Label htmlFor="reschedule-date">Datum</Label>
-        <DatePicker
+        <DateField
           id="reschedule-date"
+          label="Datum"
           value={newDate}
           onChange={setNewDate}
           placeholder="Izaberi dan"
@@ -539,26 +547,20 @@ function RescheduleForm({ block, originalDate, saving, onCancel, onSubmit }: Res
           </p>
         ) : null}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="reschedule-start">Početak</Label>
-          <TimePicker
-            id="reschedule-start"
-            value={startTime}
-            onChange={(value) => setStartTime(value ?? "")}
-            clearable={false}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="reschedule-end">Kraj</Label>
-          <TimePicker
-            id="reschedule-end"
-            value={endTime}
-            onChange={(value) => setEndTime(value ?? "")}
-            clearable={false}
-          />
-        </div>
-      </div>
+      <PickerRowPair>
+        <TimeField
+          id="reschedule-start"
+          label="Početak"
+          value={startTime}
+          onChange={(value) => setStartTime(value ?? "")}
+        />
+        <TimeField
+          id="reschedule-end"
+          label="Kraj"
+          value={endTime}
+          onChange={(value) => setEndTime(value ?? "")}
+        />
+      </PickerRowPair>
       <div className="space-y-1.5">
         <Label htmlFor="reschedule-note">Razlog (opciono)</Label>
         <Textarea

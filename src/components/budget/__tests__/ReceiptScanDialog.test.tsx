@@ -10,6 +10,8 @@ import type { ParsedReceipt } from "@/hooks/useReceiptImport";
  * whole scan dialog and throw away the parsed receipt. The responsive dialog
  * is mocked to a plain passthrough with an overlay-dismiss button, so the
  * sheet-stack wiring (the thing under test) runs for real on the mobile path.
+ * Each level is its own overlay, so several dismiss controls coexist - see
+ * `dismissTopSheet`.
  */
 
 const { fakeReceipt, saveMutate } = vi.hoisted(() => ({
@@ -62,7 +64,7 @@ vi.mock("@/components/ui/responsive-dialog", () => ({
   ResponsiveDialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   ResponsiveDialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   ResponsiveDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  // Mobile path: picker rows + the drawer close→reopen hop in useSheetStack.
+  // Mobile path: picker rows + the stacked sub-view drawers of useSheetStack.
   useIsDesktop: () => false,
 }));
 
@@ -128,6 +130,16 @@ function Harness() {
   );
 }
 
+/**
+ * Dismiss the TOPMOST overlay. Sub-views open as their own overlay on top of
+ * the preview now, so more than one dismiss control is on screen at a time -
+ * the last one rendered is the one a swipe-down would hit.
+ */
+function dismissTopSheet() {
+  const handles = screen.getAllByRole("button", { name: "Prevuci za zatvaranje" });
+  fireEvent.click(handles[handles.length - 1]);
+}
+
 async function scanToPreview() {
   render(<Harness />);
   fireEvent.change(screen.getByLabelText("Nalepi link sa računa"), {
@@ -149,9 +161,9 @@ describe("ReceiptScanDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Stavke/ }));
     expect(screen.getByText("Mleko 1l")).toBeInTheDocument();
 
-    // Drag-to-close the drawer: the stack pops back to the preview after the
-    // mobile close→reopen hop instead of closing the whole scan flow.
-    fireEvent.click(screen.getByRole("button", { name: "Prevuci za zatvaranje" }));
+    // Drag-to-close the sub-view's own drawer: the stack pops back to the
+    // preview underneath instead of closing the whole scan flow.
+    dismissTopSheet();
     await waitFor(() => expect(screen.getByText("Pregled računa")).toBeInTheDocument());
 
     expect(screen.getByRole("status", { name: "owner-open" })).toHaveTextContent("true");
@@ -162,7 +174,7 @@ describe("ReceiptScanDialog", () => {
   it("closes the whole flow only when dismissed at the preview root", async () => {
     await scanToPreview();
 
-    fireEvent.click(screen.getByRole("button", { name: "Prevuci za zatvaranje" }));
+    dismissTopSheet();
 
     await waitFor(() =>
       expect(screen.getByRole("status", { name: "owner-open" })).toHaveTextContent("false"),
@@ -178,7 +190,7 @@ describe("ReceiptScanDialog", () => {
     const checkboxes = screen.getAllByRole("checkbox");
     expect(checkboxes).toHaveLength(2);
     fireEvent.click(checkboxes[1]);
-    fireEvent.click(screen.getByRole("button", { name: "Prevuci za zatvaranje" }));
+    dismissTopSheet();
     await waitFor(() => expect(screen.getByText("Pregled računa")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Sačuvaj trošak" }));

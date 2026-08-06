@@ -3,6 +3,14 @@ import type { ReactNode } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  useIsDesktop,
+} from "@/components/ui/responsive-dialog";
 import { currentMonthYYYYMM } from "@/utils/date";
 import { monthLabel, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
@@ -17,6 +25,9 @@ import { cn } from "@/lib/cn";
  * the center label opens a month/year grid (fast jump years back) with an
  * optional "all time" entry and an "Ovaj mesec" shortcut (inside the popup,
  * so the control's width never changes and toolbar rows can't reflow).
+ *
+ * On desktop the grid is a popover anchored to the label; on phones it opens
+ * as a bottom sheet - the app-wide "date picker na telefonu je modal" rule.
  */
 
 export type PeriodPickerShellProps = {
@@ -40,7 +51,7 @@ export function PeriodPickerShell({
   return (
     <div
       className={cn(
-        "inline-flex items-stretch rounded-md border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800",
+        "inline-flex items-stretch rounded-md border border-border bg-card shadow-card",
         className,
       )}
     >
@@ -48,7 +59,7 @@ export function PeriodPickerShell({
         type="button"
         onClick={onPrev}
         aria-label={prevAriaLabel}
-        className="rounded-l-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
+        className="rounded-l-md p-2 text-muted-foreground hover:bg-muted"
       >
         <ChevronLeftIcon className="h-4 w-4" />
       </button>
@@ -57,7 +68,7 @@ export function PeriodPickerShell({
         type="button"
         onClick={onNext}
         aria-label={nextAriaLabel}
-        className="rounded-r-md p-2 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-700"
+        className="rounded-r-md p-2 text-muted-foreground hover:bg-muted"
       >
         <ChevronRightIcon className="h-4 w-4" />
       </button>
@@ -106,6 +117,7 @@ export function MonthPicker({
   maxMonth,
   className,
 }: MonthPickerProps) {
+  const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
   const current = currentMonthYYYYMM();
   const isAll = value === ALL_MONTHS;
@@ -133,6 +145,86 @@ export function MonthPicker({
   const minYear = minMonth ? Number(minMonth.slice(0, 4)) : null;
   const maxYear = maxMonth ? Number(maxMonth.slice(0, 4)) : null;
 
+  const triggerClassName =
+    "min-w-[8.5rem] border-x border-border px-3 py-1.5 text-center text-sm font-semibold tabular-nums text-foreground hover:bg-muted";
+  const triggerLabel = isAll ? (allOptionLabel ?? "Sve") : monthLabel(value);
+
+  const grid = (
+    <>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          aria-label="Prethodna godina"
+          onClick={() => setGridYear((y) => y - 1)}
+          disabled={minYear != null && gridYear <= minYear}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronLeftIcon className="size-4" />
+        </button>
+        <span className="text-sm font-semibold tabular-nums text-foreground">{gridYear}</span>
+        <button
+          type="button"
+          aria-label="Sledeća godina"
+          onClick={() => setGridYear((y) => y + 1)}
+          disabled={maxYear != null && gridYear >= maxYear}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+        >
+          <ChevronRightIcon className="size-4" />
+        </button>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-1">
+        {MONTH_SHORT_SR.map((name, i) => {
+          const month = `${gridYear}-${String(i + 1).padStart(2, "0")}`;
+          const selected = !isAll && month === value;
+          const isCurrent = month === current;
+          return (
+            <button
+              key={month}
+              type="button"
+              onClick={() => pick(month)}
+              disabled={!inRange(month)}
+              className={cn(
+                "rounded-md px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40",
+                selected
+                  ? "bg-accent font-semibold text-accent-foreground"
+                  : isCurrent
+                    ? "bg-accent-soft font-semibold text-accent-deep hover:brightness-95"
+                    : "text-foreground hover:bg-muted",
+              )}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      {/* Back-to-today shortcut lives IN the popup (not as a sibling
+          button) so the toolbar row never grows when the month changes. */}
+      {value !== current && inRange(current) ? (
+        <button
+          type="button"
+          onClick={() => pick(current)}
+          className="mt-2 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-muted"
+        >
+          {resetLabel}
+        </button>
+      ) : null}
+      {allOptionLabel ? (
+        <button
+          type="button"
+          onClick={() => pick(ALL_MONTHS)}
+          className={cn(
+            "mt-2 w-full rounded-md border px-2 py-1.5 text-sm transition-colors",
+            isAll
+              ? "border-accent bg-accent-soft font-semibold text-accent-deep"
+              : "border-border text-foreground hover:bg-muted",
+          )}
+        >
+          {allOptionLabel}
+        </button>
+      ) : null}
+    </>
+  );
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <PeriodPickerShell
@@ -141,92 +233,44 @@ export function MonthPicker({
         prevAriaLabel="Prethodni mesec"
         nextAriaLabel="Sledeći mesec"
       >
-        <Popover open={open} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>
+        {isDesktop ? (
+          <Popover open={open} onOpenChange={handleOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Izaberi mesec i godinu"
+                className={triggerClassName}
+              >
+                {triggerLabel}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="center">
+              {grid}
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <>
             <button
               type="button"
               aria-label="Izaberi mesec i godinu"
-              className="min-w-[8.5rem] border-x border-gray-200 px-3 py-1.5 text-center text-sm font-medium tabular-nums text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-700"
+              onClick={() => handleOpenChange(true)}
+              className={triggerClassName}
             >
-              {isAll ? (allOptionLabel ?? "Sve") : monthLabel(value)}
+              {triggerLabel}
             </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-3" align="center">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                aria-label="Prethodna godina"
-                onClick={() => setGridYear((y) => y - 1)}
-                disabled={minYear != null && gridYear <= minYear}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
-              >
-                <ChevronLeftIcon className="size-4" />
-              </button>
-              <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                {gridYear}
-              </span>
-              <button
-                type="button"
-                aria-label="Sledeća godina"
-                onClick={() => setGridYear((y) => y + 1)}
-                disabled={maxYear != null && gridYear >= maxYear}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-gray-700"
-              >
-                <ChevronRightIcon className="size-4" />
-              </button>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-1">
-              {MONTH_SHORT_SR.map((name, i) => {
-                const month = `${gridYear}-${String(i + 1).padStart(2, "0")}`;
-                const selected = !isAll && month === value;
-                const isCurrent = month === current;
-                return (
-                  <button
-                    key={month}
-                    type="button"
-                    onClick={() => pick(month)}
-                    disabled={!inRange(month)}
-                    className={cn(
-                      "rounded-md px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40",
-                      selected
-                        ? "bg-blue-600 font-medium text-white"
-                        : isCurrent
-                          ? "bg-blue-50 font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60"
-                          : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    {name}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Back-to-today shortcut lives IN the popup (not as a sibling
-                button) so the toolbar row never grows when the month changes. */}
-            {value !== current && inRange(current) ? (
-              <button
-                type="button"
-                onClick={() => pick(current)}
-                className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                {resetLabel}
-              </button>
-            ) : null}
-            {allOptionLabel ? (
-              <button
-                type="button"
-                onClick={() => pick(ALL_MONTHS)}
-                className={cn(
-                  "mt-2 w-full rounded-md border px-2 py-1.5 text-sm transition-colors",
-                  isAll
-                    ? "border-blue-300 bg-blue-50 font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
-                    : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700",
-                )}
-              >
-                {allOptionLabel}
-              </button>
-            ) : null}
-          </PopoverContent>
-        </Popover>
+            <ResponsiveDialog open={open} onOpenChange={handleOpenChange}>
+              <ResponsiveDialogContent>
+                <ResponsiveDialogHeader>
+                  <ResponsiveDialogTitle>Izaberi mesec</ResponsiveDialogTitle>
+                  <ResponsiveDialogDescription className="sr-only">
+                    Izbor meseca i godine
+                  </ResponsiveDialogDescription>
+                </ResponsiveDialogHeader>
+                {grid}
+              </ResponsiveDialogContent>
+            </ResponsiveDialog>
+          </>
+        )}
       </PeriodPickerShell>
     </div>
   );

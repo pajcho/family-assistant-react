@@ -1,10 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import { CheckIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CheckIcon, PauseIcon } from "@heroicons/react/24/outline";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAYMENT_REMINDER_OPTIONS, ReminderSelect } from "@/components/ui/reminder-select";
+import { FieldGroupLabel, FormInput } from "@/components/common/FormControls";
 import { MemberMultiSelect } from "@/components/common/MemberMultiSelect";
 import { SwitchRow } from "@/components/common/SwitchRow";
 import { PaymentLinkField } from "@/components/payments/PaymentLinkField";
@@ -66,30 +65,30 @@ export function PaymentTipSheet({
                 }))
               }
               className={cn(
-                "flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                "flex min-h-11 w-full items-center justify-between rounded-lg border bg-card px-3.5 py-2.5 text-sm font-normal transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
                 "disabled:pointer-events-none disabled:opacity-50",
                 selected
-                  ? "border-blue-600 bg-blue-600/10 text-gray-900 dark:text-gray-100"
-                  : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
+                  ? "border-accent bg-accent-soft text-accent-deep"
+                  : "border-border text-muted-foreground hover:bg-muted",
               )}
             >
               {option.label}
-              {selected ? (
-                <CheckIcon className="size-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-              ) : null}
+              {selected ? <CheckIcon className="size-4" aria-hidden="true" /> : null}
             </button>
           );
         })}
       </div>
       {hasHistory ? (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs font-normal text-warn">
           Tip plaćanja se ne može menjati jer postoji istorija plaćanja.
         </p>
       ) : null}
       {showIntervalSelect ? (
-        <div className="space-y-2">
-          <Label htmlFor="recurrence_interval">Ponavljanje</Label>
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="recurrence_interval">Ponavljanje</label>
+          </FieldGroupLabel>
           <NativeSelect
             id="recurrence_interval"
             value={form.recurrence_interval}
@@ -100,9 +99,11 @@ export function PaymentTipSheet({
         </div>
       ) : null}
       {form.recurrence_period === "limited" ? (
-        <div className="space-y-2">
-          <Label htmlFor="remaining">Preostalo uplata</Label>
-          <Input
+        <div>
+          <FieldGroupLabel>
+            <label htmlFor="remaining">Preostalo uplata</label>
+          </FieldGroupLabel>
+          <FormInput
             id="remaining"
             value={form.remaining_occurrences}
             onChange={(e) => setForm((s) => ({ ...s, remaining_occurrences: e.target.value }))}
@@ -114,6 +115,7 @@ export function PaymentTipSheet({
       ) : null}
       {isRecurring ? (
         <SwitchRow
+          icon={ArrowPathIcon}
           title="Promenljiv iznos"
           description="Iznos je okvirni - tačan potvrđuješ pri svakom plaćanju (režije)."
           checked={form.is_variable_amount}
@@ -122,6 +124,7 @@ export function PaymentTipSheet({
       ) : null}
       {isEdit && isRecurring ? (
         <SwitchRow
+          icon={PauseIcon}
           title="Pauziraj plaćanje"
           description="Dok je pauzirano, plaćanje se ne prikazuje kao dospelo."
           checked={form.is_paused}
@@ -144,9 +147,11 @@ export function PaymentDetailsSheet({
 }: SheetProps & { isEdit: boolean; onOpenLink: () => void }) {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="description">Opis</Label>
-        <Input
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="description">Opis</label>
+        </FieldGroupLabel>
+        <FormInput
           id="description"
           value={form.description}
           onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -168,8 +173,10 @@ export function PaymentDetailsSheet({
         // same dialog instead of a popover the keyboard would shove around.
         onOpenPicker={onOpenLink}
       />
-      <div className="space-y-2">
-        <Label htmlFor="payment-reminder">Podsetnik</Label>
+      <div>
+        <FieldGroupLabel>
+          <label htmlFor="payment-reminder">Podsetnik</label>
+        </FieldGroupLabel>
         <ReminderSelect
           id="payment-reminder"
           value={form.remind_days_before}

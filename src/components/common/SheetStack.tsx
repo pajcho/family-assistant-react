@@ -3,42 +3,39 @@ import type { ReactNode } from "react";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 
 import {
+  ResponsiveDialog,
   ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-  useIsDesktop,
 } from "@/components/ui/responsive-dialog";
 
 /**
- * The app-wide "sub-modal" convention: a detail sheet NEVER opens a second
- * overlay on top of itself. Drilling in (options menu, history, reschedule,
- * confirm…) pushes a view onto this stack and the sheet swaps its content in
- * place - one overlay, arbitrarily deep. Every non-root view shows a "←"
- * back arrow in its header ({@link SheetStackHeader}).
+ * The app-wide "sub-modal" convention: drilling in from a sheet (options menu,
+ * history, reschedule, confirm…) opens a NEW overlay ON TOP of the one you came
+ * from, the way the date picker opens over a form. The sheet underneath keeps
+ * its scroll position and its state and is simply covered.
  *
- * Dismissing a sub-view (swipe-down, tap outside, Escape) goes BACK one level
- * instead of closing the whole flow:
- *   - desktop Dialog: the dismissal is swallowed and the stack pops in place;
- *   - mobile Drawer: the close is accepted (vaul has already committed to the
- *     exit - refusing it strands the drag transform), and the sheet reopens
- *     one level up after a short beat: the sub-view drops away and the
- *     previous view immediately rises back, without waiting out the full
- *     exit + enter animations back to back.
- * Only a dismissal at the root actually closes the sheet. Success handlers
- * that should tear down the whole flow keep calling the owner's
- * `onOpenChange(false)` directly.
+ * It used to swap the content of a single overlay in place, which meant the
+ * mobile drawer had to be dismissed and re-opened one level up on every "back"
+ * (a close → remount → reopen hop). Stacking real overlays removes that dance:
+ * a dismissal is just the top layer closing, and the layer below is already
+ * there, already rendered.
+ *
+ * Dismissing a sub-view (swipe-down, tap outside, Escape) goes BACK one level -
+ * Radix and Vaul both route the gesture to the topmost layer, so this falls out
+ * of the stack rather than being special-cased. Only a dismissal at the root
+ * closes the flow. Success handlers that should tear down the whole flow keep
+ * calling the owner's `onOpenChange(false)` directly.
+ *
+ * Levels stay MOUNTED after they are popped, closed rather than removed, so the
+ * exit animation plays out; a closed Radix/Vaul overlay renders nothing, so the
+ * level's content costs nothing while it sits there. The whole set is reset to
+ * the root the next time the flow opens - never while it is closing, which
+ * would interrupt an exit animation mid-flight.
  */
-
-/**
- * How long the dismissed drawer keeps its exit animation before the sheet
- * remounts one level up. vaul's exit runs 500ms on a fast-start curve, so by
- * ~200ms a dismissed drawer has visually dropped; waiting the full exit (and
- * only then playing a full enter) reads as a laggy pause between views.
- */
-const REOPEN_DELAY_MS = 200;
 
 export type SheetStack<V> = {
-  /** The view currently on top of the stack. */
+  /** The view on top of the stack - what a shared title/footer switch reads. */
   view: V;
   atRoot: boolean;
   push: (view: V) => void;
@@ -46,17 +43,17 @@ export type SheetStack<V> = {
   pop: () => void;
   /** Clear back to the root view (e.g. when the subject entity changes). */
   reset: () => void;
-  /** Feed this to <ResponsiveDialog open> - false while the mobile close→reopen hop runs. */
-  dialogOpen: boolean;
   /**
-   * Feed this to <ResponsiveDialog key> - bumped on every mobile close→reopen
-   * hop so the drawer remounts fresh. Without it vaul reopens the SAME node
-   * with the dismissal drag's translate still inlined and the sheet hangs
-   * half-off-screen.
+   * Every level that is still mounted, root first. Longer than the open depth
+   * while a popped level animates out. Read by {@link SheetStackViews}.
    */
-  dialogKey: number;
-  /** Feed this to <ResponsiveDialog onOpenChange> - routes dismissals through the stack. */
-  handleOpenChange: (next: boolean) => void;
+  levels: readonly V[];
+  /** How many levels are open. `levels[depth - 1]` is {@link SheetStack.view}. */
+  depth: number;
+  /** Whether the flow is open at all (the owner's `open`). */
+  open: boolean;
+  /** Dismissal from a given level: the root closes the flow, deeper ones pop. */
+  dismiss: (level: number) => void;
 };
 
 export function useSheetStack<V>(
@@ -64,90 +61,96 @@ export function useSheetStack<V>(
   onOpenChange: (open: boolean) => void,
   root: V,
 ): SheetStack<V> {
-  const isDesktop = useIsDesktop();
-  const [stack, setStack] = useState<V[]>([root]);
-  const [suspended, setSuspended] = useState(false);
-  const [epoch, setEpoch] = useState(0);
-  const reopenTimer = useRef<number | null>(null);
+  // One piece of state: `levels` can outlive `depth` (a popped level animating
+  // out), and the two must never be committed out of step.
+  const [state, setState] = useState<{ levels: V[]; depth: number }>(() => ({
+    levels: [root],
+    depth: 1,
+  }));
+  const { levels, depth } = state;
   // Roots are often object literals recreated per render - keep the latest in
   // a ref so reset/effects never loop on identity.
   const rootRef = useRef(root);
   rootRef.current = root;
 
-  const clearReopenTimer = () => {
-    if (reopenTimer.current != null) {
-      window.clearTimeout(reopenTimer.current);
-      reopenTimer.current = null;
-    }
-  };
-
-  // The owner closed (or unmounted the subject) - next open starts at the
-  // root. Bail out (keep state identity) when there's nothing to reset: a
-  // needless re-render here lands exactly while the drawer's exit animation
-  // is starting, and interrupting that leaves Radix waiting on an
-  // `animationend` that never fires (a ghost half-open drawer).
+  // Rearm on OPEN, not on close: a closing flow still has drawers playing their
+  // exit animation, and pulling their content out from under them leaves Radix
+  // waiting on an `animationend` that never fires (a ghost half-open drawer).
+  const wasOpen = useRef(open);
   useEffect(() => {
-    if (!open) {
-      clearReopenTimer();
-      setStack((s) => (s.length > 1 ? [rootRef.current] : s));
-      setSuspended((s) => (s ? false : s));
-    }
+    if (open && !wasOpen.current) setState({ levels: [rootRef.current], depth: 1 });
+    wasOpen.current = open;
   }, [open]);
-  useEffect(() => clearReopenTimer, []);
 
-  const view = stack.length > 0 ? stack[stack.length - 1] : rootRef.current;
-  const atRoot = stack.length <= 1;
+  const view = levels[depth - 1] ?? rootRef.current;
+  const atRoot = depth <= 1;
 
   const push = useCallback((v: V) => {
-    setStack((s) => [...s, v]);
-  }, []);
-  const pop = useCallback(() => {
-    setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
-  }, []);
-  // Same bail-out as above: `reset()` runs from subject-change effects on
-  // every render cycle where the entity flips (including to null on close) -
-  // it must not schedule re-renders when the stack is already at the root.
-  const reset = useCallback(() => {
-    setStack((s) => (s.length > 1 ? [rootRef.current] : s));
+    // Drop anything above the current level (a half-exited sibling) and put the
+    // new view in its place, so the stack stays a stack.
+    setState((s) => ({ levels: [...s.levels.slice(0, s.depth), v], depth: s.depth + 1 }));
   }, []);
 
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
-      onOpenChange(true);
-      return;
-    }
-    if (stack.length > 1) {
-      if (isDesktop) {
-        // Radix Dialog in controlled mode simply stays open when we don't
-        // flip the prop - swap the content in place.
+  const pop = useCallback(() => {
+    setState((s) => (s.depth > 1 ? { ...s, depth: s.depth - 1 } : s));
+  }, []);
+
+  // The bail-out matters: `reset()` runs from subject-change effects on every
+  // render cycle where the entity flips (including to null on close) - it must
+  // not schedule re-renders when the stack is already at the root.
+  const reset = useCallback(() => {
+    setState((s) => (s.depth > 1 ? { ...s, depth: 1 } : s));
+  }, []);
+
+  const dismiss = useCallback(
+    (level: number) => {
+      if (level > 0) {
         pop();
         return;
       }
-      // Mobile: let the dismissed drawer start dropping, then quickly bring
-      // the previous level back up.
-      setSuspended(true);
-      clearReopenTimer();
-      reopenTimer.current = window.setTimeout(() => {
-        reopenTimer.current = null;
-        setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
-        setEpoch((e) => e + 1);
-        setSuspended(false);
-      }, REOPEN_DELAY_MS);
-      return;
-    }
-    onOpenChange(false);
-  };
+      onOpenChange(false);
+    },
+    [onOpenChange, pop],
+  );
 
-  return {
-    view,
-    atRoot,
-    push,
-    pop,
-    reset,
-    dialogOpen: open && !suspended,
-    dialogKey: epoch,
-    handleOpenChange,
-  };
+  return { view, atRoot, push, pop, reset, levels, depth, open, dismiss };
+}
+
+export type SheetStackViewsProps<V> = {
+  stack: SheetStack<V>;
+  /**
+   * Renders ONE level: return its `<ResponsiveDialogContent>`. Called for every
+   * mounted level, so branch on the `view` argument (not on `stack.view`) or a
+   * covered sheet will show the top one's content.
+   */
+  render: (view: V, level: number) => ReactNode;
+  /**
+   * Close every layer without losing the stack - for a flow that temporarily
+   * hands the screen to another dialog (an edit form, a linked entity) and
+   * expects to come back to exactly where it was.
+   */
+  hidden?: boolean;
+};
+
+/** Renders the stack: one overlay per level, the deepest one on top. */
+export function SheetStackViews<V>({ stack, render, hidden = false }: SheetStackViewsProps<V>) {
+  return (
+    <>
+      {stack.levels.map((view, level) => (
+        <ResponsiveDialog
+          // Keyed by depth, not by view: the overlay instance has to survive a
+          // view swap at the same level, or its open/close transition restarts.
+          key={level}
+          open={stack.open && !hidden && level < stack.depth}
+          onOpenChange={(next) => {
+            if (!next) stack.dismiss(level);
+          }}
+        >
+          {render(view, level)}
+        </ResponsiveDialog>
+      ))}
+    </>
+  );
 }
 
 export type SheetStackHeaderProps = {
@@ -180,7 +183,7 @@ export function SheetStackHeader({
             type="button"
             onClick={onBack}
             aria-label={backAriaLabel}
-            className="-ml-1.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+            className="-ml-2 grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <ChevronLeftIcon className="size-5" />
           </button>

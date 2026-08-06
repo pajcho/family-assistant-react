@@ -4,7 +4,7 @@ import type { ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TimePicker } from "@/components/ui/time-picker";
+import { TimeField } from "@/components/common/TimeField";
 import type { BellSchedule, SchoolShift } from "@/types/database";
 import { normalizeTime } from "@/utils/activity";
 import { computeBellGrid } from "@/utils/schoolTimetable";
@@ -185,10 +185,12 @@ function BandRow({
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-      <div className="space-y-1">
-        <Label className="text-xs">{title} - početak</Label>
-        <TimePicker value={start} onChange={onStart} clearable={false} />
-      </div>
+      <TimeField
+        label={`${title} - početak`}
+        value={start}
+        onChange={onStart}
+        defaultTime="08:00"
+      />
       <div className="w-28 space-y-1">
         <Label className="text-xs">Veliki odmor posle</Label>
         <Input
@@ -217,8 +219,8 @@ function BandPreview({
 }) {
   const grid = useMemo(() => computeBellGrid(bell, band, usesPredcas), [bell, band, usesPredcas]);
   return (
-    <div className="rounded-md border border-gray-200 p-2 text-xs dark:border-gray-700">
-      <div className="mb-1 font-semibold text-gray-700 dark:text-gray-200">{title}</div>
+    <div className="rounded-md border border-border p-2 text-xs">
+      <div className="mb-1 font-semibold text-foreground">{title}</div>
       <ol className="space-y-0.5">
         {grid.map((slot) => (
           <Fragment key={slot.periodIndex}>
@@ -229,9 +231,7 @@ function BandPreview({
               </span>
             </li>
             {slot.bigBreakAfter ? (
-              <li className="text-center text-[9px] uppercase text-amber-600 dark:text-amber-400">
-                odmor
-              </li>
+              <li className="text-center text-[9px] uppercase text-warn">odmor</li>
             ) : null}
           </Fragment>
         ))}

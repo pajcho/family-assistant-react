@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CakeIcon, EyeIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
+import { CakeIcon, EyeIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import type { Birthday } from "@/types/database";
-import { AddButton } from "@/components/common/AddButton";
 import { EmptyState } from "@/components/common/EmptyState";
+import { IconButton } from "@/components/common/IconButton";
+import { SectionHeading } from "@/components/common/SectionHeading";
+import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { FilterBar } from "@/components/common/FilterBar";
 import { AppliedFilterChips, FilterSheet, FilterSwitchRow } from "@/components/common/FilterSheet";
 import { ALL_MONTHS, MonthPicker } from "@/components/common/PeriodPicker";
 import { BirthdayDetailDialog } from "@/components/birthdays/BirthdayDetailDialog";
-import { BirthdayDisplayLine } from "@/components/birthdays/BirthdayDisplayLine";
+import { BirthdayTimelineRow } from "@/components/birthdays/BirthdayTimelineRow";
 import {
   BirthdayFormDialog,
   type BirthdayFormDialogProps,
@@ -18,7 +21,7 @@ import { type BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
 import { useBirthdaysList, useCreateBirthday, useUpdateBirthday } from "@/hooks/useBirthdays";
 import { useBirthdayCelebrations } from "@/hooks/useEvents";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
-import { formatDate, srLocale } from "@/utils/date";
+import { srLocale } from "@/utils/date";
 
 /**
  * `/birthdays` - list + CRUD for the family's birthdays.
@@ -162,46 +165,51 @@ function BirthdaysPage() {
 
   const saving = createMutation.isPending || updateMutation.isPending;
 
+  const header = (
+    <div className="flex flex-col gap-2.5">
+      <ScreenHeaderRow
+        title="Rođendani"
+        actions={
+          <>
+            <IconButton icon={PlusIcon} aria-label="Dodaj rođendan" onClick={openAdd} />
+          </>
+        }
+      />
+      <FilterBar
+        picker={
+          <MonthPicker
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            allOptionLabel="Svi rođendani"
+            minMonth={`${currentYear}-01`}
+            maxMonth={`${currentYear}-12`}
+          />
+        }
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Pretraži rođendane…"
+        filterCount={hidePassed ? 0 : 1}
+        onOpenFilters={() => setFiltersOpen(true)}
+      />
+      <AppliedFilterChips
+        filters={
+          hidePassed
+            ? []
+            : [
+                {
+                  key: "__show-passed__",
+                  label: "Prošli prikazani",
+                  onRemove: () => setHidePassed(true),
+                },
+              ]
+        }
+        onClearAll={() => setHidePassed(true)}
+      />
+    </div>
+  );
+
   return (
-    <div className="animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Rođendani</h1>
-        <AddButton label="Dodaj rođendan" onClick={openAdd} />
-      </div>
-
-      <div className="mt-4 space-y-3">
-        <FilterBar
-          picker={
-            <MonthPicker
-              value={selectedMonth}
-              onChange={setSelectedMonth}
-              allOptionLabel="Svi rođendani"
-              minMonth={`${currentYear}-01`}
-              maxMonth={`${currentYear}-12`}
-            />
-          }
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          searchPlaceholder="Pretraži rođendane…"
-          filterCount={hidePassed ? 0 : 1}
-          onOpenFilters={() => setFiltersOpen(true)}
-        />
-        <AppliedFilterChips
-          filters={
-            hidePassed
-              ? []
-              : [
-                  {
-                    key: "__show-passed__",
-                    label: "Prošli prikazani",
-                    onRemove: () => setHidePassed(true),
-                  },
-                ]
-          }
-          onClearAll={() => setHidePassed(true)}
-        />
-      </div>
-
+    <AppScreen header={header}>
       <FilterSheet
         open={filtersOpen}
         onOpenChange={setFiltersOpen}
@@ -209,7 +217,7 @@ function BirthdaysPage() {
         onReset={() => setHidePassed(true)}
       >
         <section className="space-y-1">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h4 className="text-xs font-normal tracking-wide text-muted-foreground uppercase">
             Prikaz
           </h4>
           <FilterSwitchRow
@@ -222,10 +230,9 @@ function BirthdaysPage() {
       </FilterSheet>
 
       {isLoading ? (
-        <div className="mt-6 text-gray-500 dark:text-gray-400">Učitavanje…</div>
+        <AgendaListSkeleton rows={4} />
       ) : (birthdays ?? []).length === 0 ? (
         <EmptyState
-          className="mt-6"
           icon={CakeIcon}
           tone="emerald"
           title="Nijedan rođendan te više neće iznenaditi"
@@ -234,7 +241,6 @@ function BirthdaysPage() {
         />
       ) : filteredBirthdays.length === 0 ? (
         <EmptyState
-          className="mt-6"
           variant="filter"
           description={
             searchActive
@@ -252,42 +258,22 @@ function BirthdaysPage() {
           }}
         />
       ) : (
-        <div className="mt-6 space-y-6">
+        <div className="space-y-4">
           {birthdayGroups.map(([month, list]) => (
             <section key={month}>
-              <h2 className="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
+              <SectionHeading count={list.length} className="mb-2">
                 {monthLabel(month)}
-              </h2>
-              <ul className="mt-2 space-y-1">
-                {list.map((b) => {
-                  const celebration = celebrationByBirthday?.get(b.id) ?? null;
-                  return (
-                    <li key={b.id}>
-                      {/* Compact tappable row - every action lives in the
-                          detail popup the tap opens (payments pattern). */}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBirthday(b)}
-                        className="block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:bg-gray-800/70"
-                      >
-                        <span className="flex items-center gap-3">
-                          <span className="min-w-0 flex-1">
-                            <BirthdayDisplayLine name={b.name} birthDate={b.birth_date} />
-                          </span>
-                          {celebration ? (
-                            <span
-                              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-pink-700 uppercase dark:bg-pink-900/30 dark:text-pink-300"
-                              title={`${celebration.name} · ${formatDate(celebration.date)}`}
-                            >
-                              <SparklesIcon className="size-3" />
-                              Proslava
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
+              </SectionHeading>
+              <ul className="space-y-2.5">
+                {list.map((b) => (
+                  <li key={b.id}>
+                    <BirthdayTimelineRow
+                      birthday={b}
+                      celebration={celebrationByBirthday?.get(b.id) ?? null}
+                      onSelect={setSelectedBirthday}
+                    />
+                  </li>
+                ))}
               </ul>
             </section>
           ))}
@@ -311,6 +297,6 @@ function BirthdaysPage() {
         saving={saving}
         onSubmit={handleSubmit}
       />
-    </div>
+    </AppScreen>
   );
 }

@@ -53,7 +53,7 @@ export function UserAvatar({
   return (
     <span
       className={cn(
-        "relative inline-flex h-9 w-9 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-semibold text-white dark:bg-blue-500",
+        "relative inline-flex h-9 w-9 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-normal text-white dark:bg-blue-500",
         className,
       )}
       aria-hidden="true"

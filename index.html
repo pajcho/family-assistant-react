@@ -422,16 +422,27 @@
           var isDark = stored === "dark" || ((!stored || stored === "auto") && prefersDark);
           if (isDark) document.documentElement.classList.add("dark");
 
+          // Same idea for the in-app accent ("boja aplikacije", see
+          // src/hooks/useAccent): the profile is the source of truth, but the
+          // local mirror lets the first paint use the right accent instead of
+          // flashing the default blue. "blue" is the CSS default = no attr.
+          var accent = localStorage.getItem("app-accent");
+          if (accent === "purple" || accent === "green" || accent === "brown") {
+            document.documentElement.setAttribute("data-accent", accent);
+          }
+
           // Drop the media-scoped theme-color tags and add a single one
           // matching the resolved theme. iOS only honours the first
           // unconditional theme-color, and dynamically updating it on
           // theme toggle (from useTheme) becomes a one-line setAttribute.
+          // The tint is the neutral app surface (not the brand blue) so the
+          // status bar blends into the screen instead of capping it.
           var head = document.head;
           var tags = head.querySelectorAll('meta[name="theme-color"]');
           for (var i = 0; i < tags.length; i++) head.removeChild(tags[i]);
           var meta = document.createElement("meta");
           meta.setAttribute("name", "theme-color");
-          meta.setAttribute("content", isDark ? "#111827" : "#2563eb");
+          meta.setAttribute("content", isDark ? "#151019" : "#f4f1f6");
           head.appendChild(meta);
         } catch (_) {}
       })();

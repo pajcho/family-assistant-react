@@ -105,8 +105,10 @@ export function CategoryDetailSheet({
 
   const limit = category?.monthly_limit ?? null;
   const pct = limit && limit > 0 ? (total / limit) * 100 : null;
+  // Over / near the limit takes over the bar with the money-semantics tokens;
+  // otherwise the bar keeps the category's own (user-picked) color.
   const barColor =
-    pct == null ? row?.color : pct >= 100 ? "#ef4444" : pct >= 80 ? "#f59e0b" : row?.color;
+    pct == null ? row?.color : pct >= 100 ? "var(--neg)" : pct >= 80 ? "var(--warn)" : row?.color;
 
   const parsedLimit = limitInput.trim() === "" ? null : Number(limitInput);
   const limitValid = parsedLimit === null || (Number.isFinite(parsedLimit) && parsedLimit > 0);
@@ -136,35 +138,33 @@ export function CategoryDetailSheet({
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <span
-                className="flex size-12 shrink-0 items-center justify-center rounded-full"
+                className="grid size-[50px] shrink-0 place-items-center rounded-[17px]"
                 style={{ backgroundColor: `${row.color}22` }}
               >
                 <Icon className="size-6" style={{ color: row.color }} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {row.name}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="truncate text-lg font-bold text-foreground">{row.name}</p>
+                <p className="text-sm text-muted-foreground">
                   {monthLabel(month)} · {catExpenses.length}{" "}
                   {catExpenses.length === 1 ? "trošak" : "troškova"}
                 </p>
               </div>
             </div>
 
-            <div>
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
               <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-gray-100">
+                <span className="text-[34px] font-bold tracking-[-0.03em] tabular-nums text-foreground">
                   <Amount value={total} />
                 </span>
                 {limit ? (
-                  <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+                  <span className="text-sm tabular-nums text-muted-foreground">
                     / <Amount value={limit} />
                   </span>
                 ) : null}
               </div>
               {pct != null ? (
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/60">
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full transition-[width]"
                     style={{
@@ -175,14 +175,14 @@ export function CategoryDetailSheet({
                 </div>
               ) : null}
               {pct != null && pct >= 100 && limit ? (
-                <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                <p className="mt-1.5 text-xs font-semibold text-neg">
                   Preko limita za <Amount value={total - limit} round />
                 </p>
               ) : null}
             </div>
 
             {/* 6-month mini trend for the category. */}
-            <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div className="rounded-xl border border-border bg-card p-3 shadow-card">
               <div className="flex h-20 items-end gap-1.5">
                 {trend.map((bar) => (
                   <div key={bar.month} className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -190,7 +190,7 @@ export function CategoryDetailSheet({
                       className={cn("w-full rounded-t", bar.month === month ? "" : "opacity-40")}
                       style={{
                         height: `${Math.max((bar.total / trendMax) * 56, bar.total > 0 ? 3 : 1)}px`,
-                        backgroundColor: bar.total > 0 ? row.color : "#d1d5db",
+                        backgroundColor: bar.total > 0 ? row.color : "var(--border)",
                       }}
                       title={`${monthLabel(bar.month)}: ${Math.round(bar.total).toLocaleString("sr-Latn-RS")} RSD`}
                     />
@@ -198,8 +198,8 @@ export function CategoryDetailSheet({
                       className={cn(
                         "text-[10px]",
                         bar.month === month
-                          ? "font-semibold text-gray-900 dark:text-gray-100"
-                          : "text-gray-400 dark:text-gray-500",
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground",
                       )}
                     >
                       {monthLabel(bar.month).split(" ")[0].slice(0, 3)}
@@ -238,7 +238,7 @@ export function CategoryDetailSheet({
                   <button
                     type="button"
                     onClick={() => setLimitInput(String(suggestion))}
-                    className="text-xs text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+                    className="text-xs font-normal text-accent-deep underline-offset-4 hover:underline"
                   >
                     Predlog: {suggestion.toLocaleString("sr-Latn-RS")} RSD (prosek prethodnih
                     meseci)
@@ -246,24 +246,24 @@ export function CategoryDetailSheet({
                 ) : null}
               </div>
             ) : (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Troškovi bez kategorije - dodeli kategoriju izmenom pojedinačnog troška.
               </p>
             )}
 
             {catExpenses.length > 0 ? (
-              <div className="divide-y divide-gray-100 border-t border-gray-100 text-sm dark:divide-gray-700/60 dark:border-gray-700/60">
+              <div className="divide-y divide-border border-t border-border text-sm">
                 {catExpenses.map((e) => (
-                  <div key={e.id} className="flex items-baseline justify-between gap-3 py-2">
+                  <div key={e.id} className="flex items-baseline justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
+                      <span className="block truncate font-normal text-foreground">
                         {expenseTitle(e)}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(e.spent_on)}
                       </span>
                     </div>
-                    <span className="shrink-0 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    <span className="shrink-0 text-right font-semibold tabular-nums text-foreground">
                       <Amount value={e.amount} />
                       <AmountOriginal
                         amount={e.original_amount}

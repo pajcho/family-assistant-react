@@ -81,10 +81,14 @@ describe("utils", () => {
       expect(getInitials({ email: "nikola@gmail.com" })).toBe("N");
     });
 
-    it("getDisplayName prefers full name over email", () => {
+    it("getDisplayName is the first name only - one household, no surnames on screen", () => {
       expect(getDisplayName({ firstName: "Nikola", lastName: "Pajic", email: "x@y.com" })).toBe(
-        "Nikola Pajic",
+        "Nikola",
       );
+    });
+
+    it("getDisplayName falls back to the surname when there is no first name", () => {
+      expect(getDisplayName({ lastName: "Pajic", email: "x@y.com" })).toBe("Pajic");
     });
 
     it("getDisplayName falls back to email when name missing", () => {

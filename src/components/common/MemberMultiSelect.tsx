@@ -1,5 +1,4 @@
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/cn";
+import { Chip, ChipRow, FieldGroupLabel, FieldHint } from "@/components/common/FormControls";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
@@ -37,12 +36,12 @@ export function MemberMultiSelect({
   };
 
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
+    <div>
+      <FieldGroupLabel>{label}</FieldGroupLabel>
       {members.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nema članova porodice.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <ChipRow role="group" aria-label={typeof label === "string" ? label : "Članovi"}>
           {members.map((person) => {
             const selected = value.includes(person.id);
             const color = person.color ?? fallbackColorForProfile(person.id);
@@ -53,32 +52,28 @@ export function MemberMultiSelect({
                 email: null,
               }) || "Bez imena";
             return (
-              <button
-                type="button"
+              <Chip
                 key={person.id}
+                selected={selected}
                 onClick={() => toggle(person.id)}
-                aria-pressed={selected}
+                // Member chips keep the person's own fruit colour on selection.
                 style={selected ? { backgroundColor: `${color}1F`, borderColor: color } : undefined}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                  selected
-                    ? "text-gray-900 dark:text-gray-100"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
-                )}
+                className={selected ? "text-foreground" : undefined}
               >
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                  aria-hidden="true"
-                />
-                <span className="truncate">{name}</span>
-              </button>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="inline-block size-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: color }}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{name}</span>
+                </span>
+              </Chip>
             );
           })}
-        </div>
+        </ChipRow>
       )}
-      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
+      {hint ? <FieldHint>{hint}</FieldHint> : null}
     </div>
   );
 }

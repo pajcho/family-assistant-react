@@ -117,19 +117,19 @@ export function AddMemberDialog({ open, onOpenChange, onCreated }: AddMemberDial
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-muted p-3">
             <input
               id="add-with-login"
               type="checkbox"
               checked={withLogin}
               onChange={(e) => setWithLogin(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-accent"
             />
             <label htmlFor="add-with-login" className="min-w-0 cursor-pointer">
-              <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+              <span className="block text-[14.5px] font-semibold text-foreground">
                 Napravi i nalog (login)
               </span>
-              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
                 Član će moći sam da se prijavi email-om i lozinkom.
               </span>
             </label>

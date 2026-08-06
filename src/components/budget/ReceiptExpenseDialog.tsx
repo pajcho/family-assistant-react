@@ -12,12 +12,11 @@ import {
 import { toast } from "sonner";
 
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogFooter,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
-import { SheetStackHeader, useSheetStack } from "@/components/common/SheetStack";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,25 +131,30 @@ function ItemsList({
                   ? `Osveži stavke (${cooldownLabel})`
                   : "Osveži stavke"}
             </Button>
-            {refreshInfo ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{refreshInfo}</p>
-            ) : null}
+            {refreshInfo ? <p className="text-xs text-muted-foreground">{refreshInfo}</p> : null}
           </>
         ) : null}
       </div>
     );
   }
   return (
-    <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+    <ul className="rounded-2xl border border-border bg-card px-3 shadow-card">
       {items.map((it) => (
-        <li key={it.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-          <span className="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-200">
-            {it.name}
+        <li
+          key={it.id}
+          className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13.5px] font-normal text-foreground">
+              {it.name}
+            </span>
+            {it.quantity != null && it.quantity !== 1 ? (
+              <span className="block text-[11px] text-muted-foreground tabular-nums">
+                ×{it.quantity}
+              </span>
+            ) : null}
           </span>
-          {it.quantity != null && it.quantity !== 1 ? (
-            <span className="shrink-0 text-xs text-gray-400 tabular-nums">×{it.quantity}</span>
-          ) : null}
-          <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
+          <span className="shrink-0 text-[13.5px] font-bold text-foreground tabular-nums">
             <Amount value={it.total} />
           </span>
         </li>
@@ -166,8 +170,8 @@ export function ReceiptExpenseDialog({
   allowDelete = true,
   onOpenExpense,
 }: ReceiptExpenseDialogProps) {
-  const { view, atRoot, push, pop, reset, dialogOpen, dialogKey, handleOpenChange } =
-    useSheetStack<View>(open, onOpenChange, "detail");
+  const stack = useSheetStack<View>(open, onOpenChange, "detail");
+  const { push, pop, reset } = stack;
   const isDesktop = useIsDesktop();
   const { categories } = useExpenseCategories();
   const { members } = useFamilyMembers();
@@ -369,8 +373,8 @@ export function ReceiptExpenseDialog({
     : 0;
   const partInfoBlock =
     showPartInfo && receiptContext ? (
-      <div className="space-y-2 rounded-xl bg-violet-50/60 p-3 dark:bg-violet-900/10">
-        <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+      <div className="space-y-2 rounded-2xl bg-accent-soft p-3">
+        <p className="text-xs font-semibold text-accent-deep">
           Deo računa · {items.length} od {totalLineCount} {stavkeLabel(totalLineCount)} · ceo račun{" "}
           <Amount value={receiptContext.receipt.total_amount} />
         </p>
@@ -381,20 +385,24 @@ export function ReceiptExpenseDialog({
                 ? categories.find((c) => c.id === sibling.category_id)
                 : null;
               const Icon = categoryIcon(category?.icon);
-              const color = category?.color ?? "#9ca3af";
+              // Categories carry their own colour; the fallback follows the tokens.
+              const color = category?.color ?? null;
               const inner = (
                 <>
                   <span
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${color}22` }}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-[10px]"
+                    style={{ backgroundColor: color ? `${color}22` : "var(--muted)" }}
                   >
-                    <Icon className="size-3.5" style={{ color }} />
+                    <Icon
+                      className="size-3.5"
+                      style={{ color: color ?? "var(--muted-foreground)" }}
+                    />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-left text-gray-700 dark:text-gray-200">
+                  <span className="min-w-0 flex-1 truncate text-left font-normal text-foreground">
                     {category?.name ?? "Bez kategorije"}
                     {sibling.note?.trim() ? ` · ${sibling.note.trim()}` : ""}
                   </span>
-                  <span className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
+                  <span className="shrink-0 font-bold text-foreground tabular-nums">
                     <Amount value={sibling.amount} />
                   </span>
                 </>
@@ -404,14 +412,14 @@ export function ReceiptExpenseDialog({
                   {onOpenExpense ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-sm transition-colors hover:bg-violet-100/60 dark:hover:bg-violet-900/20"
+                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-card/70"
                       onClick={() => onOpenExpense(sibling)}
                     >
                       {inner}
-                      <ChevronRightIcon className="size-3.5 shrink-0 text-gray-400" />
+                      <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
                     </button>
                   ) : (
-                    <div className="flex w-full items-center gap-2 px-1.5 py-1 text-sm">
+                    <div className="flex w-full items-center gap-2 px-1.5 py-1.5 text-sm">
                       {inner}
                     </div>
                   )}
@@ -421,7 +429,7 @@ export function ReceiptExpenseDialog({
           </ul>
         ) : null}
         {freeLineCount > 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             {freeLineCount} {stavkeLabel(freeLineCount)} sa računa još nije dodato - skeniraj račun
             ponovo da ih dodaš.
           </p>
@@ -434,14 +442,14 @@ export function ReceiptExpenseDialog({
   if (note.trim()) detailParts.push("Beleška ✓");
   const detailCount = (personId ? 1 : 0) + (note.trim() ? 1 : 0);
 
-  const stickyFooter =
+  const stickyFooterFor = (view: View) =>
     !isDesktop && view === "detail" && expense ? (
       <div className="flex items-center justify-between gap-2">
         {allowDelete ? (
           <Button
             type="button"
             variant="ghost"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="rounded-[15px] font-semibold text-neg hover:bg-neg-soft hover:text-neg"
             disabled={updateExpense.isPending}
             onClick={() => push("delete")}
           >
@@ -455,6 +463,7 @@ export function ReceiptExpenseDialog({
           <Button
             type="button"
             variant="outline"
+            className="rounded-[15px] border-border bg-card font-semibold text-muted-foreground"
             onClick={() => onOpenChange(false)}
             disabled={updateExpense.isPending}
           >
@@ -462,6 +471,7 @@ export function ReceiptExpenseDialog({
           </Button>
           <Button
             type="button"
+            className="rounded-[15px] font-semibold"
             onClick={() => void handleSave()}
             disabled={updateExpense.isPending}
           >
@@ -471,7 +481,7 @@ export function ReceiptExpenseDialog({
       </div>
     ) : undefined;
 
-  const headerTitle =
+  const titleFor = (view: View) =>
     view === "delete"
       ? "Obriši trošak"
       : view === "category"
@@ -485,266 +495,286 @@ export function ReceiptExpenseDialog({
               : expense?.merchant || "Račun";
 
   return (
-    <ResponsiveDialog key={dialogKey} open={dialogOpen} onOpenChange={handleOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md" stickyFooter={stickyFooter}>
-        <SheetStackHeader title={headerTitle} onBack={atRoot ? undefined : pop} />
+    <SheetStackViews
+      stack={stack}
+      render={(view, level) => (
+        <ResponsiveDialogContent className="sm:max-w-md" stickyFooter={stickyFooterFor(view)}>
+          <SheetStackHeader title={titleFor(view)} onBack={level === 0 ? undefined : pop} />
 
-        {!expense ? null : view === "delete" ? (
-          <>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />?
-              Ova radnja se ne može opozvati.
-            </p>
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={deleteExpense.isPending}>
-                Nazad
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleDelete();
-                }}
-                disabled={deleteExpense.isPending}
-              >
-                Obriši
-              </Button>
-            </ResponsiveDialogFooter>
-          </>
-        ) : view === "category" ? (
-          <CategoryGridPicker
-            value={categoryId}
-            onChange={(id) => {
-              setCategoryId(id);
-              pop();
-            }}
-          />
-        ) : view === "split" ? (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Izaberi stavke koje prelaze na novi trošak. Iznosi se preračunavaju sami - zbir oba
-              dela ostaje tačno ceo račun.
-            </p>
-            <ReceiptItemsSelect
-              lines={splitLines}
-              selected={splitSelected}
-              onToggle={(idx) => {
-                setSplitSelected((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(idx)) next.delete(idx);
-                  else next.add(idx);
-                  return next;
-                });
-              }}
-              onSetAll={(select) => {
-                // "All" would empty the original - cap at all-but-one.
-                setSplitSelected(
-                  select ? new Set(splitLines.slice(0, -1).map((l) => l.idx)) : new Set(),
-                );
-              }}
-              disabled={splitExpense.isPending}
-            />
-            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Novi trošak ({splitSelected.size} {stavkeLabel(splitSelected.size)})
-                </span>
-                <span className="font-medium tabular-nums">
-                  <Amount value={splitSum} />
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Ostaje na ovom trošku</span>
-                <span className="font-medium tabular-nums">
-                  <Amount value={(expense ? expense.amount : 0) - splitSum} />
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Kategorija novog troška</Label>
-              <CategoryGridPicker value={splitCategoryId} onChange={setSplitCategoryId} />
-            </div>
-            {splitError ? (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {splitError}
-              </div>
-            ) : null}
-            <ResponsiveDialogFooter>
-              <Button variant="outline" onClick={pop} disabled={splitExpense.isPending}>
-                Nazad
-              </Button>
-              <Button onClick={handleSplit} disabled={!splitValid || splitExpense.isPending}>
-                {splitExpense.isPending ? "Delim…" : "Podeli"}
-              </Button>
-            </ResponsiveDialogFooter>
-          </div>
-        ) : view === "items" ? (
-          itemsInline
-        ) : view === "details" ? (
-          <div className="space-y-4">
-            <ExpensePersonSelect value={personId} onChange={setPersonId} />
-            <div className="space-y-2">
-              <Label htmlFor="receipt-detail-note">Beleška</Label>
-              <Input
-                id="receipt-detail-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="npr. nedeljna kupovina"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {/* Amount (read-only) + date. */}
-            <div className="text-center">
-              <div className="text-4xl font-semibold tabular-nums text-gray-900 dark:text-white">
-                <Amount value={expense.amount} />
-              </div>
-              <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {formatDate(expense.spent_on)}
-              </div>
-              {expense.receipt_url ? (
-                <a
-                  href={expense.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+          {!expense ? null : view === "delete" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />
+                ? Ova radnja se ne može opozvati.
+              </p>
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={deleteExpense.isPending}
                 >
-                  Otvori račun
-                  <ArrowTopRightOnSquareIcon className="size-4" />
-                </a>
-              ) : null}
-            </div>
-
-            {isDesktop ? (
-              // --- Desktop: everything inline ---
-              <>
-                <div className="space-y-2">
-                  <Label>Kategorija</Label>
-                  <CategoryGridPicker value={categoryId} onChange={setCategoryId} />
+                  Nazad
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={() => {
+                    void handleDelete();
+                  }}
+                  disabled={deleteExpense.isPending}
+                >
+                  Obriši
+                </Button>
+              </ResponsiveDialogFooter>
+            </>
+          ) : view === "category" ? (
+            <CategoryGridPicker
+              value={categoryId}
+              onChange={(id) => {
+                setCategoryId(id);
+                pop();
+              }}
+            />
+          ) : view === "split" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Izaberi stavke koje prelaze na novi trošak. Iznosi se preračunavaju sami - zbir oba
+                dela ostaje tačno ceo račun.
+              </p>
+              <ReceiptItemsSelect
+                lines={splitLines}
+                selected={splitSelected}
+                onToggle={(idx) => {
+                  setSplitSelected((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(idx)) next.delete(idx);
+                    else next.add(idx);
+                    return next;
+                  });
+                }}
+                onSetAll={(select) => {
+                  // "All" would empty the original - cap at all-but-one.
+                  setSplitSelected(
+                    select ? new Set(splitLines.slice(0, -1).map((l) => l.idx)) : new Set(),
+                  );
+                }}
+                disabled={splitExpense.isPending}
+              />
+              <div className="rounded-xl bg-muted px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    Novi trošak ({splitSelected.size} {stavkeLabel(splitSelected.size)})
+                  </span>
+                  <span className="font-bold text-foreground tabular-nums">
+                    <Amount value={splitSum} />
+                  </span>
                 </div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-muted-foreground">Ostaje na ovom trošku</span>
+                  <span className="font-bold text-foreground tabular-nums">
+                    <Amount value={(expense ? expense.amount : 0) - splitSum} />
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Kategorija novog troška</Label>
+                <CategoryGridPicker value={splitCategoryId} onChange={setSplitCategoryId} />
+              </div>
+              {splitError ? (
+                <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {splitError}
+                </div>
+              ) : null}
+              <ResponsiveDialogFooter>
+                <Button
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={splitExpense.isPending}
+                >
+                  Nazad
+                </Button>
+                <Button
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={handleSplit}
+                  disabled={!splitValid || splitExpense.isPending}
+                >
+                  {splitExpense.isPending ? "Delim…" : "Podeli"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </div>
+          ) : view === "items" ? (
+            itemsInline
+          ) : view === "details" ? (
+            <div className="space-y-4">
+              <ExpensePersonSelect value={personId} onChange={setPersonId} />
+              <div className="space-y-2">
+                <Label htmlFor="receipt-detail-note">Beleška</Label>
+                <Input
+                  id="receipt-detail-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="npr. nedeljna kupovina"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Amount (read-only) + date. */}
+              <div className="text-center">
+                <div className="text-[34px] font-bold tracking-[-0.03em] text-foreground tabular-nums">
+                  <Amount value={expense.amount} />
+                </div>
+                <div className="mt-1 text-[13px] text-muted-foreground">
+                  {formatDate(expense.spent_on)}
+                </div>
+                {expense.receipt_url ? (
+                  <a
+                    href={expense.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent-deep hover:underline"
+                  >
+                    Otvori račun
+                    <ArrowTopRightOnSquareIcon className="size-4" />
+                  </a>
+                ) : null}
+              </div>
+
+              {isDesktop ? (
+                // --- Desktop: everything inline ---
+                <>
+                  <div className="space-y-2">
+                    <Label>Kategorija</Label>
+                    <CategoryGridPicker value={categoryId} onChange={setCategoryId} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stavke</Label>
+                    {itemsInline}
+                    {splitEligible ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => push("split")}
+                      >
+                        <ScissorsIcon className="size-4" />
+                        Podeli račun
+                      </Button>
+                    ) : null}
+                  </div>
+                  {partInfoBlock}
+                  <ExpensePersonSelect value={personId} onChange={setPersonId} />
+                  <div className="space-y-2">
+                    <Label htmlFor="receipt-detail-note-d">Beleška</Label>
+                    <Input
+                      id="receipt-detail-note-d"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="npr. nedeljna kupovina"
+                    />
+                  </div>
+                  {error ? (
+                    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                      {error}
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {allowDelete ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="rounded-[15px] font-semibold text-neg hover:bg-neg-soft hover:text-neg"
+                        disabled={updateExpense.isPending}
+                        onClick={() => push("delete")}
+                      >
+                        <TrashIcon className="size-4" />
+                        Obriši
+                      </Button>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-[15px] border-border bg-card font-semibold text-muted-foreground"
+                        onClick={() => onOpenChange(false)}
+                        disabled={updateExpense.isPending}
+                      >
+                        Zatvori
+                      </Button>
+                      <Button
+                        type="button"
+                        className="rounded-[15px] font-semibold"
+                        onClick={() => void handleSave()}
+                        disabled={updateExpense.isPending}
+                      >
+                        {updateExpense.isPending ? "Čuvam…" : "Sačuvaj izmene"}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // --- Mobile: "Brzi unos" picker rows (footer pinned by dialog) ---
                 <div className="space-y-2">
-                  <Label>Stavke</Label>
-                  {itemsInline}
+                  <PickerRow
+                    title="Kategorija"
+                    summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
+                    icon={
+                      selectedCategory ? (
+                        (() => {
+                          const Icon = categoryIcon(selectedCategory.icon);
+                          return (
+                            <Icon className="size-4" style={{ color: selectedCategory.color }} />
+                          );
+                        })()
+                      ) : (
+                        <TagIcon className="size-4" />
+                      )
+                    }
+                    onClick={() => push("category")}
+                  />
+                  <PickerRow
+                    title="Stavke"
+                    summary={
+                      itemsLoading
+                        ? "Učitavam…"
+                        : items.length > 0
+                          ? `${items.length} ${stavkeLabel(items.length)}`
+                          : "Nema stavki"
+                    }
+                    icon={<ListBulletIcon className="size-4" />}
+                    onClick={() => push("items")}
+                  />
                   {splitEligible ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
+                    <PickerRow
+                      title="Podeli račun"
+                      summary="Deo stavki kao poseban trošak"
+                      icon={<ScissorsIcon className="size-4" />}
                       onClick={() => push("split")}
-                    >
-                      <ScissorsIcon className="size-4" />
-                      Podeli račun
-                    </Button>
+                    />
+                  ) : null}
+                  <PickerRow
+                    title="Više detalja"
+                    summary={detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška"}
+                    icon={<AdjustmentsHorizontalIcon className="size-4" />}
+                    count={detailCount}
+                    onClick={() => push("details")}
+                  />
+                  {partInfoBlock}
+                  {error ? (
+                    <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                      {error}
+                    </div>
                   ) : null}
                 </div>
-                {partInfoBlock}
-                <ExpensePersonSelect value={personId} onChange={setPersonId} />
-                <div className="space-y-2">
-                  <Label htmlFor="receipt-detail-note-d">Beleška</Label>
-                  <Input
-                    id="receipt-detail-note-d"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="npr. nedeljna kupovina"
-                  />
-                </div>
-                {error ? (
-                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                    {error}
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  {allowDelete ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-                      disabled={updateExpense.isPending}
-                      onClick={() => push("delete")}
-                    >
-                      <TrashIcon className="size-4" />
-                      Obriši
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => onOpenChange(false)}
-                      disabled={updateExpense.isPending}
-                    >
-                      Zatvori
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleSave()}
-                      disabled={updateExpense.isPending}
-                    >
-                      {updateExpense.isPending ? "Čuvam…" : "Sačuvaj izmene"}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              // --- Mobile: "Brzi unos" picker rows (footer pinned by dialog) ---
-              <div className="space-y-2">
-                <PickerRow
-                  title="Kategorija"
-                  summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
-                  icon={
-                    selectedCategory ? (
-                      (() => {
-                        const Icon = categoryIcon(selectedCategory.icon);
-                        return (
-                          <Icon className="size-4" style={{ color: selectedCategory.color }} />
-                        );
-                      })()
-                    ) : (
-                      <TagIcon className="size-4" />
-                    )
-                  }
-                  onClick={() => push("category")}
-                />
-                <PickerRow
-                  title="Stavke"
-                  summary={
-                    itemsLoading
-                      ? "Učitavam…"
-                      : items.length > 0
-                        ? `${items.length} ${stavkeLabel(items.length)}`
-                        : "Nema stavki"
-                  }
-                  icon={<ListBulletIcon className="size-4" />}
-                  onClick={() => push("items")}
-                />
-                {splitEligible ? (
-                  <PickerRow
-                    title="Podeli račun"
-                    summary="Deo stavki kao poseban trošak"
-                    icon={<ScissorsIcon className="size-4" />}
-                    onClick={() => push("split")}
-                  />
-                ) : null}
-                <PickerRow
-                  title="Više detalja"
-                  summary={detailParts.length > 0 ? detailParts.join(" · ") : "Za koga · beleška"}
-                  icon={<AdjustmentsHorizontalIcon className="size-4" />}
-                  count={detailCount}
-                  onClick={() => push("details")}
-                />
-                {partInfoBlock}
-                {error ? (
-                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                    {error}
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+              )}
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      )}
+    />
   );
 }

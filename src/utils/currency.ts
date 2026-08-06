@@ -53,6 +53,24 @@ export function parseDecimal(input: string): number {
   return Number(trimmed.replace(",", "."));
 }
 
+/**
+ * Keeps a typed amount to what {@link parseDecimal} can actually read: digits
+ * plus at most one separator (comma or dot - sr-Latn keyboards give either).
+ * Letters and stray symbols are dropped as they are typed, so an amount field
+ * can never end up holding "q2asd" and silently failing validation.
+ *
+ * Partial input stays partial on purpose: "12," is what you have mid-typing,
+ * and rewriting it to "12" would eat the keystroke.
+ */
+export function sanitizeDecimalInput(input: string): string {
+  const cleaned = input.replace(/[^\d.,]/g, "");
+  const firstSeparator = cleaned.search(/[.,]/);
+  if (firstSeparator === -1) return cleaned;
+  const head = cleaned.slice(0, firstSeparator + 1);
+  const tail = cleaned.slice(firstSeparator + 1).replace(/[.,]/g, "");
+  return head + tail;
+}
+
 /** amount × rate, rounded to 2 decimals (para). EPSILON guards float artifacts
  *  like 5868.755 → 5868.75 (should be 5868.76). */
 export function convertToRsd(amount: number, rate: number): number {

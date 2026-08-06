@@ -277,15 +277,11 @@ export function PaymentLinkField({
           onMouseEnter={() => setActiveIndex(flatIndex)}
           className={cn(
             "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-            flatIndex === activeIndex
-              ? "bg-gray-100 dark:bg-gray-700"
-              : "hover:bg-gray-100 dark:hover:bg-gray-700",
+            flatIndex === activeIndex ? "bg-muted" : "hover:bg-muted",
           )}
         >
           <PaymentLinkIcon kind={option.kind} className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">
-            {option.name}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-foreground">{option.name}</span>
           {option.personIds.length > 0 ? (
             <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
           ) : null}
@@ -302,9 +298,7 @@ export function PaymentLinkField({
   const triggerLabel = selected ? (
     <>
       <PaymentLinkIcon kind={selected.kind} className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-left text-gray-900 dark:text-gray-100">
-        {selected.name}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-left text-foreground">{selected.name}</span>
     </>
   ) : (
     <span className="flex-1 truncate text-left text-muted-foreground">
@@ -359,7 +353,7 @@ export function PaymentLinkField({
                   <>
                     {activityOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Aktivnosti
                         </p>
                         <ul>{activityOptions.map(renderOption)}</ul>
@@ -367,7 +361,7 @@ export function PaymentLinkField({
                     ) : null}
                     {eventOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Događaji
                         </p>
                         <ul>{eventOptions.map(renderOption)}</ul>
@@ -375,7 +369,7 @@ export function PaymentLinkField({
                     ) : null}
                     {birthdayOptions.length > 0 ? (
                       <div>
-                        <p className="px-2 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <p className="px-2 pb-1 text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
                           Rođendani
                         </p>
                         <ul>{birthdayOptions.map(renderOption)}</ul>

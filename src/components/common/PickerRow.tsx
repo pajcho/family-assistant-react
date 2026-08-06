@@ -1,54 +1,75 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
 
 /**
- * The "Brzi unos" picker row: a tappable row with a title, a summary of the
- * current selection and a "›" chevron, opening a sub-view in the same sheet
- * (SheetStack). One shape for Tip plaćanja, Kategorija and Više detalja -
- * the mobile replacement for inline selects/grids on long entry forms.
+ * The redesign's field row (".prow"): a tappable card-height row with an icon,
+ * a label on the left and the current selection on the right, plus a "›"
+ * chevron. It is the single shape behind every "opens something else" field -
+ * Kategorija, Datum, Vreme, Poveži sa, Više detalja - on both the mobile
+ * sheets and the desktop forms.
+ *
+ * `min-h-11` (44px) is the floor for every instance: these rows are the main
+ * tap targets of the entry forms.
  */
-export type PickerRowProps = {
-  title: string;
-  /** Current selection, rendered under the title ("Mesečno · promenljiv iznos"). */
+export type PickerRowProps = Omit<ComponentProps<"button">, "value" | "title"> & {
+  title: ReactNode;
+  /** Current selection, right-aligned ("Mesečno · promenljiv iznos"). */
   summary?: ReactNode;
-  /** Leading icon, sized by the caller (usually `size-4`). */
+  /** Leading icon, sized by the caller (usually `size-[17px]`). */
   icon?: ReactNode;
   /** Set-fields badge (Više detalja); hidden when 0/undefined. */
   count?: number;
-  onClick: () => void;
-  disabled?: boolean;
+  /** Hide the trailing chevron for rows that act instead of drilling in. */
+  chevron?: boolean;
+  /** Dashed border for the "add something" affordance (Skeniraj račun, Dodaj termin). */
+  dashed?: boolean;
 };
 
-export function PickerRow({ title, summary, icon, count, onClick, disabled }: PickerRowProps) {
+export function PickerRow({
+  title,
+  summary,
+  icon,
+  count,
+  chevron = true,
+  dashed = false,
+  className,
+  ...props
+}: PickerRowProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl border border-input px-3.5 py-2.5 text-left transition-colors",
-        "hover:bg-gray-50 dark:hover:bg-gray-800/50",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+        "flex min-h-11 w-full items-center gap-2.5 rounded-lg border bg-card px-3.5 py-2.5 text-left transition-colors",
+        dashed ? "border-dashed border-border" : "border-border",
+        "hover:bg-muted",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
         "disabled:pointer-events-none disabled:opacity-50",
+        className,
       )}
+      {...props}
     >
       {icon ? <span className="shrink-0 text-muted-foreground">{icon}</span> : null}
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{title}</span>
-        {summary ? (
-          <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
-            {summary}
-          </span>
-        ) : null}
-      </span>
+      <span className="flex-1 text-sm font-normal">{title}</span>
+      {summary ? (
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-normal text-muted-foreground">
+          {summary}
+        </span>
+      ) : null}
       {count ? (
-        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-semibold text-white">
+        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
           {count}
         </span>
       ) : null}
-      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      {chevron ? (
+        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+      ) : null}
     </button>
   );
+}
+
+/** Two picker rows side by side (Početak / Kraj). */
+export function PickerRowPair({ children }: { children: ReactNode }) {
+  return <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1">{children}</div>;
 }
