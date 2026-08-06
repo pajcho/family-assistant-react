@@ -1,12 +1,18 @@
 import { useMemo } from "react";
 import { format, parseISO } from "date-fns";
-import { ChevronRightIcon, LockClosedIcon, ReceiptPercentIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronRightIcon,
+  LinkSlashIcon,
+  LockClosedIcon,
+  ReceiptPercentIcon,
+} from "@heroicons/react/24/outline";
 
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { GroupHeader, StatusPill } from "@/components/money/moneyUi";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
+import { isDetachedPaymentExpense } from "@/utils/budget";
 import { addDays, srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
 import { useToday } from "@/hooks/useToday";
@@ -19,7 +25,9 @@ import { useToday } from "@/hooks/useToday";
  *
  * Every row opens a modal on tap: manual → the edit form (with delete inside
  * it), receipt → the receipt detail, payment-sourced ("iz plaćanja") → the
- * underlying payment's detail popup. Events and birthdays are intentionally
+ * underlying payment's detail popup - unless that payment has been deleted, in
+ * which case the row is a plain historical spend and opens the edit form like a
+ * manual one. Events and birthdays are intentionally
  * NOT here - they don't cost anything, and any spend tied to them already
  * shows as a row.
  */
@@ -66,15 +74,18 @@ function ExpenseRow({
   const Icon = categoryIcon(category?.icon);
   const color = category?.color ?? "#9ca3af";
   const isReceipt = expense.source === "receipt";
-  const isPayment = expense.source === "payment";
+  // A payment-sourced row whose payment is gone has nothing to open and nothing
+  // keeping it in sync, so it behaves (and reads) as a plain past expense.
+  const isDetached = isDetachedPaymentExpense(expense);
+  const isPayment = expense.source === "payment" && !isDetached;
   const itemCount = isReceipt ? (itemCounts?.[expense.id] ?? 0) : 0;
   const primary = isReceipt
     ? expense.merchant || expense.note?.trim() || category?.name || "Račun"
     : expense.note?.trim() || category?.name || "Trošak";
 
   // Every row taps the whole surface into a modal: receipt → receipt detail,
-  // payment → the payment's detail popup, manual → the edit form (delete lives
-  // inside it now, no inline actions).
+  // payment → the payment's detail popup, manual (and detached) → the edit form
+  // (delete lives inside it now, no inline actions).
   const handleClick = () => {
     if (isReceipt) onOpenReceipt(expense);
     else if (isPayment) onOpenPayment(expense);
@@ -111,6 +122,14 @@ function ExpenseRow({
               <StatusPill tone="warn">
                 <LockClosedIcon className="size-2.5" />
                 iz plaćanja
+              </StatusPill>
+            ) : isDetached ? (
+              // No lock: the payment it came from is gone, so this row is not
+              // locked to anything - and saying "iz plaćanja" would promise a
+              // payment that no longer opens.
+              <StatusPill tone="muted">
+                <LinkSlashIcon className="size-2.5" />
+                plaćanje obrisano
               </StatusPill>
             ) : isReceipt ? (
               <StatusPill tone="accent">

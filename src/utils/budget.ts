@@ -62,6 +62,20 @@ export function monthOf(dateStr: string): string {
   return dateStr.slice(0, 7);
 }
 
+/**
+ * An auto-expense whose payment has since been DELETED.
+ *
+ * `expenses.payment_id` is `ON DELETE SET NULL` on purpose: deleting a payment
+ * must not erase the money that was actually spent, so the row survives with
+ * `source = 'payment'` and a null link. Nothing regenerates or re-syncs such a
+ * row any more, which is why it is the one payment-sourced expense the UI lets
+ * a member edit and delete - and why it must never claim to be locked to a
+ * payment you can no longer open.
+ */
+export function isDetachedPaymentExpense(expense: Expense): boolean {
+  return expense.source === "payment" && !expense.payment_id;
+}
+
 /* ------------------------------------------------------------------------- */
 /* Monthly cycle: income - spent = remaining, plus a projection to month-end */
 /* ------------------------------------------------------------------------- */
