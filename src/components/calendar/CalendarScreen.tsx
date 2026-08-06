@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 
 import { AgendaFilters } from "@/components/dashboard/AgendaFilters";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
@@ -9,7 +9,9 @@ import { ProfileAvatarLink, SearchIconButton } from "@/components/common/ScreenA
 import { Segmented, type SegmentedOption } from "@/components/common/Segmented";
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
+import { useIsWide } from "@/hooks/useIsWide";
 import { useProfile } from "@/hooks/useProfile";
+import { cn } from "@/lib/cn";
 
 /**
  * "Kalendar" - one screen, three ways to read the same agenda.
@@ -27,6 +29,13 @@ import { useProfile } from "@/hooks/useProfile";
  * a reload; `day` is the hand-off from the Danas week strip and scrolls the
  * agenda to that date. Mesec is a lazy chunk - it is the one view that is not
  * on the default path.
+ *
+ * Chrome differs by width. Desktop (lg+) keeps everything - segments, filters,
+ * week strip - in the screen's fixed header. On phones only the title stays
+ * fixed: the segment control and the filters scroll away with the content to
+ * give the list the screen back, and the week strip alone stays pinned - as a
+ * `sticky` element INSIDE the scroll body (Agenda/Nedelja; the Mesec month row
+ * scrolls away too, its sticky element is the selected-day line in the view).
  */
 
 const MonthCalendar = lazy(() =>
@@ -54,25 +63,33 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
   const { familyId } = useProfile();
   const filters = useAgendaFilters();
   const forms = useAgendaEditForms();
-  // Slot the Agenda and Nedelja views portal their week strip into. The strip
-  // belongs to the fixed header (it must not scroll away with the list), but
-  // its state - weeks, load dots, scroll-spy - lives with the view that owns
-  // the data, so a slot keeps both where they should be (the NovacScreen
-  // "Dodaj" pattern). `display: contents` so the portalled strip joins the
-  // header column directly and an empty slot adds no gap.
+  const isWide = useIsWide();
+  // Slot the views portal their week strip / month row into. The strip's
+  // state - weeks, load dots, scroll-spy - lives with the view that owns the
+  // data, but its PLACE belongs to the screen: the fixed header on desktop, a
+  // sticky box in the scroll body on phones (the NovacScreen "Dodaj" pattern).
+  // `display: contents` so the portalled strip joins its container directly.
   const [stripSlot, setStripSlot] = useState<HTMLElement | null>(null);
 
-  const header = (
-    <div className="flex flex-col gap-2.5">
-      <ScreenHeaderRow
-        title="Kalendar"
-        actions={
-          <>
-            <SearchIconButton />
-            <ProfileAvatarLink />
-          </>
-        }
-      />
+  // The sticky strip box's height on phones - the offset the agenda's own
+  // sticky day headers (and its scroll-to-day math) must clear so they park
+  // under the strip instead of behind it.
+  const [stickyBox, setStickyBox] = useState<HTMLElement | null>(null);
+  const [stickyOffset, setStickyOffset] = useState(0);
+  useEffect(() => {
+    if (!stickyBox) {
+      setStickyOffset(0);
+      return;
+    }
+    const measure = () => setStickyOffset(stickyBox.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stickyBox);
+    return () => observer.disconnect();
+  }, [stickyBox]);
+
+  const controls = (
+    <>
       <Segmented
         options={VIEW_OPTIONS}
         value={view}
@@ -86,7 +103,26 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
         reset={filters.reset}
         isActive={filters.isActive}
       />
-      <div ref={setStripSlot} className="contents" />
+    </>
+  );
+
+  const header = (
+    <div className="flex flex-col gap-2.5">
+      <ScreenHeaderRow
+        title="Kalendar"
+        actions={
+          <>
+            <SearchIconButton />
+            <ProfileAvatarLink />
+          </>
+        }
+      />
+      {isWide ? (
+        <>
+          {controls}
+          <div ref={setStripSlot} className="contents" />
+        </>
+      ) : null}
     </div>
   );
 
@@ -102,16 +138,37 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
       contentClassName="mx-auto w-full max-w-3xl lg:max-w-[1010px]"
       headerClassName="lg:px-8"
       bodyClassName="lg:px-8"
-      // Nedelja is a two-axis timetable: it fills the body and scrolls itself,
-      // so its day header and hour gutter have a scrollport to pin against.
-      fillBody={view === "nedelja"}
+      // Nedelja on desktop is a two-axis timetable: it fills the body and
+      // scrolls itself, so its day header and hour gutter have a scrollport to
+      // pin against. On phones it renders at full height instead and the page
+      // scrolls (see AgendaWeekCalendar's `pageScroll`).
+      fillBody={view === "nedelja" && isWide}
     >
+      {!isWide ? (
+        <>
+          <div className="mb-2.5 flex flex-col gap-2.5">{controls}</div>
+          {/* The one pinned piece of chrome on phones. Opaque background (no
+              backdrop-filter - iOS fails to repaint it), small horizontal
+              bleed so rows pass cleanly under. Mesec opts out: its month row
+              scrolls away and the selected-day line takes the sticky slot. */}
+          <div
+            ref={setStickyBox}
+            className={cn(
+              "mb-2",
+              view !== "mesec" && "sticky top-0 z-30 -mx-1.5 bg-background px-1.5 pb-1.5",
+            )}
+          >
+            <div ref={setStripSlot} className="contents" />
+          </div>
+        </>
+      ) : null}
       {!familyId ? (
         <AgendaListSkeleton rows={5} />
       ) : view === "nedelja" ? (
         <AgendaWeekCalendar
           filter={filters.filter}
           stripSlot={stripSlot}
+          pageScroll={!isWide}
           onEditEvent={forms.openEditEvent}
           onEditPayment={forms.openEditPayment}
           onEditBirthday={forms.openEditBirthday}
@@ -133,6 +190,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
           filter={filters.filter}
           scrollToDay={day}
           stripSlot={stripSlot}
+          stickyOffset={stickyOffset}
           onAddEvent={forms.openAddEvent}
           onEditEvent={forms.openEditEvent}
           onEditPayment={forms.openEditPayment}

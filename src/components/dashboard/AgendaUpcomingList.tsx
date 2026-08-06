@@ -52,11 +52,19 @@ export type AgendaUpcomingListProps = {
    */
   scrollToDay?: string;
   /**
-   * Where the week strip portals to - a slot in the screen's fixed header.
-   * The strip's data (weeks, dots, scroll-spy) lives here with the list, but
-   * the strip itself must not scroll away with it.
+   * Where the week strip portals to - a slot in the screen's fixed header
+   * (desktop) or in a sticky box inside the scroll body (phones). The strip's
+   * data (weeks, dots, scroll-spy) lives here with the list, but the strip
+   * itself must not scroll away with it.
    */
   stripSlot?: HTMLElement | null;
+  /**
+   * Height (px) of the sticky strip box pinned over this list on phones.
+   * The sticky day headers park below it, and the scroll-spy line and the
+   * scroll-to-day target both shift down by it. 0 on desktop, where the strip
+   * lives in the fixed header instead.
+   */
+  stickyOffset?: number;
   /** Opens the add-event dialog - the starter empty state's CTA. */
   onAddEvent: () => void;
   onEditEvent: (event: Event) => void;
@@ -75,6 +83,7 @@ export function AgendaUpcomingList({
   filter,
   scrollToDay: requestedDay,
   stripSlot,
+  stickyOffset = 0,
   onAddEvent,
   onEditEvent,
   onEditPayment,
@@ -178,7 +187,8 @@ export function AgendaUpcomingList({
       raf = 0;
       // While tweening to a tapped day, keep that day pinned as active.
       if (programmaticScrollRef.current) return;
-      const line = container.scrollTop + 12;
+      // The reading line sits just under the sticky strip (when there is one).
+      const line = container.scrollTop + stickyOffset + 12;
       let current = allDays[0];
       for (const day of allDays) {
         const el = document.getElementById(`agenda-day-${day}`);
@@ -197,7 +207,7 @@ export function AgendaUpcomingList({
       container.removeEventListener("scroll", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [allDays]);
+  }, [allDays, stickyOffset]);
 
   const atCap = horizonDays >= MAX_HORIZON_DAYS;
   const growHorizon = () => setHorizonDays((d) => Math.min(d + CHUNK_DAYS, MAX_HORIZON_DAYS));
@@ -222,7 +232,9 @@ export function AgendaUpcomingList({
     if (!el) return;
 
     const startY = getAppScrollTop();
-    const targetY = Math.max(0, offsetTopWithinApp(el) - 4);
+    // Land the section just under the sticky strip (when there is one), not
+    // behind it.
+    const targetY = Math.max(0, offsetTopWithinApp(el) - stickyOffset - 4);
 
     scrollCleanupRef.current?.();
     scrollCleanupRef.current = null;
@@ -240,7 +252,7 @@ export function AgendaUpcomingList({
     const settle = () => {
       const settled = document.getElementById(`agenda-day-${day}`);
       if (!settled) return;
-      const nextY = Math.max(0, offsetTopWithinApp(settled) - 4);
+      const nextY = Math.max(0, offsetTopWithinApp(settled) - stickyOffset - 4);
       if (Math.abs(getAppScrollTop() - nextY) > 8) scrollAppTo({ top: nextY, behavior: "smooth" });
     };
 
@@ -354,7 +366,12 @@ export function AgendaUpcomingList({
     !filterActive && !isLoading && !hasItems && overdueItems.length === 0 && !overdue.isLoading;
 
   return (
-    <div className="space-y-5">
+    // The var carries the sticky strip's height to every day header below -
+    // their `sticky top` reads it, so they park under the strip, not behind it.
+    <div
+      className="space-y-5"
+      style={{ "--agenda-sticky-top": `${stickyOffset}px` } as React.CSSProperties}
+    >
       {/* The strip lives in the screen's FIXED header (via the slot portal),
           so it never scrolls away - but its state is the list's: the spy walks
           it, tapping it scrolls the list, swiping it selects across weeks. */}
@@ -428,7 +445,7 @@ export function AgendaUpcomingList({
                   muted={isEmpty}
                   selected={isLinked}
                   className={cn(
-                    "sticky top-0 z-10 -mx-1.5 bg-background px-1.5 pt-1",
+                    "sticky top-(--agenda-sticky-top) z-10 -mx-1.5 bg-background px-1.5 pt-1",
                     isEmpty ? "pb-1" : "pb-2",
                   )}
                 />
