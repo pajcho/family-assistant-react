@@ -101,6 +101,17 @@ export function AgendaUpcomingList({
   const programmaticScrollRef = useRef(false);
   const scrollCleanupRef = useRef<(() => void) | null>(null);
 
+  // The strip's height reaches this list a render or two AFTER it mounts: the
+  // screen can only measure the sticky box once the strip has portalled into
+  // it. A deep-link jump is deferred through a rAF, so the callback that
+  // finally runs is often from a render that still had 0 - and closing over
+  // that lands the day a full strip-height too low, behind the strip (from
+  // Danas' week strip with a warm cache this was every time). Read it live
+  // instead. Written during render, not in an effect: the rAF can fire before
+  // an effect from the same commit has run.
+  const stickyOffsetRef = useRef(stickyOffset);
+  stickyOffsetRef.current = stickyOffset;
+
   // Window = [today, end of the week containing today + horizonDays]. Today is
   // the first day group, prefixed by the overdue section. The end is snapped
   // out to that week's Sunday so the window covers whole Mon-Sun weeks. Derive
@@ -234,7 +245,7 @@ export function AgendaUpcomingList({
     const startY = getAppScrollTop();
     // Land the section just under the sticky strip (when there is one), not
     // behind it.
-    const targetY = Math.max(0, offsetTopWithinApp(el) - stickyOffset - 4);
+    const targetY = Math.max(0, offsetTopWithinApp(el) - stickyOffsetRef.current - 4);
 
     scrollCleanupRef.current?.();
     scrollCleanupRef.current = null;
@@ -242,17 +253,18 @@ export function AgendaUpcomingList({
 
     const container = getAppScrollEl();
 
-    // Two things can leave the jump short after the scroll itself is over:
-    // rows still landing in the days ABOVE the target (`useAgenda` fans out to
-    // several queries, and each late row pushes the target further down), and
-    // the router's scroll restoration writing the previous screen's offset onto
-    // this container once the new route has rendered. One correction pass once
-    // the scroll has settled covers both - it re-measures the section instead
-    // of trusting the offset we aimed at.
+    // Three things can leave the jump off target after the scroll itself is
+    // over: rows still landing in the days ABOVE the target (`useAgenda` fans
+    // out to several queries, and each late row pushes the target further
+    // down), the router's scroll restoration writing the previous screen's
+    // offset onto this container once the new route has rendered, and a strip
+    // that has changed height since we aimed. One correction pass once the
+    // scroll has settled covers all three - it re-measures BOTH the section
+    // and the strip rather than trusting what we aimed at.
     const settle = () => {
       const settled = document.getElementById(`agenda-day-${day}`);
       if (!settled) return;
-      const nextY = Math.max(0, offsetTopWithinApp(settled) - stickyOffset - 4);
+      const nextY = Math.max(0, offsetTopWithinApp(settled) - stickyOffsetRef.current - 4);
       if (Math.abs(getAppScrollTop() - nextY) > 8) scrollAppTo({ top: nextY, behavior: "smooth" });
     };
 

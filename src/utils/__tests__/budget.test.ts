@@ -7,7 +7,14 @@ import type {
   Payment,
   PaymentOverride,
 } from "@/types/database";
-import { computeMonthlyCycle, monthLabel, monthOf, monthRange, shiftMonth } from "../budget";
+import {
+  computeMonthlyCycle,
+  isDetachedPaymentExpense,
+  monthLabel,
+  monthOf,
+  monthRange,
+  shiftMonth,
+} from "../budget";
 import { overrideKey } from "../payment";
 
 /* ------------------------------------------------------------------------- */
@@ -156,6 +163,24 @@ describe("month helpers", () => {
   it("monthLabel + monthOf", () => {
     expect(monthLabel("2026-07")).toBe("Jul 2026");
     expect(monthOf("2026-07-15")).toBe("2026-07");
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* isDetachedPaymentExpense                                                  */
+/* ------------------------------------------------------------------------- */
+
+describe("isDetachedPaymentExpense", () => {
+  it("is true only for a payment row whose payment is gone", () => {
+    // Deleting a payment nulls expenses.payment_id (ON DELETE SET NULL) and
+    // leaves source='payment' behind - the row the UI must let members open.
+    expect(isDetachedPaymentExpense(expense({ source: "payment", payment_id: null }))).toBe(true);
+    expect(isDetachedPaymentExpense(expense({ source: "payment", payment_id: "p1" }))).toBe(false);
+  });
+
+  it("is false for rows that were never payment-sourced", () => {
+    expect(isDetachedPaymentExpense(expense({ source: "manual", payment_id: null }))).toBe(false);
+    expect(isDetachedPaymentExpense(expense({ source: "receipt", payment_id: null }))).toBe(false);
   });
 });
 

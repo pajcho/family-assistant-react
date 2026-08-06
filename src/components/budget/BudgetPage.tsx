@@ -7,6 +7,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  LinkSlashIcon,
   LockClosedIcon,
   QrCodeIcon,
   ReceiptPercentIcon,
@@ -59,7 +60,13 @@ import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
-import { computeMonthlyCycle, monthLabel, monthRange, shiftMonth } from "@/utils/budget";
+import {
+  computeMonthlyCycle,
+  isDetachedPaymentExpense,
+  monthLabel,
+  monthRange,
+  shiftMonth,
+} from "@/utils/budget";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
@@ -391,8 +398,10 @@ export function BudgetPage({
   };
 
   const openEdit = (expense: Expense) => {
-    // Auto rows (from payments) are read-only.
-    if (expense.source !== "manual") return;
+    // Auto rows (from payments) are read-only - EXCEPT once their payment has
+    // been deleted, when nothing regenerates them and the ledger row is all
+    // that is left of the spend.
+    if (expense.source !== "manual" && !isDetachedPaymentExpense(expense)) return;
     setEditing(expense);
     setFormError(null);
     setAddOpen(true);
@@ -402,8 +411,17 @@ export function BudgetPage({
   // it to open the payment detail popup in its read-only "info" variant (the
   // expense row is a PAST paid occurrence; occurrence actions here would hit
   // the NEXT one).
+  //
+  // Deleting a payment nulls that link (ON DELETE SET NULL, so the spend
+  // survives its payment) and used to leave the row a dead end: nothing to open
+  // here, and `openEdit` refused it for not being manual. Fall through to the
+  // expense form instead, which is now the row's only remaining home.
   const openPaymentDetail = (expense: Expense) => {
-    if (!expense.payment_id) return;
+    if (isDetachedPaymentExpense(expense)) {
+      openEdit(expense);
+      return;
+    }
+    // Still linked: nothing to show until the payments list has landed.
     setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
   };
 
@@ -1109,7 +1127,8 @@ interface BudgetSearchResultsProps {
 /**
  * Search-mode replacement for the month sections: flat list of matches across
  * ALL months. Receipt rows open the receipt detail, manual rows the edit form;
- * auto rows (from payments) are informational.
+ * auto rows (from payments) are informational - unless their payment has been
+ * deleted, which leaves the expense editable like a manual one.
  */
 function BudgetSearchResults({
   hits,
@@ -1132,7 +1151,8 @@ function BudgetSearchResults({
             const Icon = categoryIcon(category?.icon);
             const color = category?.color ?? "#9ca3af";
             const isReceipt = e.source === "receipt";
-            const isManual = e.source === "manual";
+            const isDetached = isDetachedPaymentExpense(e);
+            const isManual = e.source === "manual" || isDetached;
             const primary = isReceipt
               ? e.merchant || e.note?.trim() || category?.name || "Račun"
               : e.note?.trim() || category?.name || "Trošak";
@@ -1152,6 +1172,11 @@ function BudgetSearchResults({
                       <StatusPill tone="accent">
                         <ReceiptPercentIcon className="size-2.5" />
                         račun
+                      </StatusPill>
+                    ) : isDetached ? (
+                      <StatusPill tone="muted">
+                        <LinkSlashIcon className="size-2.5" />
+                        plaćanje obrisano
                       </StatusPill>
                     ) : e.source === "payment" ? (
                       <StatusPill tone="warn">

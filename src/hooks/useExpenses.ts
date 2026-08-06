@@ -19,10 +19,17 @@ import { useProfile } from "@/hooks/useProfile";
  *   - `useDeleteExpense()`          - delete a manual expense
  *
  * Auto rows (`source='payment'`) are written/removed by a DB trigger, never by
- * these mutations - the UI keeps them read-only. Realtime is what surfaces a
- * trigger-inserted row on the Budget page the moment a payment is marked paid,
- * and it arrives on the shared family broadcast channel (`useFamilyChannel`)
- * rather than from a subscription in this file.
+ * these mutations - the UI keeps them read-only for as long as their payment
+ * exists. Once it is deleted the link is nulled (`ON DELETE SET NULL`, so the
+ * spend outlives the payment) and nothing writes the row any more, which is
+ * when the UI hands it back to these mutations - see `isDetachedPaymentExpense`.
+ * Neither `source` nor `payment_id` is part of the update payload, so an edit
+ * never launders a live auto row into a manual one.
+ *
+ * Realtime is what surfaces a trigger-inserted row on the Budget page the
+ * moment a payment is marked paid, and it arrives on the shared family
+ * broadcast channel (`useFamilyChannel`) rather than from a subscription in
+ * this file.
  */
 
 export interface ExpenseRange {
