@@ -24,6 +24,12 @@ import {
   useMinuteTick,
 } from "@/components/dashboard/agendaCalendarShared";
 import { TimetableEditor } from "@/components/activities/TimetableEditor";
+import {
+  WEEK_GRID_COL_PX,
+  WEEK_GRID_GUTTER_PX,
+  WeekTimeGridShell,
+  type WeekGridDay,
+} from "@/components/calendar/WeekTimeGridShell";
 import { type AgendaItem, agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useBellSchedule } from "@/hooks/useBellSchedule";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
@@ -59,34 +65,26 @@ import { cn } from "@/lib/cn";
  * Reuses the block/chip rendering + lane math of the single-day calendar
  * (`agendaCalendarShared`); structurally mirrors the activities `WeekGrid`
  * (sticky header, sticky-left gutter, fixed columns + horizontal scroll on
- * mobile, auto-scroll to today).
+ * mobile, opening with today centered).
  */
 export type AgendaWeekCalendarProps = {
   filter: AgendaFilter;
-  /** Where the week strip portals to - a slot in the screen's fixed header. */
+  /** Where the week strip portals to - a slot in the screen's fixed header
+   *  (desktop) or in a sticky box inside the scroll body (phones). */
   stripSlot?: HTMLElement | null;
+  /**
+   * Phones: the grid renders at FULL height and the page scrolls, instead of
+   * being a fixed-height pane with its own two-axis scrollport. The horizontal
+   * axis (fixed 140px columns) still scrolls inside the box; vertical
+   * scrolling belongs to the screen (drags over the grid chain up to it), with
+   * the week strip sticky above. The trade: the grid's own day-header row no
+   * longer pins - the strip is the day context.
+   */
+  pageScroll?: boolean;
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
 };
-
-/**
- * Time gutter + 7 day columns. Fixed 140px columns below `sm` and the grid
- * scrolls sideways; from `sm` up the seven share the width.
- *
- * Squeezing all seven onto a phone (~46px each) was tried and reverted: at that
- * width every block is an unreadable sliver, the labels had to be hidden
- * outright, and a week you cannot read is not worth seeing whole. Two and a bit
- * days at a legible size, with the header and the hour gutter pinned so you
- * never lose your place, beats seven columns of coloured stripes.
- */
-const GRID_COLS = "grid-cols-[44px_repeat(7,140px)] sm:grid-cols-[44px_repeat(7,minmax(0,1fr))]";
-
-/** Width of the sticky hour gutter - the horizontal scroll offsets past it. */
-const GUTTER_PX = 44;
-
-/** Fixed day-column width below `sm` - the horizontal scroll-spy's unit. */
-const COL_PX = 140;
 
 /** Strip range: 26 weeks back, 26 forward - a year of weeks, half each way. */
 const STRIP_WEEKS_BACK = 26;
@@ -106,6 +104,7 @@ const NO_SCHOOL_BLOCKS: ResolvedSchoolBlock[] = [];
 export function AgendaWeekCalendar({
   filter,
   stripSlot,
+  pageScroll = false,
   onEditEvent,
   onEditPayment,
   onEditBirthday,
@@ -153,6 +152,17 @@ export function AgendaWeekCalendar({
     return Array.from({ length: 7 }, (_, i) => format(addDays(base, i), "yyyy-MM-dd"));
   }, [weekStart]);
   const weekEnd = days[6];
+
+  // The shell's day-header cells ("Pon / 3.8.").
+  const dayHeaders = useMemo<WeekGridDay[]>(
+    () =>
+      days.map((date, i) => ({
+        date,
+        label: DAY_LABELS_SHORT[i],
+        dayNum: format(parseISO(date + "T12:00:00"), "d.M."),
+      })),
+    [days],
+  );
 
   const { items: allItems, isLoading } = useAgenda({ from: weekStart, to: weekEnd });
   const items = useMemo(() => filterAgendaItems(allItems, filter), [allItems, filter]);
@@ -278,9 +288,10 @@ export function AgendaWeekCalendar({
 
   const activeDay = days[Math.min(Math.max(selCol, 0), 6)];
 
-  // Open on today, at the current hour. Read from refs and fired once per week
-  // so the minute tick (which moves `nowTopPx`) can never yank the grid out from
-  // under someone who has scrolled somewhere else.
+  // Open with the focused day CENTERED in the strip of columns right of the
+  // gutter. Deliberately no vertical auto-scroll to "now": with the phone
+  // chrome scrolling away, a jump-to-now yanked the tabs off screen the moment
+  // the view opened; the red line still marks the hour, reachable by hand.
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledForRef = useRef<string | null>(null);
   // A cross-week strip jump lands the grid on the tapped column once the new
@@ -289,8 +300,18 @@ export function AgendaWeekCalendar({
   // While a tap-driven smooth scroll runs, the horizontal spy is pinned so it
   // doesn't re-select every column passed on the way.
   const spyPinRef = useRef(false);
-  const targetRef = useRef({ todayIndex: days.indexOf(todayStr), nowTopPx, nowInViewport });
-  targetRef.current = { todayIndex: days.indexOf(todayStr), nowTopPx, nowInViewport };
+  const targetRef = useRef({ todayIndex: days.indexOf(todayStr) });
+  targetRef.current = { todayIndex: days.indexOf(todayStr) };
+
+  /** scrollLeft that parks a day column centered in the area past the gutter. */
+  const centeredLeft = (box: HTMLElement, cell: HTMLElement) =>
+    Math.max(
+      0,
+      cell.offsetLeft -
+        WEEK_GRID_GUTTER_PX -
+        Math.max(0, (box.clientWidth - WEEK_GRID_GUTTER_PX - cell.offsetWidth) / 2),
+    );
+
   useEffect(() => {
     const box = scrollRef.current;
     // Wait for the data: the axis (and with it every offset) is derived from
@@ -300,18 +321,14 @@ export function AgendaWeekCalendar({
     if (scrolledForRef.current === weekStart) return;
     scrolledForRef.current = weekStart;
 
-    const { todayIndex, nowTopPx: top, nowInViewport: nowVisible } = targetRef.current;
-    // A strip jump aims at its column; otherwise today hard against the
-    // gutter, so it and the days after it are what you see; a week without
-    // today starts at Monday.
+    const { todayIndex } = targetRef.current;
+    // A strip jump aims at its column; otherwise today, centered; a week
+    // without today starts at Monday.
     const focusIndex = pendingColRef.current ?? todayIndex;
     pendingColRef.current = null;
     const cell =
       focusIndex >= 0 ? box.querySelector<HTMLElement>(`[data-day-index="${focusIndex}"]`) : null;
-    box.scrollLeft = cell ? Math.max(0, cell.offsetLeft - GUTTER_PX) : 0;
-    // "Now" a third down rather than at the very top - the hour you are in
-    // reads better with the morning still above it.
-    box.scrollTop = nowVisible && todayIndex >= 0 ? Math.max(0, top - box.clientHeight / 3) : 0;
+    box.scrollLeft = cell ? centeredLeft(box, cell) : 0;
   }, [weekStart, isLoading]);
 
   // Aim the grid's horizontal scroll at a column - phones only: from `sm` up
@@ -329,7 +346,7 @@ export function AgendaWeekCalendar({
     };
     const timer = window.setTimeout(release, 1000);
     box.addEventListener("scrollend", release, { once: true });
-    box.scrollTo({ left: Math.max(0, cell.offsetLeft - GUTTER_PX), behavior: "smooth" });
+    box.scrollTo({ left: centeredLeft(box, cell), behavior: "smooth" });
   };
 
   // A strip tap / swipe-carry / mini-calendar pick. Same week: slide the grid
@@ -360,7 +377,13 @@ export function AgendaWeekCalendar({
       raf = 0;
       if (spyPinRef.current) return;
       if (box.scrollWidth <= box.clientWidth + 8) return;
-      const col = Math.min(6, Math.max(0, Math.round(box.scrollLeft / COL_PX)));
+      // Inverse of `centeredLeft`: the focused column is the one whose center
+      // sits mid-viewport (past the gutter), not the one against the gutter.
+      const centering = Math.max(0, (box.clientWidth - WEEK_GRID_GUTTER_PX - WEEK_GRID_COL_PX) / 2);
+      const col = Math.min(
+        6,
+        Math.max(0, Math.round((box.scrollLeft + centering) / WEEK_GRID_COL_PX)),
+      );
       setSelCol((prev) => (prev === col ? prev : col));
     };
     const onScroll = () => {
@@ -374,7 +397,7 @@ export function AgendaWeekCalendar({
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2.5">
+    <div className={cn("flex flex-col gap-2.5", !pageScroll && "h-full min-h-0")}>
       {/* The week strip lives in the screen's FIXED header (slot portal): the
           same strip the agenda has, wired as this view's pager and minimap -
           swiping it changes the week, tapping a day slides the grid to that
@@ -420,192 +443,104 @@ export function AgendaWeekCalendar({
         </FilterChipRow>
       ) : null}
 
-      {/* The grid scrolls in BOTH directions inside this box, which is what lets
-          the day header and the hour gutter stay pinned: `sticky` anchors to the
-          nearest scrollport, so the box has to own both axes. The screen's own
-          vertical scroll is off for this view (`fillBody`).
+      {/* The shared week-grid shell (one frame for this view AND /activities).
+          Desktop keeps `pane`: the box owns both axes so the day header and
+          hour gutter pin against its scrollport; on phones the page scrolls
+          and the box keeps only the horizontal axis.
 
           The empty overlay sits on the RELATIVE WRAPPER around the box (not
           inside it), so it stays centered in the visible area instead of
           scrolling away with the grid. */}
-      <div className="relative min-h-0 flex-1">
-        <div
-          ref={scrollRef}
-          className="h-full overflow-auto overscroll-contain rounded-lg border border-border bg-card shadow-card"
-        >
-          {/* `min-w-max` sizes this wrapper to its content instead of to the
-              scrollport. Without it the inner grid overflows a wrapper that is
-              only viewport-wide, and sticky-left breaks: the sticky element's
-              containing block would end short of the scroll edges.
-
-              It has to STOP at `sm`, where the columns become `1fr`: inside a
-              max-content wrapper a fraction resolves to the column's own
-              max-content width, so the grid grew past the viewport and the
-              desktop week scrolled sideways for no reason. */}
-          <div className="min-w-max sm:min-w-0">
-            {/* Day headers - sticky on top. */}
-            <div className={cn("sticky top-0 z-20 grid border-b border-border bg-card", GRID_COLS)}>
-              {/* The top-left corner outranks both (z-30): it is over the gutter
-                  AND over the day columns sliding under the header. */}
-              <div className="sticky left-0 z-30 bg-card" />
-              {days.map((date, i) => (
-                <div
-                  key={date}
-                  data-day-index={i}
-                  className={cn(
-                    "border-l border-border px-2 py-1.5 text-center",
-                    date === todayStr && "bg-accent-soft",
-                  )}
-                >
-                  <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                    {DAY_LABELS_SHORT[i]}
-                  </div>
-                  <div
-                    className={cn(
-                      "text-[12.5px] font-bold tabular-nums",
-                      date === todayStr ? "text-accent-deep" : "text-foreground",
-                    )}
-                  >
-                    {format(parseISO(date + "T12:00:00"), "d.M.")}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* All-day row - one cell per day; only rendered if the week has any. */}
-            {hasAnyAllDay ? (
-              <div className={cn("grid border-b border-border", GRID_COLS)}>
-                <div className="sticky left-0 z-10 bg-card px-1.5 py-1.5 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  Ceo dan
-                </div>
-                {perDay.map((d) => {
-                  const collapsible = d.allDayItems.length > MAX_ALL_DAY;
-                  const expanded = collapsible && expandedAllDay.has(d.date);
-                  const visible = expanded ? d.allDayItems : d.allDayItems.slice(0, MAX_ALL_DAY);
-                  const hiddenCount = d.allDayItems.length - visible.length;
-                  return (
-                    <div
-                      key={d.date}
-                      className={cn(
-                        "flex min-w-0 flex-col gap-1 overflow-hidden border-l border-border p-1",
-                        d.date === todayStr && "bg-accent-soft/50",
-                      )}
-                    >
-                      {visible.map((item) => (
-                        <AllDayChip
-                          key={agendaItemKey(item)}
-                          item={item}
-                          onClick={() => onSelect(item)}
-                        />
-                      ))}
-                      {collapsible ? (
-                        <button
-                          type="button"
-                          aria-expanded={expanded}
-                          onClick={() => toggleAllDay(d.date)}
-                          className={cn(
-                            "rounded-sm pl-1 text-left text-[10.5px] font-bold text-muted-foreground",
-                            "hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                          )}
-                        >
-                          {expanded ? "manje" : `+ još ${hiddenCount}`}
-                        </button>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {/* Time grid. */}
-            <div className={cn("grid", GRID_COLS)} style={{ height: `${totalHeightPx}px` }}>
-              {/* Sticky-left time gutter. */}
-              <div className="sticky left-0 z-10 bg-card">
-                {hourLabels.map((hl) => (
-                  <div
-                    key={hl.label}
-                    style={{ top: `${hl.topPx}px` }}
-                    className="absolute right-1.5 -translate-y-1/2 text-[10px] font-semibold tabular-nums text-muted-foreground"
-                  >
-                    {hl.label}
-                  </div>
-                ))}
-                {nowInViewport ? (
-                  <div
-                    style={{ top: `${nowTopPx}px` }}
-                    className="absolute right-1 -translate-y-1/2 rounded-full bg-neg px-1 text-[9.5px] font-bold tabular-nums text-white"
-                  >
-                    {format(now, "HH:mm")}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* 7 day columns. */}
-              {perDay.map((d) => (
-                <div
-                  key={d.date}
-                  className={cn(
-                    "relative border-l border-border",
-                    d.date === todayStr && "bg-accent-soft/50",
-                  )}
-                >
-                  {hourLabels.map((hl) => (
-                    <div
-                      key={hl.label}
-                      style={{ top: `${hl.topPx}px` }}
-                      className="absolute inset-x-0 border-t border-border/60"
-                    />
-                  ))}
-                  {(positionedByDate.get(d.date) ?? []).map((entry) => {
-                    const box = {
-                      lane: entry.lane,
-                      totalLanes: entry.totalLanes,
-                      laneSpan: entry.laneSpan,
-                      topPx: entry.topPx,
-                      heightPx: entry.heightPx,
-                      startTime: entry.startTime,
-                      endTime: entry.endTime,
-                    };
-                    return entry.source === "school" ? (
-                      <SchoolBlock
-                        key={`school-${entry.block.entryId}-${entry.block.date}`}
-                        {...box}
-                        subject={entry.block.subject}
-                        room={entry.block.room}
-                        color={
-                          peopleById.get(entry.block.personId)?.color ??
-                          fallbackColorForProfile(entry.block.personId)
-                        }
-                        isPast={
-                          d.date < todayStr ||
-                          (d.date === todayStr && timeToMinutes(entry.endTime) <= nowMin)
-                        }
-                        onClick={() => openSchoolDetail(entry.block)}
-                      />
-                    ) : (
-                      <TimedBlock
-                        key={agendaItemKey(entry.item)}
-                        block={{ ...box, item: entry.item }}
-                        todayStr={todayStr}
-                        nowMin={nowMin}
-                        onClick={() => onSelect(entry.item)}
-                      />
+      <div className={cn("relative", !pageScroll && "min-h-0 flex-1")}>
+        <WeekTimeGridShell
+          scrollRef={scrollRef}
+          pane={!pageScroll}
+          days={dayHeaders}
+          todayStr={todayStr}
+          hourLabels={hourLabels}
+          totalHeightPx={totalHeightPx}
+          now={
+            nowInViewport && days.includes(todayStr)
+              ? { topPx: nowTopPx, label: format(now, "HH:mm") }
+              : null
+          }
+          allDayRow={
+            hasAnyAllDay
+              ? {
+                  label: "Ceo dan",
+                  renderCell: (_day, i) => {
+                    const d = perDay[i];
+                    const collapsible = d.allDayItems.length > MAX_ALL_DAY;
+                    const expanded = collapsible && expandedAllDay.has(d.date);
+                    const visible = expanded ? d.allDayItems : d.allDayItems.slice(0, MAX_ALL_DAY);
+                    const hiddenCount = d.allDayItems.length - visible.length;
+                    return (
+                      <>
+                        {visible.map((item) => (
+                          <AllDayChip
+                            key={agendaItemKey(item)}
+                            item={item}
+                            onClick={() => onSelect(item)}
+                          />
+                        ))}
+                        {collapsible ? (
+                          <button
+                            type="button"
+                            aria-expanded={expanded}
+                            onClick={() => toggleAllDay(d.date)}
+                            className={cn(
+                              "rounded-sm pl-1 text-left text-[10.5px] font-bold text-muted-foreground",
+                              "hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                            )}
+                          >
+                            {expanded ? "manje" : `+ još ${hiddenCount}`}
+                          </button>
+                        ) : null}
+                      </>
                     );
-                  })}
-                  {d.date === todayStr && nowInViewport ? (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 border-t-2 border-neg"
-                      style={{ top: `${nowTopPx}px` }}
-                    >
-                      <span className="absolute top-0 left-0 size-2.5 -translate-y-1/2 rounded-full bg-neg" />
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+                  },
+                }
+              : null
+          }
+          renderColumn={(day) =>
+            (positionedByDate.get(day.date) ?? []).map((entry) => {
+              const box = {
+                lane: entry.lane,
+                totalLanes: entry.totalLanes,
+                laneSpan: entry.laneSpan,
+                topPx: entry.topPx,
+                heightPx: entry.heightPx,
+                startTime: entry.startTime,
+                endTime: entry.endTime,
+              };
+              return entry.source === "school" ? (
+                <SchoolBlock
+                  key={`school-${entry.block.entryId}-${entry.block.date}`}
+                  {...box}
+                  subject={entry.block.subject}
+                  room={entry.block.room}
+                  color={
+                    peopleById.get(entry.block.personId)?.color ??
+                    fallbackColorForProfile(entry.block.personId)
+                  }
+                  isPast={
+                    day.date < todayStr ||
+                    (day.date === todayStr && timeToMinutes(entry.endTime) <= nowMin)
+                  }
+                  onClick={() => openSchoolDetail(entry.block)}
+                />
+              ) : (
+                <TimedBlock
+                  key={agendaItemKey(entry.item)}
+                  block={{ ...box, item: entry.item }}
+                  todayStr={todayStr}
+                  nowMin={nowMin}
+                  onClick={() => onSelect(entry.item)}
+                />
+              );
+            })
+          }
+        />
         {/* AFTER the scroll container in DOM so it paints above the sticky-left
             time gutter (z-10) and the sticky day header (z-20, earlier). */}
         {isEmpty ? (

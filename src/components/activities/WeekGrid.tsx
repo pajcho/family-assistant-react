@@ -3,6 +3,11 @@ import { addDays, format, parseISO } from "date-fns";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
+import {
+  WEEK_GRID_GUTTER_PX,
+  WeekTimeGridShell,
+  type WeekGridDay,
+} from "@/components/calendar/WeekTimeGridShell";
 import type { Activity, Profile } from "@/types/database";
 import {
   DAY_LABELS_SHORT,
@@ -14,8 +19,9 @@ import type { ResolvedSchoolBlock } from "@/utils/schoolTimetable";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
- * Weekly schedule grid - 7 day columns × 30-minute time slots. Time gutter
- * on the left, blocks absolutely positioned inside their day column.
+ * Weekly schedule grid - 7 day columns × 30-minute time slots, drawn on the
+ * shared {@link WeekTimeGridShell} frame (the calendar's Nedelja view uses the
+ * same one, so column widths and sticky mechanics stay in lockstep).
  *
  * Renders two kinds of blocks in the same time-positioned layout:
  *   • activities - trainings / music / etc. with explicit times (solid, in
@@ -200,12 +206,12 @@ export function WeekGrid({
   }
 
   const weekStartDate = parseISO(weekStart + "T12:00:00");
-  const dayHeaders = Array.from({ length: 7 }, (_, i) => {
+  const dayHeaders: WeekGridDay[] = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStartDate, i);
     return {
       label: DAY_LABELS_SHORT[i],
       dayNum: format(date, "d.M."),
-      dateStr: format(date, "yyyy-MM-dd"),
+      date: format(date, "yyyy-MM-dd"),
     };
   });
 
@@ -215,7 +221,7 @@ export function WeekGrid({
   // today isn't in the displayed week (user clicked next/prev week) we
   // leave the scroll at the start.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const todayDayIndex = dayHeaders.findIndex((dh) => isToday(dh.dateStr));
+  const todayDayIndex = dayHeaders.findIndex((dh) => isToday(dh.date));
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -227,275 +233,183 @@ export function WeekGrid({
     if (!todayCell) return;
     // Align today's column near the left edge so the user gets it + the
     // next day in view, not the gutter-and-half-of-today thing.
-    container.scrollLeft = Math.max(0, todayCell.offsetLeft - 56);
+    container.scrollLeft = Math.max(0, todayCell.offsetLeft - WEEK_GRID_GUTTER_PX);
   }, [todayDayIndex, weekStart]);
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="overflow-x-auto rounded-lg border border-border bg-card shadow-card"
-    >
-      {/* `min-w-max` makes the inner wrapper size to its content (1876px on
-          mobile, 7×fr on sm+). Without it, the wrapper inherits the
-          scroller's viewport width and the inner grid overflows it - which
-          breaks sticky-left positioning because the sticky element's
-          containing block ends short of the scroll edges. */}
-      <div className="min-w-max">
-        {/* Day headers - sticky on top so they stay visible while scrolling
-            vertically. z-20 (above the body's sticky-left gutter z-10) so
-            the top-left intersection cleanly shows the header's empty
-            placeholder, not the gutter's first hour label.
-            Mobile uses fixed 260px columns so multi-person blocks (siblings
-            in the same termin) have room; sm+ flexes back to 1fr / 7. */}
-        <div className="sticky top-0 z-20 grid grid-cols-[56px_repeat(7,260px)] border-b border-border bg-card sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]">
-          <div className="px-2 py-2 text-[10px] uppercase tracking-wide text-muted-foreground" />
-          {dayHeaders.map((dh, dow) => (
-            <div
-              key={dh.dateStr}
-              data-day-index={dow}
+    // The shared week-grid shell (one frame for this grid AND the calendar's
+    // Nedelja view): scroll box, sticky day headers with the sticky corner,
+    // sticky-left hour gutter, hour gridlines and the "now" line all live
+    // there - this component only supplies the axis and the blocks.
+    <WeekTimeGridShell
+      scrollRef={scrollContainerRef}
+      days={dayHeaders}
+      todayStr={todayStr}
+      hourLabels={hourLabels}
+      totalHeightPx={totalHeightPx}
+      now={
+        todayDayIndex >= 0 && nowInViewport
+          ? { topPx: nowTopPx, label: format(now, "HH:mm") }
+          : null
+      }
+      renderColumn={(_day, dow) =>
+        (positionedByDay[dow] ?? []).map((block) => {
+          const widthPct = (block.laneSpan / block.totalLanes) * 100;
+          const leftPct = ((block.lane - 1) / block.totalLanes) * 100;
+          const person = peopleById.get(block.personId);
+          const color = person?.color ?? fallbackColorForProfile(block.personId);
+          const isPast = isBlockPast(block.date, block.endTime, todayStr, nowMin);
+
+          if (block.kind === "school") {
+            return (
+              <SchoolBlock
+                key={`school-${block.entryId}-${block.date}-${block.personId}`}
+                block={block}
+                color={color}
+                leftPct={leftPct}
+                widthPct={widthPct}
+                isPast={isPast}
+                onClick={onSchoolBlockClick}
+              />
+            );
+          }
+
+          const activity = activitiesById.get(block.activityId);
+
+          const isCanceled = block.override?.action === "cancel";
+          const isRescheduled = block.override?.action === "reschedule";
+          const isMovedAway = !!block.override?.movedTo;
+          const isMovedHere = !!block.override?.movedFrom;
+          const isSameDayReschedule = isRescheduled && !isMovedAway && !isMovedHere;
+          // Both canceled and moved-away render as ghost outlines -
+          // they're a "this slot is empty for a reason" marker rather
+          // than an active block.
+          const isGhost = isCanceled || isMovedAway;
+
+          return (
+            <button
+              type="button"
+              key={`${block.scheduleId}-${block.date}-${block.personId}`}
+              onClick={() => onBlockClick?.(block)}
+              style={{
+                top: `${block.topPx}px`,
+                height: `${block.heightPx}px`,
+                left: `calc(${leftPct}% + 2px)`,
+                width: `calc(${widthPct}% - 4px)`,
+                backgroundColor: isGhost
+                  ? "transparent"
+                  : `color-mix(in srgb, ${color} 16%, var(--card))`,
+                borderLeftColor: color,
+              }}
               className={cn(
-                "border-l border-border px-2 py-2 text-center",
-                isToday(dh.dateStr) && "bg-accent-soft",
+                "absolute overflow-hidden rounded-md border border-transparent",
+                // Ghost variants: dashed 1px gray frame on top/right/bottom
+                // + thinner 2px left accent (color still applied via inline
+                // style.borderLeftColor). Reads as "this slot is reserved
+                // but not active" without dominating the column.
+                isGhost
+                  ? "border-l-2 border-dashed border-border text-muted-foreground"
+                  : "border-l-[3px]",
+                "px-1.5 py-0.5 text-left text-[10px] leading-tight",
+                "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "transition-[filter]",
+                // Elapsed blocks fade out (à la Google Calendar) so the
+                // week reads at a glance; ghosts are already muted, so
+                // they keep a lighter touch when still upcoming.
+                isPast ? "opacity-60" : isGhost ? "opacity-70" : null,
               )}
+              aria-label={activity ? `${activity.name} - ${block.startTime}` : "Aktivnost"}
+              title={
+                isCanceled
+                  ? `Otkazano · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
+                  : isMovedAway
+                    ? `Pomereno na ${block.override?.movedTo} ${block.override?.rescheduledStartTime}-${block.override?.rescheduledEndTime}`
+                    : isMovedHere
+                      ? `Pomereno sa ${block.override?.movedFrom} ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
+                      : isSameDayReschedule
+                        ? `Pomereno · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
+                        : undefined
+              }
             >
+              <div className="flex items-center gap-1">
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    isCanceled ? "line-through opacity-70" : "opacity-70",
+                  )}
+                >
+                  {block.startTime}
+                </span>
+                {isSameDayReschedule ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal uppercase"
+                    style={{ backgroundColor: "var(--warn)", color: "white" }}
+                    title="Pomereno"
+                  >
+                    ↻
+                  </span>
+                ) : null}
+                {isMovedAway ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal uppercase"
+                    style={{ backgroundColor: "var(--warn)", color: "white" }}
+                    title="Pomereno u drugi dan"
+                  >
+                    ↗
+                  </span>
+                ) : null}
+                {isMovedHere ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal uppercase"
+                    style={{ backgroundColor: "var(--warn)", color: "white" }}
+                    title="Premešten sa drugog dana"
+                  >
+                    ↘
+                  </span>
+                ) : null}
+                {isCanceled ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal uppercase"
+                    style={{ backgroundColor: "var(--neg)", color: "white" }}
+                  >
+                    ✕
+                  </span>
+                ) : null}
+                {block.weekPattern !== "every" ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal uppercase"
+                    style={{ backgroundColor: color, color: "white" }}
+                  >
+                    {block.weekPattern}
+                  </span>
+                ) : null}
+                {block.recurrenceIntervalWeeks > 1 ? (
+                  <span
+                    className="rounded-sm px-1 text-[8px] font-normal tabular-nums"
+                    style={{ backgroundColor: color, color: "white" }}
+                    title={`Svake ${block.recurrenceIntervalWeeks} nedelje`}
+                  >
+                    ×{block.recurrenceIntervalWeeks}
+                  </span>
+                ) : null}
+              </div>
               <div
                 className={cn(
-                  "text-xs font-bold",
-                  isToday(dh.dateStr) ? "text-accent-deep" : "text-foreground",
+                  "truncate text-[11px] font-semibold",
+                  isCanceled
+                    ? "text-muted-foreground line-through"
+                    : isMovedAway
+                      ? "text-muted-foreground"
+                      : "text-foreground",
                 )}
               >
-                {dh.label}
+                {activity?.name ?? "Aktivnost"}
               </div>
-              <div className="text-[10px] font-normal tabular-nums text-muted-foreground">
-                {dh.dayNum}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Body - grid with the same column template; each cell is a relatively-
-            positioned column the blocks layer on top of. */}
-        <div
-          className="grid grid-cols-[56px_repeat(7,260px)] sm:grid-cols-[56px_repeat(7,minmax(0,1fr))]"
-          style={{ height: `${totalHeightPx}px` }}
-        >
-          {/* Time gutter - sticky-left so hour labels stay pinned while the
-              user scrolls horizontally between days. bg matches the card
-              so day columns scrolling under it are fully obscured. z-10 sits
-              below the header (z-20) so the top-left intersection stays
-              clean. `sticky` also serves as the positioning context for the
-              absolute hour labels (no extra `relative` needed). */}
-          <div className="sticky left-0 z-10 bg-card">
-            {hourLabels.map((hl) => (
-              <div
-                key={hl.label}
-                style={{ top: `${hl.topPx}px` }}
-                className="absolute right-1 -translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
-              >
-                {hl.label}
-              </div>
-            ))}
-            {todayDayIndex >= 0 && nowInViewport ? (
-              <div
-                style={{ top: `${nowTopPx}px` }}
-                className="absolute right-1 -translate-y-1/2 rounded-full bg-neg px-1 text-[10px] font-bold tabular-nums text-white"
-              >
-                {format(now, "HH:mm")}
-              </div>
-            ) : null}
-          </div>
-
-          {/* 7 day columns */}
-          {dayHeaders.map((dh, dow) => (
-            <div
-              key={dh.dateStr}
-              className={cn(
-                "relative border-l border-border",
-                isToday(dh.dateStr) && "bg-accent-soft/50",
-              )}
-            >
-              {/* Hour gridlines */}
-              {hourLabels.map((hl) => (
-                <div
-                  key={hl.label}
-                  style={{ top: `${hl.topPx}px` }}
-                  className="absolute inset-x-0 border-t border-border/60"
-                />
-              ))}
-              {/* Blocks */}
-              {(positionedByDay[dow] ?? []).map((block) => {
-                const widthPct = (block.laneSpan / block.totalLanes) * 100;
-                const leftPct = ((block.lane - 1) / block.totalLanes) * 100;
-                const person = peopleById.get(block.personId);
-                const color = person?.color ?? fallbackColorForProfile(block.personId);
-                const isPast = isBlockPast(block.date, block.endTime, todayStr, nowMin);
-
-                if (block.kind === "school") {
-                  return (
-                    <SchoolBlock
-                      key={`school-${block.entryId}-${block.date}-${block.personId}`}
-                      block={block}
-                      color={color}
-                      leftPct={leftPct}
-                      widthPct={widthPct}
-                      isPast={isPast}
-                      onClick={onSchoolBlockClick}
-                    />
-                  );
-                }
-
-                const activity = activitiesById.get(block.activityId);
-
-                const isCanceled = block.override?.action === "cancel";
-                const isRescheduled = block.override?.action === "reschedule";
-                const isMovedAway = !!block.override?.movedTo;
-                const isMovedHere = !!block.override?.movedFrom;
-                const isSameDayReschedule = isRescheduled && !isMovedAway && !isMovedHere;
-                // Both canceled and moved-away render as ghost outlines -
-                // they're a "this slot is empty for a reason" marker rather
-                // than an active block.
-                const isGhost = isCanceled || isMovedAway;
-
-                return (
-                  <button
-                    type="button"
-                    key={`${block.scheduleId}-${block.date}-${block.personId}`}
-                    onClick={() => onBlockClick?.(block)}
-                    style={{
-                      top: `${block.topPx}px`,
-                      height: `${block.heightPx}px`,
-                      left: `calc(${leftPct}% + 2px)`,
-                      width: `calc(${widthPct}% - 4px)`,
-                      backgroundColor: isGhost
-                        ? "transparent"
-                        : `color-mix(in srgb, ${color} 16%, var(--card))`,
-                      borderLeftColor: color,
-                    }}
-                    className={cn(
-                      "absolute overflow-hidden rounded-md border border-transparent",
-                      // Ghost variants: dashed 1px gray frame on top/right/bottom
-                      // + thinner 2px left accent (color still applied via inline
-                      // style.borderLeftColor). Reads as "this slot is reserved
-                      // but not active" without dominating the column.
-                      isGhost
-                        ? "border-l-2 border-dashed border-border text-muted-foreground"
-                        : "border-l-[3px]",
-                      "px-1.5 py-0.5 text-left text-[10px] leading-tight",
-                      "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      "transition-[filter]",
-                      // Elapsed blocks fade out (à la Google Calendar) so the
-                      // week reads at a glance; ghosts are already muted, so
-                      // they keep a lighter touch when still upcoming.
-                      isPast ? "opacity-60" : isGhost ? "opacity-70" : null,
-                    )}
-                    aria-label={activity ? `${activity.name} - ${block.startTime}` : "Aktivnost"}
-                    title={
-                      isCanceled
-                        ? `Otkazano · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
-                        : isMovedAway
-                          ? `Pomereno na ${block.override?.movedTo} ${block.override?.rescheduledStartTime}-${block.override?.rescheduledEndTime}`
-                          : isMovedHere
-                            ? `Pomereno sa ${block.override?.movedFrom} ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
-                            : isSameDayReschedule
-                              ? `Pomereno · ranije ${block.override?.originalStartTime}-${block.override?.originalEndTime}`
-                              : undefined
-                    }
-                  >
-                    <div className="flex items-center gap-1">
-                      <span
-                        className={cn(
-                          "tabular-nums",
-                          isCanceled ? "line-through opacity-70" : "opacity-70",
-                        )}
-                      >
-                        {block.startTime}
-                      </span>
-                      {isSameDayReschedule ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
-                          style={{ backgroundColor: "var(--warn)", color: "white" }}
-                          title="Pomereno"
-                        >
-                          ↻
-                        </span>
-                      ) : null}
-                      {isMovedAway ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
-                          style={{ backgroundColor: "var(--warn)", color: "white" }}
-                          title="Pomereno u drugi dan"
-                        >
-                          ↗
-                        </span>
-                      ) : null}
-                      {isMovedHere ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
-                          style={{ backgroundColor: "var(--warn)", color: "white" }}
-                          title="Premešten sa drugog dana"
-                        >
-                          ↘
-                        </span>
-                      ) : null}
-                      {isCanceled ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
-                          style={{ backgroundColor: "var(--neg)", color: "white" }}
-                        >
-                          ✕
-                        </span>
-                      ) : null}
-                      {block.weekPattern !== "every" ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal uppercase"
-                          style={{ backgroundColor: color, color: "white" }}
-                        >
-                          {block.weekPattern}
-                        </span>
-                      ) : null}
-                      {block.recurrenceIntervalWeeks > 1 ? (
-                        <span
-                          className="rounded-sm px-1 text-[8px] font-normal tabular-nums"
-                          style={{ backgroundColor: color, color: "white" }}
-                          title={`Svake ${block.recurrenceIntervalWeeks} nedelje`}
-                        >
-                          ×{block.recurrenceIntervalWeeks}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div
-                      className={cn(
-                        "truncate text-[11px] font-semibold",
-                        isCanceled
-                          ? "text-muted-foreground line-through"
-                          : isMovedAway
-                            ? "text-muted-foreground"
-                            : "text-foreground",
-                      )}
-                    >
-                      {activity?.name ?? "Aktivnost"}
-                    </div>
-                  </button>
-                );
-              })}
-              {/* Current-time line - today's column only, when now is in
-                  range. After the blocks in DOM so it paints on top; no
-                  z-index (stays under the sticky header/gutter) and
-                  pointer-events-none so clicks still reach the blocks. */}
-              {isToday(dh.dateStr) && nowInViewport ? (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 border-t-2 border-neg"
-                  style={{ top: `${nowTopPx}px` }}
-                >
-                  <span className="absolute top-0 left-0 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-neg" />
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+            </button>
+          );
+        })
+      }
+    />
   );
 }
 
