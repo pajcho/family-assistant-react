@@ -4,7 +4,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
+import { TimetableEditorPanel } from "@/components/school/TimetableEditorPanel";
 import type {
   BellSchedule,
   Profile,

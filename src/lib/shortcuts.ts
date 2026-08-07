@@ -18,6 +18,9 @@ import { isApplePlatform } from "@/lib/platform";
  *     Događaji takes O, its next spoken letter ("dOgađaji").
  *   - Porodica and Podešavanja both want P. Porodica keeps it; Podešavanja
  *     takes S, which is what Linear (and most apps) use for settings anyway.
+ * Škola is the one destination whose own letters are ALL spoken for (š→s is
+ * Podešavanja, k is Kalendar, o is Događaji, l is Liste, a is Aktivnosti), so
+ * it takes E - the letter the word ends on when you ask for it ("školE").
  */
 
 /** Second key of the `G` sequence, per destination. */
@@ -27,6 +30,7 @@ export const NAV_SHORTCUT_KEYS: Readonly<Record<NavSectionKey, string>> = {
   money: "N",
   lists: "L",
   activities: "A",
+  school: "E",
   events: "O",
   birthdays: "R",
   family: "P",

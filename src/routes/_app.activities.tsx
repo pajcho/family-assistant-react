@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import {
+  AcademicCapIcon,
   BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  Cog6ToothIcon,
   PencilSquareIcon,
   PlusIcon,
   SparklesIcon,
@@ -30,10 +30,9 @@ import {
 import { Pill } from "@/components/common/Pill";
 import { SectionHeading } from "@/components/common/SectionHeading";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
-import { ActivityOptionsSheet } from "@/components/activities/ActivityOptionsSheet";
 import { BlockActionDialog } from "@/components/activities/BlockActionDialog";
 import { PersonChip } from "@/components/activities/PersonChip";
-import { TimetableEditor } from "@/components/activities/TimetableEditor";
+import { TimetableEditor } from "@/components/school/TimetableEditor";
 import { WeekGrid } from "@/components/activities/WeekGrid";
 import type { ActivityFormPayload } from "@/components/activities/ActivityForm";
 import type { ResolvedActivityBlock } from "@/utils/activity";
@@ -110,12 +109,9 @@ function ActivitiesPage() {
     variant: TimetableVariant;
     day: number;
   } | null>(null);
-  // "Opcije" sheet - a self-contained hub; the timetable also opens directly
-  // from a grid click via `timetableMemberId`.
-  const [optionsOpen, setOptionsOpen] = useState(false);
 
   // Resolved time band per child for the displayed week - drives the sun/moon
-  // badge on the filter chips and the shift label in the options sheet.
+  // badge on the filter chips.
   const timeBandByPerson = useMemo(() => {
     const map = new Map<string, SchoolShift>();
     for (const [personId, anchor] of anchorsByPersonId) {
@@ -303,10 +299,13 @@ function ActivitiesPage() {
         title="Aktivnosti"
         actions={
           <>
+            {/* School itself is configured on its own page now. This is the
+                shortcut across, not a second place to set it up - the classes
+                drawn faintly in the grid below come from there. */}
             <IconButton
-              icon={Cog6ToothIcon}
-              aria-label="Opcije"
-              onClick={() => setOptionsOpen(true)}
+              icon={AcademicCapIcon}
+              aria-label="Otvori Školu"
+              onClick={() => void navigate({ to: "/skola" })}
             />
             <IconButton icon={PlusIcon} aria-label="Dodaj aktivnost" onClick={openAdd} />
           </>
@@ -478,16 +477,6 @@ function ActivitiesPage() {
           initialDay={timetableInitial?.day}
         />
       ) : null}
-
-      <ActivityOptionsSheet
-        open={optionsOpen}
-        onOpenChange={setOptionsOpen}
-        members={members}
-        anchorsByPersonId={anchorsByPersonId}
-        timeBandByPerson={timeBandByPerson}
-        entries={timetableQuery.data ?? []}
-        bell={bell}
-      />
     </AppScreen>
   );
 }

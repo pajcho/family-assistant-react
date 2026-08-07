@@ -14,6 +14,7 @@ import { AppNavLink } from "@/components/layout/AppNavLink";
 import {
   FIXED_SECTION,
   MAX_FREE_SLOTS,
+  MENU_GRID_SECTIONS,
   NAV_SECTIONS,
   NAV_SECTION_MAP,
   UNSLOTTABLE_SECTIONS,
@@ -187,14 +188,17 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
                   </div>
                 ) : null}
                 <div className="grid grid-cols-3 gap-2">
-                  {NAV_SECTIONS.map((section) => (
+                  {MENU_GRID_SECTIONS.map((section) => (
                     <SectionTile key={`${section.key}`} section={section} onNavigate={close} />
                   ))}
                 </div>
+                {/* Podešavanja sits under the grid rather than in it - see
+                    MENU_GRID_SECTIONS for why. */}
+                <SettingsRow onNavigate={close} />
                 <button
                   type="button"
                   onClick={() => push("edit")}
-                  className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm font-semibold transition-transform active:scale-[0.98]"
+                  className="mt-2 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-3 text-left text-sm font-semibold transition-transform active:scale-[0.98]"
                 >
                   <PencilSquareIcon className="size-[17px] text-muted-foreground" />
                   <span className="flex-1">
@@ -235,6 +239,32 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
         )}
       />
     </>
+  );
+}
+
+/**
+ * Podešavanja as a full-width row under the grid - same chrome as "Uredi
+ * traku", so the two read as the menu's own footer rather than as a tile that
+ * fell out of the grid.
+ */
+function SettingsRow({ onNavigate }: { onNavigate: () => void }) {
+  const section = NAV_SECTION_MAP.settings;
+  const { pathname, search } = useLocation();
+  const active = isNavSectionActive(section, pathname, search);
+  const Icon = section.icon;
+
+  return (
+    <Link
+      to={section.to}
+      onClick={onNavigate}
+      className={cn(
+        "mt-3 flex w-full items-center gap-2.5 rounded-lg border px-3.5 py-3 text-left text-sm font-semibold transition-transform active:scale-[0.98]",
+        active ? "border-accent bg-accent-soft text-accent-deep" : "border-border bg-card",
+      )}
+    >
+      <Icon className={cn("size-[17px]", active ? "text-accent-deep" : "text-muted-foreground")} />
+      <span className="flex-1">{section.label}</span>
+    </Link>
   );
 }
 
