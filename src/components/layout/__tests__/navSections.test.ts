@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_NAV_SLOTS,
+  MENU_GRID_SECTIONS,
   NAV_SECTIONS,
   NAV_SECTION_MAP,
   isNavSectionActive,
@@ -9,6 +10,7 @@ import {
   resolveNavSectionKey,
   sectionForPathname,
 } from "@/components/layout/navSections";
+import { NAV_SHORTCUT_KEYS } from "@/lib/shortcuts";
 
 describe("normalizeNavSlots", () => {
   it("falls back to the default layout when the profile never customized", () => {
@@ -34,6 +36,43 @@ describe("normalizeNavSlots", () => {
 
   it("never puts Podešavanja in the bar", () => {
     expect(normalizeNavSlots(["settings", "lists"])).toEqual(["lists"]);
+  });
+
+  it("lets Škola take a slot like any other destination", () => {
+    expect(normalizeNavSlots(["school", "money"])).toEqual(["school", "money"]);
+  });
+});
+
+describe("the Meni grid", () => {
+  it("stays a whole number of 3-column rows", () => {
+    // The tiles are a 3-col grid; a count off the multiple leaves a lonely
+    // last row. Adding a section means deciding where it goes, not shipping
+    // an orphan tile.
+    expect(MENU_GRID_SECTIONS.length % 3).toBe(0);
+  });
+
+  it("holds every section except Podešavanja, which has its own row", () => {
+    expect(MENU_GRID_SECTIONS.map((section) => section.key)).toEqual(
+      NAV_SECTIONS.filter((section) => section.key !== "settings").map((section) => section.key),
+    );
+  });
+});
+
+describe("the section list itself", () => {
+  it("has no duplicate keys or routes-plus-search pairs", () => {
+    const keys = NAV_SECTIONS.map((section) => section.key);
+    expect(new Set(keys).size).toBe(keys.length);
+
+    const destinations = NAV_SECTIONS.map(
+      (section) => `${section.to}?${new URLSearchParams(section.search ?? {}).toString()}`,
+    );
+    expect(new Set(destinations).size).toBe(destinations.length);
+  });
+
+  it("gives every section a distinct G-chord letter", () => {
+    const letters = NAV_SECTIONS.map((section) => NAV_SHORTCUT_KEYS[section.key]);
+    expect(letters.every((letter) => /^[A-Z]$/.test(letter))).toBe(true);
+    expect(new Set(letters).size).toBe(letters.length);
   });
 });
 

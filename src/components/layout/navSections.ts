@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 import {
+  AcademicCapIcon,
   CakeIcon,
   CalendarDaysIcon,
   CalendarIcon,
@@ -12,7 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 /**
- * Single source of truth for the app's nine navigation destinations: the
+ * Single source of truth for the app's ten navigation destinations: the
  * mobile bottom bar, the "Meni" sheet and the desktop nav all render from this
  * list, so a new section is added exactly once.
  *
@@ -21,6 +22,12 @@ import {
  *     week and month views);
  *   - "Plaćanja" + "Budžet" merged into NOVAC (Pregled / Troškovi / Plaćanja);
  *   - "Porodica" surfaced as its own destination (a section of Podešavanja).
+ *
+ * ŠKOLA joined later, for the same reason: the timetable, the A/B shifts, the
+ * bell schedule and the raspusti had outgrown a gear button in the Aktivnosti
+ * header, where nobody could find them. It sits right after Aktivnosti - the
+ * two answer the same question ("where does this child have to be this week")
+ * and Aktivnosti still draws the school blocks in its grid.
  *
  * The old keys still live in `profiles.nav_slots` rows and in per-device
  * "Nedavno" storage, so {@link normalizeNavSlots} maps them forward in code -
@@ -33,6 +40,7 @@ export type NavSectionKey =
   | "money"
   | "lists"
   | "activities"
+  | "school"
   | "events"
   | "birthdays"
   | "family"
@@ -60,6 +68,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   { key: "money", to: "/novac", label: "Novac", icon: WalletIcon },
   { key: "lists", to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
   { key: "activities", to: "/activities", label: "Aktivnosti", icon: SparklesIcon },
+  { key: "school", to: "/skola", label: "Škola", icon: AcademicCapIcon },
   { key: "events", to: "/events", label: "Događaji", icon: CalendarIcon },
   { key: "birthdays", to: "/birthdays", label: "Rođendani", icon: CakeIcon },
   {
@@ -75,6 +84,22 @@ export const NAV_SECTIONS: readonly NavSection[] = [
 export const NAV_SECTION_MAP: Readonly<Record<NavSectionKey, NavSection>> = Object.fromEntries(
   NAV_SECTIONS.map((section) => [section.key, section]),
 ) as Record<NavSectionKey, NavSection>;
+
+/**
+ * What the "Meni" sheet draws as tiles - everything except Podešavanja, which
+ * gets its own full-width row under the grid.
+ *
+ * That is not a demotion, it is what keeps the grid readable: the tiles are a
+ * 3-column grid, so the count has to stay a multiple of three or the last row
+ * is one lonely tile. Podešavanja is the right one to sit outside it - it is
+ * the only section that cannot go in the bottom bar, it is already one tap away
+ * through the avatar, and a settings row at the foot of a menu is where every
+ * app puts it. Adding a tenth SECTION therefore costs nothing here; the next
+ * one to be added is the one that needs a decision again.
+ */
+export const MENU_GRID_SECTIONS: readonly NavSection[] = NAV_SECTIONS.filter(
+  (section) => section.key !== "settings",
+);
 
 /** "Danas" is not up for grabs - always the first bottom-bar slot. */
 export const FIXED_SECTION: NavSectionKey = "today";

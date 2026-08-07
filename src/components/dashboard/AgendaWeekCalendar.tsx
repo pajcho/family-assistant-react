@@ -23,7 +23,7 @@ import {
   type TimeSpan,
   useMinuteTick,
 } from "@/components/dashboard/agendaCalendarShared";
-import { TimetableEditor } from "@/components/activities/TimetableEditor";
+import { TimetableEditor } from "@/components/school/TimetableEditor";
 import {
   WEEK_GRID_COL_PX,
   WEEK_GRID_GUTTER_PX,

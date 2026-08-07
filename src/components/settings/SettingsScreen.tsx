@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "@tanstack/react-router";
 import {
+  AcademicCapIcon,
   ArrowLeftIcon,
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -33,6 +35,7 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useEnabledCurrencies } from "@/hooks/useCurrencySettings";
 import { useProfile } from "@/hooks/useProfile";
+import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import {
   DEFAULT_NAV_SLOTS,
   NAV_SECTION_MAP,
@@ -138,6 +141,8 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
   const { enabled } = useEnabledCurrencies();
   const { connections } = useGoogleCalendar();
   const { openShortcuts } = useAppCommands();
+  const { byPersonId: schoolAnchors } = useSchoolShiftAnchors();
+  const navigate = useNavigate();
 
   const identity = {
     firstName: profile?.first_name ?? null,
@@ -154,6 +159,8 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
     few: "člana",
     many: "članova",
   });
+  // "Student" is defined the same way everywhere: having a shift anchor.
+  const studentCount = members.filter((member) => schoolAnchors.has(member.id)).length;
 
   // Slots the bottom bar currently shows (Danas and Meni are fixed, so only
   // the two free ones are listed here).
@@ -204,6 +211,28 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
           hint="RSD je osnovna - uvek uključena"
           value={enabled.join(" · ")}
           onClick={() => onOpenSection("currencies")}
+        />
+      </SettingsGroup>
+
+      <SettingsGroupTitle>Škola</SettingsGroupTitle>
+      <SettingsGroup>
+        {/* A link out, not a sub-screen: school is a destination of its own
+            (and in the nav), this row is just the second way to find it -
+            settings is where people go looking for anything configurable. */}
+        <SettingsRow
+          icon={AcademicCapIcon}
+          label="Škola"
+          hint="raspored časova, smene, satnica zvona, raspusti"
+          value={
+            studentCount > 0
+              ? `${studentCount} ${serbianPlural(studentCount, {
+                  one: "učenik",
+                  few: "učenika",
+                  many: "učenika",
+                })}`
+              : "nije podešeno"
+          }
+          onClick={() => void navigate({ to: "/skola" })}
         />
       </SettingsGroup>
 
