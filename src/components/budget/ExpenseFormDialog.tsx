@@ -46,6 +46,11 @@ export type ExpenseFormDialogProps = {
    * detail). Ignored while editing.
    */
   initialLink?: PaymentLinkValue | null;
+  /**
+   * Add mode only - pre-picks the category ("Dodaj trošak" from a category
+   * drill-down on Novac). Ignored while editing.
+   */
+  initialCategoryId?: string | null;
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
@@ -72,6 +77,7 @@ export function ExpenseFormDialog({
   onOpenChange,
   expense,
   initialLink,
+  initialCategoryId,
   error,
   saving,
   onSubmit,
@@ -82,9 +88,11 @@ export function ExpenseFormDialog({
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
   const seedLink = expense ? null : (initialLink ?? null);
+  const seedCategoryId = expense ? null : (initialCategoryId ?? null);
   const [form, setForm] = useState<ExpenseFormState>(() => ({
     ...initialExpenseFormState(expense, today.str),
     ...(seedLink ? { link: seedLink } : null),
+    ...(seedCategoryId ? { category_id: seedCategoryId } : null),
   }));
   const ca = useCurrencyAmount(expense, form.spent_on);
   const { reset: resetCurrency } = ca;
@@ -111,10 +119,11 @@ export function ExpenseFormDialog({
     setForm({
       ...initialExpenseFormState(expense, todayRef.current),
       ...(expense || !link ? null : { link }),
+      ...(seedCategoryId ? { category_id: seedCategoryId } : null),
     });
     resetCurrency(expense?.currency, expense?.exchange_rate);
     resetStack();
-  }, [open, expense, linkSeed, resetCurrency, resetStack]);
+  }, [open, expense, linkSeed, seedCategoryId, resetCurrency, resetStack]);
 
   const isEdit = !!expense?.id;
   const isDesktop = useIsDesktop();
