@@ -30,6 +30,7 @@ import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
 import { BudgetTrend } from "@/components/budget/BudgetTrend";
 import { BudgetTimeline } from "@/components/budget/BudgetTimeline";
+import { CategoryFilterChip } from "@/components/budget/CategoryFilterChip";
 import {
   GroupHeader,
   GroupHeaderAction,
@@ -68,10 +69,9 @@ import {
   shiftMonth,
 } from "@/utils/budget";
 import { fallbackColorForProfile } from "@/utils/activity";
+import { UNCATEGORIZED, matchesCategoryFilter } from "@/utils/categoryFilter";
 import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
-
-const UNCATEGORIZED = "__none__";
 
 type CategoryBreakdown = {
   key: string;
@@ -148,11 +148,14 @@ export function BudgetPage({
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   // Category drill-down (tap on a "Po kategorijama" row).
   const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
-  // Filters: person + expense source, both with the empty-set = "no filter"
-  // convention. They narrow the VISIBLE lists (breakdown, timeline, modules) -
-  // the cycle summary stays family-level.
+  // Filters: person + expense source + category, all with the empty-set = "no
+  // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
+  // modules) - the cycle summary stays family-level.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   // "Projekcija do kraja meseca" row - collapsed by default, tap to expand.
   const [projOpen, setProjOpen] = useState(false);
 
@@ -183,19 +186,26 @@ export function BudgetPage({
 
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
-  // Person/source filters narrow what the lists show. The cycle summary
-  // (Prihodi/Potrošeno/Preostalo) intentionally stays family-level - income
-  // isn't per-person, so a filtered "Preostalo" would lie.
+  // Person/source/category filters narrow what the lists show. The cycle
+  // summary (Prihodi/Potrošeno/Preostalo) intentionally stays family-level -
+  // income isn't per-person, so a filtered "Preostalo" would lie.
   const filteredExpenses = useMemo(() => {
-    if (selectedPersonIds.size === 0 && selectedSources.size === 0) return expenses;
+    if (
+      selectedPersonIds.size === 0 &&
+      selectedSources.size === 0 &&
+      selectedCategoryIds.size === 0
+    ) {
+      return expenses;
+    }
     return expenses.filter((e) => {
       if (selectedPersonIds.size > 0 && !(e.person_id && selectedPersonIds.has(e.person_id))) {
         return false;
       }
       if (selectedSources.size > 0 && !selectedSources.has(e.source)) return false;
+      if (!matchesCategoryFilter(e.category_id, selectedCategoryIds)) return false;
       return true;
     });
-  }, [expenses, selectedPersonIds, selectedSources]);
+  }, [expenses, selectedPersonIds, selectedSources, selectedCategoryIds]);
 
   const togglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
@@ -216,7 +226,10 @@ export function BudgetPage({
   const resetFilters = () => {
     setSelectedPersonIds(new Set());
     setSelectedSources(new Set());
+    setSelectedCategoryIds(new Set());
   };
+  const filtersActive =
+    selectedPersonIds.size > 0 || selectedSources.size > 0 || selectedCategoryIds.size > 0;
 
   const cycle = useMemo(
     () =>
@@ -932,14 +945,13 @@ export function BudgetPage({
       {isExpenses ? (
         <>
           {/* Same shape as the Plaćanja tab next door: neutral chip, facets,
-              then one chip per member. */}
+              then one chip per member. Kategorija leads the facets because it
+              is the one you reach for most, and it must not scroll off. */}
           <FilterChipRow className="mb-3" ariaLabel="Filter troškova">
-            <FilterChip
-              active={selectedSources.size === 0 && selectedPersonIds.size === 0}
-              onToggle={resetFilters}
-            >
+            <FilterChip active={!filtersActive} onToggle={resetFilters}>
               Svi
             </FilterChip>
+            <CategoryFilterChip selected={selectedCategoryIds} onChange={setSelectedCategoryIds} />
             {SOURCE_OPTIONS.map((option) => (
               <FilterChip
                 key={option.key}

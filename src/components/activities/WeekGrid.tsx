@@ -61,6 +61,8 @@ export type WeekGridProps = {
   blocks: ReadonlyArray<ResolvedActivityBlock>;
   /** School class blocks (already filtered + toggled by the page). */
   schoolBlocks?: ReadonlyArray<ResolvedSchoolBlock>;
+  /** date → raspust label, shown under the day number. */
+  breakDays?: ReadonlyMap<string, string>;
   activitiesById: ReadonlyMap<string, Activity>;
   peopleById: ReadonlyMap<string, Profile>;
   onBlockClick?: (block: ResolvedActivityBlock) => void;
@@ -123,6 +125,7 @@ export function WeekGrid({
   weekStart,
   blocks,
   schoolBlocks = [],
+  breakDays,
   activitiesById,
   peopleById,
   onBlockClick,
@@ -247,6 +250,7 @@ export function WeekGrid({
       todayStr={todayStr}
       hourLabels={hourLabels}
       totalHeightPx={totalHeightPx}
+      notesByDate={breakDays}
       now={
         todayDayIndex >= 0 && nowInViewport
           ? { topPx: nowTopPx, label: format(now, "HH:mm") }

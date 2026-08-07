@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { BellSchedule, SchoolShiftAnchor, SchoolTimetableEntry } from "@/types/database";
+import type {
+  BellSchedule,
+  SchoolBreak,
+  SchoolShiftAnchor,
+  SchoolTimetableEntry,
+} from "@/types/database";
 import {
   addMinutesToTime,
   computeBellGrid,
+  isDateInBreak,
+  resolveSchoolBreakDays,
   resolveSchoolWeekBlocks,
   timeBandForWeek,
   variantForWeek,
@@ -57,6 +64,21 @@ function entry(over: Partial<SchoolTimetableEntry>): SchoolTimetableEntry {
     period_index: 1,
     subject: "Srpski",
     room: null,
+    created_at: "",
+    updated_at: "",
+    ...over,
+  };
+}
+
+function schoolBreak(over: Partial<SchoolBreak>): SchoolBreak {
+  return {
+    id: Math.random().toString(36).slice(2),
+    family_id: "fam",
+    name: "Raspust",
+    start_month: 6,
+    start_day: 21,
+    end_month: 8,
+    end_day: 31,
     created_at: "",
     updated_at: "",
     ...over,
@@ -237,5 +259,233 @@ describe("resolveSchoolWeekBlocks", () => {
         shiftAnchorsByPersonId: anchors,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("isDateInBreak", () => {
+  const summer = schoolBreak({ start_month: 6, start_day: 21, end_month: 8, end_day: 31 });
+
+  it("covers the range inclusively, in every year", () => {
+    expect(isDateInBreak("2026-06-21", summer)).toBe(true);
+    expect(isDateInBreak("2026-08-31", summer)).toBe(true);
+    expect(isDateInBreak("2031-07-15", summer)).toBe(true);
+    expect(isDateInBreak("2026-06-20", summer)).toBe(false);
+    expect(isDateInBreak("2026-09-01", summer)).toBe(false);
+  });
+
+  // The whole reason the columns are month+day: end before start = the range
+  // runs over New Year, which is exactly how the winter break falls.
+  it("wraps the New Year when the end falls before the start", () => {
+    const winter = schoolBreak({ start_month: 12, start_day: 30, end_month: 1, end_day: 20 });
+    expect(isDateInBreak("2026-12-30", winter)).toBe(true);
+    expect(isDateInBreak("2026-12-31", winter)).toBe(true);
+    expect(isDateInBreak("2027-01-01", winter)).toBe(true);
+    expect(isDateInBreak("2027-01-20", winter)).toBe(true);
+    expect(isDateInBreak("2027-01-21", winter)).toBe(false);
+    expect(isDateInBreak("2026-12-29", winter)).toBe(false);
+    expect(isDateInBreak("2026-06-15", winter)).toBe(false);
+  });
+
+  it("handles a single-day break and 29.02 in a non-leap year", () => {
+    const oneDay = schoolBreak({ start_month: 5, start_day: 1, end_month: 5, end_day: 1 });
+    expect(isDateInBreak("2026-05-01", oneDay)).toBe(true);
+    expect(isDateInBreak("2026-05-02", oneDay)).toBe(false);
+
+    // Stored as the number 229, never turned into a Date - so a 29.02 edge
+    // survives a non-leap year instead of collapsing onto 01.03.
+    const leapEdge = schoolBreak({ start_month: 2, start_day: 20, end_month: 2, end_day: 29 });
+    expect(isDateInBreak("2026-02-28", leapEdge)).toBe(true);
+    expect(isDateInBreak("2026-03-01", leapEdge)).toBe(false);
+  });
+});
+
+describe("resolveSchoolWeekBlocks - raspusti", () => {
+  // W0 = Monday 2026-05-25, so the week runs 25-31 May.
+  const anchors = new Map<string, SchoolShiftAnchor>([["p", anchor({ person_id: "p" })]]);
+  const entries = [
+    entry({ person_id: "p", variant: "A", day_of_week: 0, period_index: 1, subject: "Srpski" }),
+    entry({ person_id: "p", variant: "A", day_of_week: 2, period_index: 1, subject: "Matematika" }),
+  ];
+
+  it("drops classes on days a break covers, and keeps the rest", () => {
+    // 25-26 May only: Monday is out, Wednesday is not.
+    const brk = schoolBreak({ start_month: 5, start_day: 25, end_month: 5, end_day: 26 });
+    const blocks = resolveSchoolWeekBlocks({
+      weekStart: W0,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: anchors,
+      breaks: [brk],
+    });
+    expect(blocks.map((b) => b.subject)).toEqual(["Matematika"]);
+  });
+
+  it("empties the whole week when the break spans it", () => {
+    const brk = schoolBreak({ start_month: 5, start_day: 1, end_month: 9, end_day: 1 });
+    expect(
+      resolveSchoolWeekBlocks({
+        weekStart: W0,
+        bell: BELL,
+        entries,
+        shiftAnchorsByPersonId: anchors,
+        breaks: [brk],
+      }),
+    ).toEqual([]);
+  });
+
+  // Siblings in different grades get different breaks - the point of the
+  // member list. Listing only Ana must leave Vuk's classes alone.
+  it("applies only to the children the break lists", () => {
+    const twoKids = new Map<string, SchoolShiftAnchor>([
+      ["ana", anchor({ person_id: "ana" })],
+      ["vuk", anchor({ person_id: "vuk" })],
+    ]);
+    const twoKidEntries = [
+      entry({ person_id: "ana", variant: "A", day_of_week: 0, subject: "Ana - Srpski" }),
+      entry({ person_id: "vuk", variant: "A", day_of_week: 0, subject: "Vuk - Srpski" }),
+    ];
+    const brk = schoolBreak({ start_month: 5, start_day: 25, end_month: 5, end_day: 26 });
+
+    const blocks = resolveSchoolWeekBlocks({
+      weekStart: W0,
+      bell: BELL,
+      entries: twoKidEntries,
+      shiftAnchorsByPersonId: twoKids,
+      breaks: [brk],
+      breakMemberIdsByBreak: new Map([[brk.id, new Set(["ana"])]]),
+    });
+    expect(blocks.map((b) => b.subject)).toEqual(["Vuk - Srpski"]);
+  });
+
+  it("treats an empty member list as every child", () => {
+    const brk = schoolBreak({ start_month: 5, start_day: 25, end_month: 5, end_day: 26 });
+    const blocks = resolveSchoolWeekBlocks({
+      weekStart: W0,
+      bell: BELL,
+      entries,
+      shiftAnchorsByPersonId: anchors,
+      breaks: [brk],
+      breakMemberIdsByBreak: new Map([[brk.id, new Set<string>()]]),
+    });
+    expect(blocks.map((b) => b.subject)).toEqual(["Matematika"]);
+  });
+});
+
+describe("resolveSchoolBreakDays", () => {
+  const brk = schoolBreak({
+    id: "b1",
+    name: "Prolećni raspust",
+    start_month: 5,
+    start_day: 25,
+    end_month: 5,
+    end_day: 26,
+  });
+
+  it("labels each covered day with the break's name", () => {
+    const days = resolveSchoolBreakDays({
+      weekStart: W0,
+      personIds: ["p"],
+      breaks: [brk],
+      memberIdsByBreak: new Map(),
+    });
+    expect([...days.keys()]).toEqual(["2026-05-25", "2026-05-26"]);
+    expect(days.get("2026-05-25")).toEqual({
+      names: ["Prolećni raspust"],
+      personIds: ["p"],
+      everyone: true,
+    });
+  });
+
+  // Siblings in different grades get different breaks, so BOTH names have to
+  // reach the label - collapsing to one hid a whole child's raspust.
+  it("collects every child's break name when they differ", () => {
+    const vuksBreak = schoolBreak({
+      id: "b2",
+      name: "Letnji",
+      start_month: 5,
+      start_day: 25,
+      end_month: 5,
+      end_day: 25,
+    });
+    const days = resolveSchoolBreakDays({
+      weekStart: W0,
+      personIds: ["ana", "vuk"],
+      breaks: [brk, vuksBreak],
+      memberIdsByBreak: new Map([
+        ["b1", new Set(["ana"])],
+        ["b2", new Set(["vuk"])],
+      ]),
+    });
+    expect(days.get("2026-05-25")).toEqual({
+      names: ["Prolećni raspust", "Letnji"],
+      personIds: ["ana", "vuk"],
+      everyone: true,
+    });
+  });
+
+  // Half the family off still gets a label, but flagged as partial so the UI
+  // can name whose break it is - the other child's classes are right there.
+  it("marks a day partial when only some children are off", () => {
+    const days = resolveSchoolBreakDays({
+      weekStart: W0,
+      personIds: ["ana", "vuk"],
+      breaks: [brk],
+      memberIdsByBreak: new Map([["b1", new Set(["ana"])]]),
+    });
+    expect(days.get("2026-05-25")).toEqual({
+      names: ["Prolećni raspust"],
+      personIds: ["ana"],
+      everyone: false,
+    });
+  });
+
+  // A child in scope is a STUDENT, whether or not their timetable is filled in
+  // - so narrowing to the one child on a break must still label the day.
+  it("labels the day when scope is narrowed to the child on the break", () => {
+    const days = resolveSchoolBreakDays({
+      weekStart: W0,
+      personIds: ["ana"],
+      breaks: [brk],
+      memberIdsByBreak: new Map([["b1", new Set(["ana"])]]),
+    });
+    expect(days.get("2026-05-25")?.everyone).toBe(true);
+    expect(days.get("2026-05-25")?.names).toEqual(["Prolećni raspust"]);
+  });
+
+  it("labels the day once when two breaks overlap on it", () => {
+    const other = schoolBreak({
+      id: "b2",
+      name: "Državni praznik",
+      start_month: 5,
+      start_day: 26,
+      end_month: 5,
+      end_day: 26,
+    });
+    const days = resolveSchoolBreakDays({
+      weekStart: W0,
+      personIds: ["p"],
+      breaks: [brk, other],
+      memberIdsByBreak: new Map(),
+    });
+    expect(days.get("2026-05-26")?.names).toEqual(["Prolećni raspust", "Državni praznik"]);
+  });
+
+  it("returns nothing without breaks or without children", () => {
+    expect(
+      resolveSchoolBreakDays({
+        weekStart: W0,
+        personIds: ["p"],
+        breaks: [],
+        memberIdsByBreak: new Map(),
+      }).size,
+    ).toBe(0);
+    expect(
+      resolveSchoolBreakDays({
+        weekStart: W0,
+        personIds: [],
+        breaks: [brk],
+        memberIdsByBreak: new Map(),
+      }).size,
+    ).toBe(0);
   });
 });

@@ -60,6 +60,8 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   payment_overrides: [familyKey("payment_overrides")],
   payment_participants: [familyKey("payment_participants")],
   payments: [familyKey("payments"), paymentHistoryKey],
+  school_break_members: [familyKey("school_break_members")],
+  school_breaks: [familyKey("school_breaks")],
   school_shift_anchors: [familyKey("school_shift_anchors")],
   school_timetable_entries: [familyKey("school_timetable")],
 };

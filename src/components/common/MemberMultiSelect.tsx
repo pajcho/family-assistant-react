@@ -1,5 +1,6 @@
 import { Chip, ChipRow, FieldGroupLabel, FieldHint } from "@/components/common/FormControls";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import type { Profile } from "@/types/database";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 
@@ -10,6 +11,13 @@ export type MemberMultiSelectProps = {
   label?: string;
   /** Helper line under the pills (e.g. "opciono"). */
   hint?: string;
+  /**
+   * Narrow the roster to a subset (raspusti offer only children who actually
+   * have a timetable). Omit for the whole family.
+   */
+  people?: ReadonlyArray<Profile>;
+  /** Shown instead of the pills when the roster is empty. */
+  emptyLabel?: string;
 };
 
 /**
@@ -24,8 +32,11 @@ export function MemberMultiSelect({
   onChange,
   label = "Članovi",
   hint,
+  people,
+  emptyLabel = "Nema članova porodice.",
 }: MemberMultiSelectProps) {
-  const { members } = useFamilyMembers();
+  const { members: family } = useFamilyMembers();
+  const members = people ?? family;
 
   const toggle = (personId: string) => {
     const set = new Set(value);
@@ -39,7 +50,7 @@ export function MemberMultiSelect({
     <div>
       <FieldGroupLabel>{label}</FieldGroupLabel>
       {members.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nema članova porodice.</p>
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
         <ChipRow role="group" aria-label={typeof label === "string" ? label : "Članovi"}>
           {members.map((person) => {
