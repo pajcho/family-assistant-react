@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
+import { DetailActionRow } from "@/components/common/DetailSheet";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useUpdateExpenseCategory } from "@/hooks/useExpenseCategories";
@@ -41,6 +43,18 @@ export type CategoryDetailSheetProps = {
   month: string;
   /** The month's expenses (already person/source-filtered by the page). */
   expenses: Expense[];
+  /**
+   * Opens the expense form with this category already picked. Omit it (or land
+   * on "Bez kategorije", which has no category to pre-pick) and the action row
+   * is not rendered.
+   */
+  onAddExpense?: (categoryId: string) => void;
+  /**
+   * Close the overlay without tearing the drill-down down - for the moment the
+   * expense form above it owns the screen. Dismissing that form brings this
+   * sheet back exactly as it was, now including the trošak just added.
+   */
+  hidden?: boolean;
 };
 
 function expenseTitle(e: Expense): string {
@@ -55,6 +69,8 @@ export function CategoryDetailSheet({
   category,
   month,
   expenses,
+  onAddExpense,
+  hidden = false,
 }: CategoryDetailSheetProps) {
   const updateCategory = useUpdateExpenseCategory();
   const [limitInput, setLimitInput] = useState("");
@@ -127,9 +143,10 @@ export function CategoryDetailSheet({
   };
 
   const Icon = categoryIcon(row?.icon);
+  const addCategoryId = row?.categoryId ?? null;
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog open={open && !hidden} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader className="sr-only">
           <ResponsiveDialogTitle>{row?.name ?? "Kategorija"}</ResponsiveDialogTitle>
@@ -180,6 +197,19 @@ export function CategoryDetailSheet({
                 </p>
               ) : null}
             </div>
+
+            {/* The one emphasized action, straight under the numbers it adds
+                to - the whole reason someone opens a category they overspent
+                is usually to record the next trošak in it. */}
+            {onAddExpense && addCategoryId ? (
+              <DetailActionRow
+                icon={PlusIcon}
+                tone="primary"
+                label="Dodaj trošak"
+                description={`Kategorija ${row.name} je već izabrana`}
+                onClick={() => onAddExpense(addCategoryId)}
+              />
+            ) : null}
 
             {/* 6-month mini trend for the category. */}
             <div className="rounded-xl border border-border bg-card p-3 shadow-card">

@@ -148,6 +148,10 @@ export function BudgetPage({
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   // Category drill-down (tap on a "Po kategorijama" row).
   const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
+  // Set while the expense form was opened FROM that drill-down: it pre-picks
+  // the category, and the sheet underneath only hides, so closing the form
+  // lands back on the category (with the new trošak already in its list).
+  const [addCategoryId, setAddCategoryId] = useState<string | null>(null);
   // Filters: person + expense source + category, all with the empty-set = "no
   // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
   // modules) - the cycle summary stays family-level.
@@ -380,6 +384,15 @@ export function BudgetPage({
 
   const openAdd = () => {
     setEditing(null);
+    setAddCategoryId(null);
+    setFormError(null);
+    setAddOpen(true);
+  };
+
+  // "Dodaj trošak" inside the category drill-down.
+  const openAddInCategory = (categoryId: string) => {
+    setEditing(null);
+    setAddCategoryId(categoryId);
     setFormError(null);
     setAddOpen(true);
   };
@@ -416,6 +429,7 @@ export function BudgetPage({
     // that is left of the spend.
     if (expense.source !== "manual" && !isDetachedPaymentExpense(expense)) return;
     setEditing(expense);
+    setAddCategoryId(null);
     setFormError(null);
     setAddOpen(true);
   };
@@ -480,6 +494,7 @@ export function BudgetPage({
     setAddOpen(open);
     if (!open) {
       setEditing(null);
+      setAddCategoryId(null);
       setFormError(null);
     }
   };
@@ -492,8 +507,7 @@ export function BudgetPage({
       } else {
         await createExpense.mutateAsync(payload);
       }
-      setAddOpen(false);
-      setEditing(null);
+      handleDialogOpenChange(false);
     } catch (err) {
       const fallback = editing ? "Greška pri izmeni troška" : "Greška pri dodavanju troška";
       setFormError(err instanceof Error && err.message ? err.message : fallback);
@@ -506,8 +520,7 @@ export function BudgetPage({
     if (!editing) return;
     try {
       await deleteExpense.mutateAsync(editing.id);
-      setAddOpen(false);
-      setEditing(null);
+      handleDialogOpenChange(false);
     } catch {
       /* hook toasts; keep dialog open to retry */
     }
@@ -1041,19 +1054,25 @@ export function BudgetPage({
         }
         month={month}
         expenses={filteredExpenses}
+        onAddExpense={openAddInCategory}
+        hidden={addOpen && addCategoryId !== null}
       />
 
       <ExpenseFormDialog
         open={addOpen}
         onOpenChange={handleDialogOpenChange}
         expense={editing}
+        initialCategoryId={addCategoryId}
         error={formError}
         saving={createExpense.isPending || updateExpense.isPending}
         onSubmit={(payload) => {
           void handleSubmit(payload);
         }}
         onScanReceipt={() => {
-          setAddOpen(false);
+          // The scanner is a context of its own - hand it the whole screen
+          // rather than parking a category drill-down behind it.
+          handleDialogOpenChange(false);
+          setCategoryDetail(null);
           onScanReceipt();
         }}
         onDelete={() => {
