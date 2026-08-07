@@ -377,6 +377,10 @@ function ActivitiesPage() {
             weekStart={weekStart}
             blocks={week.blocks}
             schoolBlocks={showSchool ? school.blocks : []}
+            // Not gated on there being any class left: during the summer break
+            // the school toggle has nothing to toggle, and the label is the
+            // only thing explaining why the columns are bare.
+            breakDays={showSchool ? school.breakDays : undefined}
             activitiesById={activitiesById}
             peopleById={peopleById}
             onBlockClick={handleBlockClick}

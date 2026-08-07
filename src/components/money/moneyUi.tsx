@@ -151,49 +151,6 @@ export function MoneyCard({ className, children }: { className?: string; childre
   );
 }
 
-/** Horizontal filter chip ("fchip") - additive facets, unlike Segmented. */
-export function FilterChip({
-  active,
-  onClick,
-  ariaPressed = true,
-  className,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  /** Chips that open a sheet instead of toggling pass false. */
-  ariaPressed?: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={ariaPressed ? active : undefined}
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        active
-          ? "border-accent bg-accent text-accent-foreground"
-          : "border-border bg-card text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Scroll container for a chip row - hides the bar, keeps the swipe. */
-export function ChipRow({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <div className={cn("scrollbar-hide flex gap-1.5 overflow-x-auto pb-0.5", className)}>
-      {children}
-    </div>
-  );
-}
-
 /**
  * Header icon button ("iconbtn"): the tile reads as 38px, but the button
  * itself is a full 44px touch target with the tile centred inside it.

@@ -5,6 +5,7 @@ import { BanknotesIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { CategoryFilterChip } from "@/components/budget/CategoryFilterChip";
 import { HeaderIconButton, MoneyCard, ProgressTrack } from "@/components/money/moneyUi";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
@@ -39,6 +40,7 @@ import { useToday } from "@/hooks/useToday";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { Amount } from "@/components/common/Amount";
 import { fallbackColorForProfile } from "@/utils/activity";
+import { matchesCategoryFilter } from "@/utils/categoryFilter";
 import { getDisplayName } from "@/utils/identity";
 
 /* --- Search + pagination constants ----------------------------------------- */
@@ -413,9 +415,12 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   // "Sakriveno N · Prikaži" link under the list.
   const [showPaid, setShowPaid] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
-  // Person filter - same convention as the dashboard's person facet: an empty
-  // set means "no filter"; a non-empty set narrows to those members.
+  // Person + category filters - same convention as the dashboard's person
+  // facet: an empty set means "no filter"; a non-empty set narrows to those.
   const [selectedPersonIds, setSelectedPersonIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   // Form dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -457,23 +462,48 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
     });
   };
 
-  // Person filter applied at the source, so the list AND the month summary
-  // both reflect the selection. Same semantics as `matchesAgendaFilter` on the
-  // dashboard: empty selection shows everything; with members selected only
-  // payments assigned to at least one of them pass (unassigned ones hide).
+  // A history row carries no category of its own - the category classifies the
+  // SERIES, not the instalment (see the payment→expense sync trigger), so the
+  // live payment is the only place to read it from. `payment_id` is NOT NULL
+  // with ON DELETE CASCADE, so every history row still has one.
+  const categoryByPayment = useMemo(
+    () => new Map(payments.map((p) => [p.id, p.category_id])),
+    [payments],
+  );
+
+  // Person and category filters applied at the source, so the list AND the
+  // month summary both reflect the selection. Same semantics as
+  // `matchesAgendaFilter` on the dashboard: empty selection shows everything;
+  // with members selected only payments assigned to at least one of them pass
+  // (unassigned ones hide).
   const visiblePayments = useMemo(() => {
-    if (selectedPersonIds.size === 0) return payments;
-    return payments.filter((p) =>
-      (byPayment.get(p.id) ?? []).some((id) => selectedPersonIds.has(id)),
-    );
-  }, [payments, byPayment, selectedPersonIds]);
+    if (selectedPersonIds.size === 0 && selectedCategoryIds.size === 0) return payments;
+    return payments.filter((p) => {
+      if (
+        selectedPersonIds.size > 0 &&
+        !(byPayment.get(p.id) ?? []).some((id) => selectedPersonIds.has(id))
+      ) {
+        return false;
+      }
+      return matchesCategoryFilter(p.category_id, selectedCategoryIds);
+    });
+  }, [payments, byPayment, selectedPersonIds, selectedCategoryIds]);
 
   const visibleHistory = useMemo(() => {
-    if (selectedPersonIds.size === 0) return history;
-    return history.filter((entry) =>
-      (byPayment.get(entry.payment_id) ?? []).some((id) => selectedPersonIds.has(id)),
-    );
-  }, [history, byPayment, selectedPersonIds]);
+    if (selectedPersonIds.size === 0 && selectedCategoryIds.size === 0) return history;
+    return history.filter((entry) => {
+      if (
+        selectedPersonIds.size > 0 &&
+        !(byPayment.get(entry.payment_id) ?? []).some((id) => selectedPersonIds.has(id))
+      ) {
+        return false;
+      }
+      return matchesCategoryFilter(
+        categoryByPayment.get(entry.payment_id) ?? null,
+        selectedCategoryIds,
+      );
+    });
+  }, [history, byPayment, categoryByPayment, selectedPersonIds, selectedCategoryIds]);
 
   const combinedList = useMemo(
     () =>
@@ -538,7 +568,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [selectedMonth, showPaid, searchTerm, selectedPersonIds]);
+  }, [selectedMonth, showPaid, searchTerm, selectedPersonIds, selectedCategoryIds]);
   const pagedList = useMemo(
     () => displayedList.slice(0, visibleCount),
     [displayedList, visibleCount],
@@ -586,9 +616,10 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
     return { paidCount, totalCount: paidCount + dueCount, nextDue };
   }, [combinedList, selectedMonth, todayStr]);
 
-  const filtersActive = selectedPersonIds.size > 0 || showPaid;
+  const filtersActive = selectedPersonIds.size > 0 || selectedCategoryIds.size > 0 || showPaid;
   const resetFilters = () => {
     setSelectedPersonIds(new Set());
+    setSelectedCategoryIds(new Set());
     setShowPaid(false);
   };
 
@@ -597,8 +628,8 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   const emptyListMessage = searchActive
     ? "Nema plaćanja koja odgovaraju pretrazi."
     : combinedList.length === 0
-      ? selectedPersonIds.size > 0
-        ? "Nema plaćanja za izabrane članove."
+      ? selectedPersonIds.size > 0 || selectedCategoryIds.size > 0
+        ? "Nema plaćanja za izabrane filtere."
         : "Nema plaćanja za prikaz."
       : "Nema neplaćenih stavki - sve za ovaj mesec je rešeno. 🎉";
 
@@ -711,6 +742,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
         <FilterChip active={!filtersActive} onToggle={resetFilters}>
           Sva
         </FilterChip>
+        <CategoryFilterChip selected={selectedCategoryIds} onChange={setSelectedCategoryIds} />
         <FilterChip active={showPaid} onToggle={() => setShowPaid((v) => !v)}>
           Samo plaćena
         </FilterChip>

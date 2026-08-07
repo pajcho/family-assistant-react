@@ -100,6 +100,7 @@ type WeekEntry = TimeSpan &
 
 /** Stable identity for "school is hidden", so the layout memo can skip work. */
 const NO_SCHOOL_BLOCKS: ResolvedSchoolBlock[] = [];
+const NO_BREAK_DAYS = new Map<string, string>();
 
 export function AgendaWeekCalendar({
   filter,
@@ -193,6 +194,14 @@ export function AgendaWeekCalendar({
     [showSchool, school.blocks],
   );
   const hasSchoolData = school.blocks.length > 0;
+
+  // Raspust labels under the day numbers. Deliberately NOT gated on
+  // `hasSchoolData`: during the summer break there is no class left to toggle,
+  // and this label is the only thing saying why the school is missing.
+  const breakNotes = useMemo(
+    () => (showSchool ? school.breakDays : NO_BREAK_DAYS),
+    [showSchool, school.breakDays],
+  );
 
   // Split each day's items into all-day + timed, then merge in that day's
   // school classes so both go through one lane sweep per column.
@@ -464,6 +473,7 @@ export function AgendaWeekCalendar({
               ? { topPx: nowTopPx, label: format(now, "HH:mm") }
               : null
           }
+          notesByDate={breakNotes}
           allDayRow={
             hasAnyAllDay
               ? {

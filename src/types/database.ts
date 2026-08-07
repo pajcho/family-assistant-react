@@ -649,6 +649,40 @@ export interface SchoolTimetableEntry {
   updated_at: string;
 }
 
+/**
+ * A period without classes ("raspust"). The timetable is a pure weekly
+ * pattern, so without this it would keep rendering through July and August.
+ *
+ * Deliberately stores month + day and NO year: a raspust repeats every year.
+ * Full dates would mean re-entering the summer break each August (and getting
+ * the timetable back mid-July whenever that was forgotten). A break whose end
+ * falls before its start wraps the New Year (30.12 - 20.01).
+ */
+export interface SchoolBreak {
+  id: string;
+  family_id: string;
+  name: string;
+  /** 1-12 / 1-31, both ends inclusive. Compared as month * 100 + day. */
+  start_month: number;
+  start_day: number;
+  end_month: number;
+  end_day: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Which children a break applies to. NO rows is the default and means "every
+ * child with a timetable" - siblings in different grades get their own breaks
+ * by listing only them.
+ */
+export interface SchoolBreakMember {
+  break_id: string;
+  person_id: string;
+  family_id: string;
+  created_at: string;
+}
+
 export type ListScope = "personal" | "family";
 
 export interface List {

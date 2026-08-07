@@ -53,8 +53,12 @@ export function monthLabel(month: string): string {
 
 /** Month name alone for a "YYYY-MM", e.g. "Jul" - the serif half of a title. */
 export function monthName(month: string): string {
-  const monthNum = Number(month.slice(5, 7));
-  return MONTH_NAMES_SR[(monthNum - 1) % 12] ?? month;
+  return monthNameOfNumber(Number(month.slice(5, 7)));
+}
+
+/** Month name for a 1-12 number, e.g. 6 → "Jun". For dates carrying no year. */
+export function monthNameOfNumber(month: number): string {
+  return MONTH_NAMES_SR[(month - 1) % 12] ?? String(month);
 }
 
 /** The "YYYY-MM" a date string falls in. */

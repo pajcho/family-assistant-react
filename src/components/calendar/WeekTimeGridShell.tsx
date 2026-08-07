@@ -55,6 +55,11 @@ export type WeekTimeGridShellProps = {
   totalHeightPx: number;
   /** Red "now" line in today's column + minute badge in the gutter. */
   now?: { topPx: number; label: string } | null;
+  /**
+   * One-line note under a day's number, keyed by date. Today's only use is the
+   * raspust label: an empty school column needs a reason, or it reads as a bug.
+   */
+  notesByDate?: ReadonlyMap<string, string>;
   /** Optional "Ceo dan" row between the day headers and the time grid. */
   allDayRow?: {
     label: string;
@@ -75,6 +80,7 @@ export function WeekTimeGridShell({
   hourLabels,
   totalHeightPx,
   now = null,
+  notesByDate,
   allDayRow = null,
   renderColumn,
   scrollRef,
@@ -127,6 +133,14 @@ export function WeekTimeGridShell({
               >
                 {day.dayNum}
               </div>
+              {notesByDate?.get(day.date) ? (
+                <div
+                  title={notesByDate.get(day.date)}
+                  className="mx-auto mt-0.5 max-w-full truncate rounded-full bg-muted px-1.5 text-[9.5px] font-normal text-muted-foreground"
+                >
+                  {notesByDate.get(day.date)}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>

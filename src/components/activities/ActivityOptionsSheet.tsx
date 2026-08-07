@@ -4,6 +4,7 @@ import {
   AcademicCapIcon,
   BookOpenIcon,
   Cog6ToothIcon,
+  SunIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
@@ -13,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { ShiftSetupForm } from "@/components/activities/ShiftSetupForm";
 import { TimetableEditorPanel } from "@/components/activities/TimetableEditorPanel";
 import { BellSchedulePanel } from "@/components/activities/BellSchedulePanel";
+import { SchoolBreakForm } from "@/components/activities/SchoolBreakForm";
+import { SchoolBreaksPanel } from "@/components/activities/SchoolBreaksPanel";
+import { useSchoolBreaks } from "@/hooks/useSchoolBreaks";
 import type {
   BellSchedule,
   Profile,
@@ -22,6 +26,7 @@ import type {
 } from "@/types/database";
 import { SHIFT_LABELS, fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
+import { serbianPlural } from "@/utils/plural";
 
 export type ActivityOptionsSheetProps = {
   open: boolean;
@@ -38,7 +43,10 @@ type View =
   | { kind: "hub" }
   | { kind: "shift"; personId: string }
   | { kind: "timetable"; personId: string }
-  | { kind: "bell" };
+  | { kind: "bell" }
+  | { kind: "breaks" }
+  /** `breakId: null` adds a new one. */
+  | { kind: "breakForm"; breakId: string | null };
 
 function memberName(member: Profile | undefined): string {
   if (!member) return "Dete";
@@ -70,9 +78,17 @@ export function ActivityOptionsSheet({
   const navigate = useNavigate();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "hub" });
   const { view, push, pop, reset } = stack;
+  const { breaks, memberIdsByBreak } = useSchoolBreaks();
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const back = pop;
+
+  // A raspust can only name children who actually have a timetable - being a
+  // student here means having a shift anchor, same rule as the Hub below.
+  const students = useMemo(
+    () => members.filter((member) => anchorsByPersonId.has(member.id)),
+    [members, anchorsByPersonId],
+  );
 
   // A sub-view that needs a member but can't find one (e.g. deleted) falls
   // back to the hub defensively.
@@ -88,14 +104,22 @@ export function ActivityOptionsSheet({
     if (focusedMemberMissing) reset();
   }, [focusedMemberMissing, reset]);
 
-  const titleFor = (v: View, member: Profile | undefined) =>
-    v.kind === "hub"
-      ? "Opcije"
-      : v.kind === "shift"
-        ? `Smena - ${memberName(member)}`
-        : v.kind === "timetable"
-          ? `Raspored - ${memberName(member)}`
-          : "Satnica zvona";
+  const titleFor = (v: View, member: Profile | undefined) => {
+    switch (v.kind) {
+      case "hub":
+        return "Opcije";
+      case "shift":
+        return `Smena - ${memberName(member)}`;
+      case "timetable":
+        return `Raspored - ${memberName(member)}`;
+      case "bell":
+        return "Satnica zvona";
+      case "breaks":
+        return "Raspusti";
+      case "breakForm":
+        return v.breakId ? "Izmeni raspust" : "Novi raspust";
+    }
+  };
 
   return (
     <SheetStackViews
@@ -118,6 +142,7 @@ export function ActivityOptionsSheet({
                 members={members}
                 anchorsByPersonId={anchorsByPersonId}
                 timeBandByPerson={timeBandByPerson}
+                breakCount={breaks.length}
                 onPick={push}
                 onManageFamily={() => {
                   onOpenChange(false);
@@ -147,6 +172,37 @@ export function ActivityOptionsSheet({
             {effectiveView.kind === "bell" ? (
               <BellSchedulePanel bell={bell} onClose={back} />
             ) : null}
+
+            {effectiveView.kind === "breaks" ? (
+              <SchoolBreaksPanel
+                breaks={breaks}
+                memberIdsByBreak={memberIdsByBreak}
+                students={students}
+                onAdd={() => push({ kind: "breakForm", breakId: null })}
+                onEdit={(breakId) => push({ kind: "breakForm", breakId })}
+              />
+            ) : null}
+
+            {effectiveView.kind === "breakForm" ? (
+              <SchoolBreakForm
+                // Remount on switching between breaks: the form seeds its state
+                // once, so without the key an "Izmeni" after an "Izmeni" would
+                // keep the previous break's values.
+                key={effectiveView.breakId ?? "new"}
+                schoolBreak={
+                  effectiveView.breakId
+                    ? (breaks.find((b) => b.id === effectiveView.breakId) ?? null)
+                    : null
+                }
+                initialPersonIds={
+                  effectiveView.breakId
+                    ? [...(memberIdsByBreak.get(effectiveView.breakId) ?? [])]
+                    : []
+                }
+                students={students}
+                onDone={back}
+              />
+            ) : null}
           </ResponsiveDialogContent>
         );
       }}
@@ -158,12 +214,14 @@ function Hub({
   members,
   anchorsByPersonId,
   timeBandByPerson,
+  breakCount,
   onPick,
   onManageFamily,
 }: {
   members: ReadonlyArray<Profile>;
   anchorsByPersonId: ReadonlyMap<string, SchoolShiftAnchor>;
   timeBandByPerson: ReadonlyMap<string, SchoolShift>;
+  breakCount: number;
   onPick: (view: View) => void;
   onManageFamily: () => void;
 }) {
@@ -242,6 +300,24 @@ function Hub({
         >
           <Cog6ToothIcon className="mr-2 h-4 w-4" />
           Satnica zvona
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start"
+          onClick={() => onPick({ kind: "breaks" })}
+        >
+          <SunIcon className="mr-2 h-4 w-4" />
+          Raspusti
+          <span className="ml-auto text-xs font-normal text-muted-foreground">
+            {breakCount > 0
+              ? `${breakCount} ${serbianPlural(breakCount, {
+                  one: "raspust",
+                  few: "raspusta",
+                  many: "raspusta",
+                })}`
+              : "nije podešeno"}
+          </span>
         </Button>
         <Button
           type="button"
