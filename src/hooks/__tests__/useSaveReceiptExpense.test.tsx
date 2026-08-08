@@ -30,10 +30,7 @@ import {
   useSaveReceiptExpense,
   useSplitReceiptExpense,
 } from "@/hooks/useExpenses";
-import type {
-  AttachReceiptToExpenseInput,
-  SaveReceiptExpenseInput,
-} from "@/hooks/useExpenses";
+import type { AttachReceiptToExpenseInput, SaveReceiptExpenseInput } from "@/hooks/useExpenses";
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
@@ -204,7 +201,9 @@ describe("useAttachReceiptToExpense", () => {
     });
 
     const { result } = renderHook(() => useAttachReceiptToExpense(), { wrapper });
-    await expect(result.current.mutateAsync(attachInput)).rejects.toBeInstanceOf(ClaimConflictError);
+    await expect(result.current.mutateAsync(attachInput)).rejects.toBeInstanceOf(
+      ClaimConflictError,
+    );
   });
 
   it("throws DuplicateReceiptError when the receipt is already fully claimed", async () => {
