@@ -13,6 +13,7 @@ import { KidThemeScopeProvider, useKidThemeScope } from "@/components/kid/KidThe
 import { useAuth } from "@/hooks/useAuth";
 import { useFamilyChannel } from "@/hooks/useFamilyChannel";
 import { useKidAccessCheck } from "@/hooks/useKidAccessCheck";
+import { useKidInstallIdentity } from "@/hooks/useKidInstallIdentity";
 import { findKidDevice, readKidDevices } from "@/hooks/useKidLogin";
 import { useKidSession } from "@/hooks/useKidSession";
 import { useApplyKidTheme, useKidTheme } from "@/hooks/useKidTheme";
@@ -105,6 +106,13 @@ function KidLayoutInner() {
   // screen has selected, falling back to what this device remembers.
   const { theme: storedTheme } = useKidTheme(previewTheme ?? rememberedTheme);
   useApplyKidTheme(isKid ? storedTheme : (previewTheme ?? rememberedTheme));
+
+  // What a home-screen install from here would be CALLED, and look like. Not on
+  // the preview: a parent browsing their child's app is still holding their own
+  // app, and must not walk away able to install a kid-branded copy of it.
+  // Gated on `inKidShell` too, so the identity is handed back on the render
+  // where the pathname leaves `/kid` rather than one render later, on unmount.
+  useKidInstallIdentity(inKidShell && !previewRoute);
 
   // The app's single realtime channel + refetch-on-resume. Safe here for the
   // same reason `_app` is safe: only one of the two layouts is ever mounted.

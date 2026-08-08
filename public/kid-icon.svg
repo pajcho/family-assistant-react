@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!--
+    Dečiji režim ("Moj dan") home-screen icon. Square on purpose: iOS and
+    Android apply their own masks. Every mark stays inside a circle of radius
+    186 around the centre (73% of the half-width), well within the 80% Android
+    maskable safe zone, so the circular mask never clips a point of the star.
+
+    Teal + warm yellow is deliberately NOT any of the five kid themes (okean,
+    džungla, sunce, slatkiš, svemir): the child picks the theme, the icon has to
+    sit happily next to all of them, and next to the parent app's royal-blue
+    tile it has to read as a different app at a glance.
+  -->
+  <rect width="512" height="512" fill="#12C4BA"/>
+  <path
+    fill="#FFDA55"
+    d="M 243.5 119.3 Q 256.0 92.0 268.5 119.3 L 296.0 179.6 Q 305.4 200.0 327.7 202.6 L 393.6 210.2 Q 423.4 213.6 401.3 233.9 L 352.5 278.7 Q 335.9 294.0 340.4 316.0 L 353.5 381.0 Q 359.5 410.4 333.3 395.6 L 275.6 363.1 Q 256.0 352.0 236.4 363.1 L 178.7 395.6 Q 152.5 410.4 158.5 381.0 L 171.6 316.0 Q 176.1 294.0 159.5 278.7 L 110.7 233.9 Q 88.6 213.6 118.4 210.2 L 184.3 202.6 Q 206.6 200.0 216.0 179.6 Z"
+  />
+  <circle cx="219" cy="240" r="18" fill="#0A6B67"/>
+  <circle cx="293" cy="240" r="18" fill="#0A6B67"/>
+  <path
+    d="M 217 284 Q 256 316 295 284"
+    fill="none"
+    stroke="#0A6B67"
+    stroke-width="22"
+    stroke-linecap="round"
+  />
+</svg>
