@@ -298,7 +298,6 @@ export interface ResolvedSchoolBlock {
   startTime: string;
   endTime: string;
   subject: string;
-  room: string | null;
   /** The variant that was active this week (the one these blocks came from). */
   variant: TimetableVariant;
   /** The resolved time band whose bell grid produced the times. */
@@ -394,7 +393,6 @@ export function resolveSchoolWeekBlocks(args: {
         startTime: slot.startTime,
         endTime: slot.endTime,
         subject: entry.subject,
-        room: entry.room,
         variant,
         band,
       });

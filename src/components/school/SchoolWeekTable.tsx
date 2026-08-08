@@ -163,9 +163,7 @@ export function SchoolWeekTable({
                             : `Dodaj ${slot.periodIndex}. čas, ${DAY_LABELS_SHORT[day]}`
                         }
                         title={
-                          block
-                            ? `${block.subject}${block.room ? ` · ${block.room}` : ""} · ${slot.startTime}-${slot.endTime}`
-                            : undefined
+                          block ? `${block.subject} · ${slot.startTime}-${slot.endTime}` : undefined
                         }
                       >
                         {block ? (
@@ -173,11 +171,6 @@ export function SchoolWeekTable({
                             <span className="line-clamp-2 text-[11.5px] leading-tight font-semibold text-foreground">
                               {block.subject}
                             </span>
-                            {block.room ? (
-                              <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                                {block.room}
-                              </span>
-                            ) : null}
                           </>
                         ) : (
                           <span className="text-[11px]" aria-hidden="true">

@@ -55,6 +55,12 @@ export type AgendaItem =
       block: ResolvedActivityBlock;
       person: Profile | undefined;
       activity: Activity | undefined;
+      /**
+       * A parent cancelled THIS occurrence. Only ever true when the caller
+       * asked for `includeCanceled` - everywhere else these are dropped, so
+       * the field reads as `false` and no renderer has to think about it.
+       */
+      canceled: boolean;
     }
   | {
       kind: "event";
@@ -75,6 +81,8 @@ export type AgendaItem =
       dayIndex: number;
       totalDays: number;
       personIds: string[];
+      /** The event carries `canceled_at`. See the activity arm's note. */
+      canceled: boolean;
     }
   | {
       kind: "payment";
@@ -132,7 +140,37 @@ function timeToMin(time: string): number {
   return h * 60 + m;
 }
 
-export function useAgenda({ from, to }: { from: string; to: string }): UseAgendaResult {
+/** True for an occurrence a parent cancelled - the only kinds that can be. */
+export function isCanceledAgendaItem(item: AgendaItem): boolean {
+  return (item.kind === "activity" || item.kind === "event") && item.canceled;
+}
+
+export interface UseAgendaOptions {
+  /** Inclusive window start, `YYYY-MM-DD`. */
+  from: string;
+  /** Inclusive window end, `YYYY-MM-DD`. */
+  to: string;
+  /**
+   * Keep cancelled occurrences in the output, flagged `canceled: true`, instead
+   * of dropping them (the default).
+   *
+   * Off for the whole grown-up app on purpose: a parent DID the cancelling, so
+   * the thing disappearing is the expected outcome, and every count, calendar
+   * cell and week column stays exactly as it was. The kid shell turns it on,
+   * because a child is a passive reader - to them a cancellation is news, and a
+   * row that silently vanishes reads as "I must have misremembered".
+   *
+   * Moved-away ghosts are dropped either way: the occurrence surfaces at its new
+   * date, and a second row at the old time would say the opposite of the truth.
+   */
+  includeCanceled?: boolean;
+}
+
+export function useAgenda({
+  from,
+  to,
+  includeCanceled = false,
+}: UseAgendaOptions): UseAgendaResult {
   // Activity inputs - same raw queries `useWeekActivities` composes.
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
@@ -173,18 +211,22 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
       overrides: overridesQuery.data ?? [],
     });
     for (const block of blocks) {
-      // Show what actually happens: drop cancellations and moved-away ghosts
-      // (the moved-here block surfaces on its new date). Mirrors the old
-      // today-card rules.
-      if (block.override?.action === "cancel") continue;
+      // Show what actually happens: drop moved-away ghosts (the moved-here
+      // block surfaces on its new date), and drop cancellations unless the
+      // caller asked to be told about them. Mirrors the old today-card rules.
+      const canceled = block.override?.action === "cancel";
+      if (canceled && !includeCanceled) continue;
       if (block.override?.movedTo) continue;
       out.push({
         kind: "activity",
         date: block.date,
+        // Cancelled or not, it keeps its slot: a struck-through row where the
+        // child expects it is the whole point of showing it.
         sortKey: timeToMin(block.startTime),
         block,
         person: peopleById.get(block.personId),
         activity: activitiesById.get(block.activityId),
+        canceled,
       });
     }
 
@@ -193,7 +235,8 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
     // window), the same way the gcal sync expands Google events into per-day
     // rows: day 1 timed (when it has a start), the rest all-day continuations.
     for (const event of eventsQuery.data ?? []) {
-      if (event.canceled_at) continue;
+      const canceled = Boolean(event.canceled_at);
+      if (canceled && !includeCanceled) continue;
       for (const slice of eventDaySlices(event, from, to)) {
         const startTime = slice.startTime ? normalizeTime(slice.startTime) : null;
         out.push({
@@ -207,6 +250,7 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
           dayIndex: slice.dayIndex,
           totalDays: slice.totalDays,
           personIds: byEvent.get(event.id) ?? [],
+          canceled,
         });
       }
     }
@@ -261,6 +305,7 @@ export function useAgenda({ from, to }: { from: string; to: string }): UseAgenda
   }, [
     from,
     to,
+    includeCanceled,
     activitiesQuery.data,
     scheduleQuery.data,
     participantsQuery.data,

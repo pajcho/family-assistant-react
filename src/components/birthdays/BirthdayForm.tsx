@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { EyeIcon } from "@heroicons/react/24/outline";
 import type { Birthday } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/common/DateField";
 import { FieldHint, FormInput } from "@/components/common/FormControls";
+import { PickerRow } from "@/components/common/PickerRow";
 import { useToday } from "@/hooks/useToday";
 
 /**
@@ -16,22 +18,47 @@ import { useToday } from "@/hooks/useToday";
  *   so the DB column stays nullable rather than holding empty strings.
  * - Submit is gated locally on `name` + `birth_date` to avoid emitting an
  *   incomplete payload; the underlying mutation hook also validates.
+ * - "Vidljivo deci" is the only field the form doesn't own: its draft lives in
+ *   the dialog (a sub-view opens OVER this form and must not lose it), and the
+ *   row disappears entirely for families with no kid mode.
  */
 export type BirthdayFormPayload = {
   name: string;
   description: string | null;
   birth_date: string;
+  /**
+   * Client-generated primary key, set on CREATE only. The birthday's child
+   * rows (`birthday_visibility`) need its id, and every surface forwards this
+   * payload straight into `insert()` without handing the created row back -
+   * see `BirthdayFormDialog`. Absent when editing.
+   */
+  id?: string;
+};
+
+/** The "Vidljivo deci" row, wired by the dialog that owns the draft. */
+export type BirthdayVisibilityField = {
+  /** Children who will see this birthday, in roster order. Empty = nobody. */
+  names: string[];
+  onOpen: () => void;
 };
 
 export type BirthdayFormProps = {
   birthday?: Birthday | null;
   /** Disables submit + cancel while the parent mutation is in flight. */
   saving?: boolean;
+  /** Omitted when no child in the family has kid access - renders nothing. */
+  visibility?: BirthdayVisibilityField;
   onSubmit: (payload: BirthdayFormPayload) => void;
   onCancel: () => void;
 };
 
-export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: BirthdayFormProps) {
+export function BirthdayForm({
+  birthday,
+  saving = false,
+  visibility,
+  onSubmit,
+  onCancel,
+}: BirthdayFormProps) {
   const isEdit = !!birthday?.id;
   const today = useToday();
 
@@ -88,6 +115,23 @@ export function BirthdayForm({ birthday, saving = false, onSubmit, onCancel }: B
         placeholder="Datum rođenja"
         maxDate={today.str}
       />
+      {visibility ? (
+        <div>
+          {/* Words, never a count: "Niko" has to read as a decision, not as an
+              empty field, because it is also the default for every birthday. */}
+          <PickerRow
+            title="Vidljivo deci"
+            summary={visibility.names.length > 0 ? visibility.names.join(", ") : "Niko"}
+            icon={<EyeIcon className="size-[17px]" />}
+            onClick={visibility.onOpen}
+          />
+          {visibility.names.length === 0 ? (
+            <FieldHint>
+              Deca ne vide rođendane u svojoj aplikaciji dok ih ovde ne uključiš.
+            </FieldHint>
+          ) : null}
+        </div>
+      ) : null}
       <FieldHint>
         Godišnjice se računaju same, uz podsetnik na vreme. Proslavu kasnije organizuješ jednim
         tapom iz detalja.

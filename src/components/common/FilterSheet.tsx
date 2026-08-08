@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import {
@@ -125,6 +126,8 @@ export type AppliedFilter = {
   label: string;
   /** Member color dot, when the filter is a person. */
   color?: string;
+  /** Member emoji, when the viewer reads members as emoji - replaces the dot. */
+  emoji?: string;
   onRemove: () => void;
 };
 
@@ -143,7 +146,11 @@ export function AppliedFilterChips({
           key={f.key}
           className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent-soft py-0.5 pr-1 pl-2.5 text-xs font-semibold text-accent-deep"
         >
-          {f.color ? (
+          {f.emoji ? (
+            <span aria-hidden="true" className="text-[15px] leading-none">
+              {f.emoji}
+            </span>
+          ) : f.color ? (
             <span
               className="size-2 rounded-full"
               style={{ backgroundColor: f.color }}
@@ -180,6 +187,7 @@ export function useMemberAppliedFilters(
   onToggle: (personId: string) => void,
 ): AppliedFilter[] {
   const { members } = useFamilyMembers();
+  const memberEmoji = useMemberEmoji();
   return useMemo(
     () =>
       members
@@ -190,8 +198,9 @@ export function useMemberAppliedFilters(
             getDisplayName({ firstName: m.first_name, lastName: m.last_name, email: null }) ||
             "Bez imena",
           color: m.color ?? fallbackColorForProfile(m.id),
+          emoji: memberEmoji(m),
           onRemove: () => onToggle(m.id),
         })),
-    [members, selected, onToggle],
+    [members, selected, onToggle, memberEmoji],
   );
 }

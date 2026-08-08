@@ -165,6 +165,40 @@ export function useUpdateProfileColor() {
 }
 
 /**
+ * Update the `avatar_emoji` on any profile in the caller's family - the emoji
+ * that stands for that PERSON, picked by a parent next to the colour and shown
+ * to everyone (the kid app always, the main app when the viewer asked for
+ * emoji). `null` clears it back to the automatic animal.
+ *
+ * Same RLS path as `useUpdateProfileColor`: a family member may write another
+ * family profile's presentation fields. Deliberately NOT `member_avatar_style`
+ * - that one is the viewer's own setting and lives in `useMemberAvatarStyle`.
+ */
+export function useUpdateMemberAvatarEmoji() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { profileId: string; avatar_emoji: string | null }): Promise<void> => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_emoji: args.avatar_emoji })
+        .eq("id", args.profileId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["family-members", familyId] });
+      // The caller's own row is cached under "profile" too - invalidate so a
+      // parent picking their own emoji sees it without a reload.
+      void queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Greška pri postavljanju emoji-ja");
+    },
+  });
+}
+
+/**
  * Update a member's first / last name. Admin-only for *other* members (the
  * "Admins can update family profiles" RLS policy); a member editing their own
  * row goes through `useProfile().updateProfile` instead. `full_name` is

@@ -36,12 +36,25 @@ function isSection(value: unknown): value is SettingsSection {
 export const Route = createFileRoute("/_app/settings")({
   // Deep-linkable sub-screen. Missing = the hub itself. `gcal`/`reason` are
   // the one-shot flags the Google OAuth callback redirects back with - kept in
-  // the schema so the screen can read and then clear them.
+  // the schema so the screen can read and then clear them. `clan` preselects a
+  // member inside `?tab=family` (that master-detail keeps its selection in
+  // local state), which is how "Izađi iz pregleda" gets back to the child it
+  // was previewing rather than to the roster.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: SettingsSection; gcal?: "connected" | "error"; reason?: string } => {
+  ): {
+    tab?: SettingsSection;
+    gcal?: "connected" | "error";
+    reason?: string;
+    clan?: string;
+  } => {
     const raw = search.tab;
-    const result: { tab?: SettingsSection; gcal?: "connected" | "error"; reason?: string } = {};
+    const result: {
+      tab?: SettingsSection;
+      gcal?: "connected" | "error";
+      reason?: string;
+      clan?: string;
+    } = {};
     if (isSection(raw)) {
       result.tab = raw;
     } else if (raw != null) {
@@ -54,13 +67,14 @@ export const Route = createFileRoute("/_app/settings")({
     }
     if (search.gcal === "connected" || search.gcal === "error") result.gcal = search.gcal;
     if (typeof search.reason === "string") result.reason = search.reason;
+    if (typeof search.clan === "string") result.clan = search.clan;
     return result;
   },
   component: SettingsRoute,
 });
 
 function SettingsRoute() {
-  const { tab, gcal, reason } = Route.useSearch();
+  const { tab, gcal, reason, clan } = Route.useSearch();
   const navigate = useNavigate();
 
   return (
@@ -68,6 +82,7 @@ function SettingsRoute() {
       section={tab ?? null}
       gcal={gcal}
       reason={reason}
+      memberId={clan}
       onOpenSection={(next) => void navigate({ to: "/settings", search: { tab: next } })}
       onBack={() => void navigate({ to: "/settings", search: {} })}
       onGcalHandled={() =>

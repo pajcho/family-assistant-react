@@ -23,8 +23,13 @@ import { getDisplayName } from "@/utils/identity";
  *
  * Admin-only for mutations (enforced in RLS + the Edge Function). Non-admins
  * see a read-only roster.
+ *
+ * `initialMemberId` (from `?clan=`) only SEEDS that local selection - it is not
+ * kept in sync afterwards, so picking another member or going back to the
+ * roster works exactly as before. It exists so "Izađi iz pregleda" in the kid
+ * preview returns to the child it was previewing instead of the list.
  */
-export function FamilyTab() {
+export function FamilyTab({ initialMemberId = null }: { initialMemberId?: string | null } = {}) {
   const isWide = useIsWide();
   const { members, isLoading } = useFamilyMembers();
   const { profile, isAdmin } = useProfile();
@@ -48,7 +53,7 @@ export function FamilyTab() {
   const studentIds = useMemo(() => new Set(anchorsByPersonId.keys()), [anchorsByPersonId]);
   const adminCount = useMemo(() => members.filter((m) => m.is_admin).length, [members]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialMemberId);
   const [addOpen, setAddOpen] = useState(false);
 
   // Desktop: keep a member selected so the detail pane is never empty. Prefer

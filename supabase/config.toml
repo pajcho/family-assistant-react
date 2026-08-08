@@ -47,6 +47,28 @@ verify_jwt = false
 [functions.receipt-import]
 verify_jwt = true
 
+# kid-auth is what a child calls to GET a session, so by definition there is no
+# JWT to verify yet - the same situation as gcal-oauth-callback. It is the only
+# function whose whole job runs before authentication, so it is the only place
+# this exception applies; kid-access (the parent side) keeps the default
+# verify_jwt = true.
+#
+# What stands in for the JWT is two factors the function checks itself:
+#   1. a device token - 32 CSPRNG bytes a parent planted via a one-time QR link,
+#      stored only as SHA-256, with no username field and no name lookup, so the
+#      endpoint can't be used to enumerate a family's children; and
+#   2. a PIN, PBKDF2-hashed, behind a 5-strike / 15-minute lockout that makes a
+#      4-digit secret defensible.
+# Neither the invite nor the device token is guessable, and every wrong PIN costs
+# an attempt, so an unauthenticated caller has nothing to work with.
+#
+# The `check` action (does this device still have access?) is the one that runs
+# WITH a session, but it lives here rather than in a verify_jwt = true function
+# for the same reason as the rest: it is answered from the device token alone,
+# returns only ok / device_unknown / access_disabled, and hands back no data.
+[functions.kid-auth]
+verify_jwt = false
+
 # exchange-rate is called from the client while a member types a foreign-currency
 # expense; it resolves the official NBS middle rate for a (currency, date) pair,
 # caching results in `exchange_rates` via the service role (members are

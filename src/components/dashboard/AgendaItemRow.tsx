@@ -12,6 +12,7 @@ import {
   PersonDot,
 } from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { Pill } from "@/components/common/Pill";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import type { AgendaItem } from "@/hooks/useAgenda";
@@ -117,6 +118,7 @@ function ActivityRow({
   activity: Activity | undefined;
   onClick: () => void;
 }) {
+  const memberEmoji = useMemberEmoji();
   const color = person?.color ?? fallbackColorForProfile(block.personId);
   const personName = person
     ? getDisplayName({
@@ -136,7 +138,7 @@ function ActivityRow({
         <ItemMain>
           <ItemTitle>
             <span className="min-w-0 truncate">{activityName}</span>
-            <PersonDot color={color} />
+            <PersonDot color={color} emoji={memberEmoji(person, block.personId)} />
           </ItemTitle>
           <ItemMeta>
             {block.startTime}-{block.endTime} · {personName}

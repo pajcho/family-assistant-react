@@ -57,7 +57,10 @@ export default defineConfig(({ mode }) => ({
       },
       injectManifest: {
         // `wasm` covers the zxing-wasm QR decoder (~1MB) so the scanner works
-        // instantly and offline once the SW has precached it.
+        // instantly and offline once the SW has precached it. `webmanifest`
+        // covers the generated one AND `public/kid.webmanifest`, the dečiji
+        // režim install identity swapped in by `useKidInstallIdentity` - narrow
+        // this pattern and the kid icons stop being available offline.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,wasm}"],
         // Splash screens are huge (~30MB total) and only used at native
         // launch time from the home-screen icon - caching them via SW would

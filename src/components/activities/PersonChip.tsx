@@ -1,6 +1,7 @@
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 
 import { FilterChip } from "@/components/common/FilterChips";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import type { Profile, SchoolShift } from "@/types/database";
 import { SHIFT_LABELS, fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
@@ -27,6 +28,7 @@ export type PersonChipProps = {
  * same 44px tap target as every other filter on the screen.
  */
 export function PersonChip({ person, active, onToggle, shift }: PersonChipProps) {
+  const memberEmoji = useMemberEmoji();
   const color = person.color ?? fallbackColorForProfile(person.id);
   const name =
     getDisplayName({
@@ -36,7 +38,7 @@ export function PersonChip({ person, active, onToggle, shift }: PersonChipProps)
     }) || "Bez imena";
 
   return (
-    <FilterChip active={active} onToggle={onToggle} color={color}>
+    <FilterChip active={active} onToggle={onToggle} color={color} emoji={memberEmoji(person)}>
       <span className="truncate">{name}</span>
       {shift ? (
         <span title={SHIFT_LABELS[shift]} aria-label={SHIFT_LABELS[shift]}>

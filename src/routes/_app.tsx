@@ -12,6 +12,7 @@ import { SearchDialogProvider } from "@/hooks/useSearchDialog";
 import { useVisibilityRefetch } from "@/hooks/useVisibilityRefetch";
 import { sectionForPathname } from "@/components/layout/navSections";
 import { recordNavRecent } from "@/lib/navRecents";
+import { readKidClaims } from "@/types/kid";
 
 /**
  * Protected layout route. All authenticated pages sit under `_app` so they
@@ -93,6 +94,15 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   if (!session) {
     return <Navigate to="/login" />;
+  }
+
+  // Dečiji režim: a kid signs in against the same Supabase project but has no
+  // row in `profiles`, so every screen under `_app` would render empty for
+  // them. Their whole app is the `/kid` shell (a sibling layout route, so none
+  // of this frame is even mounted). Read straight off the JWT claims - no
+  // round trip, so there is no flash of the grown-up layout first.
+  if (readKidClaims(session.user.app_metadata)) {
+    return <Navigate to="/kid" />;
   }
 
   return <>{children}</>;

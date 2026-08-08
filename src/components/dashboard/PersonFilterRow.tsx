@@ -1,5 +1,6 @@
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 
@@ -25,6 +26,7 @@ export function PersonFilterRow({
   onClear: () => void;
 }) {
   const { members } = useFamilyMembers();
+  const memberEmoji = useMemberEmoji();
   // With one member (a brand-new family) there is nobody to narrow to - the
   // row would be "Svi + that one person", which filters nothing.
   if (members.length <= 1) return null;
@@ -42,6 +44,7 @@ export function PersonFilterRow({
           active={selected.has(member.id)}
           onToggle={() => onToggle(member.id)}
           color={member.color ?? fallbackColorForProfile(member.id)}
+          emoji={memberEmoji(member)}
         >
           {getDisplayName({
             firstName: member.first_name,

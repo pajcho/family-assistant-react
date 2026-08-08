@@ -528,7 +528,6 @@ export function AgendaWeekCalendar({
                   key={`school-${entry.block.entryId}-${entry.block.date}`}
                   {...box}
                   subject={entry.block.subject}
-                  room={entry.block.room}
                   color={
                     peopleById.get(entry.block.personId)?.color ??
                     fallbackColorForProfile(entry.block.personId)
@@ -606,7 +605,6 @@ export function AgendaWeekCalendar({
  */
 function SchoolBlock({
   subject,
-  room,
   color,
   isPast,
   lane,
@@ -618,7 +616,6 @@ function SchoolBlock({
   onClick,
 }: {
   subject: string;
-  room: string | null;
   color: string;
   isPast: boolean;
   lane: number;
@@ -649,7 +646,7 @@ function SchoolBlock({
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         isPast && "opacity-60",
       )}
-      title={`${subject}${room ? ` · ${room}` : ""} · ${startTime}`}
+      title={`${subject} · ${startTime}`}
     >
       <div className="flex items-center gap-1 text-[9.5px] text-muted-foreground">
         <BookOpenIcon className="size-2.5 shrink-0" aria-hidden="true" />
