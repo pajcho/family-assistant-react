@@ -23,7 +23,9 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { UserAvatar } from "@/components/layout/UserAvatar";
+import { KidAccessSection } from "@/components/family/KidAccessSection";
+import { MemberAvatar } from "@/components/common/MemberAvatar";
+import { MemberAvatarPicker } from "@/components/family/MemberAvatarPicker";
 import {
   useDeleteFamilyMember,
   useSetMemberAdmin,
@@ -33,7 +35,7 @@ import {
 import { useCreateMemberLogin, useDisableMemberLogin } from "@/hooks/useFamilyLogin";
 import { useDeleteSchoolShiftAnchor, useUpsertSchoolShiftAnchor } from "@/hooks/useSchoolShifts";
 import { cn } from "@/lib/cn";
-import { PROFILE_COLOR_PALETTE, fallbackColorForProfile, getThisWeekStart } from "@/utils/activity";
+import { PROFILE_COLOR_PALETTE, getThisWeekStart } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import type { Profile } from "@/types/database";
 
@@ -81,7 +83,6 @@ export function MemberDetail({
   const name =
     getDisplayName({ firstName: member.first_name, lastName: member.last_name, email: null }) ||
     "Bez imena";
-  const color = member.color ?? fallbackColorForProfile(member.id);
 
   const isSelf = member.id === currentUserId;
   const isLastAdmin = member.is_admin && adminCount <= 1;
@@ -101,19 +102,11 @@ export function MemberDetail({
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <span className="relative">
-          <UserAvatar
-            firstName={member.first_name}
-            lastName={member.last_name}
-            email={null}
-            className="h-12 w-12 text-base"
-          />
-          <span
-            className="absolute -right-0.5 -bottom-0.5 size-4 rounded-full border-2 border-card"
-            style={{ backgroundColor: color }}
-            aria-hidden="true"
-          />
-        </span>
+        {/* The member's own tile, drawn exactly as the list draws it - colour
+            and all. It used to be the generic blue account avatar with a colour
+            dot pinned to its corner, which made the one screen ABOUT this
+            member the only one not showing them. */}
+        <MemberAvatar member={member} size="lg" />
         <div className="min-w-0">
           <div className="truncate text-lg font-semibold text-foreground">
             {name}
@@ -152,6 +145,8 @@ export function MemberDetail({
 
       <ColorPicker member={member} />
 
+      <MemberAvatarPicker member={member} memberName={name} />
+
       {/* Login management */}
       <section className="space-y-2">
         <SectionTitle icon={<KeyIcon className="h-4 w-4" />} title="Nalog za prijavu" />
@@ -188,6 +183,10 @@ export function MemberDetail({
           </div>
         )}
       </section>
+
+      {/* Kid mode - only for members who will never have a login of their own;
+          the section renders nothing for anyone else. */}
+      {!member.has_login ? <KidAccessSection member={member} memberName={name} /> : null}
 
       {/* Roles */}
       <section className="space-y-3">

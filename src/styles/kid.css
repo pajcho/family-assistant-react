@@ -1,0 +1,267 @@
+/* ===========================================================================
+   Dečiji režim - potpuno odvojen vizuelni svet
+   ---------------------------------------------------------------------------
+   The kid shell deliberately does NOT share the app's design system. It has its
+   own palette, its own radii and its own (rounded) font stack, so that nothing
+   a parent changes in the main app - light/dark mode, the per-user accent
+   ("boja aplikacije") - can bleed into a child's screen.
+
+   Mechanism: the kid layout route puts `data-kid-theme="<key>"` on <html> and
+   removes it on unmount. Every kid component reads ONLY the `--k-*` variables
+   below through Tailwind arbitrary values (`bg-[var(--k-card)]`), never
+   `bg-background` / `text-foreground` / `bg-accent`. That is what makes the
+   isolation real rather than a convention.
+
+   Five self-contained themes (4 light + 1 dark). Keys are ENGLISH because they
+   are stored in `kid_access.theme`; Serbian lives only in the labels
+   (see `KID_THEME_OPTIONS` in `src/types/kid.ts`).
+
+     --k-bg      screen background
+     --k-card    card / sheet surface
+     --k-ink     primary text
+     --k-sub     secondary text
+     --k-line    hairline borders
+     --k-soft    tinted surface (icon tiles, active nav tab, chips)
+     --k-accent  the theme colour as text / fill
+     --k-accent-ink  text ON that fill (white on the light themes, dark on Svemir)
+     --k-accent-strong  the theme colour as text on WHITE (the login button);
+                    same as --k-accent except in Svemir, whose accent is a pale
+                    purple picked to read on a dark card and fails on white
+     --k-grad    the header + login gradient
+     --k-shadow  card shadow
+     --k-nav     bottom-bar surface (kept opaque-ish; see the iOS note below)
+   =========================================================================== */
+
+html[data-kid-theme="ocean"] {
+  --k-bg: #eaf3fd;
+  --k-card: #ffffff;
+  --k-ink: #123a5f;
+  --k-sub: #5b7f9f;
+  --k-line: #dbe9f7;
+  --k-soft: #e3f1ff;
+  --k-accent: #1f66c9;
+  --k-accent-strong: #1f66c9;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #41b7f0, #3163e9);
+  --k-shadow: 0 3px 12px -5px rgb(30 80 160 / 0.22);
+  --k-danger: #c81e42;
+  --k-danger-soft: #fff1f3;
+  --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+html[data-kid-theme="jungle"] {
+  --k-bg: #edf7ec;
+  --k-card: #ffffff;
+  --k-ink: #1e4d33;
+  --k-sub: #5f866d;
+  --k-line: #dbeedd;
+  --k-soft: #e1f4e4;
+  --k-accent: #12784a;
+  --k-accent-strong: #12784a;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #43c06e, #0e8c5b);
+  --k-shadow: 0 3px 12px -5px rgb(20 110 60 / 0.2);
+  --k-danger: #c81e42;
+  --k-danger-soft: #fff1f3;
+  --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+html[data-kid-theme="sun"] {
+  --k-bg: #fff4e3;
+  --k-card: #ffffff;
+  --k-ink: #6b3a08;
+  --k-sub: #97703f;
+  --k-line: #f5e4cb;
+  --k-soft: #ffebd1;
+  --k-accent: #b95c07;
+  --k-accent-strong: #b95c07;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #ffc53d, #f4741f);
+  --k-shadow: 0 3px 12px -5px rgb(190 110 20 / 0.22);
+  --k-danger: #c81e42;
+  --k-danger-soft: #fff1f3;
+  --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+html[data-kid-theme="candy"] {
+  --k-bg: #fdeff5;
+  --k-card: #ffffff;
+  --k-ink: #6d2150;
+  --k-sub: #9c6081;
+  --k-line: #f6dce8;
+  --k-soft: #fce3ee;
+  --k-accent: #c02c6d;
+  --k-accent-strong: #c02c6d;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #f675b4, #d9367c);
+  --k-shadow: 0 3px 12px -5px rgb(180 50 110 / 0.2);
+  --k-danger: #c81e42;
+  --k-danger-soft: #fff1f3;
+  --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+html[data-kid-theme="space"] {
+  --k-bg: #151030;
+  --k-card: #211b47;
+  --k-ink: #f0edff;
+  --k-sub: #a69fd8;
+  --k-line: #322a5e;
+  --k-soft: #2b2358;
+  --k-accent: #b9a3ff;
+  --k-accent-strong: #5b3fd6;
+  --k-accent-ink: #1b1440;
+  --k-grad: linear-gradient(135deg, #5b5be0, #9d4ee8);
+  --k-shadow: 0 4px 14px -5px rgb(0 0 0 / 0.5);
+  --k-danger: #ff9aa6;
+  --k-danger-soft: #3d2233;
+  --k-danger-ink: #ffc7ce;
+  --k-nav: #1e1840;
+}
+
+/* Paint the theme all the way out to the overscroll area, so a rubber-band
+   scroll on iOS reveals the kid background instead of the main app's. */
+html[data-kid-theme] {
+  background: var(--k-bg);
+}
+
+/* The rounded, friendly face. `ui-rounded` resolves to SF Pro Rounded on
+   Apple devices - the single biggest reason the kid shell reads as a different
+   app than the parent one. Everything else falls back to the system UI font. */
+html[data-kid-theme] .kid-font {
+  font-family:
+    ui-rounded,
+    -apple-system,
+    "SF Pro Rounded",
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+
+/* The "SADA" badge on the current class. Deliberately the only looping
+   animation in the shell, and it is off under prefers-reduced-motion. */
+@keyframes kid-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+/* Floating decorations on the login / device-link screens. */
+@keyframes kid-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+}
+
+/* Screen entry - a short rise, matching the prototype's `rise`. */
+@keyframes kid-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sheets slide up from the bottom edge. */
+@keyframes kid-sheet-in {
+  from {
+    transform: translateY(24px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes kid-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.kid-pulse {
+  animation: kid-pulse 1.6s ease infinite;
+}
+.kid-bob {
+  animation: kid-bob 4.5s ease-in-out infinite;
+}
+.kid-rise {
+  animation: kid-rise 0.28s ease;
+}
+.kid-sheet-in {
+  animation: kid-sheet-in 0.25s ease;
+}
+.kid-fade-in {
+  animation: kid-fade-in 0.2s ease;
+}
+
+/* A card border painted with the theme gradient (the "Škola danas" card).
+   Two backgrounds: the card colour clipped to the padding box, the gradient
+   to the border box - the standard gradient-border trick, no pseudo-element. */
+.kid-gradient-border {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--k-card), var(--k-card)) padding-box,
+    var(--k-grad) border-box;
+}
+
+/* The kid body scrolls; hide the bar so the screen stays calm on desktop too.
+   Momentum scrolling is left to the platform. */
+.kid-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kid-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tap-and-hold on a keypad key or a profile tile should press it, not start a
+   text selection with a magnifier - only the controls, so card text stays
+   selectable. */
+html[data-kid-theme] button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* One visible focus ring for the whole shell - keyboard users get a thick,
+   high-contrast outline that works on the gradient header as well as on cards. */
+html[data-kid-theme] :focus-visible {
+  outline: 3px solid var(--k-accent);
+  outline-offset: 2px;
+  border-radius: 14px;
+}
+html[data-kid-theme] .kid-on-gradient:focus-visible {
+  outline-color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kid-pulse,
+  .kid-bob,
+  .kid-rise,
+  .kid-sheet-in,
+  .kid-fade-in {
+    animation: none !important;
+  }
+  html[data-kid-theme] * {
+    transition-duration: 0.01ms !important;
+  }
+}

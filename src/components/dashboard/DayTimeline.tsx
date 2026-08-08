@@ -11,11 +11,13 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Amount } from "@/components/common/Amount";
+import { PersonDot } from "@/components/common/ItemCard";
 import { useMinuteTick } from "@/components/dashboard/agendaCalendarShared";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import type { Profile } from "@/types/database";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { currentAge } from "@/utils/birthday";
@@ -165,16 +167,6 @@ const TONE_SQUARE: Record<Tone, string> = {
 };
 
 /** A person's colour dot, appended to a title. */
-function PersonDot({ color }: { color: string }) {
-  return (
-    <span
-      className="inline-block size-[7px] flex-none rounded-full"
-      style={{ backgroundColor: color }}
-      aria-hidden="true"
-    />
-  );
-}
-
 function Pill({ tone, children }: { tone: Tone | "neg"; children: ReactNode }) {
   return (
     <span
@@ -207,7 +199,8 @@ function TimelineCard({
   onClick: () => void;
   side?: ReactNode;
 }) {
-  const content = cardContent(item, members);
+  const memberEmoji = useMemberEmoji();
+  const content = cardContent(item, members, memberEmoji);
 
   return (
     <button
@@ -248,6 +241,8 @@ function memberName(members: Map<string, Profile>, id: string): string {
 function cardContent(
   item: AgendaItem,
   members: Map<string, Profile>,
+  /** From `useMemberEmoji` - returns undefined while the viewer is on initials. */
+  memberEmoji: (member: Profile | undefined, personId?: string) => string | undefined,
 ): { square: ReactNode; title: ReactNode; meta: ReactNode; side?: ReactNode } {
   switch (item.kind) {
     case "activity": {
@@ -258,7 +253,10 @@ function cardContent(
         title: (
           <>
             {item.activity?.name ?? "Aktivnost"}
-            <PersonDot color={color} />
+            <PersonDot
+              color={color}
+              emoji={memberEmoji(item.person ?? undefined, item.block.personId)}
+            />
           </>
         ),
         meta: (
@@ -277,7 +275,11 @@ function cardContent(
           <>
             {item.event.name}
             {item.personIds.map((id) => (
-              <PersonDot key={id} color={members.get(id)?.color ?? fallbackColorForProfile(id)} />
+              <PersonDot
+                key={id}
+                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+                emoji={memberEmoji(members.get(id), id)}
+              />
             ))}
           </>
         ),
@@ -318,7 +320,11 @@ function cardContent(
           <>
             {item.payment.name}
             {item.personIds.map((id) => (
-              <PersonDot key={id} color={members.get(id)?.color ?? fallbackColorForProfile(id)} />
+              <PersonDot
+                key={id}
+                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+                emoji={memberEmoji(members.get(id), id)}
+              />
             ))}
           </>
         ),
@@ -363,7 +369,8 @@ function SpanChip({
   members: Map<string, Profile>;
   onClick: () => void;
 }) {
-  const content = cardContent(item, members);
+  const memberEmoji = useMemberEmoji();
+  const content = cardContent(item, members, memberEmoji);
   const sub =
     item.kind === "event" && item.totalDays > 1
       ? `Dan ${item.dayIndex}/${item.totalDays}`

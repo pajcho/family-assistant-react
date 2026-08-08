@@ -3,6 +3,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   ChevronRightIcon,
+  EyeIcon,
   PencilSquareIcon,
   SparklesIcon,
   TrashIcon,
@@ -27,12 +28,17 @@ import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
 import { useDeleteBirthday } from "@/hooks/useBirthdays";
+import {
+  useBirthdayVisibility,
+  useBirthdayVisibilityChildren,
+} from "@/hooks/useBirthdayVisibility";
 import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { usePaymentsList } from "@/hooks/usePayments";
 import type { Birthday, Event } from "@/types/database";
 import { currentAge, daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 import { formatDate } from "@/utils/date";
+import { getDisplayName } from "@/utils/identity";
 
 /**
  * THE birthday detail popup - the same component on the /birthdays page and
@@ -104,6 +110,29 @@ export function BirthdayDetailDialog({
   const [celebrationError, setCelebrationError] = useState<string | null>(null);
 
   const celebration = birthday ? (celebrationByBirthday?.get(birthday.id) ?? null) : null;
+
+  // Kid mode: one read-only line naming the children who see this birthday.
+  // Families that never turned kid mode on get no line at all - the concept
+  // does not exist for them.
+  const { byBirthday: visibilityByBirthday } = useBirthdayVisibility();
+  const { children: kidChildren, hasKidMode } = useBirthdayVisibilityChildren();
+  const visibleToLabel = useMemo(() => {
+    if (!hasKidMode || !birthday) return null;
+    const seenBy = new Set(
+      (visibilityByBirthday.get(birthday.id) ?? []).map((entry) => entry.personId),
+    );
+    const names = kidChildren
+      .filter((child) => seenBy.has(child.id))
+      .map(
+        (child) =>
+          getDisplayName({
+            firstName: child.first_name,
+            lastName: child.last_name,
+            email: null,
+          }) || "Bez imena",
+      );
+    return names.length > 0 ? names.join(", ") : "Niko";
+  }, [hasKidMode, birthday, visibilityByBirthday, kidChildren]);
 
   // Poklon tracking - payments linked to this birthday.
   const linkedPayments = useMemo(
@@ -204,10 +233,17 @@ export function BirthdayDetailDialog({
                       ]}
                     />
 
-                    {birthday.description || celebration ? (
+                    {birthday.description || celebration || visibleToLabel ? (
                       <DetailInfoRows>
                         {birthday.description ? (
                           <DetailInfoText label="Opis" value={birthday.description} />
+                        ) : null}
+                        {visibleToLabel ? (
+                          <DetailInfoText
+                            label="Vidljivo deci"
+                            icon={EyeIcon}
+                            value={visibleToLabel}
+                          />
                         ) : null}
                         {celebration ? (
                           <button

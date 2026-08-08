@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { Family, Profile } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { readKidClaims } from "@/types/kid";
 
 /**
  * Fetches the current user's profile + their family in a single query,
@@ -54,16 +55,34 @@ export function useProfile() {
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
 
+  /**
+   * Dečiji režim: a kid's auth user is synthetic and has NO row in `profiles`
+   * (that is the whole security model - see `types/kid.ts`). The link to the
+   * child's real profile lives in `kid_access` and is mirrored into the JWT
+   * claims, so resolve through those. Without this, `familyId` is null for a
+   * kid session and EVERY family-scoped hook downstream - all of which gate on
+   * `enabled: !!familyId` - stays switched off and the kid shell renders empty.
+   *
+   * Grown-up sessions are unaffected: `kid_profile_id` is absent, so this is
+   * exactly `user.id`.
+   */
+  const profileId = readKidClaims(user?.app_metadata)?.kid_profile_id ?? userId;
+
   const query = useQuery({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfileWithFamily(userId as string),
-    enabled: !!userId,
+    queryKey: ["profile", profileId],
+    queryFn: () => fetchProfileWithFamily(profileId as string),
+    enabled: !!profileId,
     staleTime: 5 * 60_000,
   });
 
   const updateMutation = useMutation({
     mutationFn: async (input: ProfileUpdateInput) => {
       if (!userId) throw new Error("Niste prijavljeni");
+      // Deliberately `userId`, not the kid-resolved `profileId` above: only the
+      // person who owns the login may rename themselves. A kid session has no
+      // `profiles` row of its own, so this matches nothing - and RLS would
+      // reject it anyway (kids get SELECT policies only). The kid shell never
+      // renders this, so the asymmetry is unreachable, not a silent no-op.
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -74,7 +93,7 @@ export function useProfile() {
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+      void queryClient.invalidateQueries({ queryKey: ["profile", profileId] });
       toast.success("Sačuvano");
     },
     onError: (e) => {

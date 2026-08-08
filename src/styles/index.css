@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Dečiji režim - its own self-contained palette on [data-kid-theme]. Imported
+   here (not lazily) so the kid shell paints on the very first frame. */
+@import "./kid.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -87,6 +87,7 @@ const eventItem: AgendaItem = {
   endTime: null,
   dayIndex: 1,
   totalDays: 1,
+  canceled: false,
   personIds: [],
 };
 
@@ -139,6 +140,7 @@ describe("AgendaItemRow multi-day event slices", () => {
     event: multiEvent,
     sortKey: 0,
     personIds: [] as string[],
+    canceled: false,
   };
 
   it("labels the first day 'od HH:mm' with its span position", () => {

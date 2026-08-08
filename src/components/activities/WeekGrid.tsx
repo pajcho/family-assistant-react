@@ -462,16 +462,13 @@ function SchoolBlock({
         isPast && "opacity-60",
       )}
       aria-label={`${block.subject} - ${block.startTime}`}
-      title={`${block.subject}${block.room ? ` · ${block.room}` : ""} · ${block.startTime}-${block.endTime}`}
+      title={`${block.subject} · ${block.startTime}-${block.endTime}`}
     >
       <div className="flex items-center gap-1 text-muted-foreground">
         <BookOpenIcon className="h-2.5 w-2.5 shrink-0" />
         <span className="tabular-nums">{block.startTime}</span>
       </div>
       <div className="truncate text-[11px] font-semibold text-foreground">{block.subject}</div>
-      {block.room ? (
-        <div className="truncate text-[9px] text-muted-foreground">{block.room}</div>
-      ) : null}
     </button>
   );
 }

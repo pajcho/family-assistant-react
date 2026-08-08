@@ -1,9 +1,10 @@
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
+import { MemberAvatar } from "@/components/common/MemberAvatar";
+import { useKidAccessList } from "@/hooks/useKidAccess";
 import { cn } from "@/lib/cn";
-import { fallbackColorForProfile } from "@/utils/activity";
-import { getDisplayName, getInitials } from "@/utils/identity";
+import { getDisplayName } from "@/utils/identity";
 import type { Profile } from "@/types/database";
 
 export type MemberListProps = {
@@ -37,6 +38,10 @@ export function MemberList({
   canManage,
   onAdd,
 }: MemberListProps) {
+  // One query for the whole roster. `kid_access` is admin-only at the RLS
+  // level, so a non-admin simply gets an empty set and no "Dete" pills.
+  const { enabledIds: kidIds } = useKidAccessList();
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2 pl-1">
@@ -59,6 +64,7 @@ export function MemberList({
             member={member}
             selected={member.id === selectedId}
             isStudent={studentIds.has(member.id)}
+            hasKidAccess={kidIds.has(member.id)}
             isCurrent={member.id === currentUserId}
             onSelect={() => onSelect(member.id)}
           />
@@ -72,21 +78,23 @@ type MemberRowProps = {
   member: Profile;
   selected: boolean;
   isStudent: boolean;
+  /** Signs in to the kid shell with a device link + PIN (see types/kid.ts). */
+  hasKidAccess: boolean;
   isCurrent: boolean;
   onSelect: () => void;
 };
 
-function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberRowProps) {
+function MemberRow({
+  member,
+  selected,
+  isStudent,
+  hasKidAccess,
+  isCurrent,
+  onSelect,
+}: MemberRowProps) {
   const name =
     getDisplayName({ firstName: member.first_name, lastName: member.last_name, email: null }) ||
     "Bez imena";
-  const color = member.color ?? fallbackColorForProfile(member.id);
-  const initials = getInitials({
-    firstName: member.first_name,
-    lastName: member.last_name,
-    email: null,
-  });
-
   // Compact role summary: login state, then any roles the member carries.
   const tags: Array<{ label: string; tone: string }> = [
     member.has_login
@@ -96,6 +104,7 @@ function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberR
   if (member.is_admin)
     tags.push({ label: "Administrator", tone: "bg-accent-soft text-accent-deep" });
   if (isStudent) tags.push({ label: "Učenik", tone: "bg-info-soft text-info" });
+  if (hasKidAccess) tags.push({ label: "Dete", tone: "bg-accent-soft text-accent-deep" });
 
   return (
     <button
@@ -107,13 +116,7 @@ function MemberRow({ member, selected, isStudent, isCurrent, onSelect }: MemberR
         selected ? "border-accent bg-accent-soft" : "border-border bg-card hover:bg-muted",
       )}
     >
-      <span
-        className="grid size-[38px] shrink-0 place-items-center rounded-[14px] text-[13px] font-bold text-white"
-        style={{ backgroundColor: color }}
-        aria-hidden="true"
-      >
-        {initials}
-      </span>
+      <MemberAvatar member={member} size="md" className="rounded-[14px] font-bold" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-[15px] font-semibold text-foreground">{name}</span>

@@ -20,7 +20,7 @@ import { UserAvatar } from "@/components/layout/UserAvatar";
 import { CalendarTab } from "@/components/calendar/CalendarTab";
 import { CurrenciesCard } from "@/components/family/CurrenciesCard";
 import { FamilyTab } from "@/components/family/FamilyTab";
-import { AccentRow, ThemeRow } from "@/components/settings/AppearanceSection";
+import { AccentRow, MemberAvatarStyleRow, ThemeRow } from "@/components/settings/AppearanceSection";
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import {
@@ -68,6 +68,7 @@ export function SettingsScreen({
   section,
   gcal,
   reason,
+  memberId,
   onOpenSection,
   onBack,
   onGcalHandled,
@@ -75,6 +76,8 @@ export function SettingsScreen({
   section: SettingsSection | null;
   gcal?: "connected" | "error";
   reason?: string;
+  /** `?clan=` - which member the Porodica tab should open on. */
+  memberId?: string;
   onOpenSection: (next: SettingsSection) => void;
   onBack: () => void;
   onGcalHandled: () => void;
@@ -118,7 +121,7 @@ export function SettingsScreen({
       >
         <div className="space-y-4">
           {section === "profile" ? <ProfileSection /> : null}
-          {section === "family" ? <FamilyTab /> : null}
+          {section === "family" ? <FamilyTab initialMemberId={memberId ?? null} /> : null}
           {section === "currencies" ? <CurrenciesCard /> : null}
           {section === "notifications" ? <NotificationsSection /> : null}
           {section === "calendar" ? <CalendarTab /> : null}
@@ -271,6 +274,7 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
       <SettingsGroup>
         <ThemeRow />
         <AccentRow />
+        <MemberAvatarStyleRow />
         <SettingsRow
           icon={Squares2X2Icon}
           label="Donja traka"

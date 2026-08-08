@@ -1,6 +1,7 @@
 import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 
 import { cn } from "@/lib/cn";
+import { memberTintStyle } from "@/components/common/MemberAvatar";
 
 /**
  * The redesign's list row (prototype `.kcard`): a full-width card with a
@@ -151,8 +152,45 @@ export function ItemTime({ className, children }: { className?: string; children
   return <span className={cn("text-[14.5px] font-bold tabular-nums", className)}>{children}</span>;
 }
 
-/** A person's colour as a 7px dot - rides at the end of a card title. */
-export function PersonDot({ color, className }: { color: string; className?: string }) {
+/**
+ * "This row belongs to that person" - a 7px chip of their colour beside the
+ * title, or their emoji when the viewer reads members as emoji (see
+ * `useMemberEmoji`). Decorative either way: every row that carries one also
+ * spells the name out in its meta line.
+ *
+ * The emoji always sits in a tinted circle, the same one `MemberAvatar` draws
+ * at `xs`. A bare glyph beside a title reads as part of the title ("Teretana
+ * 🦁") rather than as a person mark, and it made the app inconsistent with
+ * itself: the very same person appeared circled on a payment row and bare on
+ * the activity row above it. The circle also keeps the member's colour on
+ * screen, which is what ties this row to that person's blocks in the weekly
+ * grid.
+ */
+export function PersonDot({
+  color,
+  emoji,
+  className,
+}: {
+  color: string;
+  emoji?: string;
+  className?: string;
+}) {
+  if (emoji) {
+    return (
+      <span
+        aria-hidden="true"
+        style={memberTintStyle(color)}
+        className={cn(
+          // `inline-flex`, not `flex`: these ride inside running text as often
+          // as inside a flex row, and a flex item blockifies it anyway.
+          "inline-flex size-5 shrink-0 items-center justify-center rounded-full border-[1.5px] align-middle text-[13px] leading-none",
+          className,
+        )}
+      >
+        {emoji}
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden="true"

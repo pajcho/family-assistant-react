@@ -53,6 +53,21 @@ export interface Profile {
    */
   accent: string | null;
   /**
+   * The emoji that stands for THIS PERSON - picked by a parent in Porodica,
+   * next to the colour. NULL = never picked, and then `resolveMemberAvatar`
+   * falls back to a stable animal derived from the id, so nothing renders
+   * blank. Never derived from the name: see `utils/memberAvatar.ts`.
+   */
+  avatar_emoji: string | null;
+  /**
+   * How THIS USER sees other members in the main app: "initials" (default) |
+   * "emoji" - English because it is stored, Serbian only in the labels. NULL =
+   * never picked. Read through `normalizeMemberAvatarStyle`. Per user like
+   * `accent`, so one parent can run initials while the other runs emoji. The
+   * kid app ignores it and always draws emoji.
+   */
+  member_avatar_style: string | null;
+  /**
    * True iff this profile's `id` matches a row in `auth.users` - i.e. the
    * person has their own Supabase login. Derived at query time by the
    * `profiles_with_login` view; not stored on the row itself. Optional
@@ -643,7 +658,13 @@ export interface SchoolTimetableEntry {
   /** 1-based class slot within the band (slot 1 = first class of the day). */
   period_index: number;
   subject: string;
-  /** Optional classroom / cabinet. */
+  /**
+   * Optional classroom / cabinet. Mirrors the column, but NOTHING renders it:
+   * the schedule screens showed a bare number next to the time ("08:00 - 08:45
+   * · 10"), which read as a mystery rather than a room, and no editor ever
+   * collected it - existing values came from seeding. Left on the row (and in
+   * the database) so the data survives if it is ever wanted again.
+   */
   room: string | null;
   created_at: string;
   updated_at: string;
@@ -904,4 +925,64 @@ export interface GoogleSyncPreferences {
   import_birthdays: boolean;
   /** Out-of-office / focus-time / working-location markers. */
   import_work_markers: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Kid mode - see src/types/kid.ts for the model and the edge-function contract
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-child access row (`kid_access`). Its existence IS the feature flag for a
+ * child: no row means no kid login at all. `profile_id` stays the child's
+ * original profile id; `auth_user_id` points at the synthetic auth user that
+ * has no `profiles` row of its own (which is what makes every legacy RLS
+ * policy deny a kid session by default).
+ *
+ * `pin_hash` and the counters are service-role only - the client never selects
+ * them (the SELECT policies expose the row, so treat those columns as opaque).
+ */
+export interface KidAccess {
+  profile_id: string;
+  family_id: string;
+  auth_user_id: string | null;
+  is_enabled: boolean;
+  /** One of KID_THEME_KEYS - the only setting a kid may change (via RPC). */
+  theme: string;
+  /** Set while the account is locked out after too many wrong PINs. */
+  locked_until: string | null;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A device a parent linked for a child (`kid_devices`). The row stores only the
+ * SHA-256 of the device token; the raw token lives in that device's
+ * localStorage and is presented on every sign-in. Revoking = deleting the row.
+ */
+export interface KidDevice {
+  id: string;
+  profile_id: string;
+  family_id: string;
+  /** Human-readable device hint derived from the User-Agent at claim time. */
+  label: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+}
+
+/**
+ * Which child may see a birthday, and what note they see with it
+ * (`birthday_visibility`). Birthdays carry no participants of their own, so
+ * without a row here a birthday is invisible to every kid - deliberately
+ * opt-in, so a parent's friends' birthdays never reach the children.
+ *
+ * `note` is per child on purpose: one kid gets "pozovi baku", another
+ * "nacrtaj čestitku" for the same birthday.
+ */
+export interface BirthdayVisibility {
+  birthday_id: string;
+  person_id: string;
+  family_id: string;
+  note: string | null;
+  created_at: string;
 }

@@ -17,7 +17,6 @@ import { useProfile } from "@/hooks/useProfile";
 
 export type TimetableSubjectInput = {
   subject: string;
-  room?: string | null;
 };
 
 async function fetchTimetable(familyId: string): Promise<SchoolTimetableEntry[]> {
@@ -69,7 +68,7 @@ export function useReplaceTimetableDay() {
       if (deleteError) throw new Error(deleteError.message);
 
       const rows = args.subjects
-        .map((s) => ({ subject: s.subject.trim(), room: s.room?.trim() || null }))
+        .map((s) => ({ subject: s.subject.trim() }))
         .filter((s) => s.subject.length > 0)
         .map((s, i) => ({
           family_id: familyId,
@@ -78,7 +77,6 @@ export function useReplaceTimetableDay() {
           day_of_week: args.dayOfWeek,
           period_index: i + 1,
           subject: s.subject,
-          room: s.room,
         }));
 
       if (rows.length === 0) return;

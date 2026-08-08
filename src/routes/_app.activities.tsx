@@ -48,6 +48,7 @@ import {
 } from "@/hooks/useActivityParticipants";
 import { useActivitySchedule, useReplaceActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { useProfile } from "@/hooks/useProfile";
 import { useBellSchedule } from "@/hooks/useBellSchedule";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
@@ -514,6 +515,7 @@ function AllActivitiesList({
   onEdit,
   onDelete,
 }: AllActivitiesListProps) {
+  const memberEmoji = useMemberEmoji();
   return (
     <section>
       <SectionHeading count={activities.length} className="mb-2">
@@ -564,6 +566,7 @@ function AllActivitiesList({
                       <PersonDot
                         key={id}
                         color={peopleById.get(id)?.color ?? fallbackColorForProfile(id)}
+                        emoji={memberEmoji(peopleById.get(id), id)}
                       />
                     ))}
                     {activity.is_paused ? <Pill tone="warn">pauzirano</Pill> : null}

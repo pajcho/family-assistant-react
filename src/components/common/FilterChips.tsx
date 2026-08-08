@@ -2,6 +2,7 @@ import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 
 import { useEdgeFade } from "@/hooks/useEdgeFade";
 import { cn } from "@/lib/cn";
+import { memberTintStyle } from "@/components/common/MemberAvatar";
 
 /**
  * Horizontally scrolling filter chip row (prototype `.fchips` / `.fchip`) -
@@ -51,6 +52,7 @@ export function FilterChip({
   icon: Icon,
   /** Family-member colour: tints the chip with the person instead of the accent. */
   color,
+  emoji,
   className,
   children,
 }: {
@@ -58,6 +60,12 @@ export function FilterChip({
   onToggle: () => void;
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   color?: string;
+  /**
+   * Member emoji, when the viewer reads members as emoji. It stands in for the
+   * colour dot rather than joining it - the chip already carries the colour in
+   * its tint, so two colour signals next to a name is one too many.
+   */
+  emoji?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -93,7 +101,17 @@ export function FilterChip({
         className,
       )}
     >
-      {color ? (
+      {color && emoji ? (
+        // Circled for the same reason as `PersonDot`: a person mark has to look
+        // like a person mark everywhere, and the circle carries their colour.
+        <span
+          aria-hidden="true"
+          style={memberTintStyle(color)}
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border-[1.5px] text-[13px] leading-none"
+        >
+          {emoji}
+        </span>
+      ) : color ? (
         <span
           aria-hidden="true"
           style={{ backgroundColor: color }}

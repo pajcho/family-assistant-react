@@ -2,6 +2,7 @@ import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import { useHasExternalEvents } from "@/hooks/useExternalEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { AGENDA_KINDS, type AgendaFilter, type AgendaKind } from "@/utils/agendaFilters";
 import { getDisplayName } from "@/utils/identity";
@@ -44,6 +45,7 @@ export function AgendaFilters({
 }: AgendaFiltersProps) {
   const { members } = useFamilyMembers();
   const hasExternalEvents = useHasExternalEvents();
+  const memberEmoji = useMemberEmoji();
 
   // Only what is actually selected is lit - "Sve" holds the neutral state.
   const kindActive = (kind: AgendaKind) => filter.kinds.has(kind);
@@ -83,6 +85,7 @@ export function AgendaFilters({
           active={personActive(member.id)}
           onToggle={() => togglePerson(member.id)}
           color={member.color ?? fallbackColorForProfile(member.id)}
+          emoji={memberEmoji(member)}
         >
           {getDisplayName({
             firstName: member.first_name,

@@ -134,11 +134,6 @@ export function SchoolDayCard({
                   >
                     {block.subject}
                   </span>
-                  {block.room ? (
-                    <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
-                      {block.room}
-                    </span>
-                  ) : null}
                   {state === "now" ? <Pill>u toku</Pill> : null}
                 </li>
                 {block.periodIndex === bigBreakAfter && index < dayBlocks.length - 1 ? (

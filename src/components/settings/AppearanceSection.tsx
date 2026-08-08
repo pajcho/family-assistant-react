@@ -1,17 +1,26 @@
-import { ComputerDesktopIcon, MoonIcon, SunIcon, SwatchIcon } from "@heroicons/react/24/outline";
+import {
+  ComputerDesktopIcon,
+  FaceSmileIcon,
+  MoonIcon,
+  SunIcon,
+  SwatchIcon,
+  UserCircleIcon,
+} from "@heroicons/react/24/outline";
 import { CheckIcon } from "@heroicons/react/24/solid";
 
 import { cn } from "@/lib/cn";
 import { ACCENT_OPTIONS, useAccent, type AccentKey } from "@/hooks/useAccent";
+import { useMemberAvatarStyle } from "@/hooks/useMemberAvatarStyle";
 import { useTheme, type ThemeMode } from "@/hooks/useTheme";
+import type { MemberAvatarStyle } from "@/utils/memberAvatar";
 
 /**
- * "Izgled" + "Boja aplikacije" - the two rows of the Aplikacija group that
- * carry their control inline instead of pushing to a sub-screen.
+ * "Izgled", "Boja aplikacije" and "Prikaz članova" - the rows of the Aplikacija
+ * group that carry their control inline instead of pushing to a sub-screen.
  *
- * The accent is per user and applies everywhere INSIDE the app; the brand
- * outside it (login mark, PWA icon, splash) stays blue on purpose, which the
- * hint under the picker says out loud.
+ * All three are per user and apply everywhere INSIDE the app; the brand outside
+ * it (login mark, PWA icon, splash) stays blue on purpose, which the hint under
+ * the accent picker says out loud.
  */
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string; icon: typeof SunIcon }> = [
@@ -51,6 +60,69 @@ export function ThemeRow() {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+const MEMBER_AVATAR_OPTIONS: ReadonlyArray<{
+  value: MemberAvatarStyle;
+  label: string;
+  icon: typeof SunIcon;
+}> = [
+  { value: "initials", label: "Inicijali i boje", icon: UserCircleIcon },
+  { value: "emoji", label: "Emoji", icon: FaceSmileIcon },
+];
+
+/**
+ * "Prikaz članova" - initials on a colour, or each member's emoji.
+ *
+ * A viewer's setting, not a member's: the emoji itself belongs to the person
+ * and is picked in Porodica, while this row only says whether I want to SEE it.
+ * Per user like the accent, so two parents on one family need not agree.
+ *
+ * Same segmented control as "Izgled" because it is the same kind of choice -
+ * one of a short list of looks, applied live. The colour survives either way:
+ * an emoji tile still wears the member's colour as its wash, so the link to
+ * their blocks in the calendar holds.
+ */
+export function MemberAvatarStyleRow() {
+  const { memberAvatarStyle, setMemberAvatarStyle } = useMemberAvatarStyle();
+
+  return (
+    <div className="border-b border-border px-[13px] py-3 last:border-b-0">
+      <div className="flex min-h-[52px] flex-wrap items-center gap-x-[11px] gap-y-2">
+        <span className="grid size-[34px] shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent-deep">
+          <UserCircleIcon className="size-[17px]" />
+        </span>
+        <span className="flex-1 text-[14.5px] font-semibold">Prikaz članova</span>
+        <div
+          role="radiogroup"
+          aria-label="Prikaz članova"
+          className="flex gap-0.5 rounded-md border border-border bg-background p-[3px]"
+        >
+          {MEMBER_AVATAR_OPTIONS.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={memberAvatarStyle === value}
+              onClick={() => setMemberAvatarStyle(value)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-[13px] font-semibold transition-colors",
+                memberAvatarStyle === value
+                  ? "bg-accent-soft text-accent-deep"
+                  : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-4 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs font-normal text-muted-foreground">
+        Emoji za svakog člana biraš u Porodici. Dečija aplikacija uvek prikazuje emoji.
+      </p>
     </div>
   );
 }

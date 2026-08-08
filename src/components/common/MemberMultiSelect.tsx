@@ -1,5 +1,6 @@
 import { Chip, ChipRow, FieldGroupLabel, FieldHint } from "@/components/common/FormControls";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
+import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import type { Profile } from "@/types/database";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
@@ -37,6 +38,7 @@ export function MemberMultiSelect({
 }: MemberMultiSelectProps) {
   const { members: family } = useFamilyMembers();
   const members = people ?? family;
+  const memberEmoji = useMemberEmoji();
 
   const toggle = (personId: string) => {
     const set = new Set(value);
@@ -72,11 +74,17 @@ export function MemberMultiSelect({
                 className={selected ? "text-foreground" : undefined}
               >
                 <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className="inline-block size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: color }}
-                    aria-hidden="true"
-                  />
+                  {memberEmoji(person) ? (
+                    <span aria-hidden="true" className="shrink-0 text-[16px] leading-none">
+                      {memberEmoji(person)}
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-block size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: color }}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="truncate">{name}</span>
                 </span>
               </Chip>

@@ -45,6 +45,7 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   activity_participants: [familyKey("activity_participants")],
   activity_schedule: [familyKey("activity_schedule")],
   bell_schedules: [familyKey("bell_schedule")],
+  birthday_visibility: [familyKey("birthday_visibility")],
   birthdays: [familyKey("birthdays")],
   event_participants: [familyKey("event_participants")],
   events: [familyKey("events")],
