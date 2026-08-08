@@ -8,7 +8,9 @@ import { SheetStackHeader } from "@/components/common/SheetStack";
 import { PickerRow } from "@/components/common/PickerRow";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
-import { ExpensePersonSelect } from "@/components/budget/ExpenseForm";
+import { EXPENSE_LINK_KINDS, ExpensePersonSelect } from "@/components/budget/ExpenseForm";
+import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
+import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { Amount } from "@/components/common/Amount";
@@ -30,13 +32,20 @@ import {
  *
  * Mobile collapses the editable bits into picker rows (Kategorija / Stavke /
  * Više detalja) that swap the sheet to a sub-view with a "←" header; desktop
- * shows everything inline. Fully CONTROLLED: the hosting `ReceiptScanDialog`
- * owns the sub-view, the field values AND the line selection (the stack's
- * a sub-view opening over the preview remounts this component - local state would lose
- * what the user picked).
+ * shows everything inline. In `attachMode` - a receipt landing on an expense
+ * that already exists - only Stavke is left: everything else is already
+ * filled in on that expense and stays.
+ *
+ * Fully CONTROLLED: the hosting `ReceiptScanDialog` owns the sub-view, the
+ * field values AND the line selection, because a sub-view opening over the
+ * preview remounts this component and local state would lose what the user
+ * picked.
  */
 
-export type ReceiptPreviewView = "main" | "category" | "details" | "items";
+// "link" is one level deeper than the others: Detalji → Poveži sa (the
+// ExpenseFormDialog nesting, so a scanned receipt links exactly like a typed
+// expense).
+export type ReceiptPreviewView = "main" | "category" | "details" | "items" | "link";
 
 export type ReceiptPreviewProps = {
   receipt: ParsedReceipt;
@@ -51,6 +60,12 @@ export type ReceiptPreviewProps = {
   selectedSum: number;
   /** True when some lines are already claimed (re-scan of a partial receipt). */
   partial: boolean;
+  /**
+   * The receipt is being attached to an expense that already exists, so the
+   * fields it already has (kategorija / za koga / beleška / poveži sa) are not
+   * ours to set - only the amount and the items change. Hides those rows.
+   */
+  attachMode?: boolean;
   saving: boolean;
   error: string | null;
   view: ReceiptPreviewView;
@@ -64,6 +79,9 @@ export type ReceiptPreviewProps = {
   onPersonChange: (id: string | null) => void;
   note: string;
   onNoteChange: (note: string) => void;
+  /** Optional activity/event link - same field the manual expense form has. */
+  link: PaymentLinkValue | null;
+  onLinkChange: (link: PaymentLinkValue | null) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -85,6 +103,7 @@ export function ReceiptPreview({
   onSetAllLines,
   selectedSum,
   partial,
+  attachMode = false,
   saving,
   error,
   view,
@@ -96,6 +115,8 @@ export function ReceiptPreview({
   onPersonChange,
   note,
   onNoteChange,
+  link,
+  onLinkChange,
   onCancel,
   onSave,
 }: ReceiptPreviewProps) {
@@ -235,7 +256,27 @@ export function ReceiptPreview({
         <div className="space-y-4">
           <ExpensePersonSelect value={personId} onChange={onPersonChange} />
           {noteField}
+          <PaymentLinkField
+            value={link}
+            onChange={onLinkChange}
+            kinds={EXPENSE_LINK_KINDS}
+            // Mobile-only sub-view: full-sheet picker instead of a popover.
+            onOpenPicker={() => onOpenView("link")}
+          />
         </div>
+      </>
+    );
+  }
+  if (view === "link") {
+    return (
+      <>
+        <SheetStackHeader title="Poveži sa" onBack={onBack} />
+        <PaymentLinkPickerSheet
+          value={link}
+          onChange={onLinkChange}
+          onDone={onBack}
+          kinds={EXPENSE_LINK_KINDS}
+        />
       </>
     );
   }
@@ -258,7 +299,7 @@ export function ReceiptPreview({
         disabled={saving || nothingSelected}
         onClick={onSave}
       >
-        {saving ? "Čuvam…" : "Sačuvaj trošak"}
+        {saving ? "Čuvam…" : attachMode ? "Poveži račun" : "Sačuvaj trošak"}
       </Button>
     </div>
   );
@@ -267,6 +308,13 @@ export function ReceiptPreview({
     <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">{error}</div>
   ) : null;
 
+  // Same "Više detalja" summary the manual expense form builds.
+  const detailParts: string[] = [];
+  if (personId) detailParts.push("Za koga ✓");
+  if (note.trim()) detailParts.push("Beleška ✓");
+  if (link) detailParts.push("Povezano ✓");
+  const detailCount = detailParts.length;
+
   const freeCount = lines.filter((l) => !l.claimed).length;
   const itemsSummary = !hasItems
     ? "Nema stavki"
@@ -274,32 +322,50 @@ export function ReceiptPreview({
       ? `${selected.size} od ${freeCount} ${stavkeLabel(freeCount)}`
       : `${lines.length} ${stavkeLabel(lines.length)}`;
 
+  // Attach mode says out loud what it will and won't touch, so nobody has to
+  // wonder whether scanning is about to overwrite the category they picked.
+  const attachNote = attachMode ? (
+    <p className="rounded-xl bg-accent-soft px-3 py-2 text-xs font-normal text-accent-deep">
+      Trošak dobija iznos i stavke sa ovog računa. Datum, kategorija i ostalo ostaju kako si uneo.
+    </p>
+  ) : null;
+
   return (
     <>
       <SheetStackHeader
-        title={partial ? "Preostale stavke" : "Pregled računa"}
+        title={attachMode ? "Poveži račun" : partial ? "Preostale stavke" : "Pregled računa"}
         description={
-          partial
-            ? "Deo ovog računa je već dodat - biraš među preostalim stavkama."
-            : "Proveri iznos i izaberi kategoriju pre nego što sačuvaš."
+          attachMode
+            ? "Proveri iznos i izaberi stavke koje pripadaju ovom trošku."
+            : partial
+              ? "Deo ovog računa je već dodat - biraš među preostalim stavkama."
+              : "Proveri iznos i izaberi kategoriju pre nego što sačuvaš."
         }
       />
       {isDesktop ? (
         // --- Desktop: everything inline ---
         <div className="space-y-5">
           {amountHero}
-          <div className="space-y-2">
-            <Label>Kategorija</Label>
-            <CategoryGridPicker value={categoryId} onChange={onCategoryChange} />
-          </div>
+          {attachNote}
+          {attachMode ? null : (
+            <div className="space-y-2">
+              <Label>Kategorija</Label>
+              <CategoryGridPicker value={categoryId} onChange={onCategoryChange} />
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Stavke</Label>
             {mismatchNote}
             {itemsList}
           </div>
           {warningsBlock}
-          <ExpensePersonSelect value={personId} onChange={onPersonChange} />
-          {noteField}
+          {attachMode ? null : (
+            <>
+              <ExpensePersonSelect value={personId} onChange={onPersonChange} />
+              {noteField}
+              <PaymentLinkField value={link} onChange={onLinkChange} kinds={EXPENSE_LINK_KINDS} />
+            </>
+          )}
           {errorBlock}
           {footer}
         </div>
@@ -307,23 +373,26 @@ export function ReceiptPreview({
         // --- Mobile: "Brzi unos" picker rows ---
         <div className="space-y-5">
           {amountHero}
+          {attachNote}
           {warningsBlock}
           <div className="space-y-2">
-            <PickerRow
-              title="Kategorija"
-              summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
-              icon={
-                selectedCategory ? (
-                  (() => {
-                    const Icon = categoryIcon(selectedCategory.icon);
-                    return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
-                  })()
-                ) : (
-                  <TagIcon className="size-4" />
-                )
-              }
-              onClick={() => onOpenView("category")}
-            />
+            {attachMode ? null : (
+              <PickerRow
+                title="Kategorija"
+                summary={selectedCategory ? selectedCategory.name : "Bez kategorije"}
+                icon={
+                  selectedCategory ? (
+                    (() => {
+                      const Icon = categoryIcon(selectedCategory.icon);
+                      return <Icon className="size-4" style={{ color: selectedCategory.color }} />;
+                    })()
+                  ) : (
+                    <TagIcon className="size-4" />
+                  )
+                }
+                onClick={() => onOpenView("category")}
+              />
+            )}
             <PickerRow
               title="Stavke"
               summary={itemsSummary}
@@ -331,17 +400,17 @@ export function ReceiptPreview({
               disabled={!hasItems}
               onClick={() => onOpenView("items")}
             />
-            <PickerRow
-              title="Više detalja"
-              summary={
-                (personId ? 1 : 0) + (note.trim() ? 1 : 0) > 0
-                  ? "Za koga / beleška ✓"
-                  : "Za koga · beleška"
-              }
-              icon={<AdjustmentsHorizontalIcon className="size-4" />}
-              count={(personId ? 1 : 0) + (note.trim() ? 1 : 0)}
-              onClick={() => onOpenView("details")}
-            />
+            {attachMode ? null : (
+              <PickerRow
+                title="Više detalja"
+                summary={
+                  detailCount > 0 ? detailParts.join(" · ") : "Za koga · beleška · poveži sa"
+                }
+                icon={<AdjustmentsHorizontalIcon className="size-4" />}
+                count={detailCount}
+                onClick={() => onOpenView("details")}
+              />
+            )}
           </div>
           {errorBlock}
           {footer}

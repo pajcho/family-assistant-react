@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
 import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
+// Same lazy chunk as Novac - camera + zxing stay out of the main bundle.
+import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
 import { useDeleteExpense, useUpdateExpense } from "@/hooks/useExpenses";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
@@ -35,9 +37,13 @@ export function LinkedMoneyViewer({ target, onClose }: LinkedMoneyViewerProps) {
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const [expenseError, setExpenseError] = useState<string | null>(null);
+  // "Skeniraj račun" on a manual row swaps this popup for the scanner in
+  // attach mode - same request, one level of the same flow.
+  const [attaching, setAttaching] = useState(false);
 
   useEffect(() => {
     setExpenseError(null);
+    setAttaching(false);
   }, [target]);
 
   const handleDismiss = (open: boolean) => {
@@ -83,6 +89,14 @@ export function LinkedMoneyViewer({ target, onClose }: LinkedMoneyViewerProps) {
     }
   };
 
+  if (attaching) {
+    return (
+      <Suspense fallback={null}>
+        <ReceiptScanDialog open onOpenChange={handleDismiss} attachTo={expense} />
+      </Suspense>
+    );
+  }
+
   return (
     <ExpenseFormDialog
       open
@@ -93,6 +107,13 @@ export function LinkedMoneyViewer({ target, onClose }: LinkedMoneyViewerProps) {
       onSubmit={(payload) => {
         void handleExpenseSubmit(payload);
       }}
+      // Payment-sourced rows also land on this form; only a hand-typed one
+      // with no receipt yet can take one on.
+      onAttachReceipt={
+        expense.source === "manual" && !expense.receipt_id && !expense.receipt_url
+          ? () => setAttaching(true)
+          : undefined
+      }
       onDelete={() => {
         void handleExpenseDelete();
       }}

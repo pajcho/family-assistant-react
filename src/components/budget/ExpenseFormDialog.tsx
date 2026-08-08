@@ -56,6 +56,11 @@ export type ExpenseFormDialogProps = {
   onSubmit: (payload: ExpenseFormPayload) => void;
   /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
   onScanReceipt?: () => void;
+  /**
+   * When editing a manual expense, offers "Skeniraj račun" to attach a fiscal
+   * receipt to it (amount + items come from the receipt, the rest stays).
+   */
+  onAttachReceipt?: () => void;
   /** Confirmed delete of the edited expense (only wired while editing). */
   onDelete?: () => void;
   deleting?: boolean;
@@ -82,6 +87,7 @@ export function ExpenseFormDialog({
   saving,
   onSubmit,
   onScanReceipt,
+  onAttachReceipt,
   onDelete,
   deleting,
 }: ExpenseFormDialogProps) {
@@ -110,8 +116,8 @@ export function ExpenseFormDialog({
   // a cold click reads as "the dialog just closed". Warm it as soon as the form
   // is open - by the time the row is clicked the hop is instant.
   useEffect(() => {
-    if (open && onScanReceipt) preloadReceiptScanDialog();
-  }, [open, onScanReceipt]);
+    if (open && (onScanReceipt || onAttachReceipt)) preloadReceiptScanDialog();
+  }, [open, onScanReceipt, onAttachReceipt]);
 
   useEffect(() => {
     if (!open) return;
@@ -202,6 +208,7 @@ export function ExpenseFormDialog({
                 onSubmit={onSubmit}
                 onCancel={() => onOpenChange(false)}
                 onScanReceipt={onScanReceipt}
+                onAttachReceipt={onAttachReceipt}
                 onOpenView={(kind) => stack.push({ kind })}
                 onRequestDelete={isEdit ? () => stack.push({ kind: "delete" }) : undefined}
               />

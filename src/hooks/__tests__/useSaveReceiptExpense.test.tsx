@@ -26,10 +26,11 @@ vi.mock("@/hooks/useProfile", () => ({
 import {
   ClaimConflictError,
   DuplicateReceiptError,
+  useAttachReceiptToExpense,
   useSaveReceiptExpense,
   useSplitReceiptExpense,
 } from "@/hooks/useExpenses";
-import type { SaveReceiptExpenseInput } from "@/hooks/useExpenses";
+import type { AttachReceiptToExpenseInput, SaveReceiptExpenseInput } from "@/hooks/useExpenses";
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({
@@ -139,6 +140,79 @@ describe("useSaveReceiptExpense", () => {
 
     const { result } = renderHook(() => useSaveReceiptExpense(), { wrapper });
     await expect(result.current.mutateAsync(input)).rejects.toThrow("boom");
+  });
+});
+
+describe("useAttachReceiptToExpense", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const attachInput: AttachReceiptToExpenseInput = {
+    expenseId: "exp-9",
+    merchant: "Maxi",
+    receipt_url: "https://suf.purs.gov.rs/v/?vl=test",
+    total_amount: 489.97,
+    issued_on: "2026-08-01",
+    pib: "12345678",
+    company_name: "DELHAIZE SERBIA",
+    store_name: "Maxi 123",
+    items: [
+      { name: "Mleko 1l", quantity: 2, unitPrice: 199.99, total: 399.98 },
+      { name: "Hleb", quantity: null, unitPrice: null, total: 89.99 },
+    ],
+    claim_idxs: [0],
+  };
+
+  it("sends only the receipt facts and the claim - the expense keeps its own fields", async () => {
+    mocks.rpc.mockResolvedValue({ data: { status: "saved", expense_id: "exp-9" }, error: null });
+
+    const { result } = renderHook(() => useAttachReceiptToExpense(), { wrapper });
+    const res = await result.current.mutateAsync(attachInput);
+
+    expect(res).toEqual({ expenseId: "exp-9" });
+    expect(mocks.rpc).toHaveBeenCalledWith("attach_receipt_to_expense", {
+      p_expense_id: "exp-9",
+      p_receipt: {
+        receipt_url: "https://suf.purs.gov.rs/v/?vl=test",
+        merchant: "Maxi",
+        pib: "12345678",
+        company_name: "DELHAIZE SERBIA",
+        store_name: "Maxi 123",
+        total_amount: 489.97,
+        issued_on: "2026-08-01",
+      },
+      p_items: [
+        { idx: 0, name: "Mleko 1l", quantity: 2, unit_price: 199.99, total: 399.98 },
+        { idx: 1, name: "Hleb", quantity: null, unit_price: null, total: 89.99 },
+      ],
+      p_claim_idxs: [0],
+    });
+    // No category/person/note/date anywhere in the payload: attaching must not
+    // be able to overwrite what the member already typed on that row.
+    const payload = (mocks.rpc.mock.calls[0] as unknown[])[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("p_expense");
+  });
+
+  it("maps a lost claim race (PT409) to ClaimConflictError", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: "PT409", message: "Neko je u međuvremenu dodao deo ovih stavki." },
+    });
+
+    const { result } = renderHook(() => useAttachReceiptToExpense(), { wrapper });
+    await expect(result.current.mutateAsync(attachInput)).rejects.toBeInstanceOf(
+      ClaimConflictError,
+    );
+  });
+
+  it("throws DuplicateReceiptError when the receipt is already fully claimed", async () => {
+    mocks.rpc.mockResolvedValue({ data: { status: "duplicate" }, error: null });
+
+    const { result } = renderHook(() => useAttachReceiptToExpense(), { wrapper });
+    await expect(result.current.mutateAsync(attachInput)).rejects.toBeInstanceOf(
+      DuplicateReceiptError,
+    );
   });
 });
 

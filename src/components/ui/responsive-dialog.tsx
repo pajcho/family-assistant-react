@@ -182,14 +182,21 @@ function ResponsiveDialogContent({
       {...props}
     >
       {/* 24px side padding mirrors Nuxt's px-6 dialog content. pt-2 lifts
-          the header off the drag handle, pb-6 gives the footer room above
-          the safe-area. `grow` + `min-h-0` make this the scroll area that
-          fills the drawer, so a stickyFooter below it pins to the sheet
-          bottom whatever the content height. */}
+          the header off the drag handle. `grow` + `min-h-0` make this the
+          scroll area that fills the drawer, so a stickyFooter below it pins
+          to the sheet bottom whatever the content height.
+
+          Bottom padding depends on what ends the sheet. With a stickyFooter
+          the bar itself carries the gap to the screen edge (pb-6 of its own),
+          so the scroll area only needs to clear it. WITHOUT one - the picker
+          sub-views, which commit on tap and have no Sačuvaj/Odustani bar -
+          the last row IS the bottom of the sheet, and since a sheet is only
+          as tall as its content that row lands right on the screen edge (the
+          home indicator, even). pb-11 gives it room to breathe. */}
       <div
         className={cn(
           "flex max-h-[inherit] min-h-0 grow flex-col overflow-y-auto px-6 pt-2",
-          stickyFooter ? "pb-4" : "pb-6",
+          stickyFooter ? "pb-4" : "pb-11",
         )}
       >
         {children}

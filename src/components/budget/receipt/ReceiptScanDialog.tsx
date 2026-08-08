@@ -17,13 +17,14 @@ import {
   DuplicateReceiptError,
   fetchExpenseByReceiptUrl,
   fetchReceiptByUrl,
+  useAttachReceiptToExpense,
   useMerchantCategory,
   useSaveReceiptExpense,
   type ReceiptWithClaims,
 } from "@/hooks/useExpenses";
 import { isSufReceiptUrl, type ParsedReceipt, useReceiptImport } from "@/hooks/useReceiptImport";
 import { useProfile } from "@/hooks/useProfile";
-import type { Receipt } from "@/types/database";
+import type { Expense, Receipt } from "@/types/database";
 import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { Amount } from "@/components/common/Amount";
 import { stavkeLabel } from "@/utils/plural";
@@ -49,9 +50,9 @@ import { decodeQrFromFile } from "./receiptQr";
  * renders from the stored receipt (claimed lines disabled, no Edge call, no
  * rate-limit spend) and only the free lines are selectable.
  *
- * The preview's sub-views (Kategorija / Stavke / Detalji) live on THIS
- * dialog's sheet stack (see `useSheetStack`), and the preview's field values
- * AND line selection live in this component: dismissing a sub-view
+ * The preview's sub-views (Kategorija / Stavke / Detalji → Poveži sa) live on
+ * THIS dialog's sheet stack (see `useSheetStack`), and the preview's field
+ * values AND line selection live in this component: dismissing a sub-view
  * (swipe-down, tap outside) returns to the preview instead of throwing away
  * the parsed receipt, and a sub-view opening over the preview can't drop what
  * the user already picked.
@@ -66,9 +67,18 @@ export type ReceiptScanDialogProps = {
   onJumpToMonth?: (yyyymm: string) => void;
   /**
    * Pre-link the saved expense to an activity/event (the scan started from
-   * that context, e.g. "Skeniraj račun" in an activity detail).
+   * that context, e.g. "Skeniraj račun" in an activity detail). The preview's
+   * "Poveži sa" row starts here and stays editable.
    */
   link?: PaymentLinkValue | null;
+  /**
+   * ATTACH MODE: instead of creating an expense, hand this scanned receipt to
+   * an existing manual one ("Skeniraj račun" while editing it). Only its
+   * amount and its items change - the date, category, person, note and link
+   * the member already typed are left alone, so the preview drops those
+   * fields entirely.
+   */
+  attachTo?: Expense | null;
 };
 
 /** Preview facts for a receipt we already have in the DB (fast path). */
@@ -103,11 +113,15 @@ export default function ReceiptScanDialog({
   open,
   onOpenChange,
   onJumpToMonth,
-  link,
+  link: seedLink,
+  attachTo,
 }: ReceiptScanDialogProps) {
   const { familyId } = useProfile();
   const importReceipt = useReceiptImport();
   const saveReceipt = useSaveReceiptExpense();
+  const attachReceipt = useAttachReceiptToExpense();
+  const attachMode = !!attachTo;
+  const saving = saveReceipt.isPending || attachReceipt.isPending;
 
   const [mode, setMode] = useState<Mode>("capture");
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
@@ -137,6 +151,12 @@ export default function ReceiptScanDialog({
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [link, setLink] = useState<PaymentLinkValue | null>(seedLink ?? null);
+  // Read the seed through a ref so the resets below depend only on what
+  // actually triggers them - an inline-constructed `link` prop is a new object
+  // every render and would otherwise wipe a pick mid-flow.
+  const seedLinkRef = useRef(seedLink ?? null);
+  seedLinkRef.current = seedLink ?? null;
   const categoryTouched = useRef(false);
   const merchantCategory = useMerchantCategory(receipt?.merchant ?? null);
 
@@ -168,6 +188,7 @@ export default function ReceiptScanDialog({
       setCategoryId(null);
       setPersonId(null);
       setNote("");
+      setLink(seedLinkRef.current);
       categoryTouched.current = false;
     }
   }, [open]);
@@ -328,7 +349,63 @@ export default function ReceiptScanDialog({
     }
   };
 
+  // The two save errors that aren't just "show the message": a receipt that
+  // is already fully claimed jumps to the duplicate arm, a lost claim race
+  // re-reads the claims so the user can retry against the truth.
+  const handleSaveError = async (err: Error) => {
+    if (err instanceof DuplicateReceiptError) {
+      let month: string | null = null;
+      if (familyId) {
+        const existing = await fetchExpenseByReceiptUrl(familyId, err.receiptUrl);
+        month = existing?.spent_on.slice(0, 7) ?? null;
+      }
+      setDuplicateMonth(month);
+      setMode("duplicate");
+      return;
+    }
+    if (err instanceof ClaimConflictError) {
+      await refreshClaims();
+      setSaveError(err.message);
+      return;
+    }
+    setSaveError(err.message || "Greška pri čuvanju računa.");
+  };
+
+  // Attach mode: the receipt lands on the expense that is already there. No
+  // chain step - the leftover lines stay free on the receipt and a later scan
+  // still offers them, but the member came here to fix ONE row.
+  const handleAttach = () => {
+    if (!receipt || !attachTo) return;
+    setSaveError(null);
+    attachReceipt.mutate(
+      {
+        expenseId: attachTo.id,
+        merchant: receipt.merchant,
+        receipt_url: receipt.receiptUrl,
+        total_amount: receipt.totalAmount,
+        issued_on: receipt.issuedAt.slice(0, 10),
+        pib: receipt.pib,
+        company_name: receipt.companyName,
+        store_name: receipt.storeName,
+        // The RPC already stores this receipt's lines on the fast path.
+        items: dbSourced ? [] : receipt.items,
+        claim_idxs: selectable ? [...selected].sort((a, b) => a - b) : null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Račun je povezan sa troškom");
+          onOpenChange(false);
+        },
+        onError: (err: Error) => void handleSaveError(err),
+      },
+    );
+  };
+
   const handleSave = () => {
+    if (attachMode) {
+      handleAttach();
+      return;
+    }
     if (!receipt) return;
     setSaveError(null);
     const claimIdxs = selectable ? [...selected].sort((a, b) => a - b) : null;
@@ -377,37 +454,23 @@ export default function ReceiptScanDialog({
           setDbSourced(true);
           setMode("chain");
         },
-        onError: async (err: Error) => {
-          if (err instanceof DuplicateReceiptError) {
-            let month: string | null = null;
-            if (familyId) {
-              const existing = await fetchExpenseByReceiptUrl(familyId, err.receiptUrl);
-              month = existing?.spent_on.slice(0, 7) ?? null;
-            }
-            setDuplicateMonth(month);
-            setMode("duplicate");
-            return;
-          }
-          if (err instanceof ClaimConflictError) {
-            await refreshClaims();
-            setSaveError(err.message);
-            return;
-          }
-          setSaveError(err.message || "Greška pri čuvanju računa.");
-        },
+        onError: (err: Error) => void handleSaveError(err),
       },
     );
   };
 
   // "Dodaj ostatak kao novi trošak": same receipt, remaining free lines
   // preselected, fresh category/person/note (the remainder is a different
-  // bucket by definition - that's why it's being split).
+  // bucket by definition - that's why it's being split). The link falls back
+  // to the seed: a scan started from an activity is still about that activity,
+  // a manual pick was about the part just saved.
   const handleChainContinue = () => {
     setSelected(new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)));
     setCategoryId(null);
     categoryTouched.current = true;
     setPersonId(null);
     setNote("");
+    setLink(seedLinkRef.current);
     setSaveError(null);
     setChainInfo(null);
     setMode("preview");
@@ -420,7 +483,9 @@ export default function ReceiptScanDialog({
         ? "Račun je već dodat"
         : mode === "chain"
           ? "Sačuvano"
-          : "Skeniraj račun";
+          : attachMode
+            ? "Poveži račun"
+            : "Skeniraj račun";
 
   return (
     <SheetStackViews
@@ -544,7 +609,8 @@ export default function ReceiptScanDialog({
               }}
               selectedSum={selectedSum}
               partial={partial}
-              saving={saveReceipt.isPending}
+              attachMode={attachMode}
+              saving={saving}
               error={saveError}
               view={view}
               onOpenView={push}
@@ -558,6 +624,8 @@ export default function ReceiptScanDialog({
               onPersonChange={setPersonId}
               note={note}
               onNoteChange={setNote}
+              link={link}
+              onLinkChange={setLink}
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
             />

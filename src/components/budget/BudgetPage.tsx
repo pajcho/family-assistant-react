@@ -114,6 +114,11 @@ export interface BudgetPageProps {
   searchTerm: string;
   /** Opens the hub's receipt scanner. */
   onScanReceipt: () => void;
+  /**
+   * Opens the same scanner in attach mode: the receipt lands on this manual
+   * expense (amount + items from the receipt, the rest untouched).
+   */
+  onAttachReceipt: (expense: Expense) => void;
   /** Header node the hub lends this view for its "Dodaj" (null until mounted). */
   addSlot: HTMLElement | null;
 }
@@ -131,6 +136,7 @@ export function BudgetPage({
   onMonthChange,
   searchTerm,
   onScanReceipt,
+  onAttachReceipt,
   addSlot,
 }: BudgetPageProps) {
   const [addOpen, setAddOpen] = useState(false);
@@ -1075,6 +1081,19 @@ export function BudgetPage({
           setCategoryDetail(null);
           onScanReceipt();
         }}
+        // Only a genuinely hand-typed row can take a receipt on. `openEdit`
+        // also lets a DETACHED payment row through, and that one is still
+        // source='payment' - the RPC would refuse it.
+        onAttachReceipt={
+          editing?.source === "manual" && !editing.receipt_id && !editing.receipt_url
+            ? () => {
+                const target = editing;
+                handleDialogOpenChange(false);
+                setCategoryDetail(null);
+                onAttachReceipt(target);
+              }
+            : undefined
+        }
         onDelete={() => {
           void handleDeleteEditing();
         }}

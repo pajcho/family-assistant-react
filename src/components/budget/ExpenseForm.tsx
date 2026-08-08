@@ -69,7 +69,11 @@ export type ExpenseFormViewKind = "category" | "details";
  */
 export const EXPENSE_LINK_KINDS = ["activity", "event"] as const;
 
-function initialLink(expense: Expense | null | undefined): PaymentLinkValue | null {
+/**
+ * An expense's stored link as the pickers' value shape. Shared with the
+ * receipt surfaces - a scanned expense links exactly like a typed one.
+ */
+export function expenseLinkValue(expense: Expense | null | undefined): PaymentLinkValue | null {
   if (expense?.activity_id) return { kind: "activity", id: expense.activity_id };
   if (expense?.event_id) return { kind: "event", id: expense.event_id };
   return null;
@@ -92,7 +96,7 @@ export function initialExpenseFormState(
     spent_on: expense?.spent_on ?? today,
     person_id: expense?.person_id ?? null,
     note: expense?.note ?? "",
-    link: initialLink(expense),
+    link: expenseLinkValue(expense),
   };
 }
 
@@ -162,6 +166,12 @@ export type ExpenseFormProps = {
   onCancel: () => void;
   /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
   onScanReceipt?: () => void;
+  /**
+   * When editing a manual expense, offers the same shortcut with the opposite
+   * meaning: scan the receipt for a row that already exists, so it picks up
+   * the real amount and its items. Hosts that can't run the scanner omit it.
+   */
+  onAttachReceipt?: () => void;
   /** Mobile "Brzi unos" row pushes the Detalji sub-view (dialog's SheetStack). */
   onOpenView: (view: ExpenseFormViewKind) => void;
   /**
@@ -193,6 +203,7 @@ export function ExpenseForm({
   onSubmit,
   onCancel,
   onScanReceipt,
+  onAttachReceipt,
   onOpenView,
   onRequestDelete,
 }: ExpenseFormProps) {
@@ -225,14 +236,26 @@ export function ExpenseForm({
     });
   };
 
+  // Same row, two jobs. Adding: scan instead of typing. Editing a manual row:
+  // scan the receipt you found afterwards - the amount and the items come from
+  // it, everything already on the row stays.
   const scanButton =
-    onScanReceipt && !isEdit ? (
+    !isEdit && onScanReceipt ? (
       <PickerRow
         dashed
         title="Skeniraj račun"
         summary="stavke stižu same"
         icon={<QrCodeIcon className="size-[17px]" />}
         onClick={onScanReceipt}
+        disabled={saving}
+      />
+    ) : isEdit && onAttachReceipt ? (
+      <PickerRow
+        dashed
+        title="Skeniraj račun"
+        summary="uzmi iznos i stavke sa računa"
+        icon={<QrCodeIcon className="size-[17px]" />}
+        onClick={onAttachReceipt}
         disabled={saving}
       />
     ) : null;

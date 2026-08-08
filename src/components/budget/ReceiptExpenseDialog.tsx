@@ -22,7 +22,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
-import { ExpensePersonSelect } from "@/components/budget/ExpenseForm";
+import {
+  EXPENSE_LINK_KINDS,
+  ExpensePersonSelect,
+  expenseLinkValue,
+} from "@/components/budget/ExpenseForm";
+import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
+import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import { PickerRow } from "@/components/common/PickerRow";
 import {
   ReceiptItemsSelect,
@@ -78,7 +84,9 @@ export type ReceiptExpenseDialogProps = {
   onOpenExpense?: (expense: Expense) => void;
 };
 
-type View = "detail" | "category" | "details" | "items" | "split" | "delete";
+// "link" sits one level under "details" (Detalji → Poveži sa), the same
+// nesting the manual expense form uses.
+type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link";
 
 function formatDate(spentOn: string): string {
   const [y, m, d] = spentOn.split("-");
@@ -189,6 +197,7 @@ export function ReceiptExpenseDialog({
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [link, setLink] = useState<PaymentLinkValue | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshInfo, setRefreshInfo] = useState<string | null>(null);
   const [splitSelected, setSplitSelected] = useState<ReadonlySet<number>>(new Set());
@@ -207,6 +216,7 @@ export function ReceiptExpenseDialog({
       setCategoryId(expense.category_id);
       setPersonId(expense.person_id);
       setNote(expense.note ?? "");
+      setLink(expenseLinkValue(expense));
       setError(null);
       setRefreshInfo(null);
       setSplitSelected(new Set());
@@ -267,7 +277,13 @@ export function ReceiptExpenseDialog({
     try {
       await updateExpense.mutateAsync({
         id: expense.id,
-        payload: { category_id: categoryId, person_id: personId, note: note.trim() || null },
+        payload: {
+          category_id: categoryId,
+          person_id: personId,
+          note: note.trim() || null,
+          activity_id: link?.kind === "activity" ? link.id : null,
+          event_id: link?.kind === "event" ? link.id : null,
+        },
       });
       onOpenChange(false);
     } catch (err) {
@@ -440,7 +456,8 @@ export function ReceiptExpenseDialog({
   const detailParts: string[] = [];
   if (personName) detailParts.push(personName);
   if (note.trim()) detailParts.push("Beleška ✓");
-  const detailCount = (personId ? 1 : 0) + (note.trim() ? 1 : 0);
+  if (link) detailParts.push("Povezano ✓");
+  const detailCount = (personId ? 1 : 0) + (note.trim() ? 1 : 0) + (link ? 1 : 0);
 
   const stickyFooterFor = (view: View) =>
     !isDesktop && view === "detail" && expense ? (
@@ -492,7 +509,9 @@ export function ReceiptExpenseDialog({
             ? "Stavke"
             : view === "split"
               ? "Podeli račun"
-              : expense?.merchant || "Račun";
+              : view === "link"
+                ? "Poveži sa"
+                : expense?.merchant || "Račun";
 
   return (
     <SheetStackViews
@@ -606,6 +625,13 @@ export function ReceiptExpenseDialog({
             </div>
           ) : view === "items" ? (
             itemsInline
+          ) : view === "link" ? (
+            <PaymentLinkPickerSheet
+              value={link}
+              onChange={setLink}
+              onDone={pop}
+              kinds={EXPENSE_LINK_KINDS}
+            />
           ) : view === "details" ? (
             <div className="space-y-4">
               <ExpensePersonSelect value={personId} onChange={setPersonId} />
@@ -618,6 +644,13 @@ export function ReceiptExpenseDialog({
                   placeholder="npr. nedeljna kupovina"
                 />
               </div>
+              <PaymentLinkField
+                value={link}
+                onChange={setLink}
+                kinds={EXPENSE_LINK_KINDS}
+                // Mobile-only sub-view: full-sheet picker instead of a popover.
+                onOpenPicker={() => push("link")}
+              />
             </div>
           ) : (
             <div className="space-y-5">
@@ -675,6 +708,7 @@ export function ReceiptExpenseDialog({
                       placeholder="npr. nedeljna kupovina"
                     />
                   </div>
+                  <PaymentLinkField value={link} onChange={setLink} kinds={EXPENSE_LINK_KINDS} />
                   {error ? (
                     <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
                       {error}

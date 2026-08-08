@@ -10,6 +10,7 @@ import { HeaderIconButton } from "@/components/money/moneyUi";
 // Lazy chunk: the scanner pulls in the camera code + the wasm QR reader, so it
 // must stay out of the main bundle.
 import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
+import type { Expense } from "@/types/database";
 import { currentMonthYYYYMM } from "@/utils/date";
 
 /**
@@ -53,6 +54,11 @@ export function NovacScreen({
   // Stays true after the first open so the lazy chunk loads once and the close
   // animation can play; the dialog releases the camera whenever `open` is false.
   const [scanMounted, setScanMounted] = useState(false);
+  // Set while the scanner is attaching its receipt to an expense that already
+  // exists (Troškovi → izmeni → "Skeniraj račun") instead of creating one. Not
+  // cleared on close - `openScan` resets it, so the sheet doesn't flip out of
+  // attach mode mid-exit-animation.
+  const [attachTarget, setAttachTarget] = useState<Expense | null>(null);
   // Where the active view portals its "Dodaj" (see the header below).
   const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
 
@@ -66,6 +72,13 @@ export function NovacScreen({
   }, [isPayments, month]);
 
   const openScan = () => {
+    setAttachTarget(null);
+    setScanMounted(true);
+    setScanOpen(true);
+  };
+
+  const openAttach = (expense: Expense) => {
+    setAttachTarget(expense);
     setScanMounted(true);
     setScanOpen(true);
   };
@@ -160,13 +173,19 @@ export function NovacScreen({
           onMonthChange={setMonth}
           searchTerm={searchTerm}
           onScanReceipt={openScan}
+          onAttachReceipt={openAttach}
           addSlot={addSlot}
         />
       )}
 
       {scanMounted ? (
         <Suspense fallback={null}>
-          <ReceiptScanDialog open={scanOpen} onOpenChange={setScanOpen} onJumpToMonth={setMonth} />
+          <ReceiptScanDialog
+            open={scanOpen}
+            onOpenChange={setScanOpen}
+            onJumpToMonth={setMonth}
+            attachTo={attachTarget}
+          />
         </Suspense>
       ) : null}
     </AppScreen>
