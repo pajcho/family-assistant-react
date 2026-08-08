@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-
 import { cn } from "@/lib/cn";
 import { useMemberAvatarStyleValue } from "@/hooks/useMemberAvatarStyle";
 import type { Profile } from "@/types/database";
