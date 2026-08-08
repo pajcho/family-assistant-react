@@ -61,7 +61,8 @@ vi.mock("@/components/budget/ExpenseFormDialog", () => ({
 }));
 
 vi.mock("@/components/budget/receipt/ReceiptScanDialog", () => ({
-  default: () => null,
+  default: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog" aria-label="Skeniraj račun" /> : null,
 }));
 
 describe("ExpenseQuickAddFlow", () => {
@@ -79,6 +80,20 @@ describe("ExpenseQuickAddFlow", () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(payload));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(successToast).toHaveBeenCalledWith("Trošak je dodat.");
+  });
+
+  // Regression: "Skeniraj račun" used to call onOpenChange(false) to swap
+  // dialogs, which made the global "+" unmount this flow in the same commit -
+  // the scanner never mounted and the modal just vanished.
+  it("swaps to the scanner without closing the flow", async () => {
+    const onOpenChange = vi.fn<(open: boolean) => void>();
+    render(<ExpenseQuickAddFlow open onOpenChange={onOpenChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skeniraj račun" }));
+
+    expect(await screen.findByRole("dialog", { name: "Skeniraj račun" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Dodaj trošak" })).not.toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
   it("keeps the form open and shows an inline error when saving fails", async () => {

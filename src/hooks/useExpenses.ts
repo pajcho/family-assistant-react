@@ -418,6 +418,91 @@ export function useSaveReceiptExpense() {
   });
 }
 
+export type AttachReceiptToExpenseInput = {
+  /** The manual expense the receipt is being attached to. */
+  expenseId: string;
+  merchant: string | null;
+  receipt_url: string;
+  /** The receipt's own total (kept on the receipts row). */
+  total_amount: number;
+  /** The receipt's issue date - the receipts row only; the expense keeps its own. */
+  issued_on: string;
+  pib?: string | null;
+  company_name?: string | null;
+  store_name?: string | null;
+  items: ParsedReceiptItem[];
+  /** Line idx values this expense claims; null = the whole receipt. */
+  claim_idxs?: number[] | null;
+};
+
+/**
+ * Attaches a scanned receipt to an EXISTING manual expense via the
+ * `attach_receipt_to_expense` RPC (receipts row + lines + claim + the
+ * expense's new amount, one transaction). The row becomes a receipt expense:
+ * its amount switches to the claimed lines' sum, everything the member typed
+ * (date, category, person, note, activity/event link) is left alone.
+ *
+ * Same guards as a fresh scan - DuplicateReceiptError when the receipt is
+ * already fully claimed, ClaimConflictError (PT409) on a lost claim race.
+ */
+export function useAttachReceiptToExpense() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: AttachReceiptToExpenseInput): Promise<SaveReceiptExpenseResult> => {
+      const { data, error } = await supabase.rpc("attach_receipt_to_expense", {
+        p_expense_id: input.expenseId,
+        p_receipt: {
+          receipt_url: input.receipt_url,
+          merchant: input.merchant ?? null,
+          pib: input.pib ?? null,
+          company_name: input.company_name ?? null,
+          store_name: input.store_name ?? null,
+          total_amount: input.total_amount,
+          issued_on: input.issued_on,
+        },
+        p_items: input.items.map((it, idx) => ({
+          idx,
+          name: it.name,
+          quantity: it.quantity,
+          unit_price: it.unitPrice,
+          total: it.total,
+        })),
+        p_claim_idxs: input.claim_idxs ?? null,
+      });
+
+      if (error) {
+        if ((error as { code?: string }).code === "23505") {
+          throw new DuplicateReceiptError(input.receipt_url);
+        }
+        if ((error as { code?: string }).code === "PT409") {
+          throw new ClaimConflictError(error.message);
+        }
+        throw new Error(error.message);
+      }
+
+      const result = data as { status?: string; expense_id?: string } | null;
+      if (result?.status === "duplicate") {
+        throw new DuplicateReceiptError(input.receipt_url);
+      }
+      if (result?.status !== "saved" || !result.expense_id) {
+        throw new Error("Greška pri povezivanju računa.");
+      }
+
+      return { expenseId: result.expense_id };
+    },
+    onSuccess: (_res, input) => {
+      void queryClient.invalidateQueries({ queryKey: ["expenses", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["merchant-category", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["receipt-context"] });
+      void queryClient.invalidateQueries({ queryKey: ["receipt_items", input.expenseId] });
+      void queryClient.invalidateQueries({ queryKey: ["expense-item-counts"] });
+    },
+    // Errors (incl. DuplicateReceiptError) are handled inline by the scan dialog.
+  });
+}
+
 export type SplitReceiptExpenseInput = {
   /** The receipt expense to carve lines out of. */
   expenseId: string;

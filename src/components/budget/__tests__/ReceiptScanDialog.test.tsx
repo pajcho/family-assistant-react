@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
+import type { Expense } from "@/types/database";
 
 /**
  * Regression test for the scanned-receipt flow: dismissing a preview SUB-VIEW
@@ -14,7 +15,7 @@ import type { ParsedReceipt } from "@/hooks/useReceiptImport";
  * `dismissTopSheet`.
  */
 
-const { fakeReceipt, saveMutate } = vi.hoisted(() => ({
+const { fakeReceipt, saveMutate, attachMutate } = vi.hoisted(() => ({
   fakeReceipt: {
     merchant: "Maxi",
     companyName: null,
@@ -31,6 +32,11 @@ const { fakeReceipt, saveMutate } = vi.hoisted(() => ({
     receiptUrl: "https://suf.purs.gov.rs/v/?vl=test",
   } as ParsedReceipt,
   saveMutate: vi.fn<
+    (input: unknown, callbacks?: { onSuccess?: (res: { expenseId: string }) => void }) => void
+  >((_input, callbacks) => {
+    callbacks?.onSuccess?.({ expenseId: "exp-1" });
+  }),
+  attachMutate: vi.fn<
     (input: unknown, callbacks?: { onSuccess?: (res: { expenseId: string }) => void }) => void
   >((_input, callbacks) => {
     callbacks?.onSuccess?.({ expenseId: "exp-1" });
@@ -91,6 +97,7 @@ vi.mock("@/hooks/useExpenses", () => ({
   // Fast path finds nothing stored - the flow proceeds to the (mocked) import.
   fetchReceiptByUrl: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
   useSaveReceiptExpense: () => ({ mutate: saveMutate, isPending: false }),
+  useAttachReceiptToExpense: () => ({ mutate: attachMutate, isPending: false }),
   useMerchantCategory: () => ({ data: null }),
 }));
 
@@ -103,7 +110,27 @@ vi.mock("@/hooks/useExpenseCategories", () => ({
 }));
 
 vi.mock("@/components/budget/ExpenseForm", () => ({
+  EXPENSE_LINK_KINDS: ["activity", "event"],
   ExpensePersonSelect: () => <div data-testid="person-select" />,
+}));
+
+// The real link field/picker reach @/lib/supabase through MemberBadges. The
+// stub keeps the wiring under test (a pick lands in the save payload) without
+// dragging the roster query in.
+vi.mock("@/components/payments/PaymentLinkField", () => ({
+  PaymentLinkField: ({
+    onChange,
+  }: {
+    onChange: (value: { kind: string; id: string } | null) => void;
+  }) => (
+    <button type="button" onClick={() => onChange({ kind: "activity", id: "act-1" })}>
+      Poveži sa aktivnošću
+    </button>
+  ),
+}));
+
+vi.mock("@/components/payments/PaymentLinkPickerSheet", () => ({
+  PaymentLinkPickerSheet: () => <div data-testid="link-picker" />,
 }));
 
 vi.mock("@/components/budget/CategoryGridPicker", () => ({
@@ -120,15 +147,24 @@ vi.mock("../receipt/receiptQr", () => ({
 
 import ReceiptScanDialog from "@/components/budget/receipt/ReceiptScanDialog";
 
-function Harness() {
+function Harness({ attachTo }: { attachTo?: Expense | null } = {}) {
   const [open, setOpen] = useState(true);
   return (
     <>
       <output aria-label="owner-open">{String(open)}</output>
-      <ReceiptScanDialog open={open} onOpenChange={setOpen} />
+      <ReceiptScanDialog open={open} onOpenChange={setOpen} attachTo={attachTo} />
     </>
   );
 }
+
+/** Just enough of a manual expense for the attach path. */
+const manualExpense = {
+  id: "exp-9",
+  source: "manual",
+  amount: 999,
+  spent_on: "2026-07-30",
+  category_id: "cat-1",
+} as Expense;
 
 /**
  * Dismiss the TOPMOST overlay. Sub-views open as their own overlay on top of
@@ -140,13 +176,19 @@ function dismissTopSheet() {
   fireEvent.click(handles[handles.length - 1]);
 }
 
-async function scanToPreview() {
-  render(<Harness />);
+async function scanToPreview(props?: { attachTo?: Expense | null }) {
+  render(<Harness attachTo={props?.attachTo} />);
   fireEvent.change(screen.getByLabelText("Nalepi link sa računa"), {
     target: { value: "https://suf.purs.gov.rs/v/?vl=test" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Učitaj" }));
-  await waitFor(() => expect(screen.getByText("Pregled računa")).toBeInTheDocument());
+  // By heading, not by text: in attach mode the title and the save button
+  // share the same words.
+  await waitFor(() =>
+    expect(
+      screen.getByRole("heading", { name: props?.attachTo ? "Poveži račun" : "Pregled računa" }),
+    ).toBeInTheDocument(),
+  );
 }
 
 describe("ReceiptScanDialog", () => {
@@ -214,5 +256,56 @@ describe("ReceiptScanDialog", () => {
     const second = saveMutate.mock.calls[1]?.[0] as { amount: number; claim_idxs: number[] };
     expect(second.claim_idxs).toEqual([1]);
     expect(second.amount).toBe(1000);
+  });
+
+  it("carries a link picked in Detalji into the saved expense", async () => {
+    await scanToPreview();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Više detalja/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Poveži sa aktivnošću" }));
+    dismissTopSheet();
+    await waitFor(() => expect(screen.getByText("Pregled računa")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Sačuvaj trošak" }));
+
+    const input = saveMutate.mock.calls[0]?.[0] as {
+      activity_id: string | null;
+      event_id: string | null;
+    };
+    expect(input.activity_id).toBe("act-1");
+    expect(input.event_id).toBeNull();
+  });
+
+  describe("attach mode", () => {
+    it("attaches the selected lines to the expense and leaves its other fields alone", async () => {
+      await scanToPreview({ attachTo: manualExpense });
+
+      // Nothing that already lives on the expense is offered here.
+      expect(screen.queryByRole("button", { name: /^Kategorija/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Više detalja/ })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /^Stavke/ }));
+      fireEvent.click(screen.getAllByRole("checkbox")[1]);
+      dismissTopSheet();
+      await waitFor(() =>
+        expect(screen.getByRole("heading", { name: "Poveži račun" })).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Poveži račun" }));
+
+      expect(saveMutate).not.toHaveBeenCalled();
+      const input = attachMutate.mock.calls[0]?.[0] as {
+        expenseId: string;
+        claim_idxs: number[];
+        receipt_url: string;
+      };
+      expect(input.expenseId).toBe("exp-9");
+      expect(input.claim_idxs).toEqual([0]);
+      expect(input.receipt_url).toBe("https://suf.purs.gov.rs/v/?vl=test");
+      // No chain step: attaching fixes one row and is done.
+      await waitFor(() =>
+        expect(screen.getByRole("status", { name: "owner-open" })).toHaveTextContent("false"),
+      );
+    });
   });
 });

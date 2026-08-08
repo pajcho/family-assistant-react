@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
@@ -16,12 +16,22 @@ export type ExpenseQuickAddFlowProps = {
  * Reuses the budget's exact manual-expense form (and its receipt shortcut) on
  * non-budget surfaces. The flow owns the mutation and feedback, but never
  * navigates, so callers stay in their current context after a successful save.
+ *
+ * `stage` is what makes the receipt shortcut work here: this component's
+ * `open` is a PROP, and its host (the global "+") unmounts the whole flow the
+ * moment that goes false. So "Skeniraj račun" must not close the flow to swap
+ * dialogs - it switches stage within it, exactly like `LinkedMoneyFlow`.
+ * Closing is still the host's call, and it tears down both stages.
  */
 export function ExpenseQuickAddFlow({ open, onOpenChange }: ExpenseQuickAddFlowProps) {
   const createExpense = useCreateExpense();
   const [formError, setFormError] = useState<string | null>(null);
-  const [scanOpen, setScanOpen] = useState(false);
-  const [scanMounted, setScanMounted] = useState(false);
+  const [stage, setStage] = useState<"form" | "scan">("form");
+
+  // A reopened flow always starts at the form (hosts that keep this mounted).
+  useEffect(() => {
+    if (!open) setStage("form");
+  }, [open]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
@@ -41,28 +51,24 @@ export function ExpenseQuickAddFlow({ open, onOpenChange }: ExpenseQuickAddFlowP
     }
   };
 
-  const openScanner = () => {
-    onOpenChange(false);
-    setScanMounted(true);
-    setScanOpen(true);
-  };
-
   return (
     <>
-      <ExpenseFormDialog
-        open={open}
-        onOpenChange={handleOpenChange}
-        error={formError}
-        saving={createExpense.isPending}
-        onSubmit={(payload) => {
-          void handleSubmit(payload);
-        }}
-        onScanReceipt={openScanner}
-      />
+      {stage === "form" ? (
+        <ExpenseFormDialog
+          open={open}
+          onOpenChange={handleOpenChange}
+          error={formError}
+          saving={createExpense.isPending}
+          onSubmit={(payload) => {
+            void handleSubmit(payload);
+          }}
+          onScanReceipt={() => setStage("scan")}
+        />
+      ) : null}
 
-      {scanMounted ? (
+      {stage === "scan" ? (
         <Suspense fallback={null}>
-          <ReceiptScanDialog open={scanOpen} onOpenChange={setScanOpen} />
+          <ReceiptScanDialog open={open} onOpenChange={handleOpenChange} />
         </Suspense>
       ) : null}
     </>
