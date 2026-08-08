@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * The emoji that stands for a family member, and how a viewer wants members
  * drawn.
@@ -250,4 +252,16 @@ export function resolveMemberAvatar(
   const picked = member?.avatar_emoji?.trim();
   if (picked) return picked;
   return avatarForProfile(member?.id ?? fallbackId ?? "");
+}
+
+/**
+ * The emoji tile's wash. `color-mix` against `--card` rather than a fixed
+ * alpha, so the tint lands on top of whatever layer it sits on and stays legible
+ * in the dark theme instead of glowing.
+ */
+export function memberTintStyle(color: string): CSSProperties {
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--card))`,
+    borderColor: `color-mix(in srgb, ${color} 55%, transparent)`,
+  };
 }

@@ -1,7 +1,7 @@
 import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 
 import { cn } from "@/lib/cn";
-import { memberTintStyle } from "@/components/common/MemberAvatar";
+import { memberTintStyle } from "@/utils/memberAvatar";
 
 /**
  * The redesign's list row (prototype `.kcard`): a full-width card with a

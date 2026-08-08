@@ -7,6 +7,15 @@ vi.mock("@/components/common/MemberBadges", () => ({
   MemberBadges: () => null,
 }));
 
+// Same trap, second door: the row asks `useMemberEmoji` how to draw a person,
+// and that hook reaches the Supabase client at import time. Mocked as a
+// standalone factory (never `importOriginal`, which would pull the real module
+// in anyway) returning "no emoji", so rows render the colour dot.
+vi.mock("@/hooks/useMemberAvatarStyle", () => ({
+  useMemberEmoji: () => () => undefined,
+  useMemberAvatarStyleValue: () => "initials",
+}));
+
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import type { Birthday, Event, Payment } from "@/types/database";

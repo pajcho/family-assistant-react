@@ -2,7 +2,7 @@ import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 
 import { useEdgeFade } from "@/hooks/useEdgeFade";
 import { cn } from "@/lib/cn";
-import { memberTintStyle } from "@/components/common/MemberAvatar";
+import { memberTintStyle } from "@/utils/memberAvatar";
 
 /**
  * Horizontally scrolling filter chip row (prototype `.fchips` / `.fchip`) -

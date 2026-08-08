@@ -5,7 +5,7 @@ import { useMemberAvatarStyleValue } from "@/hooks/useMemberAvatarStyle";
 import type { Profile } from "@/types/database";
 import { fallbackColorForProfile } from "@/utils/activity";
 import { getInitials } from "@/utils/identity";
-import { resolveMemberAvatar, type MemberAvatarStyle } from "@/utils/memberAvatar";
+import { memberTintStyle, resolveMemberAvatar, type MemberAvatarStyle } from "@/utils/memberAvatar";
 
 /**
  * One family member as a tile - the app's single answer to "draw this person".
@@ -23,6 +23,8 @@ import { resolveMemberAvatar, type MemberAvatarStyle } from "@/utils/memberAvata
  * the colour away would break the link between a badge and the block it belongs
  * to.
  */
+
+export { memberTintStyle };
 
 export type MemberAvatarSize = "xs" | "sm" | "md" | "lg";
 
@@ -54,18 +56,6 @@ const SIZE: Record<MemberAvatarSize, { box: string; initials: string; emoji: str
   md: { box: "size-[38px]", initials: "text-[13px]", emoji: "text-[23px]" },
   lg: { box: "size-12", initials: "text-base", emoji: "text-[29px]" },
 };
-
-/**
- * The emoji tile's wash. `color-mix` against `--card` rather than a fixed
- * alpha, so the tint lands on top of whatever layer it sits on and stays legible
- * in the dark theme instead of glowing.
- */
-export function memberTintStyle(color: string): CSSProperties {
-  return {
-    backgroundColor: `color-mix(in srgb, ${color} 20%, var(--card))`,
-    borderColor: `color-mix(in srgb, ${color} 55%, transparent)`,
-  };
-}
 
 export function MemberAvatar({
   member,
