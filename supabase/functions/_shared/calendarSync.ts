@@ -6,6 +6,20 @@
 // incrementally via the stored syncToken (full window when there's none), upserts
 // events, deletes cancelled / self-declined ones, and persists the new
 // nextSyncToken - all under a short-lived per-calendar lock.
+//
+// The event half is split in two so it stays cheap and testable:
+//
+//   • `decideEvent` is pure - it turns one Google event into a decision
+//     (skip / delete / upsert these rows) and owns every rule about WHICH rows
+//     are affected. It has direct unit tests (calendarSync.test.ts).
+//   • `applyPageDecisions` is the IO half - it writes a whole page of decisions
+//     with a small constant number of statements. It owns only WHEN the writes
+//     are issued, never which rows they target.
+//
+// Before that split every event cost two sequential round-trips (an upsert plus
+// an unconditional prune-delete), so a first connect - which expands recurring
+// series into hundreds of instances - spent thousands of round-trips inside one
+// invocation.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getFreshAccessToken, googleGet, GoogleApiError, ReauthRequiredError } from "./google.ts";
@@ -17,6 +31,12 @@ const LOCK_STALE_MS = 10 * 60 * 1000; // a lock older than this is considered de
 const WINDOW_PAST_DAYS = 30;
 const WINDOW_FUTURE_DAYS = 365;
 const DEFAULT_TZ = "Europe/Belgrade";
+
+/** How many google_event_ids go into one PostgREST `in.()` filter. The filter
+ *  travels in the URL, so a whole 250-event page in a single filter would build
+ *  a request line long enough for a proxy to reject; 100 ids keeps every URL a
+ *  few KB while still costing only a couple of statements per page. */
+const IDS_PER_FILTER = 100;
 
 /** Columns (incl. the connection embed) syncOneCalendar needs - shared by both callers. */
 export const CALENDAR_SELECT =
@@ -38,7 +58,7 @@ export interface SyncCalendarRow {
   };
 }
 
-interface GEvent {
+export interface GEvent {
   id: string;
   status?: string;
   summary?: string;
@@ -61,6 +81,50 @@ interface EventsPage {
 }
 
 export type SyncOutcome = "synced" | "reauth" | "skipped";
+
+/** One day-row of a mirrored event, exactly as `external_calendar_events`
+ *  stores it. */
+export interface ExternalEventRow {
+  calendar_id: string;
+  family_id: string;
+  owner_user_id: string;
+  visibility: "family" | "private";
+  google_event_id: string;
+  ical_uid: string | null;
+  recurring_event_id: string | null;
+  title: string | null;
+  description: string | null;
+  location: string | null;
+  color: string | null;
+  event_type: string;
+  status: string | null;
+  html_link: string | null;
+  source_url: string | null;
+  synced_at: string;
+  start_at: string | null;
+  end_at: string | null;
+  local_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  is_all_day: boolean;
+}
+
+/** What one Google event should do to the mirror. `skip` is a genuine no-op
+ *  (an event with no usable start); dropping an event the member cancelled,
+ *  declined or chose not to import is a `delete`, not a `skip`. */
+export type EventDecision =
+  | { kind: "skip" }
+  | { kind: "delete"; googleEventId: string }
+  | {
+      kind: "upsert";
+      googleEventId: string;
+      rows: ExternalEventRow[];
+      /** The days this event now occupies - every other stored day is stale. */
+      keepLocalDates: string[];
+    };
+
+type WriteDecision = Exclude<EventDecision, { kind: "skip" }>;
+type UpsertDecision = Extract<EventDecision, { kind: "upsert" }>;
 
 /**
  * Sync one calendar end-to-end under its lock. Safe to call concurrently - a
@@ -178,9 +242,14 @@ async function pull(
       accessToken,
       eventsUrl(cal.google_calendar_id, syncToken, pageToken),
     );
-    for (const ev of page.items ?? []) {
-      await applyEvent(admin, cal, visibility, tz, skipTypes, ev);
-    }
+    // One `synced_at` for the whole page instead of one per event. Nothing reads
+    // the column - it is bookkeeping - and a single stamp keeps a page's rows
+    // consistent with each other.
+    const syncedAt = new Date().toISOString();
+    const decisions = (page.items ?? []).map((ev) =>
+      decideEvent(cal, visibility, tz, skipTypes, ev, syncedAt),
+    );
+    await applyPageDecisions(admin, cal.id, decisions);
     pageToken = page.nextPageToken;
     if (page.nextSyncToken) nextSyncToken = page.nextSyncToken;
   } while (pageToken);
@@ -205,31 +274,33 @@ function eventsUrl(
   return `${base}?${p.toString()}`;
 }
 
-async function applyEvent(
-  admin: Admin,
+/**
+ * The pure half of the sync: what one Google event should do to the mirror.
+ * Every rule about WHICH rows are affected lives here - cancelled / declined /
+ * skipped-type events are deleted, `visibility` rides along on every row, and a
+ * multi-day event is sliced into one row per day. No IO, so it is unit-tested
+ * directly.
+ */
+export function decideEvent(
   cal: SyncCalendarRow,
   visibility: "family" | "private",
   tz: string,
   skipTypes: Set<string>,
   ev: GEvent,
-): Promise<void> {
+  syncedAt: string,
+): EventDecision {
   // Cancelled, an invite the connecting member declined, or an event type they
   // chose not to import (contact birthdays / work markers / Gmail travel) →
   // ensure it's gone (it may have been stored before the rule changed).
   const selfDeclined = (ev.attendees ?? []).some((a) => a.self && a.responseStatus === "declined");
   if (ev.status === "cancelled" || selfDeclined || (ev.eventType && skipTypes.has(ev.eventType))) {
-    await admin
-      .from("external_calendar_events")
-      .delete()
-      .eq("calendar_id", cal.id)
-      .eq("google_event_id", ev.id);
-    return;
+    return { kind: "delete", googleEventId: ev.id };
   }
 
   // A Google event spanning several days becomes one row per day - we have no
   // multi-day model locally, and the agenda buckets purely on local_date.
   const whens = expandWhen(ev, tz);
-  if (whens.length === 0) return; // no usable start - shouldn't happen with singleEvents=true
+  if (whens.length === 0) return { kind: "skip" }; // no usable start - shouldn't happen with singleEvents=true
 
   // Fields shared by every day-row of this event.
   const common = {
@@ -248,7 +319,7 @@ async function applyEvent(
     status: ev.status ?? null,
     html_link: ev.htmlLink ?? null,
     source_url: ev.source?.url ?? null,
-    synced_at: new Date().toISOString(),
+    synced_at: syncedAt,
   };
   const rows = whens.map((w) => ({
     ...common,
@@ -260,20 +331,151 @@ async function applyEvent(
     is_all_day: w.isAllDay,
   }));
 
-  await admin
-    .from("external_calendar_events")
-    .upsert(rows, { onConflict: "calendar_id,google_event_id,local_date" });
+  return {
+    kind: "upsert",
+    googleEventId: ev.id,
+    rows,
+    keepLocalDates: whens.map((w) => w.localDate),
+  };
+}
+
+/**
+ * The IO half: writes a whole page of decisions with a small constant number of
+ * statements instead of two per event.
+ *
+ *   1. one delete covering every `delete` decision (`google_event_id in (...)`)
+ *   2. one upsert carrying every row of every `upsert` decision
+ *   3. the prune, which no single statement can express - each event keeps its
+ *      OWN day list - so we read the stored days for the page in one query and
+ *      then prune only the events that actually shrank. A normal re-sync shrinks
+ *      nothing and issues no prune at all; if that read fails we prune every
+ *      event, which is exactly what the old per-event path always did.
+ *
+ * Decisions for the same google_event_id collapse to the last one, which is
+ * what awaiting them one at a time used to do - and it keeps the batched upsert
+ * free of duplicate conflict keys, which Postgres rejects outright.
+ */
+export async function applyPageDecisions(
+  admin: Admin,
+  calendarId: string,
+  decisions: EventDecision[],
+): Promise<void> {
+  const byId = new Map<string, WriteDecision>();
+  for (const d of decisions) {
+    if (d.kind !== "skip") byId.set(d.googleEventId, d);
+  }
+
+  const deleteIds: string[] = [];
+  const upserts: UpsertDecision[] = [];
+  for (const d of byId.values()) {
+    if (d.kind === "delete") deleteIds.push(d.googleEventId);
+    else upserts.push(d);
+  }
+
+  // Read the stored days BEFORE the upsert: what comes back is exactly the state
+  // the old per-event prune ran against. (The per-calendar lock means no other
+  // sync is writing these rows meanwhile.)
+  const stored =
+    upserts.length > 0
+      ? await storedLocalDates(
+          admin,
+          calendarId,
+          upserts.map((u) => u.googleEventId),
+        )
+      : null;
+
+  for (const part of chunked(deleteIds, IDS_PER_FILTER)) {
+    const { error } = await admin
+      .from("external_calendar_events")
+      .delete()
+      .eq("calendar_id", calendarId)
+      .in("google_event_id", part);
+    if (error) console.error("gcal sync delete failed:", error.message);
+  }
+
+  if (upserts.length > 0) {
+    const { error } = await admin.from("external_calendar_events").upsert(
+      upserts.flatMap((u) => u.rows),
+      { onConflict: "calendar_id,google_event_id,local_date" },
+    );
+    if (error) {
+      // The rows we mean to keep are not in place, so pruning now could drop
+      // days that are still valid. Leave the mirror alone; the next sync (or the
+      // 410 full resync) repairs it.
+      console.error("gcal sync upsert failed:", error.message);
+      return;
+    }
+  }
 
   // Prune day-rows left over from a previously longer span (e.g. the event was
   // shortened from 11-14 to 11-12): drop this event's rows whose day is no
   // longer part of it. Normal re-syncs match exactly here and delete nothing.
-  const keep = whens.map((w) => `"${w.localDate}"`).join(",");
-  await admin
-    .from("external_calendar_events")
-    .delete()
-    .eq("calendar_id", cal.id)
-    .eq("google_event_id", ev.id)
-    .not("local_date", "in", `(${keep})`);
+  for (const u of upserts) {
+    if (stored && !hasStaleDay(stored.get(u.googleEventId), u.keepLocalDates)) continue;
+    const keep = u.keepLocalDates.map((d) => `"${d}"`).join(",");
+    const { error } = await admin
+      .from("external_calendar_events")
+      .delete()
+      .eq("calendar_id", calendarId)
+      .eq("google_event_id", u.googleEventId)
+      .not("local_date", "in", `(${keep})`);
+    if (error) console.error("gcal sync prune failed:", error.message);
+  }
+}
+
+/** True when any day already stored for an event is no longer part of it. */
+function hasStaleDay(storedDays: Set<string> | undefined, keepLocalDates: string[]): boolean {
+  if (!storedDays || storedDays.size === 0) return false;
+  const keep = new Set(keepLocalDates);
+  for (const day of storedDays) {
+    if (!keep.has(day)) return true;
+  }
+  return false;
+}
+
+/**
+ * `google_event_id -> the local_dates currently stored`, or null when that state
+ * could not be read in full (an error, or a result PostgREST truncated to the
+ * project's max-rows). Null means "prune every event" - slower, never wrong.
+ */
+async function storedLocalDates(
+  admin: Admin,
+  calendarId: string,
+  ids: string[],
+): Promise<Map<string, Set<string>> | null> {
+  const out = new Map<string, Set<string>>();
+  for (const part of chunked(ids, IDS_PER_FILTER)) {
+    const { data, error, status } = await admin
+      .from("external_calendar_events")
+      .select("google_event_id, local_date")
+      .eq("calendar_id", calendarId)
+      .in("google_event_id", part);
+    if (error) {
+      console.error("gcal sync prune probe failed:", error.message);
+      return null;
+    }
+    // 206 Partial Content means max-rows cut the result off, so we cannot tell
+    // which days are really stored.
+    if (status === 206) {
+      console.warn("gcal sync prune probe truncated - pruning every event");
+      return null;
+    }
+    for (const row of (data ?? []) as { google_event_id: string; local_date: string }[]) {
+      let days = out.get(row.google_event_id);
+      if (!days) {
+        days = new Set<string>();
+        out.set(row.google_event_id, days);
+      }
+      days.add(row.local_date);
+    }
+  }
+  return out;
+}
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
 }
 
 async function getOwnerTz(admin: Admin, ownerUserId: string): Promise<string> {
