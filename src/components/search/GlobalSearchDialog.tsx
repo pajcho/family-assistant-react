@@ -17,7 +17,7 @@ import {
   LinkedEntityEditor,
   type EditableEntityRef,
 } from "@/components/payments/LinkedEntityEditor";
-import { SEARCH_PAGES } from "@/components/search/searchPages";
+import { SEARCH_PAGES, matchSearchPages, normalizeTerm } from "@/components/search/searchPages";
 import {
   MIN_SEARCH_CHARS,
   useGlobalSearch,
@@ -31,25 +31,15 @@ import { cn } from "@/lib/cn";
  * button. A debounced term fans out to the family-scoped `ilike` queries in
  * `useGlobalSearch`; hits are grouped by type with the agenda's icons/colors.
  * A "Stranice" group matches page names (diacritic-insensitive, so
- * "rodjendani" finds Rođendani) and navigates; its pages are derived from the
- * nav's own section list, see {@link SEARCH_PAGES}. Entity hits (activity,
+ * "rodjendani" finds Rođendani, and forgiving of the pre-redesign names, so
+ * "uskoro" finds Kalendar) and navigates; its pages are derived from the nav's
+ * own section list, see {@link SEARCH_PAGES}. Entity hits (activity,
  * event, payment, birthday) open their EDIT dialog in place via
  * LinkedEntityEditor - no page change; only lists/list items (they ARE pages)
  * and Google-mirror events still navigate.
  */
 
 const DEBOUNCE_MS = 250;
-
-/** Lowercase + strip Serbian diacritics so "placanja" matches "Plaćanja". */
-function normalizeTerm(s: string): string {
-  return s
-    .toLowerCase()
-    .replaceAll("đ", "dj")
-    .replaceAll("č", "c")
-    .replaceAll("ć", "c")
-    .replaceAll("š", "s")
-    .replaceAll("ž", "z");
-}
 
 type GroupMeta = {
   label: string;
@@ -141,12 +131,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   // survives the palette closing.
   const [editTarget, setEditTarget] = useState<EditableEntityRef | null>(null);
 
-  // Page matches - instant, diacritic-insensitive, same min length. Keyed by
-  // section key, since Porodica and Podešavanja share a path.
+  // Page matches - instant, diacritic-insensitive, same min length, and they
+  // still answer to the pre-redesign names. Keyed by section key, since
+  // Porodica and Podešavanja share a path.
   const pageResults = useMemo<SearchResult[]>(() => {
     const q = normalizeTerm(debouncedTerm.trim());
     if (q.length < MIN_SEARCH_CHARS) return [];
-    return SEARCH_PAGES.filter((p) => normalizeTerm(p.label).includes(q)).map((p) => ({
+    return matchSearchPages(q).map((p) => ({
       kind: "page" as const,
       id: p.id,
       title: p.label,

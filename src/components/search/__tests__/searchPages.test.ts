@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { NAV_SECTIONS } from "@/components/layout/navSections";
-import { SEARCH_PAGES } from "@/components/search/searchPages";
+import { SEARCH_PAGES, matchSearchPages, normalizeTerm } from "@/components/search/searchPages";
 
 /**
  * Pins the derivation, not the palette: the point of these is that the search
@@ -46,5 +46,57 @@ describe("SEARCH_PAGES", () => {
     const settings = SEARCH_PAGES.find((page) => page.id === "settings");
     expect(settings?.to).toBe("/settings");
     expect(settings?.search).toBeUndefined();
+  });
+});
+
+describe("matchSearchPages", () => {
+  it("matches a label, diacritics or not", () => {
+    expect(matchSearchPages("skola").map((page) => page.id)).toEqual(["school"]);
+    expect(matchSearchPages("Škola").map((page) => page.id)).toEqual(["school"]);
+    expect(matchSearchPages("rodjendani").map((page) => page.id)).toEqual(["birthdays"]);
+  });
+
+  it("still finds the sections under their pre-redesign names", () => {
+    expect(matchSearchPages("uskoro").map((page) => page.id)).toEqual(["calendar"]);
+    expect(matchSearchPages("placanja").map((page) => page.id)).toEqual(["money"]);
+    expect(matchSearchPages("budzet").map((page) => page.id)).toEqual(["money"]);
+  });
+
+  it("shows an old name's hit under the section's CURRENT identity", () => {
+    // Typing "uskoro" must offer "Kalendar" - the row is where the content
+    // lives now, not a ghost of the page that used to hold it.
+    const [uskoro] = matchSearchPages("uskoro");
+    expect(uskoro?.label).toBe("Kalendar");
+    expect(uskoro?.to).toBe("/kalendar");
+
+    const [placanja] = matchSearchPages("placanja");
+    expect(placanja?.label).toBe("Novac");
+    expect(placanja?.to).toBe("/novac");
+  });
+
+  it("returns a section once even when both its label and an old name match", () => {
+    // "ac" is inside Novac and inside placanja.
+    expect(matchSearchPages("ac").map((page) => page.id)).toEqual(["money"]);
+  });
+
+  it("keeps the canonical nav order and ignores an empty term", () => {
+    // "a" is in Danas, Kalendar, Novac... - the order is NAV_SECTIONS'.
+    const ids = matchSearchPages("a").map((page) => page.id);
+    expect(ids).toEqual(
+      NAV_SECTIONS.map((section) => section.key).filter((key) => ids.includes(key)),
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(matchSearchPages("   ")).toEqual([]);
+  });
+
+  it("compares against the same normalized form the old names are written in", () => {
+    // The table is hand-written; if an entry carried a diacritic it could never
+    // match, because the typed term is normalized before the comparison.
+    for (const name of ["uskoro", "placanja", "budzet"]) {
+      expect(normalizeTerm(name)).toBe(name);
+      expect(matchSearchPages(name)).not.toHaveLength(0);
+    }
+    expect(normalizeTerm("Plaćanja")).toBe("placanja");
+    expect(normalizeTerm("Budžet")).toBe("budzet");
   });
 });
