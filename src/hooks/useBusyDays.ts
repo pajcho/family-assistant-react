@@ -37,9 +37,15 @@ function birthdayHitsInRange(birthDate: string, from: string, to: string): strin
 
 export function useBusyDays(from: string | null, to: string | null, enabled = true): BusyDays {
   const active = enabled && !!from && !!to;
-  // TanStack keeps `enabled: false` queries from firing; passing an undefined
-  // range while the picker is closed keeps the range key stable too.
-  const eventsQuery = useEventsList(active ? { from: from as string, to: to as string } : {});
+  // The gate has to be passed explicitly. An empty filter object is NOT a gate:
+  // it just asked for the whole events table instead, unfiltered - and every
+  // mounted DateField holds one of these, so a dozen closed pickers were a
+  // dozen full-table fetches. Keep the real range in the key across the flip.
+  const eventsQuery = useEventsList({
+    from: from ?? undefined,
+    to: to ?? undefined,
+    enabled: active,
+  });
   const paymentsQuery = usePaymentsList();
   const birthdaysQuery = useBirthdaysList();
   const { byKey } = usePaymentOverrides();

@@ -11,7 +11,8 @@ import { replaceEventParticipants } from "@/hooks/useEventParticipants";
  * family broadcast channel (see `useFamilyChannel`).
  *
  * Surface:
- *   - `useEventsList({ from?, to? })`  - list query
+ *   - `useEventsList({ from?, to?, enabled? })` - list query
+ *   - `useHasAnyEvents()`              - count-only "is there any event?"
  *   - `useEventById(id)`               - single event, by id
  *   - `useEventsByIds(ids)`            - batch by id
  *   - `useCreateEvent()`               - insert mutation
@@ -25,6 +26,14 @@ import { replaceEventParticipants } from "@/hooks/useEventParticipants";
 export interface EventListFilters {
   from?: string;
   to?: string;
+  /**
+   * Caller-side gate, ANDed with the internal `!!familyId`. Default `true`.
+   *
+   * Not part of the query key - flipping it must not fork the cache entry, it
+   * must only decide whether this observer fetches. Callers that gate should
+   * still pass their real `from`/`to`, so the key stays stable across the flip.
+   */
+  enabled?: boolean;
 }
 
 export type CreateEventInput = {
@@ -103,11 +112,11 @@ async function fetchEvents(familyId: string, filters: EventListFilters): Promise
 
 export function useEventsList(filters: EventListFilters = {}) {
   const { familyId } = useProfile();
-  const { from, to } = filters;
+  const { from, to, enabled = true } = filters;
   const query = useQuery({
     queryKey: ["events", familyId, { from, to }],
     queryFn: () => fetchEvents(familyId as string, { from, to }),
-    enabled: !!familyId,
+    enabled: enabled && !!familyId,
     // Keep the prior window's rows while a wider [from, to] refetches. On the
     // "Uskoro" infinite scroll, growing the horizon changes this key; without a
     // placeholder the list goes momentarily empty, and with a type filter active
@@ -117,6 +126,38 @@ export function useEventsList(filters: EventListFilters = {}) {
   });
 
   return query;
+}
+
+/**
+ * "Does this family have ANY event?" - a HEAD request that returns a count and
+ * no rows, modeled on `useHasExternalEvents`.
+ *
+ * The onboarding checklist only ever asked whether the list is non-empty, but
+ * it asked with `useEventsList()`: an unbounded `select("*")` over the whole
+ * events table, held warm for the life of the Danas screen and growing forever.
+ * Same query-key family as the list, so every event mutation and the broadcast
+ * invalidation refresh it.
+ *
+ * Returns the query (not a bare boolean like its external-events sibling)
+ * because callers need `isLoading` to hold back a half-drawn checklist.
+ */
+export function useHasAnyEvents() {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["events", familyId, "any"],
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("family_id", familyId as string)
+        .limit(1);
+      if (error) return false;
+      return (count ?? 0) > 0;
+    },
+    enabled: !!familyId,
+    staleTime: 5 * 60_000,
+  });
 }
 
 /**
