@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { toast } from "sonner";
+
+import { KidUpdateToast } from "@/components/kid/KidUpdateToast";
+import { isKidShellPath } from "@/types/kid";
 
 /**
  * Listens for service-worker updates from vite-plugin-pwa.
@@ -21,11 +25,18 @@ import { toast } from "sonner";
  *   2. forcing a check whenever the document becomes visible again -
  *      iOS suspends background tabs / PWAs, so coming back into focus
  *      is the natural moment to look for a new deploy.
+ *
+ * A child gets the same news in their own shell's clothes and their own
+ * words - see `KidUpdateToast`.
  */
 const UPDATE_INTERVAL_MS = 30 * 60 * 1000;
 
 export function usePwaUpdate(): void {
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  // The hook is mounted once, in `__root`, above both shells - so which toast
+  // to show is a question about where the user is RIGHT NOW, not about where
+  // they were when the update landed.
+  const isKid = useRouterState({ select: (state) => isKidShellPath(state.location.pathname) });
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -76,19 +87,27 @@ export function usePwaUpdate(): void {
     // reappearing.
     if (!import.meta.env.PROD) return;
     if (!needRefresh) return;
-    const id = toast("Nova verzija dostupna", {
-      description: "Osveži aplikaciju da preuzmeš najnovije izmene.",
-      duration: Infinity,
-      action: {
-        label: "Osveži",
-        onClick: () => {
-          void updateServiceWorker(true);
-        },
-      },
-      onDismiss: () => setNeedRefresh(false),
-    });
+    const refresh = () => {
+      void updateServiceWorker(true);
+    };
+    // Same event, two audiences. `toast.custom` rather than the description +
+    // action shape above because the kid card brings its own surface, radius
+    // and buttons - none of which sonner's default toast can be talked into.
+    const id = isKid
+      ? toast.custom(
+          (toastId) => (
+            <KidUpdateToast onRefresh={refresh} onDismiss={() => toast.dismiss(toastId)} />
+          ),
+          { duration: Infinity, onDismiss: () => setNeedRefresh(false) },
+        )
+      : toast("Nova verzija dostupna", {
+          description: "Osveži aplikaciju da preuzmeš najnovije izmene.",
+          duration: Infinity,
+          action: { label: "Osveži", onClick: refresh },
+          onDismiss: () => setNeedRefresh(false),
+        });
     return () => {
       toast.dismiss(id);
     };
-  }, [needRefresh, setNeedRefresh, updateServiceWorker]);
+  }, [isKid, needRefresh, setNeedRefresh, updateServiceWorker]);
 }

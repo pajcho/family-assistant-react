@@ -12,9 +12,16 @@
    `bg-background` / `text-foreground` / `bg-accent`. That is what makes the
    isolation real rather than a convention.
 
-   Five self-contained themes (4 light + 1 dark). Keys are ENGLISH because they
+   Eight self-contained themes (7 light + 1 dark). Keys are ENGLISH because they
    are stored in `kid_access.theme`; Serbian lives only in the labels
    (see `KID_THEME_OPTIONS` in `src/types/kid.ts`).
+
+   Every theme is checked at 4.5:1 for --k-ink, --k-sub and --k-accent over all
+   THREE surfaces they can land on - --k-card, --k-bg and --k-soft - as well as
+   for --k-accent-ink over --k-accent and --k-danger over card and bg. A child
+   cannot turn off a theme they cannot read. --k-soft is easy to forget and is
+   the tightest of the three: a muted card sits on --k-bg, and the current class
+   in the school ladder is a highlighted card, so --k-sub lands on --k-soft.
 
      --k-bg      screen background
      --k-card    card / sheet surface
@@ -36,7 +43,7 @@ html[data-kid-theme="ocean"] {
   --k-bg: #eaf3fd;
   --k-card: #ffffff;
   --k-ink: #123a5f;
-  --k-sub: #5b7f9f;
+  --k-sub: #506f8c;
   --k-line: #dbe9f7;
   --k-soft: #e3f1ff;
   --k-accent: #1f66c9;
@@ -54,7 +61,7 @@ html[data-kid-theme="jungle"] {
   --k-bg: #edf7ec;
   --k-card: #ffffff;
   --k-ink: #1e4d33;
-  --k-sub: #5f866d;
+  --k-sub: #52735e;
   --k-line: #dbeedd;
   --k-soft: #e1f4e4;
   --k-accent: #12784a;
@@ -72,11 +79,11 @@ html[data-kid-theme="sun"] {
   --k-bg: #fff4e3;
   --k-card: #ffffff;
   --k-ink: #6b3a08;
-  --k-sub: #97703f;
+  --k-sub: #886539;
   --k-line: #f5e4cb;
   --k-soft: #ffebd1;
-  --k-accent: #b95c07;
-  --k-accent-strong: #b95c07;
+  --k-accent: #a95406;
+  --k-accent-strong: #a95406;
   --k-accent-ink: #ffffff;
   --k-grad: linear-gradient(135deg, #ffc53d, #f4741f);
   --k-shadow: 0 3px 12px -5px rgb(190 110 20 / 0.22);
@@ -90,7 +97,7 @@ html[data-kid-theme="candy"] {
   --k-bg: #fdeff5;
   --k-card: #ffffff;
   --k-ink: #6d2150;
-  --k-sub: #9c6081;
+  --k-sub: #8e5876;
   --k-line: #f6dce8;
   --k-soft: #fce3ee;
   --k-accent: #c02c6d;
@@ -101,6 +108,75 @@ html[data-kid-theme="candy"] {
   --k-danger: #c81e42;
   --k-danger-soft: #fff1f3;
   --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+/* A watermelon slice, mapped onto the shell: the gradient header is the flesh,
+   the page is the pale pink just inside the rind, cards are the white pith and
+   the accent is the rind green. The accent is deliberately NOT red - it would
+   be the same colour as --k-danger, and a green "go" against a red "stop" is
+   exactly the distinction a child needs. Ink is the seed: near-black, warm. */
+html[data-kid-theme="watermelon"] {
+  --k-bg: #ffefee;
+  --k-card: #ffffff;
+  --k-ink: #4a1c22;
+  --k-sub: #96525c;
+  --k-line: #ffdedc;
+  --k-soft: #e7f7e8;
+  --k-accent: #207340;
+  --k-accent-strong: #207340;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #ff6b7a, #e8264f);
+  --k-shadow: 0 3px 12px -5px rgb(200 45 75 / 0.22);
+  /* A truer, less pink red than the shared #c81e42: on a flesh-pink page that
+     one drifts towards the background instead of shouting. */
+  --k-danger: #b81d2c;
+  --k-danger-soft: #ffe8e4;
+  --k-danger-ink: #8f1420;
+  --k-nav: #ffffff;
+}
+
+/* Lavender: the quiet violet. Kept low-chroma on purpose so it never reads as
+   a lighter Svemir (electric indigo on black) or a bluer Slatkiš (magenta). */
+html[data-kid-theme="lavender"] {
+  --k-bg: #f3f0fc;
+  --k-card: #ffffff;
+  --k-ink: #3a3067;
+  --k-sub: #71629b;
+  --k-line: #e6e0f6;
+  --k-soft: #eee8fc;
+  --k-accent: #6a4bc4;
+  --k-accent-strong: #6a4bc4;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #b096e6, #7d5fd0);
+  --k-shadow: 0 3px 12px -5px rgb(110 80 190 / 0.22);
+  --k-danger: #c81e42;
+  --k-danger-soft: #fff1f3;
+  --k-danger-ink: #a3122f;
+  --k-nav: #ffffff;
+}
+
+/* Pearl: nacre. The only near-neutral theme - a warm cream page against a cool
+   teal accent, with the pink-to-blue shimmer confined to the gradient. Three
+   gradient stops rather than two because rose straight to sky washes out in the
+   middle; the lilac stop is what makes it read as iridescence. */
+html[data-kid-theme="pearl"] {
+  --k-bg: #f7f4f1;
+  --k-card: #ffffff;
+  --k-ink: #33404a;
+  --k-sub: #64707b;
+  --k-line: #e9e2dc;
+  --k-soft: #ecf4f5;
+  --k-accent: #0d727d;
+  --k-accent-strong: #0d727d;
+  --k-accent-ink: #ffffff;
+  --k-grad: linear-gradient(135deg, #c98ba3, #9789c6, #6b9fba);
+  --k-shadow: 0 3px 12px -5px rgb(80 95 115 / 0.2);
+  /* Warmer than the shared crimson so it separates from the rose in the
+     gradient instead of looking like one more pearl tone. */
+  --k-danger: #c0202f;
+  --k-danger-soft: #fcebe9;
+  --k-danger-ink: #94131f;
   --k-nav: #ffffff;
 }
 
@@ -221,6 +297,28 @@ html[data-kid-theme] .kid-font {
   background:
     linear-gradient(var(--k-card), var(--k-card)) padding-box,
     var(--k-grad) border-box;
+}
+
+/* The two pre-session screens (prijava, povezivanje) wear the app's OWN
+   identity rather than a child's theme: the violet of `public/kid-icon.svg`,
+   which is also the manifest `background_color` and therefore the colour iOS
+   paints while the app launches. Launch and sign-in then read as one screen
+   instead of a flash from violet into whatever theme this device remembers.
+
+   The gradient brackets the flat tile colour rather than matching it, so the
+   handover from the splash is a shade rather than a cut. `--k-accent-strong`
+   is pinned along with it because the white primary button on these screens
+   takes its text colour from the theme, and a returning child's accent on a
+   violet page is the one place that reads as a mistake. Everything else here
+   is white on the gradient, so nothing else needs pinning.
+
+   The theme is still applied to the document while these screens are up (the
+   layout does it, from whichever child the picker has selected) - it is simply
+   not what paints them. That is what makes the first frame after a correct PIN
+   already the child's colours. */
+.kid-auth-screen {
+  --k-accent-strong: #443591;
+  background-image: linear-gradient(135deg, #5b4ab0, #3a2c7a);
 }
 
 /* The kid body scrolls; hide the bar so the screen stays calm on desktop too.

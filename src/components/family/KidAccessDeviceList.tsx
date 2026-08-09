@@ -137,8 +137,7 @@ export function KidAccessRevokeConfirm({
       </p>
       {isLastDevice ? (
         <p className="rounded-lg bg-warn-soft px-3 py-2 text-[13px] font-normal text-warn">
-          Ovo je jedini povezani uređaj - {memberName} neće moći da se prijavi dok mu ne povežeš
-          novi.
+          Ovo je jedini povezani uređaj - {memberName} neće moći da se prijavi dok ne povežeš novi.
         </p>
       ) : null}
       <ResponsiveDialogFooter>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="91 128 331 268" fill="none">
+  <!-- GENERATED from public/kid-icon.svg by scripts/generate-kid-svgs.ts. Edit the source, then run `pnpm assets:kid`. -->
+  <path
+    d="M291 150 L404 254 H176 Z"
+    fill="#C9584B"
+    stroke="#C9584B"
+    stroke-width="24"
+    stroke-linejoin="round"
+  />
+  <rect x="196" y="256" width="190" height="132" rx="16" fill="#F7EAD6"/>
+  <rect x="216" y="298" width="40" height="40" rx="10" fill="#FFC960"/>
+  <path d="M266 322 a26 26 0 0 1 52 0 v66 h-52 z" fill="#8A5C3E"/>
+  <rect x="158" y="228" width="26" height="160" rx="10" fill="#7B5A41"/>
+  <circle cx="171" cy="208" r="74" fill="#4FA96B"/>
+  <circle cx="372" cy="364" r="26" fill="#4FA96B"/>
+</svg>

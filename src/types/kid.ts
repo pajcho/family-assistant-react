@@ -16,11 +16,40 @@
  */
 
 // ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
+/**
+ * Is this router pathname a screen a CHILD is looking at?
+ *
+ * `/kid/pregled` is not: that is a parent previewing their child's app from
+ * their own session, so anything addressed to a child (kid-worded copy, the
+ * kid install identity) has no business appearing there.
+ *
+ * `src/lib/kidInstallIdentity.ts` asks the same question and deliberately does
+ * not call this - it is stringified into `index.html`, so it may not reference
+ * anything outside its own body.
+ */
+export function isKidShellPath(pathname: string): boolean {
+  const inShell = pathname === "/kid" || pathname.startsWith("/kid/");
+  return inShell && !pathname.startsWith("/kid/pregled");
+}
+
+// ---------------------------------------------------------------------------
 // Themes - the only thing a kid can change about the app
 // ---------------------------------------------------------------------------
 
 /** DB-stored theme keys. English in the database, Serbian only in labels. */
-export const KID_THEME_KEYS = ["ocean", "jungle", "sun", "candy", "space"] as const;
+export const KID_THEME_KEYS = [
+  "ocean",
+  "jungle",
+  "sun",
+  "candy",
+  "watermelon",
+  "lavender",
+  "pearl",
+  "space",
+] as const;
 export type KidTheme = (typeof KID_THEME_KEYS)[number];
 
 export const DEFAULT_KID_THEME: KidTheme = "ocean";
@@ -49,6 +78,24 @@ export const KID_THEME_OPTIONS: readonly KidThemeOption[] = [
     label: "Slatkiš",
     emoji: "🍭",
     swatch: "linear-gradient(135deg,#f675b4,#d9367c)",
+  },
+  {
+    key: "watermelon",
+    label: "Lubenica",
+    emoji: "🍉",
+    swatch: "linear-gradient(135deg,#ff6b7a,#e8264f)",
+  },
+  {
+    key: "lavender",
+    label: "Lavanda",
+    emoji: "🌸",
+    swatch: "linear-gradient(135deg,#b096e6,#7d5fd0)",
+  },
+  {
+    key: "pearl",
+    label: "Biser",
+    emoji: "🐚",
+    swatch: "linear-gradient(135deg,#c98ba3,#9789c6,#6b9fba)",
   },
   {
     key: "space",

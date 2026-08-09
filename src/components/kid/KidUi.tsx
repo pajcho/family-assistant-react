@@ -146,9 +146,9 @@ export type KidTagTone = "activity" | "event" | "birthday" | "span" | "canceled"
 
 /**
  * The little type chips. Fixed literal colours on purpose: they must read the
- * same in all five themes, so an aktivnost is green whether the child picked
- * Okean or Svemir. All five pass contrast on both the light card and the dark
- * (Svemir) one, because the chip brings its own light background - which is
+ * same in every theme, so an aktivnost is green whether the child picked
+ * Okean or Svemir. All five tones pass contrast on both the light card and the
+ * dark (Svemir) one, because the chip brings its own light background - which is
  * also why "otkazano" stays legible on a muted card in the dark theme.
  */
 const TAG_TONES: Record<KidTagTone, string> = {

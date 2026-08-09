@@ -15,6 +15,7 @@
     "fmt": "oxfmt",
     "check:dashes": "bash scripts/check-dashes.sh",
     "check": "oxfmt --check && oxlint --deny-warnings && pnpm run check:dashes",
+    "assets:kid": "pwa-assets-generator --config pwa-assets.kid.config.ts && tsx scripts/generate-kid-svgs.ts",
     "setup-family": "tsx --env-file=.env scripts/setup-family.ts",
     "setup-family:local": "tsx --env-file=.env.local scripts/setup-family.ts"
   },
