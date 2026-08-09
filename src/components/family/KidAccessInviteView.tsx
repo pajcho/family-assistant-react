@@ -4,14 +4,16 @@ import {
   ClipboardDocumentCheckIcon,
   ClipboardDocumentIcon,
 } from "@heroicons/react/24/outline";
+import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { toast } from "sonner";
 import { renderSVG } from "uqr";
 
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { inviteValidityLabel } from "@/components/family/KidAccessCopy";
-import { useCreateKidInvite } from "@/hooks/useKidAccess";
+import { useCreateKidInvite, useKidDevices } from "@/hooks/useKidAccess";
 import { cn } from "@/lib/cn";
+import type { KidDevice } from "@/types/database";
 import {
   KID_INVITE_TTL_MINUTES,
   formatKidInviteCode,
@@ -45,6 +47,40 @@ export type KidAccessInviteViewProps = {
   closeLabel: string;
   onClose: () => void;
 };
+
+/** How long the parent reads "povezan" before the sheet closes itself. */
+const LINKED_CLOSE_DELAY_MS = 2400;
+
+/**
+ * The device this screen is being held up FOR, once it appears - or null while
+ * the parent is still waiting.
+ *
+ * A NEW id rather than a bigger count or a fresh `created_at`: the child may be
+ * linking their second device, and a timestamp comparison would ride on the
+ * phone's clock agreeing with the database's. The ids present when this screen
+ * opened are the baseline, and anything outside that set arrived just now.
+ *
+ * The baseline is taken only once the list has actually loaded. Taken from an
+ * empty list mid-fetch, every device the child already had would read as
+ * "linked just now" and the screen would congratulate the parent for nothing.
+ */
+function useJustLinkedDevice(profileId: string, waiting: boolean): KidDevice | null {
+  const [linked, setLinked] = useState<KidDevice | null>(null);
+  const { devices, isLoading } = useKidDevices(profileId, { watch: waiting && !linked });
+  const baseline = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (isLoading || linked) return;
+    if (baseline.current === null) {
+      baseline.current = new Set(devices.map((device) => device.id));
+      return;
+    }
+    const fresh = devices.find((device) => !baseline.current?.has(device.id));
+    if (fresh) setLinked(fresh);
+  }, [devices, isLoading, linked]);
+
+  return linked;
+}
 
 function secondsUntil(expiresAt: string | null): number {
   if (!expiresAt) return 0;
@@ -141,6 +177,25 @@ export function KidAccessInviteView({
   const loading = pending;
   const failed = errored && !pending;
 
+  // The other end of the code. A parent holding this screen up has no way of
+  // knowing it worked - the child's phone says so, on the far side of the room -
+  // so the moment a device appears, say it here and get out of the way.
+  // Only while a code is actually live: an expired one cannot link anything.
+  const linked = useJustLinkedDevice(profileId, !!invite && !expired);
+
+  // Closed from a ref, not from `onClose` itself: the parent passes an inline
+  // arrow, so a dependency on it would restart this timer on every poll and it
+  // would never fire.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    if (!linked) return;
+    const timer = window.setTimeout(() => closeRef.current(), LINKED_CLOSE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [linked]);
+
   const regenerate = () => {
     setCopied(false);
     setInvite(null);
@@ -161,7 +216,9 @@ export function KidAccessInviteView({
 
   return (
     <div className="space-y-4">
-      {loading ? (
+      {linked ? (
+        <KidDeviceLinkedPanel device={linked} memberName={memberName} />
+      ) : loading ? (
         <div className="space-y-3">
           <div className="mx-auto aspect-square w-full max-w-[240px] animate-pulse rounded-2xl bg-muted" />
           <p className="text-center text-sm font-normal text-muted-foreground">
@@ -280,6 +337,31 @@ export function KidAccessInviteView({
           {closeLabel}
         </Button>
       </ResponsiveDialogFooter>
+    </div>
+  );
+}
+
+/**
+ * "Povezano" - the answer the parent has been standing there waiting for.
+ *
+ * It says which device, because a parent linking a second one needs to know it
+ * was the right phone, and it names the next thing the child does (their PIN)
+ * so nobody goes looking for another step. The sheet closes itself a beat
+ * later; the device list behind it has already refreshed.
+ */
+function KidDeviceLinkedPanel({ device, memberName }: { device: KidDevice; memberName: string }) {
+  return (
+    <div
+      role="status"
+      className="flex flex-col items-center gap-2 rounded-2xl bg-pos-soft px-5 py-7 text-center"
+    >
+      <CheckCircleIcon className="size-11 text-pos" />
+      <p className="text-base font-semibold text-foreground">
+        {device.label ? `Povezan je ${device.label}` : "Uređaj je povezan"}
+      </p>
+      <p className="max-w-xs text-sm leading-relaxed font-normal text-muted-foreground">
+        {memberName} se od sada prijavljuje samo svojim PIN-om.
+      </p>
     </div>
   );
 }

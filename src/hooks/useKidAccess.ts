@@ -127,16 +127,40 @@ export interface UseKidDevicesResult {
   isError: boolean;
 }
 
+/** How often the invite screen looks for the device it is waiting for. */
+const KID_DEVICE_WATCH_MS = 3000;
+
+export interface UseKidDevicesOptions {
+  /**
+   * Poll while a QR code is on screen, so the parent finds out the child got
+   * in without doing anything.
+   *
+   * Polling rather than realtime, deliberately. `kid_devices` has no broadcast
+   * trigger and should not get one: it is written on every single kid sign-in
+   * (`last_seen_at`), so a family-wide message per write would be pure noise
+   * for a fact exactly one open screen ever cares about. The caller turns this
+   * on only while an invite is live - at most 15 minutes, in practice under a
+   * minute - and TanStack Query pauses it whenever the tab is in the
+   * background.
+   */
+  watch?: boolean;
+}
+
 /**
  * Devices linked for ONE child, newest first. Pass `null` to stay idle - the
  * admin UI only asks once a child actually has kid access.
  */
-export function useKidDevices(profileId: string | null): UseKidDevicesResult {
+export function useKidDevices(
+  profileId: string | null,
+  { watch = false }: UseKidDevicesOptions = {},
+): UseKidDevicesResult {
   const query = useQuery({
     queryKey: ["kid-devices", profileId],
     queryFn: () => fetchKidDevices(profileId as string),
     enabled: !!profileId,
-    staleTime: 60_000,
+    // While watching, a cached list is exactly what must not be trusted.
+    staleTime: watch ? 0 : 60_000,
+    refetchInterval: watch ? KID_DEVICE_WATCH_MS : false,
   });
 
   return {
