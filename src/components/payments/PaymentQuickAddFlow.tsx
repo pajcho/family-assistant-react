@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { PaymentFormDialog } from "@/components/payments/PaymentFormDialog";
 import type { PaymentFormPayload } from "@/components/payments/PaymentForm";
@@ -34,6 +35,9 @@ export function PaymentQuickAddFlow({ open, onOpenChange }: PaymentQuickAddFlowP
         is_recurring: payload.recurrence_period !== "one-time",
       });
       onOpenChange(false);
+      // See `EventQuickAddFlow`: the flow stays put, so the toast is the only
+      // confirmation the save happened.
+      toast.success("Plaćanje je dodato.");
     } catch (err) {
       setFormError(
         err instanceof Error && err.message ? err.message : "Greška pri kreiranju plaćanja",
