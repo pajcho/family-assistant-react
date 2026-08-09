@@ -152,6 +152,15 @@ export interface Payment {
    *  RSD. Occurrences and history stay RSD - only the definition carries this. */
   exchange_rate: number | null;
   due_date: string;
+  /**
+   * Day of the month (1-31) the series is anchored to - the day the user
+   * originally picked. Every monthly step re-derives its day from this anchor
+   * (capped to the target month's length) instead of from the previous, already
+   * capped result, so a bill due on the 31st does not permanently become the
+   * 28th after its first February. `null` (or absent) falls back to the day of
+   * `due_date`, which is what pre-anchor rows and hand-built fixtures get.
+   */
+  due_anchor_day?: number | null;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
   /**

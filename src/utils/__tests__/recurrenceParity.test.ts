@@ -1,31 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { Payment, PaymentOverride } from "@/types/database";
 import { monthRange } from "../budget";
-import {
-  getDueDateInMonth,
-  getLimitedMonths,
-  getWeeklyOccurrencesInMonth,
-  isMonthlyOccurrenceMonth,
-} from "../date";
-import { expandPaymentOccurrences, overrideKey } from "../payment";
+import { expandPaymentOccurrences, overrideKey, paymentOccurrencesInMonth } from "../payment";
 
 /**
- * The app computes payment occurrence dates TWICE, with two independent
- * implementations, and they do not always agree:
+ * The app used to compute payment occurrence dates TWICE, with two independent
+ * implementations that did not always agree:
  *
  *   Engine A - `expandPaymentOccurrences` (utils/payment.ts). Used by useAgenda,
- *              useBusyDays and the budget projection. Walks forward from
+ *              useBusyDays and the budget projection. Walked forward from
  *              `due_date`, chaining `addMonth` on its own already-clamped
- *              output.
- *   Engine B - the four `date.ts` helpers as wired up by PaymentsPage. Re-derives
- *              each month's date from the ORIGINAL `due_date`.
+ *              output, so a 31st became a 28th forever.
+ *   Engine B - the four `date.ts` helpers as wired up by PaymentsPage, which
+ *              re-derived each month's date from the ORIGINAL `due_date` - and
+ *              could rewind past the start of the series.
  *
- * This file runs both engines over the same fixtures and records the result -
- * agreements as a regression guard, disagreements as explicit
- * `not.toEqual` assertions. These are characterization tests: they assert what
- * the code does TODAY, defects and all. Plan 010 unifies the two engines and
- * will have to rewrite the disagreement assertions - that diff is the record of
- * which on-screen numbers changed.
+ * Plan 010 made both call paths one anchored walk: engine B is now
+ * `paymentOccurrencesInMonth`, the month-shaped face of the very same
+ * `walkOccurrenceDates` engine A uses. This file keeps running both call paths
+ * over the same fixtures, but every fixture now asserts AGREEMENT - it is the
+ * regression guard against the two surfaces drifting apart again.
+ *
+ * The assertions that flipped (and why) are recorded per fixture below.
  */
 
 /* ------------------------------------------------------------------------- */
@@ -75,38 +71,18 @@ function engineA(p: Payment, month: string): string[] {
 }
 
 /**
- * Engine B: a COPY of the occurrence-date branch in
- * `components/payments/PaymentsPage.tsx` (the `weekly` / `monthly` / `limited`
- * arms of its synthetic-upcoming-row loop). Copied rather than imported because
- * importing the component would drag Supabase into a pure unit test.
+ * Engine B: the month view the Payments page draws. Plan 009 had to keep a COPY
+ * of the page's date branch here (importing the component drags Supabase into a
+ * pure unit test); plan 010 replaced that branch with `paymentOccurrencesInMonth`,
+ * so the mirror is gone and this calls the real thing.
  *
- * Deliberately mirrors only the DATE computation. The page additionally
- * suppresses rows it has already drawn elsewhere (`hasRealRow`,
- * `occurrenceDate === payment.due_date`, and dates already present in payment
- * history); those guards hide rows, they do not change which dates the helpers
- * produce, which is what this file compares.
- *
- * Delete this mirror when plan 010 unifies the engines.
+ * The page additionally suppresses rows it has already drawn elsewhere
+ * (`hasRealRow`, `occurrenceDate === payment.due_date`, dates already in payment
+ * history) - those guards hide rows, they do not change which dates the engine
+ * produces, which is what this file compares.
  */
 function engineB(p: Payment, month: string): string[] {
-  const interval = Math.max(1, p.recurrence_interval ?? 1);
-
-  if (p.recurrence_period === "weekly") {
-    return getWeeklyOccurrencesInMonth(p.due_date, month, interval);
-  }
-
-  if (p.recurrence_period === "monthly") {
-    return isMonthlyOccurrenceMonth(p.due_date, month, interval)
-      ? [getDueDateInMonth(month, p.due_date)]
-      : [];
-  }
-
-  if (p.recurrence_period === "limited") {
-    const months = getLimitedMonths(p.due_date, Math.max(0, p.remaining_occurrences ?? 0));
-    return months.includes(month) ? [getDueDateInMonth(month, p.due_date)] : [];
-  }
-
-  return [];
+  return paymentOccurrencesInMonth(p, month, NO_OVERRIDES).map((o) => o.occurrenceDate);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -125,42 +101,53 @@ describe("parity: monthly payment on a mid-month day", () => {
 });
 
 /* ------------------------------------------------------------------------- */
-/* Fixture 2 - month-end drift, the engines DISAGREE                          */
+/* Fixture 2 - month-end, the case the anchor exists for                      */
 /* ------------------------------------------------------------------------- */
 
 describe("parity: monthly payment due on the 31st", () => {
   const p = payment({ due_date: "2026-01-31" });
 
-  it("engine A permanently loses the 31st once February clamps it", () => {
-    // addMonth is chained on its own clamped output: 01-31 -> 02-28 -> 03-28 ->
-    // 04-28 ... The day never recovers.
+  it("engine A clamps only where it must, and gets the day back after", () => {
+    // WAS (plan 009): 01-31, 02-28, 03-28, 04-28, 05-28, 06-28 - the day was
+    // inherited from the clamped February result and never recovered. Now every
+    // step re-derives from the anchor, so only the short months are clamped.
     const walk = expandPaymentOccurrences(p, "2026-01-01", "2026-06-30", NO_OVERRIDES);
     expect(walk.map((o) => o.occurrenceDate)).toEqual([
       "2026-01-31",
       "2026-02-28",
-      "2026-03-28",
-      "2026-04-28",
-      "2026-05-28",
-      "2026-06-28",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-31",
+      "2026-06-30",
     ]);
   });
 
-  it("engine B re-derives from the original due date, so March is the 31st", () => {
+  it("engine B reports the same 31st it always did", () => {
     expect(engineB(p, "2026-03")).toEqual(["2026-03-31"]);
   });
 
-  it("DIVERGENCE: the two engines name different days for the same instalment", () => {
-    // The agenda / budget say 2026-03-28, the Payments page says 2026-03-31.
-    // Same instalment, two dates. Resolved by plan 010.
-    expect(engineA(p, "2026-03")).toEqual(["2026-03-28"]);
+  it("the two engines now name the same day for the same instalment", () => {
+    // WAS a DIVERGENCE assertion: engine A said 2026-03-28, engine B 2026-03-31.
+    // The agenda / budget / busy-days and the Payments page agree on 03-31.
+    expect(engineA(p, "2026-03")).toEqual(["2026-03-31"]);
     expect(engineB(p, "2026-03")).toEqual(["2026-03-31"]);
-    expect(engineA(p, "2026-03")).not.toEqual(engineB(p, "2026-03"));
+    expect(engineA(p, "2026-03")).toEqual(engineB(p, "2026-03"));
   });
 
   it("they still agree in February, where both clamp to the 28th", () => {
-    // The drift only becomes visible in the month AFTER the first clamp.
+    // Unchanged by plan 010: February has no 31st, so the anchored walk clamps
+    // exactly like the old one.
     expect(engineA(p, "2026-02")).toEqual(["2026-02-28"]);
     expect(engineB(p, "2026-02")).toEqual(["2026-02-28"]);
+  });
+
+  it("uses the stored anchor when due_date has ALREADY advanced onto a clamped day", () => {
+    // The DB half of the fix: mark-paid has moved the live row to 2026-02-28,
+    // but the series is anchored on the 31st, so March is the 31st - not the
+    // 28th the bare due_date would suggest.
+    const advanced = payment({ due_date: "2026-02-28", due_anchor_day: 31 });
+    expect(engineA(advanced, "2026-03")).toEqual(["2026-03-31"]);
+    expect(engineB(advanced, "2026-03")).toEqual(["2026-03-31"]);
   });
 });
 
@@ -184,19 +171,22 @@ describe("parity: quarterly payment (monthly, interval 3)", () => {
 });
 
 /* ------------------------------------------------------------------------- */
-/* Fixture 4 - weekly before the series starts, the engines DISAGREE          */
+/* Fixture 4 - weekly before the series starts: no such occurrence            */
 /* ------------------------------------------------------------------------- */
 
 describe("parity: weekly payment, month before the series starts", () => {
   const p = payment({ due_date: "2026-08-05", recurrence_period: "weekly" });
 
-  it("DIVERGENCE: engine B invents a pre-series occurrence, engine A emits none", () => {
-    // The payment's first instalment is 2026-08-05, so July has none. Engine B
-    // rewinds a week past the series start and reports 2026-07-29 anyway.
-    // Resolved by plan 010.
+  it("neither engine invents an occurrence before the first instalment", () => {
+    // WAS a DIVERGENCE assertion: engine B rewound a week past the series start
+    // and reported 2026-07-29 for a payment whose first instalment is
+    // 2026-08-05. The shared walk only ever moves FORWARD from due_date, so
+    // July is empty - the correct answer, and what engine A already said.
     expect(engineA(p, "2026-07")).toEqual([]);
-    expect(engineB(p, "2026-07")).toEqual(["2026-07-29"]);
-    expect(engineA(p, "2026-07")).not.toEqual(engineB(p, "2026-07"));
+    expect(engineB(p, "2026-07")).toEqual([]);
+    expect(engineA(p, "2026-07")).toEqual(engineB(p, "2026-07"));
+    // Months further back are empty too - the old rewind produced one there as well.
+    expect(engineB(p, "2026-06")).toEqual([]);
   });
 
   it("they agree inside the due month", () => {
@@ -217,17 +207,25 @@ describe("parity: limited payment, 3 instalments from the 31st", () => {
     remaining_occurrences: 3,
   });
 
-  it("DIVERGENCE: the third instalment lands on a different day in each engine", () => {
-    expect(engineA(p, "2026-03")).toEqual(["2026-03-28"]);
+  it("the third instalment lands on the same day in both engines", () => {
+    // WAS a DIVERGENCE assertion: engine A said 2026-03-28 (drift), engine B
+    // 2026-03-31. Limited series step through the same anchored walk now.
+    expect(engineA(p, "2026-03")).toEqual(["2026-03-31"]);
     expect(engineB(p, "2026-03")).toEqual(["2026-03-31"]);
-    expect(engineA(p, "2026-03")).not.toEqual(engineB(p, "2026-03"));
+    expect(engineA(p, "2026-03")).toEqual(engineB(p, "2026-03"));
   });
 
   it("they agree on the second instalment, and both stop after the third", () => {
+    // Unchanged by plan 010: anchoring moves days, never the instalment count.
     expect(engineA(p, "2026-02")).toEqual(["2026-02-28"]);
     expect(engineB(p, "2026-02")).toEqual(["2026-02-28"]);
     expect(engineA(p, "2026-04")).toEqual([]);
     expect(engineB(p, "2026-04")).toEqual([]);
+  });
+
+  it("still emits exactly `remaining_occurrences` instalments across the series", () => {
+    const walk = expandPaymentOccurrences(p, "2026-01-01", "2027-12-31", NO_OVERRIDES);
+    expect(walk.map((o) => o.occurrenceDate)).toEqual(["2026-01-31", "2026-02-28", "2026-03-31"]);
   });
 });
 
@@ -255,20 +253,27 @@ describe("override lookup across the divergence", () => {
     return map;
   }
 
-  it("DIVERGENCE: a cancel saved from the Payments page is missed by engine A", () => {
-    // Canceling the March instalment on the Payments page writes
-    // occurrence_date = 2026-03-31 (engine B's date). Engine A looks the
-    // override up under 2026-03-28 and finds nothing, so the agenda, the
-    // "busy days" markers and the budget projection all still show the
-    // instalment as live and unpaid. This is the money-visible bug.
+  it("a cancel saved from the Payments page is now honored by engine A", () => {
+    // WAS the money-visible bug: canceling the March instalment on the Payments
+    // page writes occurrence_date = 2026-03-31, engine A looked it up under
+    // 2026-03-28, found nothing, and the agenda / busy-days markers / budget
+    // projection kept the instalment live and unpaid. Both engines key on
+    // 2026-03-31 now, so the cancel lands.
     const occ = expandPaymentOccurrences(p, "2026-03-01", "2026-03-31", cancelAt("2026-03-31"));
-    expect(occ).toEqual([{ occurrenceDate: "2026-03-28", effectiveDate: "2026-03-28" }]);
+    expect(occ).toEqual([]);
+    // ... and the page's own month view drops it too, once its filter runs.
+    expect(paymentOccurrencesInMonth(p, "2026-03", cancelAt("2026-03-31"))).toEqual([
+      { occurrenceDate: "2026-03-31", effectiveDate: "2026-03-31" },
+    ]);
   });
 
-  it("the same cancel keyed on engine A's own date does drop the occurrence", () => {
-    // Proof that the miss above is purely the date mismatch, not a broken
-    // override lookup.
+  it("an override left on the OLD drifted date no longer matches anything", () => {
+    // The other side of the same coin, and the honest cost of the fix: a cancel
+    // that an older build saved under engine A's drifted 2026-03-28 keys on a
+    // date that is not an occurrence any more, so it is inert. Plan 010 does
+    // NOT migrate existing payment_overrides rows - that is a separate decision
+    // with production data in front of whoever makes it.
     const occ = expandPaymentOccurrences(p, "2026-03-01", "2026-03-31", cancelAt("2026-03-28"));
-    expect(occ).toEqual([]);
+    expect(occ).toEqual([{ occurrenceDate: "2026-03-31", effectiveDate: "2026-03-31" }]);
   });
 });
