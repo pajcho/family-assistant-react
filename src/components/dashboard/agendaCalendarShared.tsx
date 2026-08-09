@@ -5,7 +5,8 @@ import { Amount } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
-import { fallbackColorForProfile, normalizeTime, timeToMinutes } from "@/utils/activity";
+import { fallbackColorForProfile, timeToMinutes } from "@/utils/activity";
+import { timelineRange } from "@/utils/dayTimeline";
 import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
@@ -24,8 +25,6 @@ export const DEFAULT_END_MIN = 21 * 60;
 export const GRID_TOP_PADDING_PX = 12;
 export const GRID_BOTTOM_PADDING_PX = 12;
 const MIN_BLOCK_HEIGHT_PX = 24;
-/** Synthetic duration for a timed event with no end time. */
-const DEFAULT_EVENT_MINUTES = 60;
 /** The semantic "info" token - events and mirrored Google events share it. */
 const EVENT_COLOR = "var(--info)";
 const EXTERNAL_COLOR = "var(--info)";
@@ -48,33 +47,11 @@ export function isAllDayItem(item: AgendaItem): boolean {
   }
 }
 
-export function minutesToTime(min: number): string {
-  const clamped = Math.max(0, Math.min(24 * 60, min));
-  return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
-}
-
-/** Start/end for a timed item, or null if it belongs in the all-day row. */
-export function timedRange(item: AgendaItem): { startTime: string; endTime: string } | null {
-  if (item.kind === "activity") {
-    return { startTime: item.block.startTime, endTime: item.block.endTime };
-  }
-  if (item.kind === "event" && !item.isAllDay && item.startTime) {
-    // Per-day slice times (a multi-day span keeps its end time on the LAST
-    // day, so day 1 is open-ended here and gets the synthetic hour).
-    return {
-      startTime: item.startTime,
-      endTime: item.endTime ?? minutesToTime(timeToMinutes(item.startTime) + DEFAULT_EVENT_MINUTES),
-    };
-  }
-  if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
-    const startTime = normalizeTime(item.event.start_time);
-    const endTime = item.event.end_time
-      ? normalizeTime(item.event.end_time)
-      : minutesToTime(timeToMinutes(startTime) + DEFAULT_EVENT_MINUTES);
-    return { startTime, endTime };
-  }
-  return null;
-}
+/**
+ * Start/end for a timed item, or null if it belongs in the all-day row. One
+ * rule, shared with Danas' timeline - see `@/utils/dayTimeline`.
+ */
+export { timelineRange as timedRange };
 
 /** Partition a day's items into the all-day row vs the timed grid. */
 export function splitAgendaItems(items: ReadonlyArray<AgendaItem>): {
@@ -88,7 +65,7 @@ export function splitAgendaItems(items: ReadonlyArray<AgendaItem>): {
       allDayItems.push(item);
       continue;
     }
-    const range = timedRange(item);
+    const range = timelineRange(item);
     if (range) timedEntries.push({ ...range, item });
     else allDayItems.push(item);
   }
