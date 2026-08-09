@@ -1,6 +1,8 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 import { DAY_LABELS_FULL } from "@/utils/activity";
+import { pluralSr } from "@/utils/plural";
+import { MONTHS_LONG_SR, MONTHS_SHORT_SR } from "@/utils/serbianCalendar";
 
 /**
  * Serbian copy helpers for the kid shell - pure, so they can be unit tested
@@ -14,54 +16,16 @@ import { DAY_LABELS_FULL } from "@/utils/activity";
  *     that makes an app feel machine-written.
  */
 
-const MONTHS_LONG: readonly string[] = [
-  "januar",
-  "februar",
-  "mart",
-  "april",
-  "maj",
-  "jun",
-  "jul",
-  "avgust",
-  "septembar",
-  "oktobar",
-  "novembar",
-  "decembar",
-];
-
-const MONTHS_SHORT: readonly string[] = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "maj",
-  "jun",
-  "jul",
-  "avg",
-  "sep",
-  "okt",
-  "nov",
-  "dec",
-];
-
 /** Parse a `YYYY-MM-DD` at local noon, so no timezone can shift the day. */
 function atNoon(dateISO: string): Date {
   return parseISO(dateISO + "T12:00:00");
 }
 
 /**
- * Serbian plural picker: 1 / 2-4 / 5+ , with the 11-14 exception.
- * `pluralSr(21, "dan", "dana", "dana")` → "dan".
+ * The paucal rule lives in `@/utils/plural`; re-exported here so the kid
+ * modules keep importing their copy helpers from one place.
  */
-export function pluralSr(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(n);
-  const mod100 = abs % 100;
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  const mod10 = abs % 10;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
-  return many;
-}
+export { pluralSr };
 
 export function daysWord(n: number): string {
   return pluralSr(n, "dan", "dana", "dana");
@@ -109,13 +73,13 @@ export function weekdayGenitive(dateISO: string): string {
 /** "ponedeljak, 5. oktobar" - the date line under the greeting. */
 export function formatKidLongDate(dateISO: string): string {
   const date = atNoon(dateISO);
-  return `${weekdayName(dateISO)}, ${date.getDate()}. ${MONTHS_LONG[date.getMonth()]}`;
+  return `${weekdayName(dateISO)}, ${date.getDate()}. ${MONTHS_LONG_SR[date.getMonth()]}`;
 }
 
 /** "5. okt" - compact, for day headings and card meta lines. */
 export function formatKidShortDate(dateISO: string): string {
   const date = atNoon(dateISO);
-  return `${date.getDate()}. ${MONTHS_SHORT[date.getMonth()]}`;
+  return `${date.getDate()}. ${MONTHS_SHORT_SR[date.getMonth()]}`;
 }
 
 /**

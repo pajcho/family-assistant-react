@@ -18,6 +18,15 @@ export function serbianPlural(
   return forms.many;
 }
 
+/**
+ * Positional spelling of {@link serbianPlural}, for call sites that read better
+ * without the forms object: `pluralSr(21, "dan", "dana", "dana")` -> "dan".
+ * Same rule, same 11-14 exception - one implementation, two shapes.
+ */
+export function pluralSr(n: number, one: string, few: string, many: string): string {
+  return serbianPlural(n, { one, few, many });
+}
+
 /** "stavka / stavke / stavki" for a count (1 stavka, 2 stavke, 5 stavki). */
 export function stavkeLabel(count: number): string {
   return serbianPlural(count, { one: "stavka", few: "stavke", many: "stavki" });
