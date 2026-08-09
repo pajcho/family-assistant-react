@@ -5,6 +5,7 @@ import { BanknotesIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { CategoryFilterChip } from "@/components/budget/CategoryFilterChip";
 import { HeaderIconButton, MoneyCard, ProgressTrack } from "@/components/money/moneyUi";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
@@ -37,11 +38,8 @@ import {
   isMonthlyOccurrenceMonth,
 } from "@/utils/date";
 import { useToday } from "@/hooks/useToday";
-import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { Amount } from "@/components/common/Amount";
-import { fallbackColorForProfile } from "@/utils/activity";
 import { matchesCategoryFilter } from "@/utils/categoryFilter";
-import { getDisplayName } from "@/utils/identity";
 
 /* --- Search + pagination constants ----------------------------------------- */
 
@@ -442,7 +440,6 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const historyQuery = usePaymentHistory();
   const { byPayment } = usePaymentParticipants();
-  const { members } = useFamilyMembers();
   const { byKey: overridesByKey } = usePaymentOverrides();
 
   // Mutations - the detail dialogs own the rest (mark paid, pause, reschedule,
@@ -746,23 +743,10 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
         <FilterChip active={showPaid} onToggle={() => setShowPaid((v) => !v)}>
           Samo plaćena
         </FilterChip>
-        {/* One member = nobody to narrow to (same rule as Danas / Kalendar). */}
-        {members.length > 1
-          ? members.map((member) => (
-              <FilterChip
-                key={member.id}
-                active={selectedPersonIds.has(member.id)}
-                onToggle={() => togglePerson(member.id)}
-                color={member.color ?? fallbackColorForProfile(member.id)}
-              >
-                {getDisplayName({
-                  firstName: member.first_name,
-                  lastName: member.last_name,
-                  email: null,
-                }) || "Bez imena"}
-              </FilterChip>
-            ))
-          : null}
+        {/* Same member chips as Danas / Kalendar, emoji and all - this row used
+            to draw its own, without them. One member = nobody to narrow to, and
+            the shared component drops itself on that rule. */}
+        <MemberFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
       </FilterChipRow>
 
       {/* Summary - one card: how far through the month's bills we are. */}

@@ -1,8 +1,6 @@
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
-import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
-import { fallbackColorForProfile } from "@/utils/activity";
-import { getDisplayName } from "@/utils/identity";
 
 /**
  * The Danas person filter: a "Svi" chip plus one chip per family member.
@@ -26,9 +24,10 @@ export function PersonFilterRow({
   onClear: () => void;
 }) {
   const { members } = useFamilyMembers();
-  const memberEmoji = useMemberEmoji();
   // With one member (a brand-new family) there is nobody to narrow to - the
-  // row would be "Svi + that one person", which filters nothing.
+  // row would be "Svi + that one person", which filters nothing. The whole row
+  // goes, "Svi" chip included (`MemberFilterChips` drops itself on the same
+  // rule, but the leading chip is this component's own).
   if (members.length <= 1) return null;
 
   return (
@@ -38,21 +37,7 @@ export function PersonFilterRow({
       <FilterChip active={selected.size === 0} onToggle={onClear}>
         Svi
       </FilterChip>
-      {members.map((member) => (
-        <FilterChip
-          key={member.id}
-          active={selected.has(member.id)}
-          onToggle={() => onToggle(member.id)}
-          color={member.color ?? fallbackColorForProfile(member.id)}
-          emoji={memberEmoji(member)}
-        >
-          {getDisplayName({
-            firstName: member.first_name,
-            lastName: member.last_name,
-            email: null,
-          }) || "Bez imena"}
-        </FilterChip>
-      ))}
+      <MemberFilterChips selected={selected} onToggle={onToggle} />
     </FilterChipRow>
   );
 }
