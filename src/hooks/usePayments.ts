@@ -114,7 +114,7 @@ async function fetchPayments(familyId: string, hidePaid: boolean): Promise<Payme
     .order("due_date", { ascending: true });
   if (hidePaid) q = q.eq("is_paid", false);
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Payment[]) ?? [];
 }
 
@@ -137,7 +137,7 @@ async function fetchPaymentHistory(
     q = q.gte("due_date", startDate).lt("due_date", endDate);
   }
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as PaymentHistory[]) ?? [];
 }
 
@@ -149,7 +149,7 @@ async function fetchPaymentHistoryByPaymentId(paymentId: string): Promise<Paymen
     // created_at, not paid_date - canceled entries have no paid_date but must
     // still sort newest-first (the latest entry gets the Undo action).
     .order("created_at", { ascending: false });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as PaymentHistory[]) ?? [];
 }
 

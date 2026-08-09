@@ -79,7 +79,7 @@ async function fetchExpenses(familyId: string, range: ExpenseRange): Promise<Exp
     .lte("spent_on", range.to)
     .order("spent_on", { ascending: false })
     .order("created_at", { ascending: false });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Expense[]) ?? [];
 }
 
@@ -114,7 +114,7 @@ async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Pro
     ? query.eq("activity_id", ref.activityId)
     : query.eq("event_id", ref.eventId as string);
   const { data, error } = await query;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Expense[]) ?? [];
 }
 
@@ -652,7 +652,7 @@ async function fetchExpenseItems(expenseId: string): Promise<ReceiptItem[]> {
     .select("*")
     .eq("expense_id", expenseId)
     .order("idx", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ReceiptItem[]) ?? [];
 }
 

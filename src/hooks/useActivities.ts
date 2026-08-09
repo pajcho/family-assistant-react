@@ -41,7 +41,7 @@ async function fetchActivities(familyId: string): Promise<Activity[]> {
     .select("*")
     .eq("family_id", familyId)
     .order("name", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Activity[]) ?? [];
 }
 

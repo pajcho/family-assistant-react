@@ -97,7 +97,7 @@ async function fetchEvents(familyId: string, filters: EventListFilters): Promise
   if (filters.from) q = q.or(`date.gte.${filters.from},end_date.gte.${filters.from}`);
   if (filters.to) q = q.lte("date", filters.to);
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return sortEvents((data as Event[]) ?? []);
 }
 
@@ -158,7 +158,7 @@ export function useEventsByIds(idsKey: string) {
     queryKey: ["events", familyId, "by-ids", idsKey],
     queryFn: async (): Promise<Event[]> => {
       const { data, error } = await supabase.from("events").select("*").in("id", idsKey.split(","));
-      if (error) return [];
+      if (error) throw new Error(error.message);
       return (data as Event[]) ?? [];
     },
     enabled: !!familyId && idsKey.length > 0,

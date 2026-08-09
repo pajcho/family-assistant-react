@@ -26,7 +26,7 @@ async function fetchTimetable(familyId: string): Promise<SchoolTimetableEntry[]>
     .eq("family_id", familyId)
     .order("day_of_week", { ascending: true })
     .order("period_index", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as SchoolTimetableEntry[]) ?? [];
 }
 

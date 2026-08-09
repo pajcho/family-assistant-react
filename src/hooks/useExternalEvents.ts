@@ -31,7 +31,7 @@ async function fetchExternalEvents(
   if (filters.from) q = q.gte("local_date", filters.from);
   if (filters.to) q = q.lte("local_date", filters.to);
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ExternalCalendarEvent[]) ?? [];
 }
 

@@ -36,7 +36,7 @@ async function fetchOverrides(familyId: string): Promise<ActivityOverride[]> {
     .from("activity_overrides")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ActivityOverride[]) ?? [];
 }
 

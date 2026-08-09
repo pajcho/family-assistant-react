@@ -81,7 +81,7 @@ async function fetchListsWithItems(familyId: string): Promise<ListWithItems[]> {
     .select("*, list_items(*)")
     .eq("family_id", familyId)
     .order("updated_at", { ascending: false });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return ((data as ListWithItems[]) ?? []).map(applyItemOrdering);
 }
 
