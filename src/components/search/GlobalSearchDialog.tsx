@@ -5,16 +5,11 @@ import {
   ArrowRightCircleIcon,
   BanknotesIcon,
   CakeIcon,
-  CalendarDaysIcon,
   CalendarIcon,
   ClipboardDocumentListIcon,
-  Cog6ToothIcon,
   GlobeAltIcon,
-  HomeIcon,
   MagnifyingGlassIcon,
-  Squares2X2Icon,
   UserGroupIcon,
-  WalletIcon,
 } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +17,7 @@ import {
   LinkedEntityEditor,
   type EditableEntityRef,
 } from "@/components/payments/LinkedEntityEditor";
+import { SEARCH_PAGES } from "@/components/search/searchPages";
 import {
   MIN_SEARCH_CHARS,
   useGlobalSearch,
@@ -34,11 +30,12 @@ import { cn } from "@/lib/cn";
  * Global search palette - opened by ⌘/Ctrl+K or the header's magnifying-glass
  * button. A debounced term fans out to the family-scoped `ilike` queries in
  * `useGlobalSearch`; hits are grouped by type with the agenda's icons/colors.
- * A static "Stranice" group matches page names (diacritic-insensitive, so
- * "rodjendani" finds Rođendani) and navigates. Entity hits (activity, event,
- * payment, birthday) open their EDIT dialog in place via LinkedEntityEditor -
- * no page change; only lists/list items (they ARE pages) and Google-mirror
- * events still navigate.
+ * A "Stranice" group matches page names (diacritic-insensitive, so
+ * "rodjendani" finds Rođendani) and navigates; its pages are derived from the
+ * nav's own section list, see {@link SEARCH_PAGES}. Entity hits (activity,
+ * event, payment, birthday) open their EDIT dialog in place via
+ * LinkedEntityEditor - no page change; only lists/list items (they ARE pages)
+ * and Google-mirror events still navigate.
  */
 
 const DEBOUNCE_MS = 250;
@@ -53,34 +50,6 @@ function normalizeTerm(s: string): string {
     .replaceAll("š", "s")
     .replaceAll("ž", "z");
 }
-
-type PageEntry = {
-  to:
-    | "/"
-    | "/uskoro"
-    | "/activities"
-    | "/events"
-    | "/payments"
-    | "/budget"
-    | "/lists"
-    | "/birthdays"
-    | "/settings";
-  label: string;
-  Icon: ComponentType<SVGProps<SVGSVGElement>>;
-};
-
-/** Navigable pages, matched by (normalized) name - "rodjendani" → /birthdays. */
-const PAGES: readonly PageEntry[] = [
-  { to: "/", label: "Danas", Icon: HomeIcon },
-  { to: "/uskoro", label: "Uskoro", Icon: CalendarDaysIcon },
-  { to: "/activities", label: "Aktivnosti", Icon: Squares2X2Icon },
-  { to: "/events", label: "Događaji", Icon: CalendarIcon },
-  { to: "/payments", label: "Plaćanja", Icon: BanknotesIcon },
-  { to: "/budget", label: "Budžet", Icon: WalletIcon },
-  { to: "/lists", label: "Liste", Icon: ClipboardDocumentListIcon },
-  { to: "/birthdays", label: "Rođendani", Icon: CakeIcon },
-  { to: "/settings", label: "Podešavanja", Icon: Cog6ToothIcon },
-];
 
 type GroupMeta = {
   label: string;
@@ -172,13 +141,14 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   // survives the palette closing.
   const [editTarget, setEditTarget] = useState<EditableEntityRef | null>(null);
 
-  // Static page matches - instant, diacritic-insensitive, same min length.
+  // Page matches - instant, diacritic-insensitive, same min length. Keyed by
+  // section key, since Porodica and Podešavanja share a path.
   const pageResults = useMemo<SearchResult[]>(() => {
     const q = normalizeTerm(debouncedTerm.trim());
     if (q.length < MIN_SEARCH_CHARS) return [];
-    return PAGES.filter((p) => normalizeTerm(p.label).includes(q)).map((p) => ({
+    return SEARCH_PAGES.filter((p) => normalizeTerm(p.label).includes(q)).map((p) => ({
       kind: "page" as const,
-      id: p.to,
+      id: p.id,
       title: p.label,
       subtitle: null,
     }));
@@ -218,8 +188,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     switch (result.kind) {
       case "page": {
         // Direct page-name hit - the one case that still navigates by design.
-        const page = PAGES.find((p) => p.to === result.id);
-        if (page) void navigate({ to: page.to });
+        const page = SEARCH_PAGES.find((p) => p.id === result.id);
+        // `search` carries Porodica's `?tab=family`; undefined for the rest.
+        if (page) void navigate({ to: page.to, search: page.search });
         break;
       }
       case "list":
@@ -240,8 +211,8 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
         break;
       case "external":
         // Mirrored Google events are read-only and have no page of their own -
-        // they live in the agenda, so land on Uskoro.
-        void navigate({ to: "/uskoro" });
+        // they live in the agenda, which is Kalendar's default view.
+        void navigate({ to: "/kalendar" });
         break;
     }
   };
@@ -364,9 +335,9 @@ function SearchResultRow({
   onSelect: () => void;
 }) {
   const { Icon, iconClass } = GROUP_META[result.kind];
-  // Page rows show the page's own nav icon instead of the group fallback.
-  const page = result.kind === "page" ? PAGES.find((p) => p.to === result.id) : undefined;
-  const RowIcon = page?.Icon ?? Icon;
+  // Page rows show the section's own nav icon instead of the group fallback.
+  const page = result.kind === "page" ? SEARCH_PAGES.find((p) => p.id === result.id) : undefined;
+  const RowIcon = page?.icon ?? Icon;
   return (
     <button
       type="button"
