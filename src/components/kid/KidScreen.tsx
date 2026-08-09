@@ -167,9 +167,9 @@ export function KidScreen({
  *
  * Its colours are FIXED, and that is the point: this strip is not part of the
  * child's app, so it must not be drawn from the child's palette. It first was,
- * via `--k-ink`, which is dark ink in the four light themes but near-white in
+ * via `--k-ink`, which is dark ink in the light themes but near-white in
  * Svemir - and the banner turned into white text on pale lavender. A literal
- * dark neutral reads on all five backgrounds (Svemir's included, with the
+ * dark neutral reads on every theme background (Svemir's included, with the
  * hairline below it doing the separating), the same way `KidTag`'s tones and
  * the sign-out red are literals for their own "must not shift per theme" reason.
  */

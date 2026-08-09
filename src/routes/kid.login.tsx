@@ -70,7 +70,6 @@ function KidLoginScreen() {
 
   return (
     <KidAuthScreen
-      emoji="🏡"
       title="Moj dan"
       subtitle="tvoj kutak porodičnog kalendara"
       footer={

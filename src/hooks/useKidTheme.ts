@@ -32,6 +32,9 @@ const KID_THEME_COLORS: Record<KidTheme, string> = {
   jungle: "#43c06e",
   sun: "#ffc53d",
   candy: "#f675b4",
+  watermelon: "#ff6b7a",
+  lavender: "#b096e6",
+  pearl: "#c98ba3",
   space: "#5b5be0",
 };
 

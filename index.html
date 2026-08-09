@@ -447,6 +447,22 @@
         } catch (_) {}
       })();
     </script>
+
+    <!--
+      Dečiji režim install identity. `vite.config.ts` (plugin
+      "kid-install-identity") replaces the marker below with an inline script
+      built from `src/lib/kidInstallIdentity.ts`: on a `/kid/*` URL it puts the
+      kid manifest, favicon, apple-touch-icon and app title on the document
+      before the first paint, so "Add to Home Screen" on a child's first visit
+      installs the child's app instead of a duplicate of the parent's.
+
+      Position is load-bearing, twice over: AFTER the icon and title tags above,
+      which the script rewrites and which must therefore already be parsed, and
+      BEFORE the `<link rel="manifest">` vite-plugin-pwa appends at the end of
+      `<head>` - the first manifest link in tree order is the one the browser
+      uses, and the script inserts the kid one right here.
+    -->
+    <!-- kid-install-identity-bootstrap -->
   </head>
   <body>
     <div id="root"></div>

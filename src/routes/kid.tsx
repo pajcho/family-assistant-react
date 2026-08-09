@@ -107,9 +107,12 @@ function KidLayoutInner() {
   const { theme: storedTheme } = useKidTheme(previewTheme ?? rememberedTheme);
   useApplyKidTheme(isKid ? storedTheme : (previewTheme ?? rememberedTheme));
 
-  // What a home-screen install from here would be CALLED, and look like. Not on
-  // the preview: a parent browsing their child's app is still holding their own
-  // app, and must not walk away able to install a kid-branded copy of it.
+  // What a home-screen install from here would be CALLED, and look like. On a
+  // hard load this has already happened before the first paint (the bootstrap
+  // in index.html, same condition), so what the hook really adds is the way
+  // BACK: it hands the grown-up identity over on the way out of the shell. Not
+  // on the preview - a parent browsing their child's app is still holding their
+  // own app, and must not walk away able to install a kid-branded copy of it.
   // Gated on `inKidShell` too, so the identity is handed back on the render
   // where the pathname leaves `/kid` rather than one render later, on unmount.
   useKidInstallIdentity(inKidShell && !previewRoute);

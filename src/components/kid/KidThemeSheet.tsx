@@ -47,7 +47,12 @@ export function KidThemeSheet({
     >
       <KidSheetTitle id={titleId} emoji={avatar} title="Izaberi temu" />
 
-      <div role="radiogroup" aria-label="Tema" className="mt-2.5 grid grid-cols-2 gap-2.5">
+      {/* Two columns, so eight themes are four rows. The tiles are tighter than
+          the rest of the shell (34px swatch, py-2) for one reason: the sheet is
+          capped at 80% of the screen, and at the old size four rows plus the
+          two buttons below spilled past that on a 667px-tall phone. A 54px row
+          is still well over the 44px touch target. */}
+      <div role="radiogroup" aria-label="Tema" className="mt-2.5 grid grid-cols-2 gap-2">
         {KID_THEME_OPTIONS.map((option) => {
           const active = option.key === theme;
           return (
@@ -57,7 +62,7 @@ export function KidThemeSheet({
               role="radio"
               aria-checked={active}
               onClick={() => onPick(option.key)}
-              className={`flex items-center gap-2.5 rounded-[18px] border-2 px-3 py-2.5 text-left text-[13.5px] font-semibold transition-transform duration-100 active:scale-95 ${
+              className={`flex items-center gap-2.5 rounded-[18px] border-2 px-2.5 py-2 text-left text-[13.5px] font-semibold transition-transform duration-100 active:scale-95 ${
                 active
                   ? "border-[var(--k-accent)] bg-[var(--k-soft)]"
                   : "border-[var(--k-line)] bg-[var(--k-card)]"
@@ -66,7 +71,7 @@ export function KidThemeSheet({
               <span
                 aria-hidden="true"
                 style={{ backgroundImage: option.swatch }}
-                className="grid size-[38px] flex-none place-items-center rounded-[13px] text-[17px] leading-none"
+                className="grid size-[34px] flex-none place-items-center rounded-[12px] text-[16px] leading-none"
               >
                 {option.emoji}
               </span>
