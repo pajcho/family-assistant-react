@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
+import { resumeRefresh } from "@/lib/resumeRefresh";
 import { useProfile } from "@/hooks/useProfile";
 
 /**
@@ -94,7 +95,9 @@ export function useFamilyChannel(): void {
       .subscribe((status) => {
         if (status !== "SUBSCRIBED") return;
         if (hasSubscribed.current) {
-          void queryClient.invalidateQueries({ refetchType: "active" });
+          // Same path the visibility listener takes - throttled, and it
+          // respects each query's staleTime. On iOS a foreground fires both.
+          resumeRefresh(queryClient);
         }
         hasSubscribed.current = true;
       });
