@@ -4,6 +4,7 @@ import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
 import { getAppScrollTop } from "@/lib/appScroll";
+import { isStandalonePwa } from "@/utils/pwaInstall";
 
 /**
  * Pull-to-refresh for the INSTALLED PWA (standalone display mode only - in a
@@ -33,18 +34,10 @@ const AXIS_LOCK_PX = 8;
 /** Keep the spinner visible at least this long so a fast refetch reads as one. */
 const MIN_SPIN_MS = 500;
 
-/** Same detection as IosInstallHint: iOS `navigator.standalone` or the media query. */
-function isStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  const navStandalone = (navigator as Navigator & { standalone?: boolean }).standalone;
-  if (navStandalone) return true;
-  return window.matchMedia("(display-mode: standalone)").matches;
-}
-
 export function PullToRefresh() {
   const queryClient = useQueryClient();
   // Evaluated once - installing/uninstalling mid-session isn't a live concern.
-  const [enabled] = useState(isStandalone);
+  const [enabled] = useState(isStandalonePwa);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const gesture = useRef<{ x: number; y: number; axis: "pull" | "other" | null } | null>(null);

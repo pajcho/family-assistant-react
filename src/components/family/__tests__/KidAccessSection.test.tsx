@@ -294,6 +294,31 @@ describe("KidAccessSection - linking a device", () => {
     expect(screen.queryByRole("img", { name: /QR kod/ })).toBeNull();
   });
 
+  it("shows the code to type as well as the QR, since a child cannot always scan", async () => {
+    h.access = enabledAccess;
+    h.invite = { token: "A7K29QXM", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Poveži uređaj/ }));
+    // Grouped for reading aloud, and next to the QR rather than hidden away:
+    // on iOS an installed kid app cannot be handed a scanned URL at all.
+    expect(await screen.findByText("A7K2-9QXM")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /QR kod/ })).toBeInTheDocument();
+    expect(screen.getByText(/prvo doda/)).toBeInTheDocument();
+  });
+
+  it("shows no code when the function still mints long tokens", async () => {
+    h.access = enabledAccess;
+    // The window between deploys: the QR and the link still work, and there is
+    // simply nothing worth reading out loud, so the box stays away.
+    h.invite = { token: "x".repeat(43), expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Poveži uređaj/ }));
+    expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Ili neka dete ukuca/)).toBeNull();
+  });
+
   it("offers a retry when the link could not be made", async () => {
     h.access = enabledAccess;
     h.inviteError = true;

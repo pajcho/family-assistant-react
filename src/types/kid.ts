@@ -270,7 +270,11 @@ export type KidAccessRequest =
   | { action: "revoke-device"; deviceId: string };
 
 export interface KidInviteResponse {
-  /** Raw token - shown once, as a QR code. Only its hash is stored. */
+  /**
+   * The raw invite code - shown once, as a QR code AND as eight readable
+   * characters. Only its hash is stored. See `randomInviteCode` in
+   * supabase/functions/_shared/kidCrypto.ts for why one string does both jobs.
+   */
   token: string;
   expiresAt: string;
 }
@@ -282,4 +286,87 @@ export interface KidInviteResponse {
 export function kidInviteUrl(token: string): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   return `${window.location.origin}${base}/kid/veza#${token}`;
+}
+
+// ---------------------------------------------------------------------------
+// Invite codes - the typed half of "poveži uređaj"
+// ---------------------------------------------------------------------------
+//
+// A child cannot always scan. On iOS a home-screen web app has its own storage
+// container and Safari never hands a scanned URL to it, so linking has to be
+// possible from INSIDE the installed app: with its own camera, or by typing the
+// code off the parent's screen. Both paths end at the same string.
+//
+// The three helpers below MIRROR `randomInviteCode` / `normalizeInviteCode` in
+// supabase/functions/_shared/kidCrypto.ts. They are restated rather than
+// imported because Deno cannot reach across the frontend boundary; a test
+// (src/types/__tests__/kid.test.ts) imports both and pins them to each other.
+
+/** Characters in a code: Crockford base32 (no I, L, O, U). */
+const KID_INVITE_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/** How many of them. Mirrors INVITE_CODE_LENGTH server-side. */
+export const KID_INVITE_CODE_LENGTH = 8;
+
+/** Where the `-` goes in the displayed form: `XXXX-XXXX`. */
+const KID_INVITE_CODE_GROUP = 4;
+
+/**
+ * What a child MEANT when they typed a code: upper-cased, separators and typos
+ * dropped, and the three characters that are read two ways folded the way
+ * Crockford does it - `O` is a zero, `I` and `L` are ones.
+ */
+export function normalizeKidInviteCode(raw: string): string {
+  let out = "";
+  for (const char of raw.toUpperCase()) {
+    const folded = char === "O" ? "0" : char === "I" || char === "L" ? "1" : char;
+    if (KID_INVITE_CODE_ALPHABET.includes(folded)) out += folded;
+  }
+  return out;
+}
+
+/** True when `value` is already a complete, normalized code. */
+export function isKidInviteCode(value: string): boolean {
+  return value.length === KID_INVITE_CODE_LENGTH && normalizeKidInviteCode(value) === value;
+}
+
+/** `A7K29QXM` -> `A7K2-9QXM`, the only form ever shown to a human. */
+export function formatKidInviteCode(code: string): string {
+  const normalized = normalizeKidInviteCode(code);
+  if (normalized.length <= KID_INVITE_CODE_GROUP) return normalized;
+  return `${normalized.slice(0, KID_INVITE_CODE_GROUP)}-${normalized.slice(KID_INVITE_CODE_GROUP)}`;
+}
+
+/**
+ * The invite token inside something a camera just read, or null when the QR was
+ * simply not ours (a bus ticket, a wifi code, a fiscal receipt).
+ *
+ * Accepts both shapes on purpose: the full `.../kid/veza#<code>` URL a parent's
+ * screen shows, and a bare code, so a code written on paper scans too. A URL's
+ * fragment is passed through WITHOUT the length check - an older parent app may
+ * still be minting 32-byte tokens, and the server can decide about those.
+ */
+export function kidInviteTokenFromScan(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+
+  if (/^https?:\/\//i.test(value)) {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return null;
+    }
+    if (!url.pathname.replace(/\/+$/, "").endsWith("/kid/veza")) return null;
+    let token = url.hash.replace(/^#/, "").trim();
+    try {
+      token = decodeURIComponent(token);
+    } catch {
+      /* not percent-encoded - use it as it came */
+    }
+    return token || null;
+  }
+
+  const code = normalizeKidInviteCode(value);
+  return isKidInviteCode(code) ? code : null;
 }

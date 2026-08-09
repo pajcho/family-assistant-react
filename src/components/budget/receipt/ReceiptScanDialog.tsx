@@ -31,7 +31,7 @@ import { stavkeLabel } from "@/utils/plural";
 import { ReceiptCamera } from "./ReceiptCamera";
 import { ReceiptPreview, type ReceiptPreviewView } from "./ReceiptPreview";
 import { sumLineTotals, type SelectableReceiptLine } from "./ReceiptItemsSelect";
-import { decodeQrFromFile } from "./receiptQr";
+import { decodeQrFromFile } from "@/lib/qrScan";
 
 /**
  * Lazy-loaded scanner + import + preview flow for a fiscal receipt. Kept as a

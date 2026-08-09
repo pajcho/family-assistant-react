@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { KidAuthMessage, KidAuthScreen } from "@/components/kid/KidAuthScreen";
+import { KidInstallFirst } from "@/components/kid/KidInstallFirst";
 import { KidPinPad } from "@/components/kid/KidPinPad";
 import { useKidThemeScope } from "@/components/kid/KidThemeScope";
 import { attemptsLeftLine, formatLockCountdown } from "@/components/kid/kidCopy";
+import { canInstallOnIos } from "@/utils/pwaInstall";
 import { useKidLogin } from "@/hooks/useKidLogin";
 
 /**
- * Veza - where a parent's QR code lands.
+ * Veza - the PIN step of linking a device, and the one screen every route into
+ * it ends at: a QR scanned with the phone's camera app, the same QR scanned
+ * from inside the installed kid app, and a code typed by hand.
  *
  * The invite token rides in the URL FRAGMENT (`/kid/veza#<token>`), so it never
  * reaches a server log, a proxy or a Referer header. We read it once on mount
@@ -17,6 +21,11 @@ import { useKidLogin } from "@/hooks/useKidLogin";
  *
  * A link alone is not enough to get in: the child still types their PIN, and
  * only then does this device get remembered.
+ *
+ * On an iPhone still in the browser there is a step BEFORE the PIN - see
+ * `KidInstallFirst`. Whatever is linked in Safari is invisible to the app once
+ * it is on the home screen (separate storage container), and the invite is
+ * single use, so the order actually matters.
  */
 export const Route = createFileRoute("/kid/veza")({
   component: KidLinkDeviceScreen,
@@ -77,6 +86,11 @@ function KidLinkDeviceScreen() {
   const locked = code === "locked" && lockSeconds > 0;
   const deadLink = code !== null && DEAD_LINK_CODES.has(code);
 
+  // Read once, on the first render: an install cannot happen while this screen
+  // is up (iOS reloads the document into a new container), so re-checking would
+  // only risk the answer changing under a child mid-PIN.
+  const [installFirst, setInstallFirst] = useState(canInstallOnIos);
+
   async function submit() {
     if (!token || locked) return;
     const entry = await claim({ token, pin });
@@ -107,6 +121,10 @@ function KidLinkDeviceScreen() {
       </KidAuthScreen>
     );
   }
+
+  // The order-of-operations step, and only on an iPhone in the browser: an
+  // installed app cannot see anything this screen would link here.
+  if (installFirst) return <KidInstallFirst onContinue={() => setInstallFirst(false)} />;
 
   return (
     <KidAuthScreen

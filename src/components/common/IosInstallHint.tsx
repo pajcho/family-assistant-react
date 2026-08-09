@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowUpOnSquareIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
+import { canInstallOnIos } from "@/utils/pwaInstall";
+
 /**
  * Small banner that nudges iOS Safari visitors to install the PWA via
  * Share → Add to Home Screen.
@@ -10,38 +12,18 @@ import { ArrowUpOnSquareIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/ou
  * Share sheet. This banner just educates them on how.
  *
  * Shown only when:
- *   • UA is iPhone / iPad / iPod
+ *   • UA is iPhone / iPad / iPod (and not an in-app webview)
  *   • App is not already running standalone (already installed)
  *   • User hasn't dismissed it before (localStorage flag)
  */
 
 const DISMISS_KEY = "pwa-install-hint-dismissed";
 
-function isIosSafari(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  const isIos = /iPhone|iPad|iPod/.test(ua);
-  // Exclude in-app webviews (Instagram, FB) where Add to Home Screen isn't
-  // available - they don't expose the standalone Safari Share sheet.
-  const isInAppBrowser = /FBAN|FBAV|Instagram|Line\/|Twitter/i.test(ua);
-  return isIos && !isInAppBrowser;
-}
-
-function isStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  // iOS uses the non-standard `navigator.standalone`; everyone else uses
-  // the `display-mode: standalone` media query.
-  const navStandalone = (navigator as Navigator & { standalone?: boolean }).standalone;
-  if (navStandalone) return true;
-  return window.matchMedia("(display-mode: standalone)").matches;
-}
-
 export function IosInstallHint() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!isIosSafari()) return;
-    if (isStandalone()) return;
+    if (!canInstallOnIos()) return;
     if (window.localStorage.getItem(DISMISS_KEY) === "1") return;
     setVisible(true);
   }, []);

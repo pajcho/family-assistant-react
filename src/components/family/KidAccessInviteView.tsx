@@ -12,12 +12,22 @@ import { ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { inviteValidityLabel } from "@/components/family/KidAccessCopy";
 import { useCreateKidInvite } from "@/hooks/useKidAccess";
 import { cn } from "@/lib/cn";
-import { KID_INVITE_TTL_MINUTES, kidInviteUrl, type KidInviteResponse } from "@/types/kid";
+import {
+  KID_INVITE_TTL_MINUTES,
+  formatKidInviteCode,
+  isKidInviteCode,
+  kidInviteUrl,
+  type KidInviteResponse,
+} from "@/types/kid";
 
 /**
- * "Poveži uređaj": the one-time QR a parent points the child's phone at.
+ * "Poveži uređaj": the one-time code a parent shows the child's phone, as a QR
+ * AND as eight readable characters. They are the same secret - see
+ * `randomInviteCode` in supabase/functions/_shared/kidCrypto.ts - because the
+ * two ways of reading it are not interchangeable on iOS: an installed kid app
+ * cannot be handed a scanned URL by Safari, so a child sometimes has to type.
  *
- * The raw token exists ONLY in the response that opened this view - the server
+ * The raw code exists ONLY in the response that opened this view - the server
  * stores a hash - so it is fetched when the view mounts, held in component
  * state, and never written to a cache or a query key. Leaving and coming back
  * mints a new one (and invalidates the old), which is also the recovery path
@@ -171,8 +181,18 @@ export function KidAccessInviteView({
       ) : invite && url && svg ? (
         <>
           <p className="text-sm font-normal text-muted-foreground">
-            Skeniraj ovaj kod kamerom na uređaju deteta, pa unesi PIN da završiš povezivanje. Kod
-            važi samo jednom i samo za taj jedan uređaj.
+            Skeniraj ovaj kod na uređaju deteta, pa unesi PIN da završiš povezivanje. Kod važi samo
+            jednom i samo za taj jedan uređaj.
+          </p>
+
+          {/* The order matters on an iPhone and nowhere else, so it is one line
+              rather than a section: a home-screen web app has its own storage,
+              and a device linked in Safari is a stranger to it. */}
+          <p className="rounded-lg bg-muted px-3 py-2 text-xs leading-relaxed font-normal text-muted-foreground">
+            <span className="font-semibold text-foreground">iPhone?</span> Neka dete prvo doda
+            aplikaciju na početni ekran, pa je otvori i tek onda skenira kod - iz same aplikacije,
+            dugmetom &bdquo;Skeniraj QR kod&ldquo;. Kod skeniran kamerom telefona povezuje samo
+            Safari.
           </p>
 
           {/* Hard-white card in both themes - a camera has to see the code. */}
@@ -209,6 +229,21 @@ export function KidAccessInviteView({
             </Button>
           ) : (
             <div className="space-y-2">
+              {/* The same secret the QR carries, for a child who cannot scan -
+                  the app's own camera refused, or there is none. Hidden if the
+                  function still mints long tokens (an edge deploy that has not
+                  landed yet); the QR and the link work either way. */}
+              {isKidInviteCode(invite.token) ? (
+                <div className="rounded-lg border border-border bg-muted px-3 py-2.5 text-center">
+                  <p className="text-xs font-normal text-muted-foreground">
+                    Ili neka dete ukuca ovaj kod u aplikaciji:
+                  </p>
+                  <p className="mt-1 font-mono text-xl font-semibold tracking-[0.2em] text-foreground select-all">
+                    {formatKidInviteCode(invite.token)}
+                  </p>
+                </div>
+              ) : null}
+
               <p className="text-xs font-normal text-muted-foreground">
                 Ako kamera ne prepoznaje kod, otvori ovaj link na uređaju deteta:
               </p>

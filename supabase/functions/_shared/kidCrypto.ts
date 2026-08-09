@@ -28,8 +28,20 @@ const PBKDF2_HASH = "SHA-256";
 const SALT_BYTES = 16;
 const DERIVED_BITS = 256;
 
-/** Device / invite tokens: 32 bytes of CSPRNG output, base64url encoded. */
+/** Device tokens: 32 bytes of CSPRNG output, base64url encoded. */
 const TOKEN_BYTES = 32;
+
+/**
+ * Invite codes. Crockford base32: the ten digits plus the consonants, minus
+ * I, L, O and U - so nothing in a printed code can be read two ways, and the
+ * one letter that turns short random strings into words is gone too.
+ *
+ * 32 characters is exactly 5 bits each, so `byte % 32` samples it without bias.
+ */
+const INVITE_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/** 8 characters = 40 bits. Mirrors KID_INVITE_CODE_LENGTH in src/types/kid.ts. */
+export const INVITE_CODE_LENGTH = 8;
 
 /**
  * Domain for the synthetic address. `.local` is reserved (RFC 6762) and can
@@ -116,12 +128,51 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * A device or invite token: 32 CSPRNG bytes as base64url, so it survives a URL
- * fragment and a QR code without any escaping.
+ * A device token: 32 CSPRNG bytes as base64url, so it survives a URL fragment
+ * and a QR code without any escaping.
  */
 export function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_BYTES));
   return toBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * An invite code - the credential a parent's QR carries, and the SAME string a
+ * child can type instead of scanning.
+ *
+ * One secret with two delivery routes rather than two secrets, because the
+ * routes are not interchangeable on iOS: a home-screen web app has its own
+ * storage container and Safari never hands a scanned URL to it, so a child who
+ * installs the app has to link a second time from INSIDE it - by scanning with
+ * the app's own camera, or by typing this.
+ *
+ * Short enough for a child to copy off a parent's screen (8 characters, shown
+ * as `XXXX-XXXX`) and still 40 bits, against a code that is single use, dies in
+ * 15 minutes and is worth nothing without the PIN.
+ */
+export function randomInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(INVITE_CODE_LENGTH));
+  let code = "";
+  for (const byte of bytes) code += INVITE_CODE_ALPHABET[byte % INVITE_CODE_ALPHABET.length];
+  return code;
+}
+
+/**
+ * The form of an invite code we hash and compare - what a child MEANT when they
+ * typed it. Upper-cases, drops the separator and anything else that is not in
+ * the alphabet, and folds the three shapes Crockford leaves out because they
+ * are read wrong: `O` is a zero, `I` and `L` are ones.
+ *
+ * Mirrored by `normalizeKidInviteCode` in src/types/kid.ts, which the parent's
+ * screen and the child's code field both use, and which a test pins to this one.
+ */
+export function normalizeInviteCode(raw: string): string {
+  let out = "";
+  for (const char of raw.toUpperCase()) {
+    const folded = char === "O" ? "0" : char === "I" || char === "L" ? "1" : char;
+    if (INVITE_CODE_ALPHABET.includes(folded)) out += folded;
+  }
+  return out;
 }
 
 /** Lowercase hex SHA-256 - what we store instead of a raw token. */

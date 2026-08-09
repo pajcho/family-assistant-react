@@ -141,7 +141,7 @@ vi.mock("../receipt/ReceiptCamera", () => ({
   ReceiptCamera: () => <div data-testid="camera" />,
 }));
 
-vi.mock("../receipt/receiptQr", () => ({
+vi.mock("@/lib/qrScan", () => ({
   decodeQrFromFile: vi.fn<() => Promise<string | null>>(),
 }));
 
