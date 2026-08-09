@@ -29,14 +29,8 @@ import {
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { overrideKey, usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import type { Payment, PaymentHistoryStatus, PaymentOverride } from "@/types/database";
-import {
-  currentMonthYYYYMM,
-  formatDate,
-  getDueDateInMonth,
-  getLimitedMonths as getLimitedMonthsFromDate,
-  getWeeklyOccurrencesInMonth,
-  isMonthlyOccurrenceMonth,
-} from "@/utils/date";
+import { currentMonthYYYYMM, formatDate } from "@/utils/date";
+import { paymentOccurrencesInMonth } from "@/utils/payment";
 import { useToday } from "@/hooks/useToday";
 import { Amount } from "@/components/common/Amount";
 import { matchesCategoryFilter } from "@/utils/categoryFilter";
@@ -128,13 +122,14 @@ function computeSummary({
     for (const payment of payments) {
       if (payment.is_paid || payment.is_paused) continue;
       const hasRealRow = payment.due_date.startsWith(selectedMonth);
-
-      const interval = Math.max(1, payment.recurrence_interval ?? 1);
+      // Which instalments this series has in this month - the same walk the
+      // agenda and the budget projection use, so the totals can't disagree
+      // with what those surfaces show.
+      const occurrences = paymentOccurrencesInMonth(payment, selectedMonth, overridesByKey);
 
       if (payment.recurrence_period === "weekly") {
-        const occurrences = getWeeklyOccurrencesInMonth(payment.due_date, selectedMonth, interval);
         const paidDates = paidDatesByPayment.get(payment.id) ?? new Set<string>();
-        for (const occurrenceDate of occurrences) {
+        for (const { occurrenceDate } of occurrences) {
           if (occurrenceDate === payment.due_date) continue;
           if (paidDates.has(occurrenceDate)) continue;
           unpaidTotal += payment.amount;
@@ -143,19 +138,12 @@ function computeSummary({
       }
 
       if (paymentIdsWithHistoryInMonth.has(payment.id)) continue;
+      // monthly / limited fire at most once a month; one-time has no upcoming
+      // amount beyond its own real row.
       if (
-        payment.recurrence_period === "monthly" &&
+        (payment.recurrence_period === "monthly" || payment.recurrence_period === "limited") &&
         !hasRealRow &&
-        isMonthlyOccurrenceMonth(payment.due_date, selectedMonth, interval)
-      ) {
-        unpaidTotal += payment.amount;
-      } else if (
-        payment.recurrence_period === "limited" &&
-        getLimitedMonthsFromDate(
-          payment.due_date,
-          Math.max(0, payment.remaining_occurrences ?? 0),
-        ).includes(selectedMonth) &&
-        !hasRealRow
+        occurrences.length > 0
       ) {
         unpaidTotal += payment.amount;
       }
@@ -280,25 +268,20 @@ function computeCombinedList({
         const period = payment.recurrence_period;
         const hasRealRow = payment.due_date.startsWith(selectedMonth);
         const interval = Math.max(1, payment.recurrence_interval ?? 1);
+        // One shared occurrence walk for every period - the dates here are the
+        // dates the agenda, the budget and the "busy days" dots use, so an
+        // override saved from this page is found by all of them.
+        const occurrences = paymentOccurrencesInMonth(payment, selectedMonth, overridesByKey);
 
         if (period === "weekly") {
           // Weekly can fire multiple times in the same month - emit one
           // upcoming row per occurrence that ISN'T the live row and ISN'T
           // already a history row.
-          const occurrences = getWeeklyOccurrencesInMonth(
-            payment.due_date,
-            selectedMonth,
-            interval,
-          );
           const paidDates = paidDatesByPayment.get(payment.id) ?? new Set<string>();
-          for (const occurrenceDate of occurrences) {
+          for (const { occurrenceDate, effectiveDate } of occurrences) {
             if (occurrenceDate === payment.due_date) continue;
             if (paidDates.has(occurrenceDate)) continue;
             const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
-            const effectiveDate =
-              override?.action === "reschedule" && override.override_date
-                ? override.override_date
-                : occurrenceDate;
             const upcoming: UpcomingRowItem = {
               type: "upcoming",
               id: `upcoming-${payment.id}-${occurrenceDate}`,
@@ -322,44 +305,14 @@ function computeCombinedList({
 
         if (paymentIdsWithHistoryInMonth.has(payment.id)) continue;
 
-        if (period === "monthly") {
-          if (!hasRealRow && isMonthlyOccurrenceMonth(payment.due_date, selectedMonth, interval)) {
-            const occurrenceDate = getDueDateInMonth(selectedMonth, payment.due_date);
+        // monthly / limited fire at most once a month, and the live row (the
+        // one at payment.due_date) is already drawn above - hence !hasRealRow.
+        // one-time: no upcoming rows, only real row in due month.
+        if (period === "monthly" || period === "limited") {
+          const occurrence = hasRealRow ? null : (occurrences[0] ?? null);
+          if (occurrence) {
+            const { occurrenceDate, effectiveDate } = occurrence;
             const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
-            const effectiveDate =
-              override?.action === "reschedule" && override.override_date
-                ? override.override_date
-                : occurrenceDate;
-            const upcoming: UpcomingRowItem = {
-              type: "upcoming",
-              id: `upcoming-${payment.id}-${selectedMonth}`,
-              paymentId: payment.id,
-              name: payment.name,
-              amount: payment.amount,
-              currency: payment.currency,
-              original_amount: payment.original_amount,
-              due_date: effectiveDate,
-              occurrenceDate,
-              override,
-              description: payment.description,
-              recurrence_period: payment.recurrence_period,
-              recurrence_interval: interval,
-              remaining_occurrences: payment.remaining_occurrences,
-            };
-            items.push(upcoming);
-          }
-        } else if (period === "limited") {
-          const months = getLimitedMonthsFromDate(
-            payment.due_date,
-            Math.max(0, payment.remaining_occurrences ?? 0),
-          );
-          if (months.includes(selectedMonth) && !hasRealRow) {
-            const occurrenceDate = getDueDateInMonth(selectedMonth, payment.due_date);
-            const override = overridesByKey.get(overrideKey(payment.id, occurrenceDate)) ?? null;
-            const effectiveDate =
-              override?.action === "reschedule" && override.override_date
-                ? override.override_date
-                : occurrenceDate;
             const upcoming: UpcomingRowItem = {
               type: "upcoming",
               id: `upcoming-${payment.id}-${selectedMonth}`,
@@ -379,7 +332,6 @@ function computeCombinedList({
             items.push(upcoming);
           }
         }
-        // one-time: no upcoming rows, only real row in due month
       }
     }
   }

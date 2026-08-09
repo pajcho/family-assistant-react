@@ -143,7 +143,13 @@ export function subtractDay(dateStr: string, count = 1): string {
   return format(prev, "yyyy-MM-dd");
 }
 
-/** Same calendar day in a given month (YYYY-MM). Day capped to last day of month. */
+/**
+ * Same calendar day in a given month (YYYY-MM). Day capped to last day of month.
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` (utils/payment.ts) - the Payments
+ * page no longer derives occurrence dates here. Kept, with its tests, until a
+ * follow-up removes the four superseded recurrence helpers.
+ */
 export function getDueDateInMonth(monthYYYYMM: string, dueDateStr: string): string {
   const [year, month] = monthYYYYMM.split("-").map(Number);
   const due = parseISO(dueDateStr + "T12:00:00");
@@ -168,7 +174,11 @@ export function currentMonthYYYYMM(): string {
   return format(new Date(), "yyyy-MM");
 }
 
-/** For limited payments: list of YYYY-MM for the next `remaining` months starting from due date. */
+/**
+ * For limited payments: list of YYYY-MM for the next `remaining` months starting from due date.
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left.
+ */
 export function getLimitedMonths(dueDateStr: string, remaining: number): string[] {
   const months: string[] = [];
   let currentMonthStr = dueDateStr;
@@ -185,6 +195,8 @@ export function getLimitedMonths(dueDateStr: string, remaining: number): string[
  * ones land every `interval` months after. Used to suppress upcoming rows in
  * "off" months when interval > 1 (e.g. quarterly payment in Apr → no upcoming
  * row in May/Jun, only in Jul).
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left.
  */
 export function isMonthlyOccurrenceMonth(
   dueDateStr: string,
@@ -205,8 +217,9 @@ export function isMonthlyOccurrenceMonth(
  * `dueDate + 14N`, … - we walk forward (or backward when the requested month
  * is in the past relative to the due date) and collect the ones that match.
  *
- * Used by the payments page to generate upcoming rows for each occurrence in
- * the selected month, and by the per-month summary to total unpaid amounts.
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left. It
+ * used to feed the payments page, where its unfloored rewind could report an
+ * occurrence BEFORE the series started; the shared walk only moves forward.
  */
 export function getWeeklyOccurrencesInMonth(
   dueDateStr: string,
