@@ -8,13 +8,13 @@
     "build": "vite build && tsc -b && pnpm run postbuild",
     "postbuild": "cp dist/index.html dist/404.html && touch dist/.nojekyll",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsr generate && tsc -b",
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "lint": "oxlint",
     "fmt": "oxfmt",
     "check:dashes": "bash scripts/check-dashes.sh",
-    "check": "oxfmt --check && oxlint --deny-warnings && pnpm run check:dashes",
+    "check": "oxfmt --check && oxlint --deny-warnings && pnpm run check:dashes && pnpm run typecheck",
     "assets:kid": "pwa-assets-generator --config pwa-assets.kid.config.ts && tsx scripts/generate-kid-svgs.ts",
     "setup-family": "tsx --env-file=.env scripts/setup-family.ts",
     "setup-family:local": "tsx --env-file=.env.local scripts/setup-family.ts"
@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "latest",
+    "@tanstack/router-cli": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@types/node": "latest",
