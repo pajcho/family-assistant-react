@@ -137,25 +137,6 @@ export function AppScreen({
 }
 
 /**
- * Interim wrapper for screens that still render their own title/filters inline
- * (everything scrolls together, the way it did when the document scrolled).
- *
- * It exists so every route lives inside the new frame from day one of the
- * redesign; each lane deletes its page's `<LegacyScreen>` as it converts to a
- * real header/body split with {@link AppScreen}.
- */
-export function LegacyScreen({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <AppScreen
-      bodyClassName={cn("sm:px-6 lg:px-8", className)}
-      contentClassName="mx-auto w-full max-w-7xl"
-    >
-      {children}
-    </AppScreen>
-  );
-}
-
-/**
  * Standard screen header row: big title on the left, up to two icon buttons on
  * the right. Screens with a richer header (Danas' greeting + week strip) build
  * their own and pass it to {@link AppScreen}.
