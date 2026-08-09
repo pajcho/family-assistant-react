@@ -11,6 +11,7 @@ import { HeaderIconButton } from "@/components/money/moneyUi";
 // must stay out of the main bundle.
 import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 import type { Expense } from "@/types/database";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { currentMonthYYYYMM } from "@/utils/date";
 
 /**
@@ -28,6 +29,9 @@ import { currentMonthYYYYMM } from "@/utils/date";
  */
 
 export type NovacTab = "pregled" | "troskovi" | "placanja";
+
+/** Same settle time as the global search palette. */
+const SEARCH_DEBOUNCE_MS = 250;
 
 const TABS = [
   { value: "pregled" as const, label: "Pregled" },
@@ -49,6 +53,15 @@ export function NovacScreen({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
+  // Troškovi searches over the network (`useExpenseSearch`), so it may only see
+  // settled input - a raw term meant one query per keystroke. The field itself
+  // stays on `searchTerm` and is unaffected; Plaćanja filters its already-loaded
+  // list in a memo, so it keeps the instant term too.
+  const debouncedTerm = useDebouncedValue(searchTerm, SEARCH_DEBOUNCE_MS);
+  // An empty box fires no query, so there is nothing to wait for: clearing the
+  // field (or closing the search) drops the hits in the same commit instead of
+  // leaving them standing for another 250 ms.
+  const expenseSearchTerm = searchTerm === "" ? "" : debouncedTerm;
 
   const [scanOpen, setScanOpen] = useState(false);
   // Stays true after the first open so the lazy chunk loads once and the close
@@ -171,7 +184,7 @@ export function NovacScreen({
           view={tab === "troskovi" ? "troskovi" : "pregled"}
           month={budgetMonth}
           onMonthChange={setMonth}
-          searchTerm={searchTerm}
+          searchTerm={expenseSearchTerm}
           onScanReceipt={openScan}
           onAttachReceipt={openAttach}
           addSlot={addSlot}
