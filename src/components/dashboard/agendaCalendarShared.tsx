@@ -9,6 +9,14 @@ import { fallbackColorForProfile, timeToMinutes } from "@/utils/activity";
 import { timelineRange } from "@/utils/dayTimeline";
 import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
+import {
+  buildHourLabels as buildHourLabelsWithCfg,
+  computeRange as computeRangeWithCfg,
+  gridHeightPx as gridHeightPxWithCfg,
+  positionSpans,
+  type TimeGridConfig,
+  type TimeSpan,
+} from "@/utils/timeGridGeometry";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
@@ -29,7 +37,22 @@ const MIN_BLOCK_HEIGHT_PX = 24;
 const EVENT_COLOR = "var(--info)";
 const EXTERNAL_COLOR = "var(--info)";
 
-export type TimeSpan = { startTime: string; endTime: string };
+/**
+ * This grid's scale, handed to the shared geometry in `@/utils/timeGridGeometry`
+ * (the activities WeekGrid passes a denser one). The wrappers below keep the
+ * cfg out of every call site so the exported signatures never change.
+ */
+const AGENDA_GRID: TimeGridConfig = {
+  slotMinutes: SLOT_MINUTES,
+  slotHeightPx: SLOT_HEIGHT_PX,
+  gridTopPaddingPx: GRID_TOP_PADDING_PX,
+  gridBottomPaddingPx: GRID_BOTTOM_PADDING_PX,
+  minBlockHeightPx: MIN_BLOCK_HEIGHT_PX,
+  defaultStartMin: DEFAULT_START_MIN,
+  defaultEndMin: DEFAULT_END_MIN,
+};
+
+export type { TimeSpan };
 export type TimedEntry = TimeSpan & { item: AgendaItem };
 export type Positioned<T> = Laned<T> & { topPx: number; heightPx: number };
 export type PositionedEntry = Positioned<TimedEntry>;
@@ -77,17 +100,7 @@ export function computeRange(entries: ReadonlyArray<TimeSpan>): {
   startMin: number;
   endMin: number;
 } {
-  if (entries.length === 0) return { startMin: DEFAULT_START_MIN, endMin: DEFAULT_END_MIN };
-  let earliest = Infinity;
-  let latest = -Infinity;
-  for (const e of entries) {
-    earliest = Math.min(earliest, timeToMinutes(e.startTime));
-    latest = Math.max(latest, timeToMinutes(e.endTime));
-  }
-  return {
-    startMin: Math.floor(Math.max(0, earliest - 60) / SLOT_MINUTES) * SLOT_MINUTES,
-    endMin: Math.ceil(Math.min(24 * 60, latest + 60) / SLOT_MINUTES) * SLOT_MINUTES,
-  };
+  return computeRangeWithCfg(entries, AGENDA_GRID);
 }
 
 /**
@@ -123,38 +136,18 @@ export function positionEntries<T extends TimeSpan>(
   entries: ReadonlyArray<T>,
   startMin: number,
 ): Positioned<T>[] {
-  return assignLanes([...entries]).map((p) => ({
-    ...p,
-    topPx:
-      GRID_TOP_PADDING_PX +
-      ((timeToMinutes(p.startTime) - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-    heightPx: Math.max(
-      ((timeToMinutes(p.endTime) - timeToMinutes(p.startTime)) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-      MIN_BLOCK_HEIGHT_PX,
-    ),
-  }));
+  return positionSpans(assignLanes(entries), startMin, AGENDA_GRID);
 }
 
 export function buildHourLabels(
   startMin: number,
   endMin: number,
 ): { topPx: number; label: string }[] {
-  const out: { topPx: number; label: string }[] = [];
-  for (let h = Math.ceil(startMin / 60); h <= Math.floor(endMin / 60); h++) {
-    out.push({
-      topPx: GRID_TOP_PADDING_PX + ((h * 60 - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-      label: `${String(h).padStart(2, "0")}:00`,
-    });
-  }
-  return out;
+  return buildHourLabelsWithCfg(startMin, endMin, AGENDA_GRID);
 }
 
 export function gridHeightPx(startMin: number, endMin: number): number {
-  return (
-    ((endMin - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX +
-    GRID_TOP_PADDING_PX +
-    GRID_BOTTOM_PADDING_PX
-  );
+  return gridHeightPxWithCfg(startMin, endMin, AGENDA_GRID);
 }
 
 /** Re-render every minute so the "now" line tracks the clock, aligned to the
