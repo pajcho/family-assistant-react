@@ -204,8 +204,8 @@ Deno.serve(async (req) => {
         );
         sent++;
       } catch (e) {
-        // deno-lint-ignore no-explicit-any
-        const status = (e as any)?.statusCode as number | undefined;
+        // web-push rejects with an error carrying the push service's HTTP status.
+        const status = (e as { statusCode?: number } | null)?.statusCode;
         if (status === 404 || status === 410) {
           // Subscription is dead - drop the row to avoid the round-trip
           // on every future notification.

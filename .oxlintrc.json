@@ -3,6 +3,13 @@
   "plugins": ["react", "jsx-a11y", "import", "typescript", "unicorn", "oxc"],
   "env": { "browser": true, "es2024": true },
   "settings": { "react": { "version": "19.2" } },
+  "ignorePatterns": [
+    "dist/",
+    "src/routeTree.gen.ts",
+    "pnpm-lock.yaml",
+    ".nuxt-screens/",
+    "supabase/functions/**/__fixtures__/"
+  ],
   "categories": { "correctness": "error" },
   "rules": {
     // New JSX transform (React 17+): `React` needn't be in scope for JSX.
@@ -26,12 +33,34 @@
     "import/no-cycle": "error",
     // Two imports of the same module (usually one `import type` next to one
     // value import) - merge them.
-    "import/no-duplicates": "error"
+    "import/no-duplicates": "error",
+    // `any` opts the whole expression out of type checking. Prefer `unknown`
+    // plus narrowing, or a precise local type.
+    "typescript/no-explicit-any": "error",
+    // @ts-ignore silently hides a real type error; @ts-expect-error at least
+    // fails once the underlying problem is fixed.
+    "typescript/ban-ts-comment": "error",
+    // Loose equality only stays allowed for the deliberate `x == null` nullish
+    // check, which covers both null and undefined in one comparison.
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    // console.log left in shipped app code is noise; warn/error are real
+    // diagnostics and stay allowed.
+    "no-console": ["error", { "allow": ["warn", "error"] }],
+    // Node builtins must be imported with the `node:` prefix.
+    "unicorn/prefer-node-protocol": "error",
+    // A context value built inline is a new object on every provider render, so
+    // every consumer re-renders. Memoize it.
+    "react/jsx-no-constructed-context-values": "error"
   },
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "src/**/__tests__/**"],
       "plugins": ["vitest"]
+    },
+    {
+      // CLI scripts and edge functions log to stdout by design.
+      "files": ["scripts/**", "supabase/functions/**"],
+      "rules": { "no-console": "off" }
     }
   ]
 }
