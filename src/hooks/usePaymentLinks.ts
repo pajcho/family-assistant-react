@@ -1,11 +1,9 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 
-import type { Event, Payment } from "@/types/database";
-import { supabase } from "@/lib/supabase";
+import type { Payment } from "@/types/database";
 import { useActivities } from "@/hooks/useActivities";
 import { useBirthdaysData } from "@/hooks/useBirthdays";
-import { useProfile } from "@/hooks/useProfile";
+import { useEventsByIds } from "@/hooks/useEvents";
 
 /**
  * Read-side lookup for payment ↔ activity/event/birthday links: resolves the
@@ -29,12 +27,6 @@ export interface PaymentLinkTarget {
   date?: string;
 }
 
-async function fetchEventsByIds(ids: string[]): Promise<Event[]> {
-  const { data, error } = await supabase.from("events").select("*").in("id", ids);
-  if (error) return [];
-  return (data as Event[]) ?? [];
-}
-
 export interface UsePaymentLinkTargetsResult {
   /**
    * Resolve one payment's link to its display target. Returns `null` when the
@@ -53,7 +45,6 @@ export interface UsePaymentLinkTargetsResult {
 export function usePaymentLinkTargets(
   payments: ReadonlyArray<Pick<Payment, "activity_id" | "event_id" | "birthday_id">>,
 ): UsePaymentLinkTargetsResult {
-  const { familyId } = useProfile();
   const activitiesQuery = useActivities();
   const birthdaysQuery = useBirthdaysData();
 
@@ -67,11 +58,7 @@ export function usePaymentLinkTargets(
     return [...ids].sort().join(",");
   }, [payments]);
 
-  const eventsQuery = useQuery({
-    queryKey: ["events_by_id", familyId, eventIdsKey],
-    queryFn: () => fetchEventsByIds(eventIdsKey.split(",")),
-    enabled: !!familyId && eventIdsKey.length > 0,
-  });
+  const eventsQuery = useEventsByIds(eventIdsKey);
 
   const targetFor = useMemo(() => {
     const activitiesById = new Map((activitiesQuery.data ?? []).map((a) => [a.id, a]));

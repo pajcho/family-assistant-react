@@ -168,7 +168,7 @@ export function PaymentDetailsSheet({
         onChange={(link) => setForm((s) => ({ ...s, link }))}
         // Only suggest while ADDING - an edited payment's name matching its
         // own (or another) entity is noise, not a signal.
-        suggestFromName={isEdit ? undefined : form.name}
+        suggest={isEdit ? null : { name: form.name, date: form.due_date }}
         // This sheet is mobile-only: the picker opens as a sub-view of the
         // same dialog instead of a popover the keyboard would shove around.
         onOpenPicker={onOpenLink}

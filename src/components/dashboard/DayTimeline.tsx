@@ -104,9 +104,11 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
       {payments.length > 0 ? (
         <>
           <GroupHeader>Plaćanja danas</GroupHeader>
+          {/* No time gutter down here: these rows sit under their own header,
+              below the clock, so the reserved 44px read as the card being
+              chopped off on the left rather than as alignment. */}
           {payments.map((item) => (
-            <div key={agendaItemKey(item)} className="mb-2 flex items-stretch gap-2.5">
-              <div className="w-11 flex-none" />
+            <div key={agendaItemKey(item)} className="mb-2 flex items-stretch">
               <TimelineCard item={item} members={byId} onClick={() => onSelect(item)} />
             </div>
           ))}

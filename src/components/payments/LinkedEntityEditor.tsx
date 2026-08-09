@@ -17,13 +17,13 @@ import {
 import { useActivitySchedule, useReplaceActivitySchedule } from "@/hooks/useActivitySchedule";
 import { useBirthdaysData, useUpdateBirthday } from "@/hooks/useBirthdays";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
-import { useUpdateEvent } from "@/hooks/useEvents";
+import { useEventById, useUpdateEvent } from "@/hooks/useEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import { hasPaymentHistory, useUpdatePayment } from "@/hooks/usePayments";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import type { Event, Payment } from "@/types/database";
+import type { Payment } from "@/types/database";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -132,21 +132,11 @@ function ActivityLinkEditor({ id, onClose }: EditorProps) {
 
 function EventLinkEditor({ id, onClose }: EditorProps) {
   const [formError, setFormError] = useState<string | null>(null);
-  const { familyId } = useProfile();
   const { byEvent } = useEventParticipants();
   const updateEvent = useUpdateEvent();
 
   // By-id fetch: the linked event can be outside any warm list window.
-  const eventQuery = useQuery({
-    queryKey: ["events_by_id", familyId, id],
-    queryFn: async (): Promise<Event | null> => {
-      const { data, error } = await supabase.from("events").select("*").eq("id", id).single();
-      if (error || !data) return null;
-      return data as Event;
-    },
-    enabled: !!familyId,
-  });
-
+  const eventQuery = useEventById(id);
   const event = eventQuery.data ?? null;
 
   const handleSubmit = async (payload: EventFormPayload) => {

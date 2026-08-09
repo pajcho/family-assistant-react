@@ -249,7 +249,9 @@ export function BirthdayDetailDialog({
                           <button
                             type="button"
                             onClick={() => setViewedCelebration(celebration)}
-                            className="flex w-full items-center gap-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:text-pink-400"
+                            // px-3.5 matches DetailInfoRow - without it the
+                            // icon and the chevron sit flush against the card.
+                            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:text-pink-600 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none dark:hover:text-pink-400"
                           >
                             <SparklesIcon className="size-4 text-pink-500 dark:text-pink-400" />
                             <span className="min-w-0 flex-1 truncate text-left">

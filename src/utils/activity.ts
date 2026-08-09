@@ -457,6 +457,35 @@ export function resolveBlocksInRange(args: {
   return blocks;
 }
 
+/**
+ * An activity's weekly shape in one line - "Pon, Sre · 17:00 - 18:00" when
+ * every termin shares a time, "Pon 17:00 · Sre 18:30" when they differ.
+ * The picker's answer to "what IS this activity", where a date column has
+ * nothing to show (activities recur; they have no single date).
+ */
+export function activityScheduleLabel(
+  rules: ReadonlyArray<Pick<ActivitySchedule, "day_of_week" | "start_time" | "end_time">>,
+  maxParts = 3,
+): string | null {
+  if (rules.length === 0) return null;
+  const sorted = [...rules].toSorted(
+    (a, b) =>
+      a.day_of_week - b.day_of_week ||
+      normalizeTime(a.start_time).localeCompare(normalizeTime(b.start_time)),
+  );
+  const range = (rule: (typeof sorted)[number]) =>
+    `${normalizeTime(rule.start_time)} - ${normalizeTime(rule.end_time)}`;
+
+  const days = [...new Set(sorted.map((r) => DAY_LABELS_SHORT[r.day_of_week] ?? "?"))];
+  const ranges = new Set(sorted.map(range));
+  if (ranges.size === 1) return `${days.join(", ")} · ${[...ranges][0]}`;
+
+  const parts = sorted
+    .slice(0, maxParts)
+    .map((r) => `${DAY_LABELS_SHORT[r.day_of_week] ?? "?"} ${normalizeTime(r.start_time)}`);
+  return sorted.length > maxParts ? `${parts.join(" · ")} …` : parts.join(" · ");
+}
+
 /** Strip seconds - Postgres TIME comes back as "HH:MM:SS" but we only need HH:MM. */
 export function normalizeTime(time: string | null | undefined): string {
   // Defensive: a stale client running against a migrated schema can hand

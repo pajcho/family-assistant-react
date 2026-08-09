@@ -420,11 +420,14 @@ export function ExpenseForm({
         />
       </div>
 
-      {/* Optional link to an activity / event (reuses the payments combobox). */}
+      {/* Optional link to an activity / event (reuses the payments combobox).
+          An expense has no name field, so the beleška is what the suggestions
+          read - the date does the heavy lifting here. */}
       <PaymentLinkField
         value={form.link}
         onChange={(link) => setForm((s) => ({ ...s, link }))}
         kinds={EXPENSE_LINK_KINDS}
+        suggest={isEdit ? null : { name: form.note, date: form.spent_on }}
       />
 
       <div className="flex items-center justify-between gap-2 pt-2">

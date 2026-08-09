@@ -6,17 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { LinkSuggestionList } from "@/components/payments/LinkSuggestionList";
 import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
-import { useActivities } from "@/hooks/useActivities";
-import { useActivityParticipants } from "@/hooks/useActivityParticipants";
-import { useBirthdaysData } from "@/hooks/useBirthdays";
-import { useEventsList } from "@/hooks/useEvents";
-import { useEventParticipants } from "@/hooks/useEventParticipants";
+import {
+  ALL_LINK_KINDS,
+  usePaymentLinkOptions,
+  useLinkSuggestions,
+  type LinkOption,
+} from "@/hooks/useLinkOptions";
 import { usePaymentLinkTarget, type PaymentLinkKind } from "@/hooks/usePaymentLinks";
-import { useToday } from "@/hooks/useToday";
-import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
-import { formatDate, subtractMonth } from "@/utils/date";
-import { format } from "date-fns";
+import { candidateDetail, type SuggestionContext } from "@/utils/linkSuggestions";
 import { cn } from "@/lib/cn";
 
 /** The payment form's link state - maps to `activity_id` XOR `event_id` on submit. */
@@ -47,13 +46,12 @@ export type PaymentLinkFieldProps = {
   value: PaymentLinkValue | null;
   onChange: (value: PaymentLinkValue | null) => void;
   /**
-   * Auto-suggest source - the form's live Naziv value (ADD mode only). When
-   * it substring-matches an activity/event name (either direction,
-   * case-insensitive) and nothing is linked yet, a one-tap
-   * "Poveži sa: <name>?" chip appears under the field. Silent, non-blocking,
-   * dismissible per suggestion. Omit to disable (edit mode).
+   * What the entry knows about itself - the live Naziv, its date, and (only
+   * for a scanned fiscal receipt) the time on it. Feeds the ranked suggestion
+   * list under the field; see `utils/linkSuggestions`. ADD mode only - omit in
+   * edit mode, where an entry matching its own link is noise.
    */
-  suggestFromName?: string;
+  suggest?: SuggestionContext | null;
   /**
    * Which link kinds are offered. Defaults to all three; the EXPENSE forms
    * pass ["activity", "event"] since `expenses` has no birthday link.
@@ -67,93 +65,6 @@ export type PaymentLinkFieldProps = {
    */
   onOpenPicker?: () => void;
 };
-
-export type LinkOption = {
-  kind: PaymentLinkKind;
-  id: string;
-  name: string;
-  /** Event date - shown next to the name so same-named events stay tellable apart. */
-  date?: string;
-  /**
-   * Assigned family members - shown as badges so same-named activities/events
-   * for DIFFERENT members are tellable apart ("Engleski" for Nikola vs Sonja).
-   */
-  personIds: string[];
-};
-
-/** How far back the event options reach - recent past + everything upcoming. */
-const EVENT_LOOKBACK_MONTHS = 3;
-
-/**
- * The pickable link targets, merged and ordered: ALL activities (they're few),
- * events from the last {@link EVENT_LOOKBACK_MONTHS} months onward (canceled
- * ones dropped - linking to something that isn't happening is never the
- * intent), then birthdays soonest-first. Shared by the desktop combobox and
- * the mobile picker sheet.
- */
-export function usePaymentLinkOptions(
-  kinds: ReadonlyArray<PaymentLinkKind> = ["activity", "event", "birthday"],
-): LinkOption[] {
-  const today = useToday();
-  const activitiesQuery = useActivities();
-  const activityParticipantsQuery = useActivityParticipants();
-  const eventsQuery = useEventsList({ from: subtractMonth(today.str, EVENT_LOOKBACK_MONTHS) });
-  const { byEvent } = useEventParticipants();
-  const birthdaysQuery = useBirthdaysData();
-
-  // activity_id → assigned person ids (siblings can share one activity name).
-  const byActivity = useMemo(() => {
-    const m = new Map<string, string[]>();
-    for (const row of activityParticipantsQuery.data ?? []) {
-      const list = m.get(row.activity_id);
-      if (list) list.push(row.person_id);
-      else m.set(row.activity_id, [row.person_id]);
-    }
-    return m;
-  }, [activityParticipantsQuery.data]);
-
-  const kindsKey = kinds.join(",");
-  return useMemo<LinkOption[]>(() => {
-    const wanted = new Set(kindsKey.split(","));
-    const activities = wanted.has("activity")
-      ? (activitiesQuery.data ?? []).map(
-          (a): LinkOption => ({
-            kind: "activity",
-            id: a.id,
-            name: a.name,
-            personIds: byActivity.get(a.id) ?? [],
-          }),
-        )
-      : [];
-    const events = wanted.has("event")
-      ? (eventsQuery.data ?? [])
-          .filter((e) => !e.canceled_at)
-          .map(
-            (e): LinkOption => ({
-              kind: "event",
-              id: e.id,
-              name: e.name,
-              date: e.date,
-              personIds: byEvent.get(e.id) ?? [],
-            }),
-          )
-      : [];
-    const birthdays = wanted.has("birthday")
-      ? [...(birthdaysQuery.data ?? [])]
-          .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
-          .map(
-            (b): LinkOption => ({
-              kind: "birthday",
-              id: b.id,
-              name: b.name,
-              date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
-              personIds: [],
-            }),
-          )
-      : [];
-    return [...activities, ...events, ...birthdays];
-  }, [kindsKey, activitiesQuery.data, eventsQuery.data, birthdaysQuery.data, byActivity, byEvent]);
-}
 
 /**
  * Jira-style issue-link combobox for the payment form ("Poveži sa"): one field
@@ -172,18 +83,19 @@ export function usePaymentLinkOptions(
 export function PaymentLinkField({
   value,
   onChange,
-  suggestFromName,
+  suggest,
   kinds,
   onOpenPicker,
 }: PaymentLinkFieldProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  // `${kind}-${id}` of the dismissed suggestion - per suggestion, so a
-  // different match can still surface later while this one stays gone.
-  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
+  // Suggestions are advice, not a prompt - one × puts them away for the rest
+  // of this form. They come back when the form is reopened, not before.
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
 
   const options = usePaymentLinkOptions(kinds);
+  const suggestions = useLinkSuggestions(value ? null : suggest, kinds);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -215,24 +127,7 @@ export function PaymentLinkField({
     ? (options.find((o) => o.kind === value.kind && o.id === value.id) ?? fallbackTarget)
     : null;
 
-  // Auto-suggest: first option whose name substring-matches the typed payment
-  // name (either direction - "Engleski Lucija jun" ⊃ "Engleski Lucija", and
-  // "Engl" ⊂ it). Min 3 chars so single letters don't light it up. Live while
-  // typing - effectively the debounce-free version of "on blur", and just as
-  // silent since the chip never steals focus.
-  const suggestion = useMemo(() => {
-    if (value) return null;
-    const name = (suggestFromName ?? "").trim().toLowerCase();
-    if (name.length < 3) return null;
-    return (
-      options.find((o) => {
-        const optionName = o.name.trim().toLowerCase();
-        return optionName.includes(name) || name.includes(optionName);
-      }) ?? null
-    );
-  }, [options, suggestFromName, value]);
-  const showSuggestion =
-    !!suggestion && dismissedSuggestion !== `${suggestion.kind}-${suggestion.id}`;
+  const showSuggestions = suggestions.length > 0 && !suggestionsDismissed;
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -285,11 +180,9 @@ export function PaymentLinkField({
           {option.personIds.length > 0 ? (
             <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
           ) : null}
-          {option.date ? (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatDate(option.date)}
-            </span>
-          ) : null}
+          {/* Always the full span, never a bare name: not knowing WHEN the
+              option happens is how an August payment ends up on a May event. */}
+          <span className="shrink-0 text-xs text-muted-foreground">{candidateDetail(option)}</span>
         </button>
       </li>
     );
@@ -301,8 +194,12 @@ export function PaymentLinkField({
       <span className="min-w-0 flex-1 truncate text-left text-foreground">{selected.name}</span>
     </>
   ) : (
+    // Names only what this form actually offers - the expense forms have no
+    // birthday column, so promising one there is a dead end.
     <span className="flex-1 truncate text-left text-muted-foreground">
-      Aktivnost, događaj ili rođendan…
+      {(kinds ?? ALL_LINK_KINDS).includes("birthday")
+        ? "Aktivnost, događaj ili rođendan…"
+        : "Aktivnost ili događaj…"}
     </span>
   );
   const triggerClassName = cn(
@@ -405,25 +302,12 @@ export function PaymentLinkField({
           </svg>
         )}
       </div>
-      {showSuggestion ? (
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => pick(suggestion)}
-            className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-          >
-            <PaymentLinkIcon kind={suggestion.kind} className="size-3.5 shrink-0" />
-            <span className="truncate">Poveži sa: {suggestion.name}?</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Odbaci predlog"
-            onClick={() => setDismissedSuggestion(`${suggestion.kind}-${suggestion.id}`)}
-            className="rounded-sm p-0.5 text-muted-foreground opacity-70 hover:opacity-100"
-          >
-            <XMarkIcon className="size-3.5" />
-          </button>
-        </div>
+      {showSuggestions ? (
+        <LinkSuggestionList
+          suggestions={suggestions}
+          onPick={pick}
+          onDismiss={() => setSuggestionsDismissed(true)}
+        />
       ) : null}
     </div>
   );
