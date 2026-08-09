@@ -234,12 +234,16 @@ describe("getWeeklyOccurrencesInMonth", () => {
     ]);
   });
 
-  it("DIVERGENCE: rewinds past the series start and invents a pre-series occurrence", () => {
+  it("rewinds past the series start and invents a pre-series occurrence", () => {
     // Due date is 2026-08-05, so in July 2026 this payment does not exist yet.
     // The rewind loop has no floor at the series start, so it walks backwards
     // one week and reports 2026-07-29 - a date BEFORE the first instalment.
-    // expandPaymentOccurrences walks forward only and returns [] for July.
-    // Pinned by plan 009; to be resolved in plan 010.
+    //
+    // Still true, and still pinned: plan 010 did not fix this helper, it
+    // SUPERSEDED it. The Payments page now goes through
+    // `paymentOccurrencesInMonth`, which walks forward from due_date and
+    // returns [] for July (see recurrenceParity.test.ts). This assertion guards
+    // the dead helper until a follow-up deletes it.
     expect(getWeeklyOccurrencesInMonth("2026-08-05", "2026-07", 1)).toEqual(["2026-07-29"]);
     // It keeps rewinding for months further back, too - one occurrence each.
     expect(getWeeklyOccurrencesInMonth("2026-08-05", "2026-06", 1)).toEqual(["2026-06-24"]);
