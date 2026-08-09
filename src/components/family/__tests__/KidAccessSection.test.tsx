@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { KidAccessInviteView } from "@/components/family/KidAccessInviteView";
 import { KidAccessSection } from "@/components/family/KidAccessSection";
 import type { KidAccess, KidDevice, Profile } from "@/types/database";
 
@@ -317,6 +319,69 @@ describe("KidAccessSection - linking a device", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Poveži uređaj/ }));
     expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
     expect(screen.queryByText(/Ili neka dete ukuca/)).toBeNull();
+  });
+
+  it("tells the parent the moment the child gets in, whichever way they did it", async () => {
+    h.access = enabledAccess;
+    h.invite = { token: "A7K29QXM", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const { rerender } = renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Poveži uređaj/ }));
+    expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
+
+    // Scanned, typed or opened as a link - all three end as a row in
+    // kid_devices, which is the one thing this screen watches.
+    h.devices = [device({ id: "dev-new", label: "iPhone" })];
+    rerender(<KidAccessSection member={member} memberName="Luka" />);
+
+    expect(await screen.findByText("Povezan je iPhone")).toBeInTheDocument();
+    expect(screen.getByText(/Luka se od sada prijavljuje/)).toBeInTheDocument();
+    // The code goes with it: it is spent, and a QR nobody can use any more is
+    // the one thing worse than no QR.
+    expect(screen.queryByRole("img", { name: /QR kod/ })).toBeNull();
+    expect(screen.queryByText("A7K2-9QXM")).toBeNull();
+  });
+
+  it("does not mistake devices linked earlier for one linking right now", async () => {
+    h.access = enabledAccess;
+    h.devices = [device({ id: "dev-old" })];
+    h.invite = { token: "A7K29QXM", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    renderSection();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Poveži uređaj/ }));
+    expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Povezan je/)).toBeNull();
+  });
+
+  it("closes itself once the parent has read the confirmation", async () => {
+    h.access = enabledAccess;
+    h.invite = { token: "A7K29QXM", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const closed = vi.fn<() => void>();
+    // A FRESH arrow on every render, exactly as KidAccessSection passes it -
+    // the auto-close must not be restarted by its own polling re-renders.
+    const view = () => (
+      // Wrapped because the view ends in a ResponsiveDialogFooter, which wants
+      // the dialog context; the section always renders it inside one.
+      <ResponsiveDialog open>
+        <KidAccessInviteView
+          profileId="kid-1"
+          memberName="Luka"
+          closeLabel="Zatvori"
+          onClose={() => closed()}
+        />
+      </ResponsiveDialog>
+    );
+    const { rerender } = render(view());
+    expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
+
+    h.devices = [device({ id: "dev-new" })];
+    rerender(view());
+    expect(await screen.findByText(/Povezan je/)).toBeInTheDocument();
+    rerender(view());
+
+    expect(closed).not.toHaveBeenCalled();
+    // Longer than LINKED_CLOSE_DELAY_MS in KidAccessInviteView.
+    await waitFor(() => expect(closed).toHaveBeenCalledTimes(1), { timeout: 4000 });
   });
 
   it("offers a retry when the link could not be made", async () => {
