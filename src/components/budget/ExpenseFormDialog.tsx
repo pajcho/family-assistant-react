@@ -249,6 +249,7 @@ export function ExpenseFormDialog({
                 onChange={(link) => setForm((s) => ({ ...s, link }))}
                 onDone={stack.pop}
                 kinds={EXPENSE_LINK_KINDS}
+                suggest={expense?.id ? null : { name: form.note, date: form.spent_on }}
               />
             </>
           ) : (
@@ -272,6 +273,7 @@ export function ExpenseFormDialog({
                   value={form.link}
                   onChange={(link) => setForm((s) => ({ ...s, link }))}
                   kinds={EXPENSE_LINK_KINDS}
+                  suggest={expense?.id ? null : { name: form.note, date: form.spent_on }}
                   // Mobile-only sub-view: full-sheet picker instead of a popover.
                   onOpenPicker={() => stack.push({ kind: "link" })}
                 />

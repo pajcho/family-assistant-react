@@ -265,3 +265,13 @@ export function memberTintStyle(color: string): CSSProperties {
     borderColor: `color-mix(in srgb, ${color} 55%, transparent)`,
   };
 }
+
+/**
+ * How many faces a member row draws for `count` members in `max` slots.
+ * Exactly `max` members still fit as faces; past that the last slot is spent
+ * on the "+N" chip, so "+1" can never appear - it would cost the space of the
+ * one person it hides.
+ */
+export function visibleMemberCount(count: number, max: number): number {
+  return count <= max ? count : Math.max(0, max - 1);
+}

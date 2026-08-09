@@ -3,14 +3,12 @@ import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { Input } from "@/components/ui/input";
 import { MemberBadges } from "@/components/common/MemberBadges";
+import { LinkSuggestionList } from "@/components/payments/LinkSuggestionList";
 import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
-import {
-  usePaymentLinkOptions,
-  type LinkOption,
-  type PaymentLinkValue,
-} from "@/components/payments/PaymentLinkField";
+import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
+import { usePaymentLinkOptions, useLinkSuggestions, type LinkOption } from "@/hooks/useLinkOptions";
 import type { PaymentLinkKind } from "@/hooks/usePaymentLinks";
-import { formatDate } from "@/utils/date";
+import { candidateDetail, type SuggestionContext } from "@/utils/linkSuggestions";
 import { cn } from "@/lib/cn";
 
 export type PaymentLinkPickerSheetProps = {
@@ -20,6 +18,8 @@ export type PaymentLinkPickerSheetProps = {
   onDone: () => void;
   /** Which link kinds are offered (expense forms exclude birthdays). */
   kinds?: ReadonlyArray<PaymentLinkKind>;
+  /** Same context the field uses - drives the "Predlozi" group up top. */
+  suggest?: SuggestionContext | null;
 };
 
 const GROUPS: ReadonlyArray<{ kind: PaymentLinkKind; label: string }> = [
@@ -32,18 +32,24 @@ const GROUPS: ReadonlyArray<{ kind: PaymentLinkKind; label: string }> = [
  * Full-sheet "Poveži sa" picker - the mobile replacement for the
  * `PaymentLinkField` popover, which the software keyboard shoves off-screen
  * inside a bottom sheet. Rendered as a sheet-stack sub-view ("←" pops back):
- * a search box (no autofocus - tapping it is the member's choice), then the
- * grouped scrollable option list. Tapping an option links it and pops back;
- * the current link is check-marked and can be removed via "Ukloni vezu".
+ * a search box (no autofocus - tapping it is the member's choice), the ranked
+ * "Predlozi" for this entry, then the grouped scrollable option list. Tapping
+ * an option links it and pops back; the current link is check-marked and can
+ * be removed via "Ukloni vezu".
+ *
+ * Every row carries its date/time (`candidateDetail`) - a name on its own is
+ * not enough to tell this month's "Frizer" from one three months back.
  */
 export function PaymentLinkPickerSheet({
   value,
   onChange,
   onDone,
   kinds,
+  suggest,
 }: PaymentLinkPickerSheetProps) {
   const [query, setQuery] = useState("");
   const options = usePaymentLinkOptions(kinds);
+  const suggestions = useLinkSuggestions(suggest, kinds);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,20 +71,20 @@ export function PaymentLinkPickerSheet({
           onClick={() => pick(option)}
           aria-pressed={isSelected}
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+            "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
             isSelected ? "border-blue-600 bg-blue-600/10" : "border-border hover:bg-muted",
           )}
         >
           <PaymentLinkIcon kind={option.kind} className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-foreground">{option.name}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-foreground">{option.name}</span>
+            <span className="truncate text-xs font-normal text-muted-foreground">
+              {candidateDetail(option)}
+            </span>
+          </span>
           {option.personIds.length > 0 ? (
             <MemberBadges personIds={option.personIds} size="xs" max={3} className="shrink-0" />
-          ) : null}
-          {option.date ? (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatDate(option.date)}
-            </span>
           ) : null}
           {isSelected ? (
             <CheckIcon
@@ -112,6 +118,16 @@ export function PaymentLinkPickerSheet({
           <XMarkIcon className="size-4 shrink-0" />
           Ukloni vezu
         </button>
+      ) : null}
+
+      {/* Ranked first, then the full list - searching hides them, since a
+          typed query IS the member telling us what they are looking for. */}
+      {query.trim() === "" ? (
+        <LinkSuggestionList
+          suggestions={suggestions}
+          onPick={pick}
+          selectedId={value?.id ?? null}
+        />
       ) : null}
 
       {filtered.length === 0 ? (

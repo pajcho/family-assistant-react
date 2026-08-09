@@ -201,6 +201,7 @@ export function PaymentFormDialog({
                 value={form.link}
                 onChange={(link) => setForm((s) => ({ ...s, link }))}
                 onDone={stack.pop}
+                suggest={payment?.id ? null : { name: form.name, date: form.due_date }}
               />
             </>
           ) : (

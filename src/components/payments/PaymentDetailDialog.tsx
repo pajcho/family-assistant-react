@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   ArrowUturnLeftIcon,
   BanknotesIcon,
@@ -36,6 +36,7 @@ import {
   LinkedEntityEditor,
   type EditableEntityRef,
 } from "@/components/payments/LinkedEntityEditor";
+import { LinkedEntityViewer } from "@/components/payments/lazyLinkedEntityViewer";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import {
   useCancelPaymentOccurrence,
@@ -51,7 +52,7 @@ import {
   usePaymentOverrides,
   useUpsertPaymentOverride,
 } from "@/hooks/usePaymentOverrides";
-import { usePaymentLinkTarget } from "@/hooks/usePaymentLinks";
+import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePaymentLinks";
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
@@ -125,6 +126,8 @@ export function PaymentDetailDialog({
   const [reason, setReason] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
   const [linkEditTarget, setLinkEditTarget] = useState<EditableEntityRef | null>(null);
+  // The linked entity's DETAIL sheet, opened from the "Povezano sa" chip.
+  const [linkViewTarget, setLinkViewTarget] = useState<PaymentLinkTarget | null>(null);
 
   const markPaid = useMarkPaymentPaid();
   const updatePayment = useUpdatePayment();
@@ -193,10 +196,11 @@ export function PaymentDetailDialog({
     setLinkEditTarget({ kind: "payment", id: payment.id });
   };
 
-  // "Povezano sa" tap - same hide trick, editing the linked entity instead.
+  // "Povezano sa" tap - same hide trick, showing the linked entity's DETAIL
+  // sheet on top. Its own "Izmeni" then hands off to the edit form below.
   const handleOpenLink = () => {
     if (!linkTarget) return;
-    setLinkEditTarget(linkTarget);
+    setLinkViewTarget(linkTarget);
   };
 
   const handleMarkAsPaid = async () => {
@@ -400,7 +404,7 @@ export function PaymentDetailDialog({
     <>
       <SheetStackViews
         stack={stack}
-        hidden={!!linkEditTarget}
+        hidden={!!linkEditTarget || !!linkViewTarget}
         render={(view, level) => (
           <ResponsiveDialogContent>
             <SheetStackHeader
@@ -774,6 +778,20 @@ export function PaymentDetailDialog({
         )}
       />
 
+      {/* The linked entity's detail sheet, and - one level further - the edit
+          form its "Izmeni" hands off to. The detail sheet closes ITSELF before
+          delegating, so both setters land in the same batch and the editor
+          takes over the level the viewer just gave up. */}
+      <Suspense fallback={null}>
+        <LinkedEntityViewer
+          target={linkViewTarget}
+          onClose={() => setLinkViewTarget(null)}
+          onEdit={(next) => {
+            setLinkViewTarget(null);
+            setLinkEditTarget(next);
+          }}
+        />
+      </Suspense>
       <LinkedEntityEditor target={linkEditTarget} onClose={() => setLinkEditTarget(null)} />
     </>
   );

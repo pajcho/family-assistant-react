@@ -2,10 +2,16 @@ import { MemberAvatar } from "@/components/common/MemberAvatar";
 import { cn } from "@/lib/cn";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { getDisplayName } from "@/utils/identity";
+import { visibleMemberCount } from "@/utils/memberAvatar";
 
 export type MemberBadgesProps = {
   personIds: string[];
-  /** Cap the rendered circles; the rest collapse into a "+N" chip. */
+  /**
+   * How many CIRCLES the row may occupy, the "+N" chip included. One more
+   * member than that and the last circle becomes the chip - so a row of `max`
+   * members always shows every face, and "+1" can never appear (it would cost
+   * exactly the space of the person it hides).
+   */
   max?: number;
   size?: "xs" | "sm";
   className?: string;
@@ -22,11 +28,11 @@ const OVERFLOW_SIZE_CLASS: Record<NonNullable<MemberBadgesProps["size"]>, string
  * the roster (TanStack Query dedupes the shared key), so callers pass only the
  * ids. Renders nothing when there are no assignees.
  */
-export function MemberBadges({ personIds, max = 4, size = "sm", className }: MemberBadgesProps) {
+export function MemberBadges({ personIds, max = 5, size = "sm", className }: MemberBadgesProps) {
   const { byId } = useFamilyMembers();
   if (personIds.length === 0) return null;
 
-  const shown = personIds.slice(0, max);
+  const shown = personIds.slice(0, visibleMemberCount(personIds.length, max));
   const overflow = personIds.length - shown.length;
 
   return (

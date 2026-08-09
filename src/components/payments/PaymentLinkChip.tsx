@@ -21,9 +21,9 @@ export function PaymentLinkIcon({
 }
 
 /**
- * Tappable "Povezano sa" chip - type icon + linked entity name. Shared by the
- * payment detail dialog and the Plaćanja list rows; navigation lives with the
- * caller (activity → /activities?edit=<id>, event → /events).
+ * Tappable "Povezano sa" chip - type icon + linked entity name. What the tap
+ * opens lives with the caller; in the payment detail sheet it's the linked
+ * entity's own DETAIL popup (see `LinkedEntityViewer`), not its edit form.
  */
 export function PaymentLinkChip({
   target,

@@ -12,6 +12,8 @@ import { replaceEventParticipants } from "@/hooks/useEventParticipants";
  *
  * Surface:
  *   - `useEventsList({ from?, to? })`  - list query
+ *   - `useEventById(id)`               - single event, by id
+ *   - `useEventsByIds(ids)`            - batch by id
  *   - `useCreateEvent()`               - insert mutation
  *   - `useUpdateEvent()`               - update mutation
  *   - `useDeleteEvent()`               - delete mutation
@@ -115,6 +117,52 @@ export function useEventsList(filters: EventListFilters = {}) {
   });
 
   return query;
+}
+
+/**
+ * One event by id, for surfaces that reference an event which may sit OUTSIDE
+ * every warm list window - a payment's "Povezano sa" link, a global-search
+ * hit. Returns `null` (not an error) when it's gone.
+ *
+ * The "by-id" discriminator in the key is load-bearing: {@link useEventsByIds}
+ * caches an ARRAY, and a batch of exactly one id would otherwise land on the
+ * identical key and hand this hook a list where it expects a row.
+ */
+export function useEventById(id: string | null | undefined) {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["events", familyId, "by-id", id],
+    queryFn: async (): Promise<Event | null> => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("id", id as string)
+        .single();
+      if (error || !data) return null;
+      return data as Event;
+    },
+    enabled: !!familyId && !!id,
+  });
+}
+
+/**
+ * Batch counterpart of {@link useEventById} - resolves many linked event ids
+ * in one round trip. `ids` is passed pre-serialized ("id1,id2") so the key
+ * stays stable across renders that rebuild the same id set.
+ */
+export function useEventsByIds(idsKey: string) {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["events", familyId, "by-ids", idsKey],
+    queryFn: async (): Promise<Event[]> => {
+      const { data, error } = await supabase.from("events").select("*").in("id", idsKey.split(","));
+      if (error) return [];
+      return (data as Event[]) ?? [];
+    },
+    enabled: !!familyId && idsKey.length > 0,
+  });
 }
 
 /**
