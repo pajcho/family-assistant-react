@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { KidAuthMessage, KidAuthScreen } from "@/components/kid/KidAuthScreen";
+import { KidCodeForm } from "@/components/kid/KidCodeForm";
 import { KidPinPad } from "@/components/kid/KidPinPad";
 import { useKidThemeScope } from "@/components/kid/KidThemeScope";
 import { attemptsLeftLine, formatLockCountdown } from "@/components/kid/kidCopy";
+import { KidQrScanner, preloadKidQrScanner } from "@/components/kid/lazyKidQrScanner";
 import { avatarForProfile } from "@/utils/memberAvatar";
+import { canInstallOnIos } from "@/utils/pwaInstall";
 import { readKidDevices, useKidLogin } from "@/hooks/useKidLogin";
 import type { KidDeviceEntry } from "@/types/kid";
 
@@ -16,15 +19,24 @@ import type { KidDeviceEntry } from "@/types/kid";
  * the server. That is the privacy requirement, not an optimisation: a stranger
  * who opens the app on a device that was never linked must not be able to learn
  * that this family has children, how many, or what they are called. On such a
- * device this screen has no picker and no keypad at all - just a line telling
- * whoever is holding it to ask a parent for the QR code.
+ * device this screen has no picker and no keypad at all - just the two ways to
+ * link, and a line telling whoever is holding it to ask a parent for the code.
  *
  * Two factors: the device token behind each entry (planted once by a parent's
  * QR link) and the PIN. Neither alone gets in.
+ *
+ * Linking STARTS here as well as at `/kid/veza`, and on iOS that is the only
+ * way it can work: a home-screen web app has its own storage container and
+ * Safari never hands it a scanned URL, so a code scanned with the iOS Camera
+ * app links Safari and leaves the installed app none the wiser. Both paths hand
+ * their token to `/kid/veza`, which owns the PIN step.
  */
 export const Route = createFileRoute("/kid/login")({
   component: KidLoginScreen,
 });
+
+/** Which way of linking a device is on screen, if any. */
+type LinkMode = "off" | "scan" | "code";
 
 function KidLoginScreen() {
   const navigate = useNavigate();
@@ -36,6 +48,12 @@ function KidLoginScreen() {
   const devices = useMemo(() => readKidDevices(), []);
   const [selectedId, setSelectedId] = useState<string | null>(devices[0]?.profileId ?? null);
   const [pin, setPin] = useState("");
+
+  const [linkMode, setLinkMode] = useState<LinkMode>("off");
+  // Sticky once the camera has refused: offering "skeniraj" again would walk
+  // the child back into a permission they cannot grant from inside the app.
+  const [cameraBlocked, setCameraBlocked] = useState(false);
+  const [installFirst] = useState(canInstallOnIos);
 
   const selected: KidDeviceEntry | null =
     devices.find((entry) => entry.profileId === selectedId) ?? devices[0] ?? null;
@@ -66,7 +84,62 @@ function KidLoginScreen() {
     if (ok) await navigate({ to: "/kid" });
   }
 
+  /**
+   * Hand a freshly read code to the PIN step. Through the URL fragment, the
+   * same door a scanned QR comes in by, so there is exactly one claim screen:
+   * `/kid/veza` reads the token on its first render and wipes it from the
+   * address bar immediately.
+   */
+  function linkWith(token: string) {
+    void navigate({ to: "/kid/veza", hash: token });
+  }
+
+  if (linkMode === "scan") {
+    return (
+      <Suspense fallback={<KidScannerFallback />}>
+        <KidQrScanner
+          onToken={linkWith}
+          onBack={() => setLinkMode("off")}
+          onTypeCode={(cameraWorks) => {
+            if (!cameraWorks) setCameraBlocked(true);
+            setLinkMode("code");
+          }}
+        />
+      </Suspense>
+    );
+  }
+
+  if (linkMode === "code") {
+    return (
+      <KidCodeForm
+        onToken={linkWith}
+        onBack={() => setLinkMode("off")}
+        onScan={cameraBlocked ? null : () => setLinkMode("scan")}
+      />
+    );
+  }
+
   const names = devices.map((entry) => entry.name).filter(Boolean);
+
+  const linkButtons = (
+    <div className="w-full max-w-[300px] space-y-2.5">
+      <button
+        type="button"
+        onPointerDown={preloadKidQrScanner}
+        onClick={() => setLinkMode("scan")}
+        className="w-full rounded-[18px] bg-white px-4 py-4 text-[16px] font-bold text-[var(--k-accent-strong)] shadow-[0_10px_24px_-10px_rgb(0_0_0/0.35)] transition-transform duration-100 active:scale-[0.96]"
+      >
+        Skeniraj QR kod 📷
+      </button>
+      <button
+        type="button"
+        onClick={() => setLinkMode("code")}
+        className="kid-on-gradient w-full rounded-[18px] bg-white/20 px-4 py-3.5 text-[15px] font-semibold transition-transform duration-100 active:scale-[0.96]"
+      >
+        Ukucaj kod ⌨️
+      </button>
+    </div>
+  );
 
   return (
     <KidAuthScreen
@@ -85,16 +158,29 @@ function KidLoginScreen() {
       }
     >
       {devices.length === 0 ? (
-        <div className="mt-8 w-full max-w-[300px] rounded-[22px] bg-white/20 px-5 py-6 text-center">
-          <span aria-hidden="true" className="text-[42px] leading-none">
-            📷
-          </span>
-          <p className="mt-3 text-[16px] font-semibold">Ovaj uređaj još nije povezan</p>
-          <p className="mt-2 text-[13px] leading-relaxed font-normal opacity-95">
-            Zamoli mamu ili tatu da u svojoj aplikaciji otvore tvoj profil i pokažu ti QR kod.
-            Skeniraj ga i tvoj telefon će te zapamtiti.
-          </p>
-        </div>
+        <>
+          <div className="mt-6 w-full max-w-[300px] rounded-[22px] bg-white/20 px-5 py-6 text-center">
+            <span aria-hidden="true" className="text-[42px] leading-none">
+              📷
+            </span>
+            <p className="mt-3 text-[16px] font-semibold">Ovaj uređaj još nije povezan</p>
+            <p className="mt-2 text-[13px] leading-relaxed font-normal opacity-95">
+              Zamoli mamu ili tatu da u svojoj aplikaciji otvore tvoj profil i pokažu ti QR kod.
+              Pored njega piše i kod od osam znakova, ako ti je lakše da ga ukucaš.
+            </p>
+          </div>
+
+          <div className="mt-4 flex w-full justify-center">{linkButtons}</div>
+
+          {/* Only on an iPhone that is still in the browser: everything linked
+              here would stay behind in Safari once the app is installed. */}
+          {installFirst ? (
+            <p className="mt-3 max-w-[290px] text-center text-[11.5px] leading-relaxed font-normal opacity-85">
+              📲 Ako je ovo iPhone, prvo me dodaj na početni ekran (Podeli - Add to Home Screen), pa
+              se poveži iz aplikacije.
+            </p>
+          ) : null}
+        </>
       ) : (
         <>
           <p className="mt-5 text-[14px] font-semibold opacity-95">Ko si ti?</p>
@@ -135,8 +221,6 @@ function KidLoginScreen() {
 
           <p className="mt-2.5 max-w-[280px] text-center text-[11.5px] leading-relaxed font-normal opacity-85">
             📱 Ovaj uređaj pamti: {names.join(", ")}
-            <br />
-            Novo dete? Skeniraj QR kod od roditelja.
           </p>
 
           {message ? (
@@ -162,8 +246,28 @@ function KidLoginScreen() {
               busy={isPending}
             />
           </div>
+
+          <button
+            type="button"
+            onPointerDown={preloadKidQrScanner}
+            onClick={() => setLinkMode("scan")}
+            className="kid-on-gradient mt-3 rounded-[16px] px-4 py-2.5 text-[13px] font-semibold underline decoration-white/40 underline-offset-4 opacity-90 transition-transform duration-100 active:scale-[0.96]"
+          >
+            Poveži još jedno dete
+          </button>
         </>
       )}
     </KidAuthScreen>
+  );
+}
+
+/** The beat between tapping "Skeniraj" and the camera chunk arriving. */
+function KidScannerFallback() {
+  return (
+    <div className="kid-font grid h-[100dvh] w-full place-items-center bg-black text-white">
+      <p role="status" className="text-[14px] font-medium opacity-85">
+        Palim kameru...
+      </p>
+    </div>
   );
 }

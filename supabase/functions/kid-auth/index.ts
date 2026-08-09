@@ -37,7 +37,7 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-import { randomToken, sha256Hex, verifyPin } from "../_shared/kidCrypto.ts";
+import { normalizeInviteCode, randomToken, sha256Hex, verifyPin } from "../_shared/kidCrypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,10 +139,17 @@ async function claim(
   pin: string,
   deviceLabel: string,
 ): Promise<Response> {
+  // Two hashes, one query. `normalizeInviteCode` is what a TYPED code has to go
+  // through (case, the `-` separator, `O` for zero), and it is a no-op on a code
+  // that came straight out of a QR fragment. The raw form is tried alongside it
+  // so a QR minted by the previous version - a 32-byte token, which normalizing
+  // would mangle - still links while both deploys have not landed.
+  const code = normalizeInviteCode(token);
+  const hashes = [...new Set([await sha256Hex(code), await sha256Hex(token)])];
   const { data: invite } = await admin
     .from("kid_invites")
     .select("id, profile_id, family_id, expires_at, used_at")
-    .eq("token_hash", await sha256Hex(token))
+    .in("token_hash", hashes)
     .maybeSingle();
 
   if (!invite) {

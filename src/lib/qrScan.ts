@@ -1,6 +1,8 @@
-// QR decoding helpers for the receipt scanner. zxing-wasm is imported
-// dynamically so it only ships in the lazy ReceiptScanDialog chunk, never the
-// main bundle.
+// QR decoding, shared by the two scanners in the app: fiscal receipts in the
+// grown-up app, and "poveži uređaj" in the kid shell. zxing-wasm is imported
+// dynamically so it only ships in the lazy chunk that opens a scanner, never in
+// the main bundle - which is also why this module must stay free of any import
+// that would drag it into that bundle.
 //
 // Two decode paths:
 //   • BarcodeDetector (native, fast) when the browser exposes it - used for the

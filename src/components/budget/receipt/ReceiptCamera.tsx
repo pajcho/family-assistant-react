@@ -1,23 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { BoltIcon, VideoCameraSlashIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
 import { isSufReceiptUrl } from "@/hooks/useReceiptImport";
-import { decodeQrFromImageData, getBarcodeDetector } from "./receiptQr";
+import { useQrCamera } from "@/hooks/useQrCamera";
 
 /**
- * Live QR scanner for a fiscal receipt. Opens the environment camera, draws a
- * scan-frame overlay, offers a torch toggle when the track supports it, and
- * polls frames (~10fps) through BarcodeDetector when available, else
- * zxing-wasm. On the first valid suf.purs.gov.rs QR it stops the camera and
- * calls `onDecode`.
+ * Live QR scanner for a fiscal receipt: the camera and the scan loop come from
+ * `useQrCamera`, and what this file adds is the receipt-specific part - the
+ * scan-frame viewport, the torch button, and the rule that only a
+ * suf.purs.gov.rs URL counts as a hit.
  *
  * Camera-permission / availability problems are non-fatal here: the component
  * renders an explanatory state, and the parent always shows the paste-link and
  * upload-image fallbacks alongside it.
  */
-
-type CameraState = "starting" | "streaming" | "denied" | "unavailable";
 
 export type ReceiptCameraProps = {
   /** Called once with a validated suf.purs.gov.rs URL. */
@@ -26,172 +23,25 @@ export type ReceiptCameraProps = {
   paused?: boolean;
 };
 
-// Torch and focusMode live on MediaTrackConstraints in some browsers but not
-// in lib.dom.
-interface ExtendedCapabilities {
-  torch?: boolean;
-  focusMode?: string[];
-}
-
 export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const trackRef = useRef<MediaStreamTrack | null>(null);
-  const decodedRef = useRef(false);
-  const pausedRef = useRef(paused);
-
-  const [state, setState] = useState<CameraState>("starting");
-  const [torchAvailable, setTorchAvailable] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-
-  const stopStream = useCallback(() => {
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) track.stop();
-      streamRef.current = null;
-    }
-    trackRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleRaw = (raw: string) => {
-      if (decodedRef.current) return;
-      const value = raw.trim();
-      if (!isSufReceiptUrl(value)) {
+  const handleDecode = useCallback(
+    (raw: string) => {
+      if (!isSufReceiptUrl(raw)) {
         setHint("Ovo nije QR kod fiskalnog računa.");
-        return;
-      }
-      decodedRef.current = true;
-      stopStream();
-      onDecode(value);
-    };
-
-    const scanFrame = async (detector: Awaited<ReturnType<typeof getBarcodeDetector>>) => {
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || pausedRef.current) return false;
-
-      if (detector) {
-        try {
-          const codes = await detector.detect(video);
-          if (codes[0]?.rawValue) {
-            handleRaw(codes[0].rawValue);
-            return decodedRef.current;
-          }
-        } catch {
-          /* transient detect error - try again next tick */
-        }
         return false;
       }
+      onDecode(raw);
+      return true;
+    },
+    [onDecode],
+  );
 
-      // zxing-wasm fallback: sample only the centre square of the frame - the
-      // viewport renders the video with object-cover, so that region covers
-      // the scan frame the user aims with (and 2-4× fewer pixels to decode).
-      const w = video.videoWidth;
-      const h = video.videoHeight;
-      if (!w || !h) return false;
-      const side = Math.min(w, h);
-      const sx = (w - side) / 2;
-      const sy = (h - side) / 2;
-      const canvas = canvasRef.current ?? document.createElement("canvas");
-      canvasRef.current = canvas;
-      canvas.width = side;
-      canvas.height = side;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return false;
-      ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
-      const raw = await decodeQrFromImageData(ctx.getImageData(0, 0, side, side));
-      if (raw) {
-        handleRaw(raw);
-        return decodedRef.current;
-      }
-      return false;
-    };
-
-    const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setState("unavailable");
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            // Without explicit size hints iOS Safari defaults to 640×480 -
-            // far too coarse for dense fiscal QR codes (~2-3px per module).
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-          audio: false,
-        });
-        if (cancelled) {
-          for (const track of stream.getTracks()) track.stop();
-          return;
-        }
-        streamRef.current = stream;
-        const track = stream.getVideoTracks()[0] ?? null;
-        trackRef.current = track;
-        const caps = (track?.getCapabilities?.() ?? {}) as ExtendedCapabilities;
-        setTorchAvailable(Boolean(caps.torch));
-        if (track && caps.focusMode?.includes("continuous")) {
-          // Keep hunting focus at receipt distance where the browser supports it.
-          track
-            .applyConstraints({
-              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
-            })
-            .catch(() => {});
-        }
-
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          await video.play().catch(() => {});
-        }
-        setState("streaming");
-
-        const detector = await getBarcodeDetector();
-        const loop = async () => {
-          if (cancelled) return;
-          const done = await scanFrame(detector);
-          if (cancelled || done) return;
-          timer = setTimeout(() => void loop(), 100); // ~10fps
-        };
-        void loop();
-      } catch (err) {
-        if (cancelled) return;
-        const name = (err as { name?: string })?.name;
-        setState(name === "NotAllowedError" || name === "SecurityError" ? "denied" : "unavailable");
-      }
-    };
-
-    void start();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      stopStream();
-    };
-  }, [onDecode, stopStream]);
-
-  const toggleTorch = async () => {
-    const track = trackRef.current;
-    if (!track) return;
-    try {
-      await track.applyConstraints({
-        advanced: [{ torch: !torchOn } as MediaTrackConstraintSet],
-      });
-      setTorchOn((v) => !v);
-    } catch {
-      setTorchAvailable(false);
-    }
-  };
+  const { videoRef, state, torchAvailable, torchOn, toggleTorch } = useQrCamera({
+    onDecode: handleDecode,
+    paused,
+  });
 
   if (state === "denied" || state === "unavailable") {
     return (
@@ -245,7 +95,7 @@ export function ReceiptCamera({ onDecode, paused = false }: ReceiptCameraProps) 
       {torchAvailable ? (
         <button
           type="button"
-          onClick={() => void toggleTorch()}
+          onClick={toggleTorch}
           aria-pressed={torchOn}
           aria-label={torchOn ? "Ugasi baterijsku lampu" : "Upali baterijsku lampu"}
           className={cn(

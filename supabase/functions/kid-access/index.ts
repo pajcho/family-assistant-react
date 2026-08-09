@@ -39,7 +39,7 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-import { hashPin, randomToken, sha256Hex, syntheticEmail } from "../_shared/kidCrypto.ts";
+import { hashPin, randomInviteCode, sha256Hex, syntheticEmail } from "../_shared/kidCrypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -299,7 +299,11 @@ async function createInvite(
   // should not leave a spare QR code valid on a screen somewhere.
   await admin.from("kid_invites").delete().eq("profile_id", profileId).is("used_at", null);
 
-  const token = randomToken();
+  // Short and typeable, not a 32-byte token: the same string is both the QR
+  // payload and the code a child types when they cannot scan (see
+  // `randomInviteCode`). Already in normalized form by construction, so the
+  // hash stored here is the one `kid-auth` computes from what the child sends.
+  const token = randomInviteCode();
   const expiresAt = new Date(Date.now() + INVITE_TTL_MINUTES * 60_000).toISOString();
   const { error } = await admin.from("kid_invites").insert({
     profile_id: profileId,

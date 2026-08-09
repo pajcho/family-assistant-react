@@ -2,12 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   hashPin,
+  INVITE_CODE_LENGTH,
+  normalizeInviteCode,
+  randomInviteCode,
   randomToken,
   sha256Hex,
   SYNTHETIC_EMAIL_DOMAIN,
   syntheticEmail,
   verifyPin,
 } from "./kidCrypto.ts";
+import {
+  KID_INVITE_CODE_LENGTH,
+  isKidInviteCode,
+  normalizeKidInviteCode,
+} from "../../../src/types/kid.ts";
 
 // kidCrypto is deliberately Deno-free, so this suite exercises the real
 // implementation under Node's Web Crypto - the exact code the edge functions
@@ -77,6 +85,89 @@ describe("randomToken", () => {
   it("does not repeat", () => {
     const seen = new Set(Array.from({ length: 200 }, () => randomToken()));
     expect(seen.size).toBe(200);
+  });
+});
+
+describe("randomInviteCode", () => {
+  it("is 8 characters a child can read back off a screen", () => {
+    for (let i = 0; i < 50; i++) {
+      const code = randomInviteCode();
+      expect(code).toHaveLength(INVITE_CODE_LENGTH);
+      // Crockford base32: no I, L, O or U, so nothing can be read two ways.
+      expect(code).toMatch(/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/);
+    }
+  });
+
+  it("comes out already normalized, so the stored hash is the one a typed code produces", () => {
+    for (let i = 0; i < 50; i++) {
+      const code = randomInviteCode();
+      expect(normalizeInviteCode(code)).toBe(code);
+    }
+  });
+
+  it("does not repeat", () => {
+    const seen = new Set(Array.from({ length: 200 }, () => randomInviteCode()));
+    expect(seen.size).toBe(200);
+  });
+});
+
+/**
+ * The one test that spans both halves of the project.
+ *
+ * `src/types/kid.ts` restates this normalization for the parent's screen and
+ * the child's code field, because Deno cannot import across the frontend
+ * boundary. If the two ever fold a character differently they hash different
+ * strings, and a correctly typed code comes back "pogrešan kod" with nothing
+ * anywhere to explain it. Imported from this side because `supabase/` sits
+ * outside every tsconfig project and so cannot be imported from `src/`.
+ */
+describe("the client's mirror of normalizeInviteCode", () => {
+  it("folds every shape identically", () => {
+    const inputs = [
+      "a7k2-9qxm",
+      "A7K2 9QXM",
+      "  a7k29qxm  ",
+      "OIL0IL",
+      "oil",
+      "a7k2_9qxm",
+      "žčć-A7K2",
+      "",
+      "---",
+      "A7K29QXMEXTRA",
+    ];
+    for (const input of inputs) {
+      expect(normalizeKidInviteCode(input)).toBe(normalizeInviteCode(input));
+    }
+  });
+
+  it("accepts every code this file can mint, and agrees on the length", () => {
+    expect(KID_INVITE_CODE_LENGTH).toBe(INVITE_CODE_LENGTH);
+    for (let i = 0; i < 50; i++) {
+      const code = randomInviteCode();
+      expect(normalizeKidInviteCode(code)).toBe(code);
+      expect(isKidInviteCode(code)).toBe(true);
+    }
+  });
+});
+
+describe("normalizeInviteCode", () => {
+  it("forgives how a code is typed", () => {
+    expect(normalizeInviteCode("a7k2-9qxm")).toBe("A7K29QXM");
+    expect(normalizeInviteCode(" A7K2 9QXM ")).toBe("A7K29QXM");
+    expect(normalizeInviteCode("A7K2_9QXM")).toBe("A7K29QXM");
+  });
+
+  it("folds the characters that are read two ways", () => {
+    // O is a zero; I and L are ones - the three Crockford leaves out.
+    expect(normalizeInviteCode("OIL")).toBe("011");
+    expect(normalizeInviteCode("oil")).toBe("011");
+  });
+
+  it("is idempotent and empty for a string with nothing usable in it", () => {
+    const once = normalizeInviteCode("a7k2-9qxm");
+    expect(normalizeInviteCode(once)).toBe(once);
+    expect(normalizeInviteCode("---")).toBe("");
+    expect(normalizeInviteCode("")).toBe("");
   });
 });
 
