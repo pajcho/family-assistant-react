@@ -57,6 +57,60 @@ export function addMonth(dateStr: string, count = 1): string {
   return format(next, "yyyy-MM-dd");
 }
 
+/** The day of the month (1-31) of a YYYY-MM-DD string. */
+export function dayOfMonth(dateStr: string): number {
+  return getDate(parseISO(dateStr + "T12:00:00"));
+}
+
+/**
+ * The anchor day to step by: `anchorDay` when it is a whole 1-31, otherwise
+ * the day of `dateStr` - which makes the anchored helpers degrade to exactly
+ * `addMonth` / `subtractMonth` for rows that have no anchor.
+ */
+function resolveAnchorDay(anchorDay: number | null | undefined, dateStr: string): number {
+  if (anchorDay != null && Number.isInteger(anchorDay) && anchorDay >= 1 && anchorDay <= 31) {
+    return anchorDay;
+  }
+  return dayOfMonth(dateStr);
+}
+
+/**
+ * Next monthly occurrence, anchored: derives the day from `anchorDay`, not
+ * from the previous (possibly clamped) result, so a 31st never becomes a 28th
+ * permanently. Only the MONTH is taken from `dateStr`; the day is
+ * `min(anchorDay, last day of that month)` - the same rule
+ * `getDueDateInMonth` applies.
+ *
+ *   addMonth("2026-01-31")              -> "2026-02-28", then "2026-03-28" (drift)
+ *   addMonthAnchored("2026-02-28", 31)  -> "2026-03-31"   (day recovered)
+ */
+export function addMonthAnchored(
+  dateStr: string,
+  anchorDay: number | null | undefined,
+  count = 1,
+): string {
+  const next = addMonths(parseISO(dateStr + "T12:00:00"), count);
+  const lastDay = getDate(lastDayOfMonth(next));
+  next.setDate(Math.min(resolveAnchorDay(anchorDay, dateStr), lastDay));
+  return format(next, "yyyy-MM-dd");
+}
+
+/**
+ * The symmetric step back - undo of `addMonthAnchored`. Plain `subtractMonth`
+ * cannot restore a clamped day (`subtractMonth("2026-02-28")` -> "2026-01-28"),
+ * so an undone instalment used to come back on the wrong day.
+ */
+export function subtractMonthAnchored(
+  dateStr: string,
+  anchorDay: number | null | undefined,
+  count = 1,
+): string {
+  const prev = subMonths(parseISO(dateStr + "T12:00:00"), count);
+  const lastDay = getDate(lastDayOfMonth(prev));
+  prev.setDate(Math.min(resolveAnchorDay(anchorDay, dateStr), lastDay));
+  return format(prev, "yyyy-MM-dd");
+}
+
 /** Subtract `count` months. Day is capped to the last day of the target month. */
 export function subtractMonth(dateStr: string, count = 1): string {
   const date = parseISO(dateStr + "T12:00:00");
@@ -97,6 +151,16 @@ export function getDueDateInMonth(monthYYYYMM: string, dueDateStr: string): stri
   const lastDay = getDate(lastDayOfMonth(new Date(year, month - 1, 1)));
   const safeDay = Math.min(day, lastDay);
   return `${year}-${String(month).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
+}
+
+/** First and last day of a "YYYY-MM" month, as YYYY-MM-DD. */
+export function monthBounds(monthYYYYMM: string): { from: string; to: string } {
+  const [year, month] = monthYYYYMM.split("-").map(Number);
+  const lastDay = getDate(lastDayOfMonth(new Date(year, month - 1, 1)));
+  return {
+    from: `${monthYYYYMM}-01`,
+    to: `${monthYYYYMM}-${String(lastDay).padStart(2, "0")}`,
+  };
 }
 
 /** Current month as YYYY-MM. */

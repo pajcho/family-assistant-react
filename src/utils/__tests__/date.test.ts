@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  addMonth,
+  addMonthAnchored,
   getDueDateInMonth,
   getLimitedMonths,
   getWeeklyOccurrencesInMonth,
   isMonthlyOccurrenceMonth,
+  monthBounds,
+  subtractMonthAnchored,
 } from "../date";
 
 /**
@@ -48,6 +52,81 @@ describe("getDueDateInMonth", () => {
     // Pure calendar math, no notion of when the series begins. Callers are
     // expected to gate on isMonthlyOccurrenceMonth / getLimitedMonths first.
     expect(getDueDateInMonth("2025-12", "2026-01-15")).toBe("2025-12-15");
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* addMonthAnchored / subtractMonthAnchored - the anchored step (plan 010)    */
+/* ------------------------------------------------------------------------- */
+
+describe("addMonthAnchored", () => {
+  it("clamps to the short month, then recovers the anchor day", () => {
+    // The whole fix in two assertions: February still clamps (there is no 31st),
+    // but the step OUT of February derives the day from the anchor, not from
+    // the clamped 28th. Plain addMonth is stuck on the 28th forever.
+    expect(addMonthAnchored("2026-01-31", 31)).toBe("2026-02-28");
+    expect(addMonthAnchored("2026-02-28", 31)).toBe("2026-03-31");
+    expect(addMonth("2026-02-28")).toBe("2026-03-28");
+  });
+
+  it("keeps a 31st series on the last day of every short month it passes", () => {
+    const walk: string[] = [];
+    let cur = "2026-01-31";
+    for (let i = 0; i < 5; i++) {
+      cur = addMonthAnchored(cur, 31);
+      walk.push(cur);
+    }
+    expect(walk).toEqual(["2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30"]);
+  });
+
+  it("clamps to Feb 29 in a leap year", () => {
+    expect(addMonthAnchored("2028-01-31", 31)).toBe("2028-02-29");
+  });
+
+  it("honors a multi-month step (quarterly)", () => {
+    expect(addMonthAnchored("2026-01-31", 31, 3)).toBe("2026-04-30");
+    expect(addMonthAnchored("2026-04-30", 31, 3)).toBe("2026-07-31");
+  });
+
+  it("passes a mid-month day through unchanged", () => {
+    expect(addMonthAnchored("2026-01-15", 15)).toBe("2026-02-15");
+  });
+
+  it("falls back to the day of the date when the anchor is missing or out of range", () => {
+    // Rows without an anchor behave exactly like today's addMonth.
+    for (const bad of [null, undefined, 0, 32, 3.5, Number.NaN]) {
+      expect(addMonthAnchored("2026-01-31", bad)).toBe(addMonth("2026-01-31"));
+      expect(addMonthAnchored("2026-02-28", bad)).toBe(addMonth("2026-02-28"));
+    }
+  });
+});
+
+describe("subtractMonthAnchored", () => {
+  it("undoes an anchored step, restoring the anchor day", () => {
+    // subtractMonth cannot: "2026-02-28" - 1m is "2026-01-28", losing the 31st.
+    expect(subtractMonthAnchored("2026-03-31", 31)).toBe("2026-02-28");
+    expect(subtractMonthAnchored("2026-02-28", 31)).toBe("2026-01-31");
+  });
+
+  it("is the inverse of addMonthAnchored across a short month", () => {
+    const forward = addMonthAnchored("2026-02-28", 31);
+    expect(subtractMonthAnchored(forward, 31)).toBe("2026-02-28");
+  });
+
+  it("honors a multi-month step", () => {
+    expect(subtractMonthAnchored("2026-07-31", 31, 3)).toBe("2026-04-30");
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* monthBounds                                                                */
+/* ------------------------------------------------------------------------- */
+
+describe("monthBounds", () => {
+  it("returns the first and last day of the month", () => {
+    expect(monthBounds("2026-02")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(monthBounds("2026-03")).toEqual({ from: "2026-03-01", to: "2026-03-31" });
+    expect(monthBounds("2028-02")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
   });
 });
 
