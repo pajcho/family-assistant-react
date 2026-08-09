@@ -184,7 +184,7 @@ const CANCELED_EVENT_LINE = "Otkazano - neće biti";
  * another day the origin date on `override.movedFrom`. No lookup, no extra
  * query. Times go through `normalizeTime` because DB times carry seconds.
  */
-export function movedLine(block: ResolvedActivityBlock): string | null {
+function movedLine(block: ResolvedActivityBlock): string | null {
   const override = block.override;
   if (!override || override.action !== "reschedule") return null;
   const from = normalizeTime(override.originalStartTime);

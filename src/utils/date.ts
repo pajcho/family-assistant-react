@@ -7,7 +7,6 @@ import {
   format,
   formatDistanceToNow,
   isBefore,
-  isAfter,
   isValid,
   lastDayOfMonth,
   getDate,
@@ -41,22 +40,6 @@ export function isOverdue(dueDateStr: string): boolean {
   const due = parseDate(dueDateStr);
   const today = startOfToday();
   return isBefore(due, today);
-}
-
-/** True if due date is today or within the next N days (inclusive). */
-export function isUpcoming(dueDateStr: string, withinDays: number): boolean {
-  const due = parseDate(dueDateStr);
-  const today = startOfToday();
-  const end = addDays(today, withinDays);
-  return !isBefore(due, today) && !isAfter(due, end);
-}
-
-/** True if date (YYYY-MM-DD) falls within [from, to] (inclusive, start-of-day). */
-export function isDateInRange(dateStr: string, from: Date, to: Date): boolean {
-  const date = parseDate(dateStr);
-  const fromStart = startOfDay(from);
-  const toEnd = startOfDay(to);
-  return !isBefore(date, fromStart) && !isAfter(date, toEnd);
 }
 
 /**
@@ -225,13 +208,8 @@ export function isDateBeforeToday(dateStr: string): boolean {
   return isBefore(parseDate(dateStr), startOfToday());
 }
 
-/** Check if a date string is today or in the future. */
-export function isDateTodayOrFuture(dateStr: string): boolean {
-  return !isBefore(parseDate(dateStr), startOfToday());
-}
-
 /** Days from today to date (positive = future). */
-export function daysFromToday(dateStr: string): number {
+function daysFromToday(dateStr: string): number {
   return differenceInDays(parseDate(dateStr), startOfToday());
 }
 

@@ -40,10 +40,6 @@ export function toMondayFirstDow(jsDay: number): number {
   return (jsDay + 6) % 7;
 }
 
-export function fromMondayFirstDow(mondayFirstDow: number): number {
-  return (mondayFirstDow + 1) % 7;
-}
-
 export const DAY_LABELS_FULL: ReadonlyArray<string> = [
   "Ponedeljak",
   "Utorak",

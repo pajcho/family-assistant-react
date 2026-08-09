@@ -354,24 +354,6 @@ export interface Expense {
 }
 
 /**
- * LEGACY receipt line (pre-receipts model) - superseded by {@link ReceiptItem}.
- * The table is frozen: kept only so already-deployed PWA clients keep working
- * until their service worker updates; new code never reads or writes it.
- * Dropping it is a later cleanup migration.
- */
-export interface ExpenseItem {
-  id: string;
-  expense_id: string;
-  family_id: string;
-  name: string;
-  quantity: number | null;
-  unit_price: number | null;
-  total: number;
-  sort_order: number;
-  created_at: string;
-}
-
-/**
  * One scanned fiscal receipt (SUF/PURS). `receipt_url` is the globally-unique
  * dedup key (the old expenses.receipt_url unique index moved here);
  * `total_amount` / `issued_on` are the receipt's own facts, which an expense's
@@ -799,15 +781,6 @@ export type NotificationKind =
   | "payment_reminder"
   | "activity_reminder"
   | "external_reminder";
-
-export interface NotificationLogRow {
-  id: string;
-  user_id: string;
-  kind: NotificationKind;
-  /** Date (YYYY-MM-DD) for digests, item UUID for reminders */
-  ref_id: string;
-  sent_at: string;
-}
 
 /**
  * Token-free view of a member's Google Calendar connection

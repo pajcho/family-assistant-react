@@ -246,12 +246,3 @@ export function KidCardSkeleton({ count = 3 }: { count?: number }) {
     </div>
   );
 }
-
-/** Screen-reader-only live status for loading screens. */
-export function KidLoadingStatus({ label }: { label: string }) {
-  return (
-    <p role="status" className="sr-only">
-      {label}
-    </p>
-  );
-}
