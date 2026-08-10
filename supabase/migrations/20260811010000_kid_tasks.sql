@@ -105,9 +105,19 @@ BEGIN
     RAISE EXCEPTION 'not a kid session';
   END IF;
 
-  -- A child may only resolve today or yesterday, so a forgotten week cannot be
-  -- backfilled in one tap.
-  IF p_date < CURRENT_DATE - 1 OR p_date > CURRENT_DATE THEN
+  -- A child may only resolve the last couple of days, so a forgotten week
+  -- cannot be tidied up with one tap.
+  --
+  -- The window is deliberately a day wider on each side than the rule it
+  -- expresses, because CURRENT_DATE is the DATABASE's date (UTC on Supabase)
+  -- while `p_date` is the date on the CHILD'S DEVICE. In Belgrade summer time
+  -- those disagree between local midnight and 02:00: the device says the 12th,
+  -- Postgres still says the 11th, and a tight `p_date > CURRENT_DATE` would
+  -- refuse a chore ticked off late in the evening of a long day. No offset on
+  -- earth exceeds 14 hours, so one day of slack on each side absorbs every
+  -- timezone while still making a week-old backfill impossible. Do not tighten
+  -- this to CURRENT_DATE without converting to the family's timezone first.
+  IF p_date < CURRENT_DATE - 2 OR p_date > CURRENT_DATE + 1 THEN
     RAISE EXCEPTION 'date outside the allowed window';
   END IF;
 
