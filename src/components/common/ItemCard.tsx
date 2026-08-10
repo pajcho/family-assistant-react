@@ -59,7 +59,7 @@ export function ItemCard({
   );
 }
 
-export type ItemTileTone = "accent" | "pos" | "warn" | "neg" | "info" | "muted";
+export type ItemTileTone = "accent" | "pos" | "warn" | "neg" | "info" | "task" | "muted";
 
 const TILE_TONE: Record<ItemTileTone, string> = {
   accent: "bg-accent-soft text-accent-deep",
@@ -67,6 +67,8 @@ const TILE_TONE: Record<ItemTileTone, string> = {
   warn: "bg-warn-soft text-warn",
   neg: "bg-neg-soft text-neg",
   info: "bg-info-soft text-info",
+  // Tasks own a violet of their own; see the note on `--task` in styles.
+  task: "bg-task-soft text-task",
   muted: "bg-muted text-muted-foreground",
 };
 

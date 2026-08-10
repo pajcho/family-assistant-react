@@ -73,6 +73,13 @@
   --neg-soft: #fae4e5;
   --info: #3d63b0;
   --info-soft: #e4ebf8;
+  /* Tasks get their own tone rather than borrowing one: activities already own
+     the accent, events and Google own info, payments warn, birthdays pos. A
+     violet sits next to all of them without being mistaken for any, and it is
+     deliberately not the default accent blue - a task's colour must not change
+     when the family switches the app accent. */
+  --task: #6d51c6;
+  --task-soft: #ece7fa;
 
   /* shadcn derived tokens - they follow the accent/semantic ones */
   --primary: var(--accent);
@@ -114,6 +121,8 @@
   --neg-soft: #43242a;
   --info: #8faee8;
   --info-soft: #232e45;
+  --task: #a996ee;
+  --task-soft: #292140;
 
   --destructive-foreground: #2a1418;
   --card-shadow: 0 3px 14px -6px rgb(0 0 0 / 0.5);
@@ -180,6 +189,8 @@
   --color-neg-soft: var(--neg-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-task: var(--task);
+  --color-task-soft: var(--task-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
