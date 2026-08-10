@@ -751,6 +751,55 @@ duplicate, the info panel, and last-opened-list memory.
   heavier than bold.
 - A sheet is only as tall as its content.
 
+## 13b. Notes from execution - read these, they override the plan
+
+Findings from stages already done. Where one contradicts an earlier section,
+this section wins.
+
+1. **The planned RLS deadlocked the table.** The kid policy on `tasks` reads
+   `task_assignees`, and permissive policies are OR-ed, so making
+   `task_assignees` piggy-back on `tasks` made every read of `tasks` - by
+   parents too - fail with `infinite recursion detected in policy`.
+   `task_assignees` is therefore family-keyed through `auth_user_family_id()`,
+   naming no table at all. Do not "simplify" it back.
+2. **Write policies must demand `auth_user_family_id()`.** Without it a kid
+   session satisfied the listless-personal arm and could write
+   `task_occurrences` directly, bypassing `kid_complete_task` and its date
+   window. A child has no `profiles` row, so the helper is NULL for them and the
+   arm closes.
+3. **`kid_complete_task`'s date window is deliberately a day wide on each side**
+   (`CURRENT_DATE - 2` .. `CURRENT_DATE + 1`). `CURRENT_DATE` is the database's
+   UTC date while the child's device sends a local date; in Belgrade summer time
+   they disagree between local midnight and 02:00. Do not tighten it without
+   converting to the family's timezone first.
+4. **Only a DATED family task fires a create push.** A bare scope check would
+   send ten notifications for ten groceries. The trigger's WHEN clause carries
+   `NEW.due_date IS NOT NULL`.
+5. **The recurrence engine exists twice and a parity test binds them.**
+   `supabase/functions/_shared/expandTask.parity.test.ts` compares
+   `src/utils/task.ts` against `supabase/functions/_shared/expandTask.ts` over
+   600 generated series. It must stay green: if it fails, the morning digest and
+   the Danas screen are about to disagree in somebody's hand. Changing either
+   engine means running it.
+6. **`TASK_WINDOW_DAYS_AFTER = 14` in `send-due-pushes/plan.ts`** mirrors
+   payments, so an all-day task whose `remind_days_before` exceeds 14 never
+   fires. Keep the form's reminder presets at 14 days or below, or raise both
+   constants together.
+7. **Reminder pushes go to every push-subscribed family member**, not only to
+   assignees. `task_assignees` says who a chore is FOR - often a child with no
+   login at all - not who should be told about it.
+8. **`isTaskDoneOn` takes the SERIES date**, never the effective date. A moved
+   occurrence is still ticked under the date the series says it belongs to.
+9. **`instance.isDone` is only meaningful for `completion_mode: 'shared'`.** For
+   `'per_assignee'` the row layer must call
+   `isTaskDoneOn(task, instance.occurrenceDate, byKey, personId)`.
+10. **`scripts/seed-demo.ts` is typechecked** by `tsconfig.node.json`, so it is
+    part of `pnpm build`. It now seeds every task shape, and it is what the
+    README screenshots are captured against.
+11. **Still outstanding from stage C3:** the `notify_on_task_create` toggle in
+    `components/settings/NotificationsSection.tsx` and
+    `hooks/useNotificationPreferences.ts`.
+
 ## 14. Definition of done
 
 1. `pnpm check` passes (format, lint, dashes, typecheck).
