@@ -15,53 +15,54 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { Task } from "@/types/database";
 
-export type ListItemDialogPayload = {
+export type TaskEditPayload = {
   name: string;
   /** null when the textarea is empty after trimming whitespace. */
   description: string | null;
 };
 
-export type ListItemDialogProps = {
-  /** When non-null, the dialog is open and renders this item's editor. */
+export type TaskEditDialogProps = {
+  /** When non-null, the dialog is open and renders this task's editor. */
   item: Task | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (item: Task, payload: ListItemDialogPayload) => void;
+  onSubmit: (item: Task, payload: TaskEditPayload) => void;
   onDelete: (item: Task) => void;
   saving?: boolean;
 };
 
 /**
- * View / edit popup for a single list item - replaces the old inline-edit
- * affordance on `ListItemRow`. Tapping any item row opens this dialog so
- * users can rename the item and add/edit a free-text description that
- * supports Markdown.
+ * Rename / describe one task from inside its list - the quick editor a row's
+ * text opens. It deliberately stays the NAME + NOTE pair it has always been:
+ * dates, assignees, recurrence and reminders are the composer's and
+ * `TaskDetailSheet`'s business, and a shopping list must not grow six fields to
+ * fix a typo in "Mleko".
  *
  * Layout
  *   • Title field (`name`, required)
  *   • Description textarea (`description`, optional Markdown)
  *   • Live preview underneath the textarea when description is non-empty
- *   • Footer: Delete (left, destructive) + Cancel / Save (right)
+ *   • Footer: Delete (left, destructive) + Odustani / Sačuvaj (right)
  *
  * Wired with `ResponsiveDialog` so it renders as a centered modal on
  * desktop and as a bottom drawer on phones - same pattern as
  * `ListFormDialog`. The dialog is unmounted between opens so the form
- * state resets cleanly whenever the user picks a different item.
+ * state resets cleanly whenever the user picks a different task.
  */
-export function ListItemDialog({
+export function TaskEditDialog({
   item,
   onOpenChange,
   onSubmit,
   onDelete,
   saving = false,
-}: ListItemDialogProps) {
+}: TaskEditDialogProps) {
   return (
     <ResponsiveDialog open={item !== null} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Detalji stavke</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>Izmeni zadatak</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         {item ? (
-          <ListItemDialogBody
+          <TaskEditDialogBody
             item={item}
             onSubmit={(payload) => onSubmit(item, payload)}
             onCancel={() => onOpenChange(false)}
@@ -76,16 +77,16 @@ export function ListItemDialog({
 
 type BodyProps = {
   item: Task;
-  onSubmit: (payload: ListItemDialogPayload) => void;
+  onSubmit: (payload: TaskEditPayload) => void;
   onCancel: () => void;
   onDelete: () => void;
   saving: boolean;
 };
 
-function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: BodyProps) {
+function TaskEditDialogBody({ item, onSubmit, onCancel, onDelete, saving }: BodyProps) {
   // Local form state initialised from the item. The parent rerenders the
   // dialog with a fresh `item` between opens, which remounts this body
-  // (the parent's conditional `item ? <ListItemDialogBody> : null` is the
+  // (the parent's conditional `item ? <TaskEditDialogBody> : null` is the
   // remount boundary), so we don't need a manual sync effect.
   const [name, setName] = useState<string>(item.name);
   const [description, setDescription] = useState<string>(item.description ?? "");
@@ -106,16 +107,16 @@ function ListItemDialogBody({ item, onSubmit, onCancel, onDelete, saving }: Body
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <Label htmlFor="item-name">Naziv *</Label>
+        <Label htmlFor="task-name">Naziv *</Label>
         {/* No autoFocus - same reasoning as the list form: avoids the iOS
             keyboard popping up before the drawer has finished sliding in. */}
-        <Input id="item-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input id="task-name" value={name} onChange={(e) => setName(e.target.value)} required />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="item-description">Opis (opciono)</Label>
+        <Label htmlFor="task-description">Opis (opciono)</Label>
         <Textarea
-          id="item-description"
+          id="task-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Dodatne informacije, Markdown podržan…"

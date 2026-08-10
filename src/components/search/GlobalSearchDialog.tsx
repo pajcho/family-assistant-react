@@ -6,6 +6,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  CheckCircleIcon,
   ClipboardDocumentListIcon,
   GlobeAltIcon,
   MagnifyingGlassIcon,
@@ -56,7 +57,7 @@ const GROUP_ORDER: readonly SearchResultKind[] = [
   "payment",
   "birthday",
   "list",
-  "list_item",
+  "task",
 ];
 
 const GROUP_META: Record<SearchResultKind, GroupMeta> = {
@@ -95,10 +96,10 @@ const GROUP_META: Record<SearchResultKind, GroupMeta> = {
     Icon: ClipboardDocumentListIcon,
     iconClass: "text-accent-deep",
   },
-  list_item: {
-    label: "Stavke u listama",
-    Icon: ClipboardDocumentListIcon,
-    iconClass: "text-accent-deep",
+  task: {
+    label: "Zadaci",
+    Icon: CheckCircleIcon,
+    iconClass: "text-task",
   },
 };
 
@@ -188,9 +189,13 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
         // A list IS a page - deep-link to it.
         void navigate({ to: "/tasks/$listId", params: { listId: result.id } });
         break;
-      case "list_item":
+      case "task":
+        // A task inside a list opens that list; a standalone one has no list to
+        // open, so it goes to the Inbox smart list, which is where it lives.
         if (result.listId) {
           void navigate({ to: "/tasks/$listId", params: { listId: result.listId } });
+        } else {
+          void navigate({ to: "/tasks/inbox" });
         }
         break;
       case "activity":

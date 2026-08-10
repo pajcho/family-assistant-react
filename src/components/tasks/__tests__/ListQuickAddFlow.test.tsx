@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ListQuickAddFlow } from "@/components/lists/ListQuickAddFlow";
-import type { ListFormPayload } from "@/components/lists/ListForm";
+import { ListQuickAddFlow } from "@/components/tasks/ListQuickAddFlow";
+import type { ListFormPayload } from "@/components/tasks/ListForm";
 
 const { mutateAsync, successToast, navigate } = vi.hoisted(() => ({
   mutateAsync: vi.fn<(payload: ListFormPayload) => Promise<{ id: string }>>(),
@@ -34,7 +34,7 @@ const payload: ListFormPayload = {
   description: null,
 };
 
-vi.mock("@/components/lists/ListFormDialog", () => ({
+vi.mock("@/components/tasks/ListFormDialog", () => ({
   ListFormDialog: ({
     open,
     error,

@@ -61,7 +61,7 @@ function useHasCoarsePointer(): boolean {
   return coarse;
 }
 
-export type SwipeableListItemProps = {
+export type SwipeableTaskRowProps = {
   onSwipeRight: () => void;
   onSwipeLeft: () => void;
   /** Disable gestures (e.g. when the row is in edit mode). */
@@ -71,17 +71,17 @@ export type SwipeableListItemProps = {
 
 type Direction = "horizontal" | "vertical" | null;
 
-export function SwipeableListItem({
+export function SwipeableTaskRow({
   onSwipeRight,
   onSwipeLeft,
   disabled = false,
   children,
-}: SwipeableListItemProps) {
+}: SwipeableTaskRowProps) {
   const isTouchDevice = useHasCoarsePointer();
 
   // Desktop / mouse: pass through as a plain row - no gestures, no reveal
   // layers, no click-suppression. The inline edit/delete buttons in
-  // `ListItemRow` already cover the same operations on hover.
+  // `TaskListRow` already cover the same operations on hover.
   if (!isTouchDevice || disabled) {
     return <li className="rounded-md">{children}</li>;
   }
@@ -94,7 +94,7 @@ export function SwipeableListItem({
   );
 }
 
-type SwipeableImplProps = Pick<SwipeableListItemProps, "onSwipeRight" | "onSwipeLeft" | "children">;
+type SwipeableImplProps = Pick<SwipeableTaskRowProps, "onSwipeRight" | "onSwipeLeft" | "children">;
 
 function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplProps) {
   const [dx, setDx] = useState(0);

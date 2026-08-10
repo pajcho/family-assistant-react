@@ -24,7 +24,7 @@ export type SearchResultKind =
   | "payment"
   | "birthday"
   | "list"
-  | "list_item"
+  | "task"
   | "external";
 
 export interface SearchResult {
@@ -33,7 +33,11 @@ export interface SearchResult {
   title: string;
   /** Secondary line - date, amount, parent list… */
   subtitle: string | null;
-  /** For `list_item`: the parent list to navigate to. */
+  /**
+   * For `task`: the parent list to open. ABSENT for a standalone task, whose
+   * `list_id` is null - the dialog sends those to the Inbox instead, because a
+   * result you cannot open is worse than no result at all.
+   */
   listId?: string;
 }
 
@@ -48,7 +52,7 @@ function escapeIlikeTerm(term: string): string {
 async function searchAll(familyId: string, term: string): Promise<SearchResult[]> {
   const pattern = `%${escapeIlikeTerm(term)}%`;
 
-  const [activities, events, payments, birthdays, lists, listItems, external] = await Promise.all([
+  const [activities, events, payments, birthdays, lists, tasks, external] = await Promise.all([
     supabase
       .from("activities")
       .select("id,name")
@@ -133,16 +137,18 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
   for (const row of lists.data ?? []) {
     results.push({ kind: "list", id: row.id, title: row.name, subtitle: null });
   }
-  for (const row of listItems.data ?? []) {
+  for (const row of tasks.data ?? []) {
     // Nested select - Supabase types it loosely, so normalize object/array.
     const parent = row.lists as { name: string } | { name: string }[] | null;
     const parentName = Array.isArray(parent) ? (parent[0]?.name ?? null) : (parent?.name ?? null);
     results.push({
-      kind: "list_item",
+      kind: "task",
       id: row.id,
       title: row.name,
-      subtitle: parentName,
-      listId: row.list_id,
+      // A standalone task has no parent list to name, so it says where it does
+      // live instead of showing an empty second line.
+      subtitle: parentName ?? "Inbox",
+      listId: row.list_id ?? undefined,
     });
   }
   for (const row of external.data ?? []) {

@@ -1,0 +1,326 @@
+import { useState } from "react";
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
+import {
+  ArrowUpIcon,
+  ArrowPathIcon,
+  BellIcon,
+  CalendarDaysIcon,
+  UserIcon,
+} from "@heroicons/react/24/outline";
+import { format, parseISO } from "date-fns";
+
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
+import { Input } from "@/components/ui/input";
+import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import {
+  TaskDateSheetBody,
+  TaskRecurrenceSheetBody,
+  TaskReminderSheetBody,
+  TaskWhoSheetBody,
+  useTaskAssigneeSummary,
+} from "@/components/tasks/TaskFields";
+import {
+  emptyTaskDraft,
+  taskDateSummary,
+  taskDraftToCreateInput,
+  taskRecurrenceSummary,
+  taskReminderSummary,
+  type TaskDraft,
+} from "@/components/tasks/taskDraft";
+import { useCreateTask } from "@/hooks/useTasks";
+import { useToday } from "@/hooks/useToday";
+import { cn } from "@/lib/cn";
+import { srLocale } from "@/utils/date";
+import { shiftIsoByDays } from "@/utils/pickerGrid";
+
+/**
+ * The one field a new task starts as, and the row of shortcuts that appears the
+ * moment you type into it.
+ *
+ * It replaces the add-input that used to sit ABOVE the rows, at the far end of
+ * the screen from the thumb, and it stays a single field until there is
+ * something to schedule: below `lg` it is pinned to the bottom of the page, at
+ * `lg` and up it follows the last row, which is where the pointer already is.
+ *
+ * The quick row splits the seven affordances by cost. Danas / Sutra / the next
+ * weekday set `due_date` in place - one tap, no overlay, because "tomorrow" is
+ * what most reminders are. The other four open a sheet each: they need a real
+ * control, and growing the composer into a form is exactly what a composer must
+ * not do. Nothing on the row is required, so an undated item is still
+ * type-and-send - which is the only way a shopping list works.
+ */
+
+export type TaskComposerProps = {
+  /** Where the task lands. Null = a standalone task, which the Inbox catches. */
+  listId: string | null;
+  /** Pre-set fields for a screen that already implies them (a dated smart list). */
+  initialDraft?: Partial<TaskDraft>;
+  placeholder?: string;
+  /**
+   * Bottom-pinned (phones) or inline after the last row (`lg` and up). One
+   * component, one breakpoint class - see decision 11 of the plan.
+   */
+  variant?: "pinned" | "inline";
+};
+
+/** Which picker is open. `null` = just the field and its chips. */
+type ComposerPicker = "date" | "who" | "recurrence" | "reminder";
+
+const PICKER_TITLE: Record<ComposerPicker, string> = {
+  date: "Datum",
+  who: "Za koga",
+  recurrence: "Ponavljanje",
+  reminder: "Podsetnik",
+};
+
+export function TaskComposer({
+  listId,
+  initialDraft,
+  placeholder = "Dodaj zadatak…",
+  variant = "pinned",
+}: TaskComposerProps) {
+  const today = useToday().str;
+  const tomorrow = shiftIsoByDays(today, 1) ?? today;
+  const createTask = useCreateTask();
+
+  const [draft, setDraft] = useState<TaskDraft>(() => emptyTaskDraft(initialDraft));
+  const [picker, setPicker] = useState<ComposerPicker | null>(null);
+
+  const typed = draft.name.trim().length > 0;
+  const assigneeSummary = useTaskAssigneeSummary(draft);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!typed) return;
+    createTask.mutate(taskDraftToCreateInput(draft, listId));
+    // Back to the resting state after every add: a composer that silently keeps
+    // last time's recurrence is how somebody ends up with a daily "Mleko".
+    setDraft(emptyTaskDraft(initialDraft));
+  };
+
+  const nextWeekdayIso = nextWeekdayFrom(today);
+
+  // The Datum chip is the escape hatch, so it keeps its label while one of the
+  // three one-tap days is what is set - two chips both reading "Danas" says
+  // nothing twice. It takes over the read-back the moment the date is something
+  // they cannot express, or a time is on it.
+  const quickDates = new Set([today, tomorrow, nextWeekdayIso]);
+  const dateIsBeyondChips =
+    draft.dueDate !== null && (!quickDates.has(draft.dueDate) || draft.dueTime !== null);
+
+  return (
+    <div
+      className={cn(
+        variant === "pinned"
+          ? // Bleeds to the page edges so the bar reads as chrome rather than a
+            // card, and sits flush with the bottom of the scroll area. `mt-auto`
+            // is what holds it there on a SHORT list (the screen shell makes the
+            // column at least a scrollport tall for exactly this); sticky is what
+            // holds it there on a long one. Opaque (no backdrop-filter): a
+            // translucent sticky bar is one of the two things iOS refuses to
+            // repaint reliably while scrolling.
+            "sticky bottom-0 mt-auto -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
+          : "mt-3",
+      )}
+    >
+      <form onSubmit={submit} className="flex items-center gap-2">
+        <Input
+          value={draft.name}
+          onChange={(e) => setDraft((s) => ({ ...s, name: e.target.value }))}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className="h-10 flex-1"
+          // On long lists the composer sits at the bottom of a tall scroll area;
+          // iOS Safari does not always lift it above the keyboard on its own.
+          // Wait for the keyboard animation (~300ms) so visualViewport reflects
+          // the new area, then scroll the field into the middle of what is left.
+          onFocus={(e) => {
+            const input = e.currentTarget;
+            setTimeout(() => {
+              input.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 300);
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!typed}
+          aria-label="Dodaj zadatak"
+          className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground transition-transform active:scale-[0.94] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:active:scale-100"
+        >
+          <ArrowUpIcon className="size-[18px]" strokeWidth={2.4} />
+        </button>
+      </form>
+
+      {typed ? (
+        <div
+          role="group"
+          aria-label="Detalji zadatka"
+          className="scrollbar-hide fade-scroll-x mt-2 flex min-h-11 items-center gap-1.5 overflow-x-auto"
+        >
+          <QuickChip
+            active={draft.dueDate === today}
+            onClick={() => setDraft((s) => ({ ...s, dueDate: s.dueDate === today ? null : today }))}
+          >
+            Danas
+          </QuickChip>
+          <QuickChip
+            active={draft.dueDate === tomorrow}
+            onClick={() =>
+              setDraft((s) => ({ ...s, dueDate: s.dueDate === tomorrow ? null : tomorrow }))
+            }
+          >
+            Sutra
+          </QuickChip>
+          <QuickChip
+            active={draft.dueDate === nextWeekdayIso}
+            onClick={() =>
+              setDraft((s) => ({
+                ...s,
+                dueDate: s.dueDate === nextWeekdayIso ? null : nextWeekdayIso,
+              }))
+            }
+          >
+            {weekdayChipLabel(nextWeekdayIso)}
+          </QuickChip>
+          <QuickChip
+            icon={<CalendarDaysIcon className="size-3.5" aria-hidden="true" />}
+            active={dateIsBeyondChips}
+            summary={dateIsBeyondChips ? taskDateSummary(draft, today, tomorrow) : null}
+            onClick={() => setPicker("date")}
+          >
+            Datum
+          </QuickChip>
+          <QuickChip
+            icon={<UserIcon className="size-3.5" aria-hidden="true" />}
+            active={draft.assigneeIds.length > 0}
+            summary={assigneeSummary}
+            onClick={() => setPicker("who")}
+          >
+            Za koga
+          </QuickChip>
+          <QuickChip
+            icon={<ArrowPathIcon className="size-3.5" aria-hidden="true" />}
+            active={draft.recurrencePeriod !== "one-time"}
+            summary={taskRecurrenceSummary(draft)}
+            onClick={() => setPicker("recurrence")}
+          >
+            Ponavljanje
+          </QuickChip>
+          <QuickChip
+            icon={<BellIcon className="size-3.5" aria-hidden="true" />}
+            active={draft.remindDaysBefore !== null || draft.remindMinutesBefore !== null}
+            summary={taskReminderSummary(draft)}
+            onClick={() => setPicker("reminder")}
+          >
+            Podsetnik
+          </QuickChip>
+        </div>
+      ) : null}
+
+      <ComposerPickerSheets
+        picker={picker}
+        onClose={() => setPicker(null)}
+        draft={draft}
+        setDraft={setDraft}
+      />
+    </div>
+  );
+}
+
+/**
+ * The four pickers as real overlays, one stack.
+ *
+ * Each opens as its own level so a dismissal (swipe down, Escape, tap outside)
+ * and the "←" both put you back in the composer with everything you typed still
+ * there. They commit as they are tapped - there is no Sačuvaj, because the
+ * composer's own send button is the commit.
+ */
+function ComposerPickerSheets({
+  picker,
+  onClose,
+  draft,
+  setDraft,
+}: {
+  picker: ComposerPicker | null;
+  onClose: () => void;
+  draft: TaskDraft;
+  setDraft: Dispatch<SetStateAction<TaskDraft>>;
+}) {
+  const stack = useSheetStack<ComposerPicker>(picker !== null, onClose, picker ?? "date");
+
+  return (
+    <SheetStackViews
+      stack={stack}
+      render={(view, level) => (
+        <ResponsiveDialogContent className="sm:max-w-md">
+          <SheetStackHeader
+            title={PICKER_TITLE[view]}
+            onBack={() => stack.dismiss(level)}
+            backAriaLabel="Nazad na unos"
+          />
+          {view === "date" ? <TaskDateSheetBody draft={draft} setDraft={setDraft} /> : null}
+          {view === "who" ? <TaskWhoSheetBody draft={draft} setDraft={setDraft} /> : null}
+          {view === "recurrence" ? (
+            <TaskRecurrenceSheetBody draft={draft} setDraft={setDraft} />
+          ) : null}
+          {view === "reminder" ? <TaskReminderSheetBody draft={draft} setDraft={setDraft} /> : null}
+        </ResponsiveDialogContent>
+      )}
+    />
+  );
+}
+
+function QuickChip({
+  active,
+  icon,
+  summary,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  icon?: ReactNode;
+  /** Read-back of what is set, e.g. "Svaki dan" beside "Ponavljanje". */
+  summary?: string | null;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "relative flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5",
+        "text-[12.5px] font-semibold whitespace-nowrap transition-colors",
+        // Transparent bleed so the visible pill stays ~32px while the finger
+        // target reaches the row's full 44px.
+        "after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        active
+          ? "border-accent bg-accent-soft text-accent-deep"
+          : "border-border bg-card text-muted-foreground hover:bg-muted",
+      )}
+    >
+      {icon}
+      {summary ?? children}
+    </button>
+  );
+}
+
+/**
+ * The third one-tap day: the start of the next working week. It never collides
+ * with the Sutra chip - on a Sunday, when tomorrow already IS Monday, it steps to
+ * the Monday after, so the three chips always offer three different days.
+ */
+function nextWeekdayFrom(today: string): string {
+  const dow = (parseISO(`${today}T12:00:00`).getDay() + 6) % 7; // 0 = Monday
+  let delta = (7 - dow) % 7 || 7;
+  if (delta <= 1) delta += 7;
+  return shiftIsoByDays(today, delta) ?? today;
+}
+
+/** "Pon" - the weekday of a one-tap chip. */
+function weekdayChipLabel(iso: string): string {
+  const label = format(parseISO(`${iso}T12:00:00`), "EEE", { locale: srLocale });
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+}

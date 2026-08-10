@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import { ListFormDialog } from "@/components/lists/ListFormDialog";
-import type { ListFormPayload } from "@/components/lists/ListForm";
+import { ListFormDialog } from "@/components/tasks/ListFormDialog";
+import type { ListFormPayload } from "@/components/tasks/ListForm";
 import { useCreateList } from "@/hooks/useTasks";
 
 export type ListQuickAddFlowProps = {

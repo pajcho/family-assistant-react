@@ -1,16 +1,16 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 
-import { ListMaster } from "@/components/lists/ListMaster";
+import { TaskSidebar } from "@/components/tasks/TaskSidebar";
 import { useIsWide } from "@/hooks/useIsWide";
 
 /**
- * Layout route for `/lists/*` - the Apple Notes-style master-detail shell.
+ * Layout route for `/tasks/*` - the Apple Notes-style master-detail shell.
  *
- * Mobile (< lg): renders just `<Outlet/>`. The index route shows the
- * full-screen master list; the detail route shows the full-screen list page.
+ * Mobile (< lg): renders just `<Outlet/>`. The index route shows the full-screen
+ * Zadaci overview; the list and smart-list routes show a full-screen list.
  *
- * Desktop (>= lg): renders a *persistent* split - the list sidebar on the left
+ * Desktop (>= lg): renders a *persistent* split - the sidebar on the left
  * (always mounted, survives navigation between lists) and the selected list's
  * detail in the right panel via `<Outlet/>`. The divider is draggable and its
  * position is remembered per-device in localStorage.
@@ -18,23 +18,22 @@ import { useIsWide } from "@/hooks/useIsWide";
 export const Route = createFileRoute("/_app/tasks")({
   // `?new=1` deep-links the create-list dialog open - used by the dashboard's
   // "Dodaj → Lista" entry. Lives on the layout route (not the index) so it
-  // reaches the sidebar's ListMaster on desktop even while the index route is
-  // busy redirecting to a concrete list. Consumed + stripped by ListMaster.
+  // reaches the sidebar on desktop even while the index route is busy
+  // redirecting to a concrete list. Consumed + stripped by `useCreateListFlow`.
   validateSearch: (search: Record<string, unknown>): { new?: boolean } => ({
     new: search.new === true || search.new === 1 || search.new === "1" ? true : undefined,
   }),
-  component: ListsLayout,
+  component: TasksLayout,
 });
 
-function ListsLayout() {
-  // Below lg each child route owns its own <AppScreen> (the master list and
-  // the list detail are separate full screens), so the layout gets out of the
-  // way entirely.
+function TasksLayout() {
+  // Below lg each child route owns its own <AppScreen> (the overview and a list
+  // are separate full screens), so the layout gets out of the way entirely.
   const isWide = useIsWide();
-  return isWide ? <ListsSplit /> : <Outlet />;
+  return isWide ? <TasksSplit /> : <Outlet />;
 }
 
-function ListsSplit() {
+function TasksSplit() {
   // react-resizable-panels v4 has no `autoSaveId`; `useDefaultLayout` wires
   // `defaultLayout` (hydrate) + `onLayoutChanged` (save-on-pointer-release) to
   // localStorage for us. The Panels carry stable ids so the persisted map
@@ -46,7 +45,7 @@ function ListsSplit() {
 
   return (
     // Fills the screen area of the app frame (which is itself fixed at
-    // 100dvh), so the page never scrolls on /lists at lg - each panel scrolls
+    // 100dvh), so the page never scrolls on /tasks at lg - each panel scrolls
     // internally instead.
     <div className="h-full overflow-hidden border-t border-border">
       <Group
@@ -66,7 +65,7 @@ function ListsSplit() {
           groupResizeBehavior="preserve-pixel-size"
           className="h-full overflow-hidden"
         >
-          <ListMaster variant="sidebar" />
+          <TaskSidebar />
         </Panel>
 
         {/* 8px-wide transparent grab strip with a 1px hairline down the middle;

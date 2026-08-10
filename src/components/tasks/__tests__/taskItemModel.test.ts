@@ -1,0 +1,238 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  completionSlotFor,
+  matchesPersonFilter,
+  nextTaskInstance,
+  taskAgendaItem,
+  undatedTaskInstance,
+  type TaskAgendaItem,
+} from "@/components/tasks/taskItemModel";
+import type { Task, TaskOccurrence } from "@/types/database";
+import { taskOccurrenceKey } from "@/utils/task";
+
+/**
+ * The /tasks row model. Three things are worth pinning down here, because each of
+ * them is a bug you would only notice in somebody's hand:
+ *
+ *   - which instance a REPEATING task's single row inside a list stands for;
+ *   - whose occurrence slot one checkbox owns under `per_assignee`, since the
+ *     read and the write have to agree or the tick does not stick;
+ *   - that a row's `date` is the EFFECTIVE date while its `occurrenceDate` stays
+ *     the series date, which is what every write keys on.
+ *
+ * Imports the pure module: the hooks next door reach `lib/supabase`, and CI has
+ * no Supabase env.
+ */
+
+const TODAY = "2026-08-10"; // a Monday
+
+function task(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    list_id: "list-1",
+    family_id: "fam-1",
+    owner_id: "user-1",
+    scope: "family",
+    name: "Izneti smeće",
+    description: null,
+    is_completed: false,
+    completed_at: null,
+    completed_by_person_id: null,
+    due_date: null,
+    due_time: null,
+    recurrence_period: null,
+    recurrence_interval: 1,
+    recurrence_weekdays: null,
+    recurrence_until: null,
+    completion_mode: "shared",
+    remind_minutes_before: null,
+    remind_days_before: null,
+    sort_order: 1,
+    created_by_id: "user-1",
+    updated_by_id: "user-1",
+    created_at: "2026-08-01T10:00:00Z",
+    updated_at: "2026-08-01T10:00:00Z",
+    ...overrides,
+  };
+}
+
+function occurrence(overrides: Partial<TaskOccurrence> = {}): TaskOccurrence {
+  return {
+    id: "occ-1",
+    task_id: "task-1",
+    family_id: "fam-1",
+    occurrence_date: TODAY,
+    person_id: null,
+    status: "done",
+    moved_to_date: null,
+    completed_at: "2026-08-10T08:00:00Z",
+    completed_by_person_id: "p1",
+    note: null,
+    created_at: "2026-08-10T08:00:00Z",
+    updated_at: "2026-08-10T08:00:00Z",
+    ...overrides,
+  };
+}
+
+/**
+ * Local copy of `occurrencesByKeyFrom` - importing the hook module would drag
+ * `lib/supabase` into a test, which is exactly what fails on CI.
+ */
+function occurrencesByKeyFrom(rows: readonly TaskOccurrence[]): Map<string, TaskOccurrence[]> {
+  const map = new Map<string, TaskOccurrence[]>();
+  for (const row of rows) {
+    const key = taskOccurrenceKey(row.task_id, row.occurrence_date);
+    const bucket = map.get(key);
+    if (bucket) bucket.push(row);
+    else map.set(key, [row]);
+  }
+  return map;
+}
+
+const NO_OCCURRENCES = new Map<string, TaskOccurrence[]>();
+
+describe("nextTaskInstance", () => {
+  it("has nothing to point at for an undated task", () => {
+    expect(nextTaskInstance(task(), TODAY, NO_OCCURRENCES)).toBeNull();
+  });
+
+  it("points a one-off at its own due date, past or future", () => {
+    expect(nextTaskInstance(task({ due_date: "2026-08-04" }), TODAY, NO_OCCURRENCES)).toMatchObject(
+      {
+        occurrenceDate: "2026-08-04",
+        effectiveDate: "2026-08-04",
+      },
+    );
+    expect(nextTaskInstance(task({ due_date: "2026-09-01" }), TODAY, NO_OCCURRENCES)).toMatchObject(
+      {
+        occurrenceDate: "2026-09-01",
+      },
+    );
+  });
+
+  it("points a daily chore anchored long ago at today", () => {
+    const daily = task({ due_date: "2026-01-01", recurrence_period: "daily" });
+    expect(nextTaskInstance(daily, TODAY, NO_OCCURRENCES)?.occurrenceDate).toBe(TODAY);
+  });
+
+  it("skips past a skipped occurrence to the next real one", () => {
+    const daily = task({ due_date: "2026-01-01", recurrence_period: "daily" });
+    const byKey = occurrencesByKeyFrom([occurrence({ status: "skipped", completed_at: null })]);
+    expect(nextTaskInstance(daily, TODAY, byKey)?.occurrenceDate).toBe("2026-08-11");
+  });
+
+  it("still finds a monthly chore whose next turn is weeks away", () => {
+    const monthly = task({ due_date: "2026-01-28", recurrence_period: "monthly" });
+    expect(nextTaskInstance(monthly, TODAY, NO_OCCURRENCES)?.occurrenceDate).toBe("2026-08-28");
+  });
+
+  it("reports where a moved occurrence sits, keyed by the date the series says", () => {
+    const weekly = task({ due_date: "2026-08-10", recurrence_period: "weekly" });
+    const byKey = occurrencesByKeyFrom([
+      occurrence({ status: "moved", moved_to_date: "2026-08-12", completed_at: null }),
+    ]);
+    const instance = nextTaskInstance(weekly, TODAY, byKey);
+    expect(instance?.occurrenceDate).toBe(TODAY);
+    expect(instance?.effectiveDate).toBe("2026-08-12");
+  });
+
+  it("has nothing left to point at once a bounded series has ended", () => {
+    const ended = task({
+      due_date: "2026-01-01",
+      recurrence_period: "weekly",
+      recurrence_until: "2026-02-01",
+    });
+    expect(nextTaskInstance(ended, TODAY, NO_OCCURRENCES)).toBeNull();
+  });
+});
+
+describe("completionSlotFor", () => {
+  it("is the whole occurrence for a shared task, whoever is looking", () => {
+    expect(completionSlotFor(task(), ["p1", "p2"], "p3")).toBeNull();
+  });
+
+  it("is the viewer's own copy when the viewer is an assignee", () => {
+    const shared = task({ completion_mode: "per_assignee" });
+    expect(completionSlotFor(shared, ["p1", "p2"], "p2")).toBe("p2");
+  });
+
+  it("is the one assignee's copy when a parent ticks a child's only chore", () => {
+    const chore = task({ completion_mode: "per_assignee" });
+    expect(completionSlotFor(chore, ["kid-1"], "parent-1")).toBe("kid-1");
+  });
+
+  it("falls back to the viewer, matching useToggleTask's default", () => {
+    const chore = task({ completion_mode: "per_assignee" });
+    expect(completionSlotFor(chore, ["kid-1", "kid-2"], "parent-1")).toBe("parent-1");
+  });
+});
+
+describe("matchesPersonFilter", () => {
+  const item = (assigneeIds: string[]): TaskAgendaItem =>
+    taskAgendaItem(
+      task({ due_date: TODAY }),
+      undatedTaskInstance(task({ due_date: TODAY }), TODAY),
+      assigneeIds,
+      TODAY,
+    );
+
+  it("lets everything through when nothing is selected", () => {
+    expect(matchesPersonFilter(item([]), new Set())).toBe(true);
+    expect(matchesPersonFilter(item(["p1"]), new Set())).toBe(true);
+  });
+
+  it("keeps only the selected people's rows - a family-wide task is nobody's", () => {
+    expect(matchesPersonFilter(item(["p1"]), new Set(["p1"]))).toBe(true);
+    expect(matchesPersonFilter(item(["p2"]), new Set(["p1"]))).toBe(false);
+    expect(matchesPersonFilter(item([]), new Set(["p1"]))).toBe(false);
+  });
+});
+
+describe("taskAgendaItem", () => {
+  it("shows a row where the override put it while keying writes on the series date", () => {
+    const weekly = task({ due_date: TODAY, recurrence_period: "weekly" });
+    const byKey = occurrencesByKeyFrom([
+      occurrence({ status: "moved", moved_to_date: "2026-08-12", completed_at: null }),
+    ]);
+    const instance = nextTaskInstance(weekly, TODAY, byKey);
+    const row = taskAgendaItem(weekly, instance as NonNullable<typeof instance>, [], TODAY);
+    expect(row.date).toBe("2026-08-12");
+    expect(row.occurrenceDate).toBe(TODAY);
+  });
+
+  it("sorts a timed task at its minute and an all-day one after the day", () => {
+    const timed = task({ due_date: TODAY, due_time: "09:30:00" });
+    const allDay = task({ due_date: TODAY });
+    const instance = {
+      occurrenceDate: TODAY,
+      effectiveDate: TODAY,
+      occurrence: undefined,
+      isDone: false,
+      isSkipped: false,
+    };
+    expect(taskAgendaItem(timed, instance, [], TODAY).sortKey).toBe(9 * 60 + 30);
+    expect(taskAgendaItem(timed, instance, [], TODAY).dueTime).toBe("09:30");
+    expect(taskAgendaItem(allDay, instance, [], TODAY).sortKey).toBe(24 * 60 + 1);
+    expect(taskAgendaItem(allDay, instance, [], TODAY).dueTime).toBeNull();
+  });
+
+  it("marks only an unresolved PAST repeat as propušteno", () => {
+    const weekly = task({ due_date: "2026-08-03", recurrence_period: "weekly" });
+    const past = {
+      occurrenceDate: "2026-08-03",
+      effectiveDate: "2026-08-03",
+      occurrence: undefined,
+      isDone: false,
+      isSkipped: false,
+    };
+    expect(taskAgendaItem(weekly, past, [], TODAY).missed).toBe(true);
+
+    const done = { ...past, isDone: true };
+    expect(taskAgendaItem(weekly, done, [], TODAY).missed).toBe(false);
+
+    // A one-off that slipped is carried over by the overdue block instead.
+    const oneOff = task({ due_date: "2026-08-03" });
+    expect(taskAgendaItem(oneOff, past, [], TODAY).missed).toBe(false);
+  });
+});

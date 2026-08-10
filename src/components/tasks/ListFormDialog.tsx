@@ -4,7 +4,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { ListForm, type ListFormMode, type ListFormPayload } from "@/components/lists/ListForm";
+import { ListForm, type ListFormMode, type ListFormPayload } from "@/components/tasks/ListForm";
 import type { List } from "@/types/database";
 
 export type ListFormDialogProps = {
