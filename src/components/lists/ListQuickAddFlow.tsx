@@ -42,7 +42,7 @@ export function ListQuickAddFlow({ open, onOpenChange }: ListQuickAddFlowProps) 
         action: {
           label: "Otvori",
           onClick: () => {
-            void navigate({ to: "/lists/$listId", params: { listId: list.id } });
+            void navigate({ to: "/tasks/$listId", params: { listId: list.id } });
           },
         },
       });

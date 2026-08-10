@@ -9,7 +9,7 @@ import { useListsWithTasks } from "@/hooks/useTasks";
 import { readLastOpenedListId } from "@/lib/lastOpenedList";
 import type { ListWithTasks } from "@/types/database";
 
-export const Route = createFileRoute("/_app/lists/")({
+export const Route = createFileRoute("/_app/tasks/")({
   component: ListsIndex,
 });
 
@@ -43,7 +43,7 @@ function ListsIndex() {
 
   const target = resolveInitialList(listsQuery.data ?? []);
   if (target) {
-    return <Navigate to="/lists/$listId" params={{ listId: target }} replace />;
+    return <Navigate to="/tasks/$listId" params={{ listId: target }} replace />;
   }
 
   // No lists at all - the sidebar shows its own compact empty state; the
@@ -56,7 +56,7 @@ function ListsIndex() {
         Napravi prvu listu - npr. „Šoping" deljenu sa porodicom ili „Lične obaveze".
       </span>
       <Button asChild className="mt-4">
-        <Link to="/lists" search={{ new: true }}>
+        <Link to="/tasks" search={{ new: true }}>
           <PlusIcon className="mr-2 h-5 w-5" />
           Dodaj prvu listu
         </Link>

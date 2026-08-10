@@ -84,7 +84,7 @@ describe("ListQuickAddFlow", () => {
     };
     expect(options.action.label).toBe("Otvori");
     options.action.onClick();
-    expect(navigate).toHaveBeenCalledWith({ to: "/lists/$listId", params: { listId: "list-1" } });
+    expect(navigate).toHaveBeenCalledWith({ to: "/tasks/$listId", params: { listId: "list-1" } });
   });
 
   it("keeps the form open and shows an inline error when saving fails", async () => {

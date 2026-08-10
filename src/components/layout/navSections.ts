@@ -4,7 +4,7 @@ import {
   CakeIcon,
   CalendarDaysIcon,
   CalendarIcon,
-  ClipboardDocumentListIcon,
+  ClipboardDocumentCheckIcon,
   Cog6ToothIcon,
   SparklesIcon,
   SunIcon,
@@ -38,7 +38,7 @@ export type NavSectionKey =
   | "today"
   | "calendar"
   | "money"
-  | "lists"
+  | "tasks"
   | "activities"
   | "school"
   | "events"
@@ -66,7 +66,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   { key: "today", to: "/", label: "Danas", icon: SunIcon },
   { key: "calendar", to: "/calendar", label: "Kalendar", icon: CalendarDaysIcon },
   { key: "money", to: "/money", label: "Novac", icon: WalletIcon },
-  { key: "lists", to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
+  { key: "tasks", to: "/tasks", label: "Zadaci", icon: ClipboardDocumentCheckIcon },
   { key: "activities", to: "/activities", label: "Aktivnosti", icon: SparklesIcon },
   { key: "school", to: "/school", label: "Škola", icon: AcademicCapIcon },
   { key: "events", to: "/events", label: "Događaji", icon: CalendarIcon },
@@ -124,12 +124,18 @@ export const UNSLOTTABLE_SECTIONS: readonly NavSectionKey[] = ["settings"];
  * on read so a returning user's bar keeps pointing at the same content: the
  * old upcoming page is now the calendar's agenda, and both payments and budget
  * are money.
+ *
+ * `lists` is the newest entry. Lists became Zadaci when list items grew a date,
+ * and the key is persisted per profile AND in each device's "recent" list, so
+ * without this line anybody who had put Liste in their bottom bar would find
+ * that slot silently empty after the rename.
  */
 const LEGACY_KEY_MAP: Readonly<Record<string, NavSectionKey>> = {
   danas: "today",
   uskoro: "calendar",
   payments: "money",
   budget: "money",
+  lists: "tasks",
 };
 
 function isNavSectionKey(value: string): value is NavSectionKey {
@@ -164,7 +170,7 @@ export function normalizeNavSlots(raw: readonly unknown[] | null | undefined): N
 }
 
 /**
- * Which destination a pathname belongs to ("/lists/123" -> lists). Used to
+ * Which destination a pathname belongs to ("/tasks/123" -> tasks). Used to
  * record "recent" visits; null for routes outside the sections (login...).
  *
  * Family shares its pathname with settings (it is a section of it), so path

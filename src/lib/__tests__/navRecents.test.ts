@@ -32,13 +32,13 @@ describe("navRecents", () => {
       "events",
       "birthdays",
       "money",
-      "lists",
+      "tasks",
     ] as const) {
       recordNavRecent(key);
     }
     const recents = readNavRecents();
     expect(recents).toHaveLength(6);
-    expect(recents[0]).toBe("lists");
+    expect(recents[0]).toBe("tasks");
     expect(recents).not.toContain("today");
   });
 
@@ -47,7 +47,7 @@ describe("navRecents", () => {
       "nav.recents.v1",
       JSON.stringify(["uskoro", "payments", "budget", "lists"]),
     );
-    expect(readNavRecents()).toEqual(["calendar", "money", "lists"]);
+    expect(readNavRecents()).toEqual(["calendar", "money", "tasks"]);
   });
 
   it("ignores garbage in storage", () => {

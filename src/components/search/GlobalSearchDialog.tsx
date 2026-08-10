@@ -186,11 +186,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
       }
       case "list":
         // A list IS a page - deep-link to it.
-        void navigate({ to: "/lists/$listId", params: { listId: result.id } });
+        void navigate({ to: "/tasks/$listId", params: { listId: result.id } });
         break;
       case "list_item":
         if (result.listId) {
-          void navigate({ to: "/lists/$listId", params: { listId: result.listId } });
+          void navigate({ to: "/tasks/$listId", params: { listId: result.listId } });
         }
         break;
       case "activity":

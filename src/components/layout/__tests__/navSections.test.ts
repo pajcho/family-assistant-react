@@ -23,7 +23,7 @@ describe("normalizeNavSlots", () => {
   });
 
   it("passes through a valid selection in order", () => {
-    expect(normalizeNavSlots(["lists", "birthdays"])).toEqual(["lists", "birthdays"]);
+    expect(normalizeNavSlots(["tasks", "birthdays"])).toEqual(["tasks", "birthdays"]);
   });
 
   it("drops unknown keys, non-strings and the fixed danas", () => {
@@ -31,11 +31,11 @@ describe("normalizeNavSlots", () => {
   });
 
   it("dedupes and caps at two", () => {
-    expect(normalizeNavSlots(["lists", "lists", "money", "events"])).toEqual(["lists", "money"]);
+    expect(normalizeNavSlots(["tasks", "tasks", "money", "events"])).toEqual(["tasks", "money"]);
   });
 
   it("never puts Podešavanja in the bar", () => {
-    expect(normalizeNavSlots(["settings", "lists"])).toEqual(["lists"]);
+    expect(normalizeNavSlots(["settings", "tasks"])).toEqual(["tasks"]);
   });
 
   it("lets Škola take a slot like any other destination", () => {
@@ -79,11 +79,20 @@ describe("the section list itself", () => {
 describe("legacy nav_slots values (pre-redesign profiles)", () => {
   it("maps uskoro to calendar and both money sections to money", () => {
     expect(normalizeNavSlots(["uskoro", "payments"])).toEqual(["calendar", "money"]);
-    expect(normalizeNavSlots(["budget", "lists"])).toEqual(["money", "lists"]);
+    expect(normalizeNavSlots(["budget", "lists"])).toEqual(["money", "tasks"]);
   });
 
   it("collapses payments + budget into a single money slot", () => {
-    expect(normalizeNavSlots(["payments", "budget", "lists"])).toEqual(["money", "lists"]);
+    expect(normalizeNavSlots(["payments", "budget", "lists"])).toEqual(["money", "tasks"]);
+  });
+
+  // `lists` is stored in `profiles.nav_slots` for anybody who put Liste in
+  // their bottom bar before it became Zadaci. Without the forward mapping the
+  // key resolves to nothing and their slot comes back silently empty, which is
+  // the kind of regression nobody reports and everybody notices.
+  it("maps the old lists key forward to tasks", () => {
+    expect(resolveNavSectionKey("lists")).toBe("tasks");
+    expect(normalizeNavSlots(["lists"])).toEqual(["tasks"]);
   });
 
   it("keeps the sections whose key never changed", () => {
@@ -109,12 +118,12 @@ describe("sectionForPathname", () => {
   it("maps section roots and their subroutes", () => {
     expect(sectionForPathname("/calendar")).toBe("calendar");
     expect(sectionForPathname("/money")).toBe("money");
-    expect(sectionForPathname("/lists/abc-123")).toBe("lists");
+    expect(sectionForPathname("/tasks/abc-123")).toBe("tasks");
     expect(sectionForPathname("/settings")).toBe("settings");
   });
 
   it("does not treat prefixes without a slash boundary as a match", () => {
-    expect(sectionForPathname("/listsX")).toBeNull();
+    expect(sectionForPathname("/tasksX")).toBeNull();
   });
 
   it("returns null for routes outside the sections", () => {
@@ -147,8 +156,8 @@ describe("isNavSectionActive", () => {
   });
 
   it("matches subroutes but not bare prefixes", () => {
-    expect(isNavSectionActive(NAV_SECTION_MAP.lists, "/lists/abc-123", {})).toBe(true);
-    expect(isNavSectionActive(NAV_SECTION_MAP.lists, "/listsX", {})).toBe(false);
+    expect(isNavSectionActive(NAV_SECTION_MAP.tasks, "/tasks/abc-123", {})).toBe(true);
+    expect(isNavSectionActive(NAV_SECTION_MAP.tasks, "/tasksX", {})).toBe(false);
   });
 
   it("keeps Danas exact so every other screen turns it off", () => {

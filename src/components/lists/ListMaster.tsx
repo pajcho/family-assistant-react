@@ -123,7 +123,7 @@ export function ListMaster({ variant }: ListMasterProps) {
   // the layout route, so this fires for whichever variant is mounted (sidebar
   // on desktop, page on mobile). `to: "."` keeps the strip on the current
   // URL even if the desktop index has already redirected to /lists/$listId.
-  const { new: openNew } = useSearch({ from: "/_app/lists" });
+  const { new: openNew } = useSearch({ from: "/_app/tasks" });
   const navigate = useNavigate();
   useEffect(() => {
     if (!openNew) return;
@@ -369,7 +369,7 @@ function ListMasterRow({ list, variant }: { list: ListWithTasks; variant: Master
   if (variant === "sidebar") {
     return (
       <Link
-        to="/lists/$listId"
+        to="/tasks/$listId"
         params={{ listId: list.id }}
         activeOptions={{ exact: true }}
         className="block rounded-md px-3 py-2 transition-colors"
@@ -409,7 +409,7 @@ function ListMasterRow({ list, variant }: { list: ListWithTasks; variant: Master
 
   return (
     <li>
-      <Link to="/lists/$listId" params={{ listId: list.id }} className="block">
+      <Link to="/tasks/$listId" params={{ listId: list.id }} className="block">
         <ItemCard>
           <ItemTile icon={isFamily ? UserGroupIcon : UserIcon} tone="accent" />
           <ItemMain>

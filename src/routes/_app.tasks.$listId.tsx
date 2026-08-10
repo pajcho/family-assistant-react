@@ -54,7 +54,7 @@ import {
 import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
 import type { List, Task, ListWithTasks } from "@/types/database";
 
-export const Route = createFileRoute("/_app/lists/$listId")({
+export const Route = createFileRoute("/_app/tasks/$listId")({
   component: ListDetailPage,
 });
 
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/_app/lists/$listId")({
  * render on selection, and realtime keeps it fresh.
  */
 function ListDetailPage() {
-  const { listId } = useParams({ from: "/_app/lists/$listId" });
+  const { listId } = useParams({ from: "/_app/tasks/$listId" });
   const navigate = useNavigate();
   const isWide = useIsWide();
   const listsQuery = useListsWithTasks();
@@ -89,7 +89,7 @@ function ListDetailPage() {
   }, [foundId]);
 
   const goBack = () => {
-    void navigate({ to: "/lists" });
+    void navigate({ to: "/tasks" });
   };
 
   // Loading / not-found render minimal chrome. The back button only exists on
@@ -212,7 +212,7 @@ function ListDetailLoaded({
       setDeleteOpen(false);
       // Leave the now-broken URL. On desktop /lists re-resolves to the next
       // available list; on mobile it returns to the master list.
-      void navigate({ to: "/lists" });
+      void navigate({ to: "/tasks" });
     } catch {
       // Toast surfaced by the hook's onError; stay on page so the user can retry.
     }

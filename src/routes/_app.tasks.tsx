@@ -15,7 +15,7 @@ import { useIsWide } from "@/hooks/useIsWide";
  * detail in the right panel via `<Outlet/>`. The divider is draggable and its
  * position is remembered per-device in localStorage.
  */
-export const Route = createFileRoute("/_app/lists")({
+export const Route = createFileRoute("/_app/tasks")({
   // `?new=1` deep-links the create-list dialog open - used by the dashboard's
   // "Dodaj → Lista" entry. Lives on the layout route (not the index) so it
   // reaches the sidebar's ListMaster on desktop even while the index route is
