@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { emojiForName, emojiForSubject, foldSr } from "@/components/kid/kidEmoji";
+import { emojiForName, emojiForSubject, emojiForTaskName, foldSr } from "@/components/kid/kidEmoji";
 
 /**
  * The glyph tiles are how a child tells one card from another before reading
@@ -32,6 +32,31 @@ describe("emojiForName", () => {
     expect(emojiForName("Nešto sasvim deseto")).toBeNull();
     expect(emojiForName("")).toBeNull();
     expect(emojiForName(null)).toBeNull();
+  });
+});
+
+describe("emojiForTaskName", () => {
+  it("knows the household jobs a child is actually given", () => {
+    expect(emojiForTaskName("Iznesi smeće")).toBe("🗑️");
+    expect(emojiForTaskName("Pospremi sobu")).toBe("🧹");
+    expect(emojiForTaskName("Nahrani mačku")).toBe("🐾");
+    expect(emojiForTaskName("Operi sudove")).toBe("🍽️");
+  });
+
+  it("puts the chore vocabulary ahead of the activity one", () => {
+    // "zubar" earns the dentist's chair; brushing your own teeth does not.
+    expect(emojiForTaskName("Operi zube")).toBe("🪥");
+    expect(emojiForName("Zubar - kontrola")).toBe("🦷");
+  });
+
+  it("still falls through to the activity words a chore can share", () => {
+    expect(emojiForTaskName("Pročitaj lektiru")).toBe("📚");
+    expect(emojiForTaskName("Trening pre škole")).toBe("🏃");
+  });
+
+  it("returns null when nothing matches, so the card falls back to its pin", () => {
+    expect(emojiForTaskName("Nešto sasvim deseto")).toBeNull();
+    expect(emojiForTaskName(null)).toBeNull();
   });
 });
 

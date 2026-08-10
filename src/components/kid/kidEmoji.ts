@@ -79,6 +79,30 @@ const ACTIVITY_RULES: readonly EmojiRule[] = [
   [["torta", "kolac", "rucak", "vecer"], "🍰"],
 ];
 
+/**
+ * Chores, checked BEFORE the activity rules so the household vocabulary wins
+ * where the two overlap: "Operi zube" is a toothbrush, not the dentist's chair
+ * that "zubar" earns. Keywords stay long enough not to fire inside an unrelated
+ * word - "sto" would match "istorija", so it is spelled out as "postavi sto".
+ */
+const TASK_RULES: readonly EmojiRule[] = [
+  [["smec", "djubre", "kanta"], "🗑️"],
+  [["sudov", "sudje", "sudova"], "🍽️"],
+  [["posprem", "sredi sob", "usisa", "cisc", "cisti", "brisanj", "red u sob"], "🧹"],
+  [["krevet", "posteljin"], "🛏️"],
+  [["pranje", "peglanj", "opran"], "🧺"],
+  [["zube", "zubi", "cetkic"], "🪥"],
+  [["domac", "ucenj", "lektir", "prepis"], "📚"],
+  [["psa", "setnj"], "🐕"],
+  [["nahrani", "hran", "mack", "ribic"], "🐾"],
+  [["cvec", "zaliv", "bilj"], "🪴"],
+  [["postavi sto", "trpez", "posluzi"], "🍽️"],
+  [["igrack", "lego", "kock"], "🧸"],
+  [["ranac", "torb", "spakuj"], "🎒"],
+  [["vitamin", "sirup"], "💊"],
+  [["pozovi", "telefon", "javi se"], "📞"],
+];
+
 const SUBJECT_RULES: readonly EmojiRule[] = [
   [["matemat"], "➗"],
   [["srpski", "knjizevnost"], "📚"],
@@ -121,6 +145,16 @@ export function emojiForName(name: string | null | undefined): string | null {
   return matchRules(name, ACTIVITY_RULES);
 }
 
+/**
+ * Emoji for a chore's name, or `null` when nothing matches. Chore keywords
+ * first, then the shared activity vocabulary, so "Pročitaj lektiru" lands on a
+ * book without the household list having to repeat every activity keyword.
+ */
+export function emojiForTaskName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  return matchRules(name, TASK_RULES) ?? matchRules(name, ACTIVITY_RULES);
+}
+
 /** Emoji for a school subject - always resolves (📘 is the fallback). */
 export function emojiForSubject(subject: string | null | undefined): string {
   if (!subject) return "📘";
@@ -134,6 +168,10 @@ const KIND_EMOJI: Record<AgendaItem["kind"], string> = {
   birthday: "🎂",
   external: "🗓️",
   payment: "💳",
+  // A chore. Deliberately NOT a tick: the card leads with a real tick circle,
+  // and a ✅ tile beside an empty circle would say "done" while the circle says
+  // the opposite. A pin says "something to do" without claiming a state.
+  task: "📌",
 };
 
 /** The glyph for one agenda card: name first, kind as the safety net. */
@@ -143,6 +181,8 @@ export function emojiForAgendaItem(item: AgendaItem): string {
       return emojiForName(item.activity?.name) ?? KIND_EMOJI.activity;
     case "event":
       return emojiForName(item.event.name) ?? KIND_EMOJI.event;
+    case "task":
+      return emojiForTaskName(item.task.name) ?? KIND_EMOJI.task;
     case "birthday":
       return KIND_EMOJI.birthday;
     default:

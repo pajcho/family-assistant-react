@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgendaItem } from "@/hooks/useAgenda";
-import type { Activity, Birthday, Event } from "@/types/database";
+import type { Activity, Birthday, Event, Task } from "@/types/database";
 import type { ResolvedActivityBlock } from "@/utils/activity";
 import {
   KID_AGENDA_KINDS,
@@ -10,6 +10,7 @@ import {
   kidDetailModel,
   repeatLine,
   spanLine,
+  taskRepeatLine,
   whenPrefix,
 } from "@/components/kid/kidAgendaModel";
 
@@ -89,7 +90,8 @@ function birthdayItem(date: string, birthDate: string): AgendaItem {
   return {
     kind: "birthday",
     date,
-    sortKey: 1442,
+    // 1443 since tasks claimed 1442, right after the all-day bucket.
+    sortKey: 1443,
     birthday: {
       id: "b1",
       name: "Baka Milica",
@@ -99,9 +101,47 @@ function birthdayItem(date: string, birthDate: string): AgendaItem {
   };
 }
 
+/**
+ * A chore. `list_id` is set on purpose in the default fixture: a chore usually
+ * lives in some list of the parent's, and no test below may ever see a trace of
+ * it - that is the grown-up vocabulary.
+ */
+function taskItem(
+  task: Partial<Task> = {},
+  extra: Partial<Extract<AgendaItem, { kind: "task" }>> = {},
+): AgendaItem {
+  return {
+    kind: "task",
+    date: TODAY,
+    // 1442 - the all-day bucket plus one, where an untimed chore sits.
+    sortKey: 1442,
+    task: {
+      id: "t1",
+      list_id: "kucni-poslovi",
+      name: "Iznesi smeće",
+      description: null,
+      is_completed: false,
+      due_date: TODAY,
+      due_time: null,
+      recurrence_period: null,
+      recurrence_interval: 1,
+      recurrence_weekdays: null,
+      recurrence_until: null,
+      completion_mode: "shared",
+      ...task,
+    } as Task,
+    occurrenceDate: TODAY,
+    dueTime: null,
+    assigneeIds: ["kid-1"],
+    isDone: false,
+    missed: false,
+    ...extra,
+  } as AgendaItem;
+}
+
 describe("KID_AGENDA_KINDS", () => {
   it("is the allow-list of what a child may ever see", () => {
-    expect([...KID_AGENDA_KINDS].sort()).toEqual(["activity", "birthday", "event"]);
+    expect([...KID_AGENDA_KINDS].sort()).toEqual(["activity", "birthday", "event", "task"]);
     expect(KID_AGENDA_KINDS.has("payment")).toBe(false);
     expect(KID_AGENDA_KINDS.has("external")).toBe(false);
   });
@@ -227,6 +267,65 @@ describe("kidCardModel", () => {
     expect(model.moved).toBeNull();
   });
 
+  it("shows a chore with its own glyph, its repeat and nothing about its list", () => {
+    const model = kidCardModel(taskItem({ recurrence_period: "daily", recurrence_interval: 1 }), {
+      todayISO: TODAY,
+    });
+    expect(model).toMatchObject({
+      emoji: "🗑️",
+      title: "Iznesi smeće",
+      meta: "Svaki dan",
+      time: null,
+      tag: { tone: "task", label: "zadatak" },
+      done: false,
+      canceled: false,
+    });
+    // The list it lives in is a grown-up's filing, never a line on a kid card.
+    expect(JSON.stringify(model)).not.toContain("kucni-poslovi");
+  });
+
+  it("falls back to a parent's note when a chore does not repeat", () => {
+    const model = kidCardModel(taskItem({ description: "kesa je ispod sudopere" }), {
+      todayISO: TODAY,
+    });
+    expect(model.meta).toBe("kesa je ispod sudopere");
+  });
+
+  it("reads a ticked chore as done - struck, chipped, and still on the screen", () => {
+    const model = kidCardModel(taskItem({}, { isDone: true }), { todayISO: TODAY });
+    expect(model.done).toBe(true);
+    expect(model.tag).toEqual({ tone: "done", label: "urađeno" });
+    // Done is NOT cancelled: a finished chore is the child's own win, and the
+    // card must not sink into the page the way a cancellation does.
+    expect(model.canceled).toBe(false);
+  });
+
+  it("asks the hook, not the item, whether THIS child ticked a shared chore off", () => {
+    // completion_mode 'per_assignee' gives one answer per assignee, so the
+    // item's whole-occurrence `isDone` is structurally the wrong one.
+    const item = taskItem(
+      { completion_mode: "per_assignee", recurrence_period: "daily" },
+      { isDone: false },
+    );
+    expect(kidCardModel(item, { todayISO: TODAY, taskDone: () => true }).done).toBe(true);
+    // No answer from the hook falls back to the item, so the model stays total.
+    expect(kidCardModel(item, { todayISO: TODAY, taskDone: () => undefined }).done).toBe(false);
+  });
+
+  it("puts a chore's clock on the right when it has one", () => {
+    const model = kidCardModel(taskItem({ due_time: "18:00:00" }, { dueTime: "18:00" }), {
+      todayISO: TODAY,
+    });
+    expect(model.time).toBe("18:00");
+  });
+
+  it("says a missed repeat plainly, without telling the child off", () => {
+    const model = kidCardModel(taskItem({ recurrence_period: "daily" }, { missed: true }), {
+      todayISO: TODAY,
+    });
+    expect(model.tag).toEqual({ tone: "canceled", label: "propušteno" });
+  });
+
   it("gives a birthday an age in the title and a countdown as its chip", () => {
     const model = kidCardModel(birthdayItem("2026-10-14", "1958-10-14"), { todayISO: TODAY });
     expect(model.title).toBe("Baka Milica puni 68");
@@ -301,6 +400,43 @@ describe("kidDetailModel", () => {
     expect(detail.rows[1]).toEqual({ icon: "↪️", text: "Pomereno sa 18:00" });
   });
 
+  it("tells a child when a chore is for and how often it comes back", () => {
+    const detail = kidDetailModel(
+      taskItem({
+        recurrence_period: "weekly",
+        recurrence_weekdays: [0, 2],
+        description: "kesa je ispod sudopere",
+      }),
+      { todayISO: TODAY },
+    );
+    expect(detail.title).toBe("Iznesi smeće");
+    expect(detail.rows).toEqual([
+      { icon: "📅", text: "Danas, kad stigneš" },
+      { icon: "🔁", text: "Ponedeljkom i sredom" },
+      { icon: "📝", text: "kesa je ispod sudopere" },
+    ]);
+  });
+
+  it("leads a finished chore with the good news and drops the countdown", () => {
+    const detail = kidDetailModel(
+      taskItem({ due_date: "2026-10-09" }, { date: "2026-10-09", isDone: true }),
+      { todayISO: TODAY },
+    );
+    expect(detail.rows[0]).toEqual({ icon: "✅", text: "Završeno!" });
+    // No "kad stigneš" on something already done, and nothing to count down to.
+    expect(detail.rows[1]).toEqual({ icon: "📅", text: "Petak, 9. oktobar" });
+    expect(detail.rows.some((row) => row.icon === "⏳")).toBe(false);
+  });
+
+  it("counts down to a chore that is still days away", () => {
+    const detail = kidDetailModel(
+      taskItem({ due_time: "07:30:00" }, { date: "2026-10-09", dueTime: "07:30" }),
+      { todayISO: TODAY },
+    );
+    expect(detail.rows[0]).toEqual({ icon: "🕐", text: "Petak, 9. oktobar u 07:30" });
+    expect(detail.rows).toContainEqual({ icon: "⏳", text: "Za 4 dana" });
+  });
+
   it("describes a birthday with date, age and countdown", () => {
     const detail = kidDetailModel(birthdayItem("2026-10-14", "1958-10-14"), { todayISO: TODAY });
     expect(detail.rows).toEqual([
@@ -326,6 +462,71 @@ describe("helpers", () => {
     expect(repeatLine(2, 2)).toBe("Svake druge nedelje, sredom");
     expect(repeatLine(4, 3)).toBe("Na svake 3 nedelje, petkom");
     expect(repeatLine(4, 6)).toBe("Na svakih 6 nedelja, petkom");
+  });
+
+  it("says a chore's repeat the way a child would", () => {
+    const repeat = (task: Partial<Task>): string | null =>
+      taskRepeatLine({
+        due_date: TODAY, // a Monday
+        recurrence_period: null,
+        recurrence_interval: 1,
+        recurrence_weekdays: null,
+        ...task,
+      } as Task);
+
+    expect(repeat({ recurrence_period: "daily" })).toBe("Svaki dan");
+    expect(repeat({ recurrence_period: "daily", recurrence_interval: 2 })).toBe("Svaki drugi dan");
+    expect(repeat({ recurrence_period: "daily", recurrence_interval: 3 })).toBe("Na svaka 3 dana");
+    expect(repeat({ recurrence_period: "daily", recurrence_interval: 10 })).toBe(
+      "Na svakih 10 dana",
+    );
+    // No weekday set means "the day it started on", read off due_date.
+    expect(repeat({ recurrence_period: "weekly" })).toBe("Svakog ponedeljka");
+    expect(repeat({ recurrence_period: "weekly", recurrence_weekdays: [2] })).toBe("Svake srede");
+    expect(repeat({ recurrence_period: "weekly", recurrence_weekdays: [0, 2] })).toBe(
+      "Ponedeljkom i sredom",
+    );
+    expect(repeat({ recurrence_period: "weekly", recurrence_weekdays: [0, 2, 4] })).toBe(
+      "Ponedeljkom, sredom i petkom",
+    );
+    expect(repeat({ recurrence_period: "weekly", recurrence_weekdays: [0, 1, 2, 3, 4] })).toBe(
+      "Radnim danima",
+    );
+    expect(repeat({ recurrence_period: "weekly", recurrence_weekdays: [5, 6] })).toBe("Vikendom");
+    expect(
+      repeat({ recurrence_period: "weekly", recurrence_weekdays: [0, 2], recurrence_interval: 2 }),
+    ).toBe("Svake druge nedelje, ponedeljkom i sredom");
+    expect(repeat({ recurrence_period: "monthly" })).toBe("Jednom u mesecu");
+    expect(repeat({ recurrence_period: "monthly", recurrence_interval: 3 })).toBe(
+      "Na svaka 3 meseca",
+    );
+    expect(repeat({ recurrence_period: "one-time" })).toBeNull();
+    expect(repeat({})).toBeNull();
+  });
+
+  it("keeps the end date out of it - that is a grown-up's business", () => {
+    expect(
+      taskRepeatLine({
+        due_date: TODAY,
+        recurrence_period: "daily",
+        recurrence_interval: 1,
+        recurrence_weekdays: null,
+        recurrence_until: "2026-12-31",
+      } as Task),
+    ).toBe("Svaki dan");
+  });
+
+  it("survives a nonsense weekday array from the database", () => {
+    // The column is a bare SMALLINT[], so a hand-written row can carry a 7 or a
+    // duplicate. Sorted, deduped and clamped, or the label reads "svakog dana".
+    expect(
+      taskRepeatLine({
+        due_date: TODAY,
+        recurrence_period: "weekly",
+        recurrence_interval: 1,
+        recurrence_weekdays: [2, 0, 2, 9],
+      } as Task),
+    ).toBe("Ponedeljkom i sredom");
   });
 
   it("reads an age off the occurrence year, not off today", () => {
