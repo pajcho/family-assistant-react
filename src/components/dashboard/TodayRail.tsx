@@ -27,12 +27,20 @@ export function TodayRail({
   overdueItems,
   upcoming,
   countByDay,
+  filterActive,
 }: {
   today: string;
   overdueItems: ReadonlyArray<AgendaItem>;
-  /** Agenda items after today, ascending - the source for "Sledeći dani". */
+  /**
+   * Agenda items from today on, ascending - the source for "Sledeći dani".
+   * Already run through the screen's person/type filter, like `countByDay`;
+   * the rail never re-filters.
+   */
   upcoming: ReadonlyArray<AgendaItem>;
+  /** day (yyyy-MM-dd) → filtered item count, for the mini-month's load dots. */
   countByDay: Map<string, number>;
+  /** Whether a filter is narrowing the two lists - only changes empty copy. */
+  filterActive: boolean;
 }) {
   const overdueTotal = overdueItems.reduce(
     (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),
@@ -58,7 +66,7 @@ export function TodayRail({
       ) : null}
 
       <MiniMonth today={today} countByDay={countByDay} />
-      <NextDays today={today} items={upcoming} />
+      <NextDays today={today} items={upcoming} filterActive={filterActive} />
     </aside>
   );
 }
@@ -156,7 +164,15 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
 }
 
 /** The next few days at a glance - day, what it is, whose it is. */
-function NextDays({ today, items }: { today: string; items: ReadonlyArray<AgendaItem> }) {
+function NextDays({
+  today,
+  items,
+  filterActive,
+}: {
+  today: string;
+  items: ReadonlyArray<AgendaItem>;
+  filterActive: boolean;
+}) {
   const { byId } = useFamilyMembers();
   const rows = items.filter((item) => item.date > today).slice(0, 6);
 
@@ -177,7 +193,7 @@ function NextDays({ today, items }: { today: string; items: ReadonlyArray<Agenda
 
       {rows.length === 0 ? (
         <p className="mt-2 text-[12.5px] font-normal text-muted-foreground">
-          Do kraja meseca nema ničega.
+          {filterActive ? "Nema stavki za izabrane filtere." : "Do kraja meseca nema ničega."}
         </p>
       ) : (
         <div className="mt-1">
@@ -189,7 +205,9 @@ function NextDays({ today, items }: { today: string; items: ReadonlyArray<Agenda
               resetScroll={false}
               className="flex items-center gap-2 border-b border-border py-2 text-[13px] last:border-b-0 hover:bg-muted"
             >
-              <span className="w-12 flex-none text-[11.5px] font-bold text-muted-foreground uppercase tabular-nums">
+              {/* w-14, not w-12: with a filter on, the list reaches deeper into
+                  the month, and "PON 17." wrapped onto a second line. */}
+              <span className="w-14 flex-none text-[11.5px] font-bold text-muted-foreground whitespace-nowrap uppercase tabular-nums">
                 {format(parseISO(`${item.date}T12:00:00`), "EEEEEE d.", { locale: srLocale })}
               </span>
               <span className="min-w-0 flex-1 truncate font-normal">{itemLabel(item)}</span>

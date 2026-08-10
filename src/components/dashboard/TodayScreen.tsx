@@ -39,10 +39,10 @@ import { placanjaLabel } from "@/utils/plural";
  * the person filter. The body is overdue first (money you already owe outranks
  * today's plans), then the timeline.
  *
- * One `useAgenda` covers both the timeline and the strip's load dots: it loads
- * today through the end of this week and the timeline takes today's slice.
- * Keeping it to a single agenda query per screen is deliberate - the hook fans
- * out to several tables.
+ * One `useAgenda` covers the timeline, both strips' load dots and the rail's
+ * "Sledeći dani": it loads today through the end of this week and the timeline
+ * takes today's slice. Keeping it to a single agenda query per screen is
+ * deliberate - the hook fans out to several tables.
  */
 export function TodayScreen() {
   const { str: today, date: todayDate } = useToday();
@@ -76,13 +76,19 @@ export function TodayScreen() {
   const { items: weekItems, isLoading } = useAgenda({ from: today, to: rangeEnd });
   const overdue = useOverduePayments();
 
+  // Filter once, at the top: the timeline, the week strip's load dots, the
+  // mini-month's dots and "Sledeći dani" are four views of the same list, so a
+  // person chip has to move all four together (Kalendar's agenda already ties
+  // its strip to its sections the same way). Filtering only the timeline made
+  // the dots promise items that the day below then didn't show.
+  const filteredItems = useMemo(
+    () => filterAgendaItems(weekItems, filters.filter),
+    [weekItems, filters.filter],
+  );
+
   const todayItems = useMemo(
-    () =>
-      filterAgendaItems(
-        weekItems.filter((item) => item.date === today),
-        filters.filter,
-      ),
-    [weekItems, today, filters.filter],
+    () => filteredItems.filter((item) => item.date === today),
+    [filteredItems, today],
   );
 
   const overdueItems = useMemo(
@@ -92,9 +98,9 @@ export function TodayScreen() {
 
   const countByDay = useMemo(() => {
     const map = new Map<string, number>();
-    for (const item of weekItems) map.set(item.date, (map.get(item.date) ?? 0) + 1);
+    for (const item of filteredItems) map.set(item.date, (map.get(item.date) ?? 0) + 1);
     return map;
-  }, [weekItems]);
+  }, [filteredItems]);
 
   const overdueTotal = overdueItems.reduce(
     (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),
@@ -226,8 +232,9 @@ export function TodayScreen() {
         <TodayRail
           today={today}
           overdueItems={overdueItems}
-          upcoming={weekItems}
+          upcoming={filteredItems}
           countByDay={countByDay}
+          filterActive={filterActive}
         />
       </div>
       {details.dialogs}
