@@ -36,3 +36,8 @@ export function stavkeLabel(count: number): string {
 export function placanjaLabel(count: number): string {
   return serbianPlural(count, { one: "plaćanje", few: "plaćanja", many: "plaćanja" });
 }
+
+/** Task agreement: "zadatak / zadatka / zadataka" for a count. */
+export function zadaciLabel(count: number): string {
+  return serbianPlural(count, { one: "zadatak", few: "zadatka", many: "zadataka" });
+}

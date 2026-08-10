@@ -17,7 +17,7 @@ import { useAgendaFilters } from "@/hooks/useAgendaFilters";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { useAgendaEditForms } from "@/components/dashboard/useAgendaEditForms";
 import { useFirstSteps } from "@/hooks/useFirstSteps";
-import { useOverduePayments } from "@/hooks/useOverduePayments";
+import { useOverdueItems } from "@/hooks/useOverdueItems";
 import { useProfile } from "@/hooks/useProfile";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useToday } from "@/hooks/useToday";
@@ -25,7 +25,7 @@ import { getWeekStart } from "@/utils/activity";
 import { addDays, srLocale } from "@/utils/date";
 import { filterAgendaItems, isAgendaFilterActive } from "@/utils/agendaFilters";
 import { greetingFor } from "@/utils/greeting";
-import { placanjaLabel } from "@/utils/plural";
+import { placanjaLabel, zadaciLabel } from "@/utils/plural";
 
 /**
  * "Danas" (redizajn 2.0).
@@ -36,8 +36,8 @@ import { placanjaLabel } from "@/utils/plural";
  *
  * The header holds everything that frames the day and never scrolls away: the
  * greeting and date, the week strip (how loaded the rest of the week is), and
- * the person filter. The body is overdue first (money you already owe outranks
- * today's plans), then the timeline.
+ * the person filter. The body is overdue first - money you already owe, and work
+ * whose day has passed, both outrank today's plans - then the timeline.
  *
  * One `useAgenda` covers the timeline, both strips' load dots and the rail's
  * the next-days block: it loads today through the end of this week and the timeline
@@ -74,7 +74,9 @@ export function TodayScreen() {
   }, [today, isWide]);
 
   const { items: weekItems, isLoading } = useAgenda({ from: today, to: rangeEnd });
-  const overdue = useOverduePayments();
+  // Payments AND overdue one-off tasks: both are things the family is late
+  // on, and Danas is where being late has to be visible.
+  const overdue = useOverdueItems();
 
   // Filter once, at the top: the timeline, the week strip's load dots, the
   // mini-month's dots and the next-days block are four views of the same list, so a
@@ -105,6 +107,20 @@ export function TodayScreen() {
   const overdueTotal = overdueItems.reduce(
     (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),
     0,
+  );
+
+  // Overdue money and overdue work are both "you are late", but they are not
+  // interchangeable: one has a dinar total and belongs on the payments page, the
+  // other has neither. Merging them into one banner would either call a chore a
+  // placanje, or send somebody looking for their chore to a money screen. So the
+  // counts are split, and each half links where its own rows actually live.
+  const overduePaymentItems = useMemo(
+    () => overdueItems.filter((item) => item.kind === "payment"),
+    [overdueItems],
+  );
+  const overdueTaskItems = useMemo(
+    () => overdueItems.filter((item) => item.kind === "task"),
+    [overdueItems],
   );
 
   // Wave the 👋 only on the moment of dismissal (visible → dismissed in this
@@ -182,7 +198,7 @@ export function TodayScreen() {
             <p className="py-8 text-center text-sm text-muted-foreground">Učitavanje…</p>
           ) : (
             <>
-              {overdueItems.length > 0 ? (
+              {overduePaymentItems.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -192,12 +208,29 @@ export function TodayScreen() {
                 >
                   <ExclamationTriangleIcon className="size-[17px] flex-none" />
                   <span>
-                    Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
+                    Prekoračeno · {overduePaymentItems.length}{" "}
+                    {placanjaLabel(overduePaymentItems.length)}
                   </span>
                   <span className="ml-auto font-bold tabular-nums">
                     <Amount value={overdueTotal} round />
                   </span>
                   <ChevronRightIcon className="size-[15px] flex-none" />
+                </button>
+              ) : null}
+
+              {overdueTaskItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate({ to: "/tasks" });
+                  }}
+                  className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.98] lg:hidden"
+                >
+                  <ExclamationTriangleIcon className="size-[17px] flex-none" />
+                  <span>
+                    Kasni · {overdueTaskItems.length} {zadaciLabel(overdueTaskItems.length)}
+                  </span>
+                  <ChevronRightIcon className="ml-auto size-[15px] flex-none" />
                 </button>
               ) : null}
 
