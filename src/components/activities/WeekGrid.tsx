@@ -16,6 +16,13 @@ import {
   type ResolvedActivityBlock,
 } from "@/utils/activity";
 import type { ResolvedSchoolBlock } from "@/utils/schoolTimetable";
+import {
+  buildHourLabels,
+  computeRange,
+  gridHeightPx,
+  positionSpans,
+  type TimeGridConfig,
+} from "@/utils/timeGridGeometry";
 import { assignLanes, type Laned } from "@/utils/weekGridLayout";
 
 /**
@@ -48,6 +55,22 @@ const GRID_TOP_PADDING_PX = 12;
 const GRID_BOTTOM_PADDING_PX = 12;
 
 /**
+ * This grid's scale, handed to the shared geometry in `@/utils/timeGridGeometry`
+ * (the agenda calendars pass a taller one). `minBlockHeightPx: 0` is the one
+ * real difference: a short class here stays exactly as tall as its duration
+ * rather than being floored to a legible minimum.
+ */
+const WEEK_GRID: TimeGridConfig = {
+  slotMinutes: SLOT_MINUTES,
+  slotHeightPx: SLOT_HEIGHT_PX,
+  gridTopPaddingPx: GRID_TOP_PADDING_PX,
+  gridBottomPaddingPx: GRID_BOTTOM_PADDING_PX,
+  minBlockHeightPx: 0,
+  defaultStartMin: DEFAULT_START_MIN,
+  defaultEndMin: DEFAULT_END_MIN,
+};
+
+/**
  * Discriminated union over the two block kinds. Positioning only ever reads
  * `dayOfWeek` / `startTime` / `endTime` / `personId`, which both shapes share;
  * rendering branches on `kind`.
@@ -73,35 +96,6 @@ type PositionedBlock = Laned<GridBlock> & {
   topPx: number;
   heightPx: number;
 };
-
-function computeViewportRange(blocks: ReadonlyArray<GridBlock>): {
-  startMin: number;
-  endMin: number;
-} {
-  // No blocks → fall back to a reasonable default window so the grid still
-  // renders (and the user has something to scan visually).
-  if (blocks.length === 0) return { startMin: DEFAULT_START_MIN, endMin: DEFAULT_END_MIN };
-
-  let earliest = Infinity;
-  let latest = -Infinity;
-  for (const b of blocks) {
-    const s = timeToMinutes(b.startTime);
-    const e = timeToMinutes(b.endTime);
-    if (s < earliest) earliest = s;
-    if (e > latest) latest = e;
-  }
-
-  // Fit-to-content with ~1h breathing room on each side. Previously we
-  // always anchored to 7:00-21:00 which wasted vertical space when every
-  // activity sat in a 3-hour band in the afternoon.
-  const startMin = Math.max(0, earliest - 60);
-  const endMin = Math.min(24 * 60, latest + 60);
-  // Round to half-hour grid lines so the slot count is whole.
-  return {
-    startMin: Math.floor(startMin / SLOT_MINUTES) * SLOT_MINUTES,
-    endMin: Math.ceil(endMin / SLOT_MINUTES) * SLOT_MINUTES,
-  };
-}
 
 function isToday(dateStr: string): boolean {
   const today = format(new Date(), "yyyy-MM-dd");
@@ -160,9 +154,8 @@ export function WeekGrid({
     };
   }, []);
 
-  const { startMin, endMin } = useMemo(() => computeViewportRange(allBlocks), [allBlocks]);
-  const slotCount = (endMin - startMin) / SLOT_MINUTES;
-  const totalHeightPx = slotCount * SLOT_HEIGHT_PX + GRID_TOP_PADDING_PX + GRID_BOTTOM_PADDING_PX;
+  const { startMin, endMin } = useMemo(() => computeRange(allBlocks, WEEK_GRID), [allBlocks]);
+  const totalHeightPx = gridHeightPx(startMin, endMin, WEEK_GRID);
 
   // Current-time line position, in the same coordinate space as the blocks.
   // Hidden when "now" falls outside the (fit-to-content) visible range - a
@@ -184,29 +177,14 @@ export function WeekGrid({
     const result: Record<number, PositionedBlock[]> = {};
     for (const [dowStr, list] of Object.entries(byDay)) {
       const dow = Number(dowStr);
-      result[dow] = assignLanes(list).map((p) => ({
-        ...p,
-        topPx:
-          GRID_TOP_PADDING_PX +
-          ((timeToMinutes(p.startTime) - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-        heightPx:
-          ((timeToMinutes(p.endTime) - timeToMinutes(p.startTime)) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-      }));
+      result[dow] = positionSpans(assignLanes(list), startMin, WEEK_GRID);
     }
     return result;
   }, [allBlocks, startMin]);
 
   // Hour labels - one per full hour inside the viewport range. Top inset
   // matches the block positioning so labels and gridlines stay aligned.
-  const hourLabels: { topPx: number; label: string }[] = [];
-  const firstHour = Math.ceil(startMin / 60);
-  const lastHour = Math.floor(endMin / 60);
-  for (let h = firstHour; h <= lastHour; h++) {
-    hourLabels.push({
-      topPx: GRID_TOP_PADDING_PX + ((h * 60 - startMin) / SLOT_MINUTES) * SLOT_HEIGHT_PX,
-      label: `${String(h).padStart(2, "0")}:00`,
-    });
-  }
+  const hourLabels = buildHourLabels(startMin, endMin, WEEK_GRID);
 
   const weekStartDate = parseISO(weekStart + "T12:00:00");
   const dayHeaders: WeekGridDay[] = Array.from({ length: 7 }, (_, i) => {

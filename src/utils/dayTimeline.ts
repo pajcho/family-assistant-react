@@ -11,7 +11,7 @@ import { normalizeTime, timeToMinutes } from "@/utils/activity";
  */
 
 /** An event with a start but no end gets this much room on the clock. */
-const DEFAULT_EVENT_MINUTES = 60;
+export const DEFAULT_EVENT_MINUTES = 60;
 
 export interface TimelineEntry {
   item: AgendaItem;
@@ -32,15 +32,25 @@ export interface TimelineSplit {
   payments: AgendaItem[];
 }
 
-function minutesToTime(min: number): string {
+/**
+ * `HH:mm` for a minutes-since-midnight value, CLAMPED to the day: a synthetic
+ * end past midnight becomes "24:00" rather than wrapping to the small hours,
+ * because a block on a day's clock must not start after it ends.
+ *
+ * Deliberately NOT the same contract as `pickerGrid`'s `minutesToTime`, which
+ * wraps (23:30 + 90min = 01:00) because a member picking a duration means the
+ * next day. Two contracts, two names - never merge them into one function.
+ */
+export function minutesToClampedTime(min: number): string {
   const clamped = Math.max(0, Math.min(24 * 60, min));
   return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
 }
 
 /**
  * Start/end for an item that belongs on the clock, or null for one that does
- * not. Mirrors the agenda calendars' `timedRange` so a day reads the same
- * whichever surface shows it.
+ * not. THE rule, for every surface that lays items on a time axis - Danas'
+ * timeline and both agenda calendars (which re-export it as `timedRange`) - so
+ * a day reads the same whichever one shows it.
  */
 export function timelineRange(item: AgendaItem): { startTime: string; endTime: string } | null {
   if (item.kind === "activity") {
@@ -51,7 +61,8 @@ export function timelineRange(item: AgendaItem): { startTime: string; endTime: s
     // day 1 is open-ended here and gets the synthetic hour.
     return {
       startTime: item.startTime,
-      endTime: item.endTime ?? minutesToTime(timeToMinutes(item.startTime) + DEFAULT_EVENT_MINUTES),
+      endTime:
+        item.endTime ?? minutesToClampedTime(timeToMinutes(item.startTime) + DEFAULT_EVENT_MINUTES),
     };
   }
   if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
@@ -60,7 +71,7 @@ export function timelineRange(item: AgendaItem): { startTime: string; endTime: s
       startTime,
       endTime: item.event.end_time
         ? normalizeTime(item.event.end_time)
-        : minutesToTime(timeToMinutes(startTime) + DEFAULT_EVENT_MINUTES),
+        : minutesToClampedTime(timeToMinutes(startTime) + DEFAULT_EVENT_MINUTES),
     };
   }
   return null;
