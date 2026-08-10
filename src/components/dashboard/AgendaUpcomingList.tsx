@@ -13,7 +13,7 @@ import { OverdueSection } from "@/components/dashboard/OverdueSection";
 import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import { agendaItemKey, useAgenda } from "@/hooks/useAgenda";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useOverduePayments } from "@/hooks/useOverduePayments";
+import { useOverdueItems } from "@/hooks/useOverdueItems";
 import { useToday } from "@/hooks/useToday";
 import type { Birthday, Event, Payment } from "@/types/database";
 import { getWeekStart, weeksBetween } from "@/utils/activity";
@@ -130,7 +130,8 @@ export function AgendaUpcomingList({
   }, [horizonDays, todayStr, todayDate]);
 
   const { items: allItems, isLoading } = useAgenda({ from, to });
-  const overdue = useOverduePayments();
+  // Payments AND one-off tasks - `OverdueSection` renders one merged block.
+  const overdue = useOverdueItems();
   const { onSelect, dialogs } = useAgendaDetails({ onEditEvent, onEditPayment, onEditBirthday });
 
   // Every day in the window, ascending - one section is rendered per day so the

@@ -243,6 +243,8 @@ function itemLabel(item: AgendaItem): string {
       return item.event.name;
     case "external":
       return item.event.title ?? "(bez naslova)";
+    case "task":
+      return item.task.name;
     case "payment":
       return item.payment.name;
     case "birthday":
@@ -257,6 +259,8 @@ function itemPersonIds(item: AgendaItem): string[] {
     case "event":
     case "external":
       return item.personIds;
+    case "task":
+      return item.assigneeIds;
     default:
       return [];
   }

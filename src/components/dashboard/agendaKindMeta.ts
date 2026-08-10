@@ -3,6 +3,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  CheckCircleIcon,
   GlobeAltIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
@@ -18,10 +19,14 @@ import type { AgendaKind } from "@/utils/agendaFilters";
  * grid's density dots all read from here, so a payment is amber and a Google
  * event is blue on every surface at once.
  *
- * Tones come from the semantics layer (pos/warn/neg/info), never from the
+ * Tones come from the semantics layer (pos/warn/neg/info/task), never from the
  * accent, so they survive the user switching the app colour. The exception
  * is activities, which are coloured by the family member they belong to - the
  * app's oldest colour convention.
+ *
+ * Tasks got a violet of their own (`--task`) rather than borrowing a tone,
+ * because every existing one is already spoken for: activities own accent,
+ * events and Google info, payments warn, birthdays pos.
  */
 
 export type AgendaKindMeta = {
@@ -34,6 +39,7 @@ export type AgendaKindMeta = {
 
 export const AGENDA_KIND_META: Record<AgendaKind, AgendaKindMeta> = {
   activity: { label: "Aktivnosti", icon: SparklesIcon, tone: "accent", dot: "var(--accent)" },
+  task: { label: "Zadaci", icon: CheckCircleIcon, tone: "task", dot: "var(--task)" },
   event: { label: "Događaji", icon: CalendarIcon, tone: "info", dot: "var(--info)" },
   external: { label: "Google", icon: GlobeAltIcon, tone: "info", dot: "var(--info)" },
   payment: { label: "Plaćanja", icon: BanknotesIcon, tone: "warn", dot: "var(--warn)" },

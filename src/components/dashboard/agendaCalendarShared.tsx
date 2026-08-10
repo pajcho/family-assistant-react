@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { BanknotesIcon, CakeIcon, CalendarIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
+import {
+  BanknotesIcon,
+  CakeIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  GlobeAltIcon,
+} from "@heroicons/react/24/outline";
 
 import { Amount } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
@@ -64,6 +70,10 @@ export function isAllDayItem(item: AgendaItem): boolean {
     case "event":
     case "external":
       return item.isAllDay;
+    case "task":
+      // A task with a time is a point on the clock; without one it is just
+      // "sometime today" and belongs in the all-day strip.
+      return item.dueTime == null;
     case "payment":
     case "birthday":
       return true;
@@ -200,6 +210,21 @@ export function TimedBlock({
   const isPast =
     item.date < todayStr || (item.date === todayStr && timeToMinutes(block.endTime) <= nowMin);
 
+  // A reminder occupies no time, so it is not drawn as a block that occupies
+  // some. See `TaskPointMarker`.
+  if (item.kind === "task") {
+    return (
+      <TaskPointMarker
+        item={item}
+        topPx={block.topPx}
+        leftPct={leftPct}
+        widthPct={widthPct}
+        isPast={isPast}
+        onClick={onClick}
+      />
+    );
+  }
+
   let color: string;
   let label: string;
   if (item.kind === "activity") {
@@ -249,11 +274,78 @@ export function TimedBlock({
   );
 }
 
+/** The colour a task marker / chip carries: its state first, its kind after. */
+function taskToneVar(item: Extract<AgendaItem, { kind: "task" }>): string {
+  if (item.isDone) return "var(--pos)";
+  if (item.missed) return "var(--neg)";
+  return "var(--task)";
+}
+
+/**
+ * A timed task on the clock: a POINT, not a block.
+ *
+ * A reminder has no duration - "podseti me u 17:00" says nothing about how long
+ * anything takes - so drawing it as a sized rectangle would invent an hour the
+ * task never asked for and push real appointments into neighbouring lanes for no
+ * reason. Instead it is a fixed-height pill pinned to its minute. The lane sweep
+ * still reserved a full minimum slot for it, so the pill can never collide with
+ * what is under it, and the ticking itself lives in the detail sheet the tap
+ * opens - a 22px pill is no place for a checkbox.
+ */
+function TaskPointMarker({
+  item,
+  topPx,
+  leftPct,
+  widthPct,
+  isPast,
+  onClick,
+}: {
+  item: Extract<AgendaItem, { kind: "task" }>;
+  topPx: number;
+  leftPct: number;
+  widthPct: number;
+  isPast: boolean;
+  onClick: () => void;
+}) {
+  const color = taskToneVar(item);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${item.dueTime ?? ""} · ${item.task.name}`}
+      style={{
+        top: `${topPx}px`,
+        left: `calc(${leftPct}% + 2px)`,
+        width: `calc(${widthPct}% - 4px)`,
+        backgroundColor: `color-mix(in srgb, ${color} 16%, var(--card))`,
+        borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
+        color,
+      }}
+      className={cn(
+        "absolute flex h-[22px] items-center gap-1 overflow-hidden rounded-full border px-1.5 text-left",
+        "transition-[filter] hover:brightness-105",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        isPast && "opacity-60",
+      )}
+    >
+      <CheckCircleIcon className="size-3 shrink-0" aria-hidden="true" />
+      <span
+        className={cn(
+          "min-w-0 truncate text-[10px] font-semibold text-foreground",
+          item.isDone && "line-through",
+        )}
+      >
+        {item.task.name}
+      </span>
+    </button>
+  );
+}
+
 /**
  * All-day chips fill the width of their (often narrow, in the weekly grid) cell
  * as small tinted cards. Tints mirror the Uskoro filter pills - payment amber,
- * event blue, birthday emerald - so the row reads by kind at a glance, and the
- * colored 3px left border echoes the timed blocks below.
+ * event blue, birthday emerald, task violet - so the row reads by kind at a
+ * glance, and the colored 3px left border echoes the timed blocks below.
  */
 const ALL_DAY_CARD =
   "block w-full rounded-sm border border-l-[3px] px-2 py-1 text-left transition-colors " +
@@ -344,6 +436,44 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
           {item.event.title ?? "(bez naslova)"}
         </span>
         {item.personIds.length > 0 ? <MemberBadges personIds={item.personIds} size="xs" /> : null}
+      </button>
+    );
+  }
+
+  if (item.kind === "task") {
+    // Untimed = "sometime today", which has no place on a clock. The state
+    // carries the tint (done green + struck, missed red), and tapping opens the
+    // detail sheet where the completion circle is - the week grid's cell is far
+    // too small to put a control a mis-tap would resolve somebody's chore with.
+    const color = taskToneVar(item);
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          backgroundColor: `color-mix(in srgb, ${color} 14%, var(--card))`,
+          borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+          borderLeftColor: color,
+          color,
+        }}
+        className={cn(
+          ALL_DAY_CARD,
+          "flex items-center gap-1.5 hover:brightness-95",
+          item.isDone && "opacity-70",
+        )}
+      >
+        <CheckCircleIcon className="size-3.5 shrink-0" aria-hidden="true" />
+        <span
+          className={cn(
+            "min-w-0 truncate text-[11px] font-semibold text-foreground",
+            item.isDone && "line-through",
+          )}
+        >
+          {item.task.name}
+        </span>
+        {item.assigneeIds.length > 0 ? (
+          <MemberBadges personIds={item.assigneeIds} size="xs" />
+        ) : null}
       </button>
     );
   }

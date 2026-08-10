@@ -559,7 +559,7 @@ export function AgendaWeekCalendar({
             <EmptyState
               variant="overlay"
               title="Nedelja je još prazna"
-              description="Sve što dodaš - događaji, aktivnosti, plaćanja, rođendani - pojaviće se ovde."
+              description="Sve što dodaš - događaji, zadaci, aktivnosti, plaćanja, rođendani - pojaviće se ovde."
             />
           )
         ) : null}

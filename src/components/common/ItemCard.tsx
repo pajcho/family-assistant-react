@@ -15,9 +15,21 @@ import { memberTintStyle } from "@/utils/memberAvatar";
  * semantic tone the tile gets.
  */
 
-const CARD_BASE =
-  "flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 text-left " +
+/** The card's chrome, with no inset - see `CARD_INSET`. */
+const CARD_FRAME =
+  "flex w-full items-center rounded-xl border border-border bg-card text-left " +
   "text-card-foreground shadow-card transition-transform";
+/**
+ * The card's own padding + column gap. Split out from the chrome because the
+ * `leading` variant has to move it ONTO its two children instead: a control in
+ * the leading slot needs that padding as its tap target.
+ */
+const CARD_INSET = "gap-[11px] px-[13px] py-3";
+const CARD_BASE = `${CARD_FRAME} ${CARD_INSET}`;
+
+const CARD_PRESS =
+  "active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none " +
+  "motion-reduce:active:scale-100";
 
 export function ItemCard({
   onClick,
@@ -25,6 +37,7 @@ export function ItemCard({
   dimmed = false,
   className,
   ariaLabel,
+  leading,
   children,
 }: {
   /** Omit for a read-only row (upcoming payment occurrences, span notes). */
@@ -34,9 +47,56 @@ export function ItemCard({
   dimmed?: boolean;
   className?: string;
   ariaLabel?: string;
+  /**
+   * A control that takes the glyph tile's place at the head of the row - the
+   * task row's completion circle. Rendered as a SIBLING of the row button,
+   * never inside it: nesting one interactive element in another is invalid
+   * markup and swallows the inner control's clicks.
+   *
+   * Pass a single element that owns its own left/vertical padding (see
+   * `TaskRow`'s circle), because with a leading slot the card hands its inset
+   * to its children.
+   */
+  leading?: ReactNode;
   children: ReactNode;
 }) {
   const classes = cn(CARD_BASE, dimmed && "opacity-55", className);
+
+  if (leading) {
+    return (
+      <div
+        className={cn(
+          CARD_FRAME,
+          // The press animation belongs to the row body alone: scaling the whole
+          // card when the circle is tapped would answer a tick with the row's
+          // "I am opening" feedback.
+          "[&:has(>button:active)]:scale-[0.98] motion-reduce:[&:has(>button:active)]:scale-100",
+          dimmed && "opacity-55",
+          className,
+        )}
+      >
+        {leading}
+        {onClick ? (
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={ariaLabel}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-[11px] py-3 pr-[13px] text-left",
+              "rounded-r-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            )}
+          >
+            {children}
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-[11px] py-3 pr-[13px]">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!onClick) {
     return <div className={classes}>{children}</div>;
@@ -48,11 +108,7 @@ export function ItemCard({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={cn(
-        classes,
-        "active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        "motion-reduce:active:scale-100",
-      )}
+      className={cn(classes, CARD_PRESS)}
     >
       {children}
     </button>
