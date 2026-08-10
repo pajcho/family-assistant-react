@@ -19,7 +19,7 @@ async function fetchEventParticipants(familyId: string): Promise<EventParticipan
     .from("event_participants")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as EventParticipant[]) ?? [];
 }
 

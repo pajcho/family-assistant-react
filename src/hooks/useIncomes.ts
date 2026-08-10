@@ -38,7 +38,7 @@ async function fetchIncomes(familyId: string): Promise<Income[]> {
     .eq("family_id", familyId)
     .order("day_of_month", { ascending: true })
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Income[]) ?? [];
 }
 

@@ -34,7 +34,7 @@ async function fetchBreaks(familyId: string): Promise<SchoolBreak[]> {
     .eq("family_id", familyId)
     .order("start_month", { ascending: true })
     .order("start_day", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as SchoolBreak[]) ?? [];
 }
 
@@ -43,7 +43,7 @@ async function fetchBreakMembers(familyId: string): Promise<SchoolBreakMember[]>
     .from("school_break_members")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as SchoolBreakMember[]) ?? [];
 }
 

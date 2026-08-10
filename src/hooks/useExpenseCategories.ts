@@ -37,7 +37,7 @@ async function fetchExpenseCategories(familyId: string): Promise<ExpenseCategory
     .eq("family_id", familyId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ExpenseCategory[]) ?? [];
 }
 

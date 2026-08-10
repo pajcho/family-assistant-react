@@ -31,7 +31,7 @@ async function fetchFamilyMembers(familyId: string): Promise<Profile[]> {
     .from("profiles_with_login")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Profile[]) ?? [];
 }
 

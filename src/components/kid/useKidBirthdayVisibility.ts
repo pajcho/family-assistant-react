@@ -47,10 +47,12 @@ export function useKidBirthdayVisibility(kidProfileId: string | null): KidBirthd
         .from("birthday_visibility")
         .select("birthday_id, note")
         .eq("person_id", kidProfileId as string);
-      // A missing table (migration not applied yet) or an RLS refusal must fail
-      // CLOSED, not open: an empty result means "no birthday is visible", which
-      // is the safe answer for a gate. The screens then show their empty state.
-      if (error) return [];
+      // A missing table (migration not applied yet) or an RLS refusal still
+      // fails CLOSED: throwing leaves `query.data` undefined, the memo below
+      // reads `?? []`, and an empty set means "no birthday is visible" - the
+      // safe answer for a gate. The screens still show their empty state; the
+      // throw only adds the retry and the one global toast.
+      if (error) throw new Error(error.message);
       return (data as VisibilityRow[]) ?? [];
     },
     enabled: !!kidProfileId,

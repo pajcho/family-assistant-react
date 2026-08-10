@@ -37,7 +37,7 @@ async function fetchBirthdays(familyId: string): Promise<Birthday[]> {
     .select("*")
     .eq("family_id", familyId)
     .order("birth_date", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Birthday[]) ?? [];
 }
 

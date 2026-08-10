@@ -17,7 +17,7 @@ async function fetchPaymentParticipants(familyId: string): Promise<PaymentPartic
     .from("payment_participants")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as PaymentParticipant[]) ?? [];
 }
 
