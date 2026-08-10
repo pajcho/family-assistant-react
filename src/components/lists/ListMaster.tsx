@@ -29,9 +29,9 @@ import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { previewLine } from "@/components/common/MarkdownText";
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
-import { useCreateList, useListsWithItems } from "@/hooks/useLists";
+import { useCreateList, useListsWithTasks } from "@/hooks/useTasks";
 import { cn } from "@/lib/cn";
-import type { ListScope, ListWithItems } from "@/types/database";
+import type { ListScope, ListWithTasks } from "@/types/database";
 
 type MasterVariant = "sidebar" | "page";
 
@@ -65,14 +65,14 @@ export type ListMasterProps = {
  * duplicate, delete, export…) live in the detail pane's header - you act on
  * the open list, the same way Apple Notes acts on the open note.
  *
- * Reads the shared `useListsWithItems()` cache directly (no props) so it stays
+ * Reads the shared `useListsWithTasks()` cache directly (no props) so it stays
  * in sync with the detail pane and the dashboard without any plumbing.
  */
 export function ListMaster({ variant }: ListMasterProps) {
-  const listsQuery = useListsWithItems();
+  const listsQuery = useListsWithTasks();
   const createList = useCreateList();
 
-  const lists = useMemo<ListWithItems[]>(() => listsQuery.data ?? [], [listsQuery.data]);
+  const lists = useMemo<ListWithTasks[]>(() => listsQuery.data ?? [], [listsQuery.data]);
 
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [search, setSearch] = useState("");
@@ -361,9 +361,9 @@ function ListMasterSkeleton({ variant }: { variant: MasterVariant }) {
   );
 }
 
-function ListMasterRow({ list, variant }: { list: ListWithItems; variant: MasterVariant }) {
-  const active = list.list_items.filter((i) => !i.is_completed).length;
-  const completed = list.list_items.length - active;
+function ListMasterRow({ list, variant }: { list: ListWithTasks; variant: MasterVariant }) {
+  const active = list.tasks.filter((i) => !i.is_completed).length;
+  const completed = list.tasks.length - active;
   const isFamily = list.scope === "family";
 
   if (variant === "sidebar") {

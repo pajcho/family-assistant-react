@@ -22,26 +22,26 @@ import { Input } from "@/components/ui/input";
 import { ListItemDialog, type ListItemDialogPayload } from "@/components/lists/ListItemDialog";
 import { ListItemRow, type DragHandleBindings } from "@/components/lists/ListItemRow";
 import { SwipeableListItem } from "@/components/lists/SwipeableListItem";
-import { useReorderListItems } from "@/hooks/useLists";
+import { useReorderTasks } from "@/hooks/useTasks";
 import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
-import type { ListItem, ListWithItems } from "@/types/database";
+import type { Task, ListWithTasks } from "@/types/database";
 
 export type ListBodyProps = {
-  list: ListWithItems;
+  list: ListWithTasks;
   onAddItem: (listId: string, name: string) => void;
-  onToggleItem: (item: ListItem) => void;
+  onToggleItem: (item: Task) => void;
   /**
    * Apply edits from the item popup (name + optional description).
    * Replaces the old `onRenameItem` - the same callback now ferries the
    * whole payload so the parent doesn't need separate rename / update
    * paths.
    */
-  onUpdateItem: (item: ListItem, payload: ListItemDialogPayload) => void;
-  onDeleteItem: (item: ListItem) => void;
+  onUpdateItem: (item: Task, payload: ListItemDialogPayload) => void;
+  onDeleteItem: (item: Task) => void;
   /**
    * When true, the renderer groups active items under their category
    * header. We trust the flag rather than re-checking that items are
-   * actually grouped: `useCreateListItem` / `useUpdateListItem` auto-
+   * actually grouped: `useCreateTask` / `useUpdateTask` auto-
    * resort whenever this is on, so the items in the cache are always in
    * aisle order by the time we render. The grid card on /lists keeps
    * this off to stay compact.
@@ -76,12 +76,12 @@ export function ListBody({
   const [showCompleted, setShowCompleted] = useState(false);
 
   // Delete-confirm state, used by both swipe-left and the desktop trash button.
-  const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
 
   // Item-popup state. When non-null the `ListItemDialog` is open and renders
   // the editor for this item. The popup replaces the previous inline rename
   // affordance - tapping any row's text or its pencil icon flips this on.
-  const [editingItem, setEditingItem] = useState<ListItem | null>(null);
+  const [editingItem, setEditingItem] = useState<Task | null>(null);
 
   // Keep the dialog's `item` in sync with realtime updates: if the cache
   // refetches (e.g. someone else edits the same item) we want the popup to
@@ -89,7 +89,7 @@ export function ListBody({
   // opened the dialog with. We match by id and refresh the local pointer.
   useEffect(() => {
     if (!editingItem) return;
-    const fresh = list.list_items.find((it) => it.id === editingItem.id);
+    const fresh = list.tasks.find((it) => it.id === editingItem.id);
     if (!fresh) {
       // Item was deleted (locally or remotely) - close the popup.
       setEditingItem(null);
@@ -98,9 +98,9 @@ export function ListBody({
     if (fresh !== editingItem) {
       setEditingItem(fresh);
     }
-  }, [list.list_items, editingItem]);
+  }, [list.tasks, editingItem]);
 
-  // When the user ticks an item, the optimistic update in `useUpdateListItem`
+  // When the user ticks an item, the optimistic update in `useUpdateTask`
   // flips is_completed → true immediately, which would otherwise yank the row
   // out of the active list with no visual confirmation. We keep the id here
   // for ~600ms so the row stays in the active section (now rendered with the
@@ -120,7 +120,7 @@ export function ListBody({
     };
   }, []);
 
-  const handleToggle = (item: ListItem) => {
+  const handleToggle = (item: Task) => {
     const becomingCompleted = !item.is_completed;
     const existing = hideTimersRef.current.get(item.id);
     if (existing !== undefined) {
@@ -157,8 +157,8 @@ export function ListBody({
     onToggleItem(item);
   };
 
-  const active = list.list_items.filter((i) => !i.is_completed || pendingHideIds.has(i.id));
-  const completed = list.list_items.filter((i) => i.is_completed && !pendingHideIds.has(i.id));
+  const active = list.tasks.filter((i) => !i.is_completed || pendingHideIds.has(i.id));
+  const completed = list.tasks.filter((i) => i.is_completed && !pendingHideIds.has(i.id));
 
   // Categorise active items only. Completed items are tucked away under
   // the collapse and don't need to participate in category grouping -
@@ -179,7 +179,7 @@ export function ListBody({
     setDraft("");
   };
 
-  const requestDelete = (item: ListItem) => {
+  const requestDelete = (item: Task) => {
     setPendingDelete(item);
   };
 
@@ -190,7 +190,7 @@ export function ListBody({
   };
 
   /** Wraps a single item row with its swipe gesture handlers. */
-  const renderRow = (item: ListItem) => (
+  const renderRow = (item: Task) => (
     <SwipeableListItem
       key={item.id}
       onSwipeRight={() => handleToggle(item)}
@@ -216,7 +216,7 @@ export function ListBody({
   // participates in sorting (completed rows render via plain `renderRow`
   // with no handle).
   const reorderable = !list.smart_sort_enabled;
-  const reorderItems = useReorderListItems();
+  const reorderItems = useReorderTasks();
 
   // PointerSensor with a small activation distance: a quick tap on the
   // handle (e.g. the user adjusting focus) won't start a drag, but any
@@ -244,7 +244,7 @@ export function ListBody({
   };
 
   /** Like `renderRow` but with the drag handle wired up through `useSortable`. */
-  const renderSortableActiveRow = (item: ListItem) => (
+  const renderSortableActiveRow = (item: Task) => (
     <SortableActiveRow
       key={item.id}
       item={item}
@@ -260,7 +260,7 @@ export function ListBody({
     if (!open) setEditingItem(null);
   };
 
-  const handleDialogSubmit = (item: ListItem, payload: ListItemDialogPayload) => {
+  const handleDialogSubmit = (item: Task, payload: ListItemDialogPayload) => {
     onUpdateItem(item, payload);
     setEditingItem(null);
   };
@@ -268,7 +268,7 @@ export function ListBody({
   // From within the dialog: route through the same confirm flow that
   // swipe-left and the desktop trash button use. We close the popup
   // first so the confirm dialog can take focus over the same spot.
-  const handleDialogDelete = (item: ListItem) => {
+  const handleDialogDelete = (item: Task) => {
     setEditingItem(null);
     setPendingDelete(item);
   };
@@ -385,7 +385,7 @@ function CategorizedItems({
   renderRow,
 }: {
   groups: ReturnType<typeof groupByCategory>;
-  renderRow: (item: ListItem) => ReactNode;
+  renderRow: (item: Task) => ReactNode;
 }) {
   return (
     <div className="space-y-2">
@@ -421,10 +421,10 @@ function SortableActiveRow({
   onSwipeRight,
   onSwipeLeft,
 }: {
-  item: ListItem;
-  onToggle: (item: ListItem) => void;
-  onOpen: (item: ListItem) => void;
-  onDelete: (item: ListItem) => void;
+  item: Task;
+  onToggle: (item: Task) => void;
+  onOpen: (item: Task) => void;
+  onDelete: (item: Task) => void;
   onSwipeRight: () => void;
   onSwipeLeft: () => void;
 }) {

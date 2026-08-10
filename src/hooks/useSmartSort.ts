@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useToggleSmartSort } from "@/hooks/useLists";
+import { useToggleSmartSort } from "@/hooks/useTasks";
 import {
   CATEGORY_LABEL,
   CATEGORY_ORDER,
@@ -8,7 +8,7 @@ import {
   isShoppingList,
   type GroceryCategory,
 } from "@/lib/groceryCategorize";
-import type { ListWithItems } from "@/types/database";
+import type { ListWithTasks } from "@/types/database";
 
 /**
  * Smart-sort surface for a single list.
@@ -18,7 +18,7 @@ import type { ListWithItems } from "@/types/database";
  *     don't get the button at all.
  *   • `enabled`    - current state of the persistent toggle, sourced from
  *     `list.smart_sort_enabled`. Drives whether the UI renders category
- *     headers and whether `useCreateListItem` / `useUpdateListItem`
+ *     headers and whether `useCreateTask` / `useUpdateTask`
  *     trigger auto-resort on item changes.
  *   • `toggle()`   - flips the flag (and, when turning on, runs an
  *     initial sort so the list is immediately grouped by aisle).
@@ -35,10 +35,10 @@ export interface UseSmartSortResult {
   isPending: boolean;
 }
 
-export function useSmartSort(list: ListWithItems): UseSmartSortResult {
+export function useSmartSort(list: ListWithTasks): UseSmartSortResult {
   const toggleMutation = useToggleSmartSort();
 
-  const itemNames = useMemo(() => list.list_items.map((i) => i.name), [list.list_items]);
+  const itemNames = useMemo(() => list.tasks.map((i) => i.name), [list.tasks]);
   const { isShopping, recognisedRatio } = useMemo(
     () => isShoppingList(list.name, itemNames),
     [list.name, itemNames],
@@ -62,10 +62,10 @@ export function useSmartSort(list: ListWithItems): UseSmartSortResult {
  */
 export interface CategoryGroup {
   category: GroceryCategory;
-  items: ListWithItems["list_items"];
+  items: ListWithTasks["tasks"];
 }
 
-export function groupByCategory(items: ListWithItems["list_items"]): CategoryGroup[] {
+export function groupByCategory(items: ListWithTasks["tasks"]): CategoryGroup[] {
   const groups: CategoryGroup[] = [];
   for (const item of items) {
     const category = categorize(item.name);

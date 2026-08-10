@@ -29,11 +29,15 @@ function eventItem(personIds: string[], date = "2026-06-04"): AgendaItem {
 }
 
 function paymentItem(personIds: string[], date = "2026-06-04"): AgendaItem {
-  return { kind: "payment", date, sortKey: 1443, personIds } as unknown as AgendaItem;
+  return { kind: "payment", date, sortKey: 1444, personIds } as unknown as AgendaItem;
 }
 
 function birthdayItem(date = "2026-06-04"): AgendaItem {
-  return { kind: "birthday", date, sortKey: 1442 } as unknown as AgendaItem;
+  return { kind: "birthday", date, sortKey: 1443 } as unknown as AgendaItem;
+}
+
+function taskItem(assigneeIds: string[], date = "2026-06-04"): AgendaItem {
+  return { kind: "task", date, sortKey: 1442, assigneeIds } as unknown as AgendaItem;
 }
 
 function filter(kinds: AgendaItem["kind"][] = [], personIds: string[] = []): AgendaFilter {
@@ -48,6 +52,8 @@ describe("agendaItemPersonIds", () => {
     expect(agendaItemPersonIds(eventItem(["ana", "bob"]))).toEqual(["ana", "bob"]);
     expect(agendaItemPersonIds(paymentItem(["bob"]))).toEqual(["bob"]);
     expect(agendaItemPersonIds(birthdayItem())).toEqual([]);
+    // A task answers with its assignees, so a chore follows the person rail.
+    expect(agendaItemPersonIds(taskItem(["ana"]))).toEqual(["ana"]);
   });
 });
 
@@ -78,10 +84,12 @@ describe("matchesAgendaFilter - person", () => {
     expect(matchesAgendaFilter(eventItem(["bob"]), f)).toBe(false);
   });
 
-  it("hides unassigned events/payments under an active person filter", () => {
+  it("hides unassigned events/payments/tasks under an active person filter", () => {
     const f = filter([], ["ana"]);
     expect(matchesAgendaFilter(eventItem([]), f)).toBe(false);
     expect(matchesAgendaFilter(paymentItem([]), f)).toBe(false);
+    // No assignees means family-wide, which is nobody's - same rule as events.
+    expect(matchesAgendaFilter(taskItem([]), f)).toBe(false);
   });
 
   it("always shows birthdays regardless of the person filter", () => {

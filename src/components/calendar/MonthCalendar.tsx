@@ -555,6 +555,8 @@ function monthChipLabel(item: AgendaItem): string {
       return item.event.name;
     case "external":
       return item.event.title ?? "(bez naslova)";
+    case "task":
+      return item.task.name;
     case "payment":
       return item.payment.name;
     case "birthday":
@@ -566,6 +568,7 @@ function monthChipLabel(item: AgendaItem): string {
 function monthChipTime(item: AgendaItem): string | null {
   if (item.kind === "activity") return item.block.startTime;
   if (item.kind === "event" && !item.isAllDay) return item.startTime;
+  if (item.kind === "task") return item.dueTime;
   if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
     return item.event.start_time.slice(0, 5);
   }

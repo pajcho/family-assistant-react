@@ -23,11 +23,18 @@ export interface NotificationPreferencesInput {
   evening_time: string;
   /** IANA timezone, e.g. "Europe/Belgrade". */
   timezone: string;
-  /** Push when another family member adds a new list / event / payment / birthday. */
+  /**
+   * Push when another family member adds a new list / event / payment /
+   * birthday / dated task. An undated task (a plain list item) never
+   * pushes regardless of this flag - see notify_on_task_create's own
+   * comment below.
+   */
   notify_on_list_create: boolean;
   notify_on_event_create: boolean;
   notify_on_payment_create: boolean;
   notify_on_birthday_create: boolean;
+  /** Only a task with a due date triggers this push - an undated list item never does. */
+  notify_on_task_create: boolean;
 }
 
 const FALLBACK_TIMEZONE = "Europe/Belgrade";
@@ -48,13 +55,14 @@ function defaultPrefs(): NotificationPreferencesInput {
     evening_enabled: false,
     evening_time: "20:00",
     timezone: detectTimezone(),
-    // Match the column defaults - opted in for all four. A user who's
+    // Match the column defaults - opted in for all five. A user who's
     // enabled push notifications at all probably wants to know when
     // their partner adds something. Easy to turn off in settings.
     notify_on_list_create: true,
     notify_on_event_create: true,
     notify_on_payment_create: true,
     notify_on_birthday_create: true,
+    notify_on_task_create: true,
   };
 }
 
@@ -120,6 +128,7 @@ export function useNotificationPreferences() {
             notify_on_event_create: fetched.notify_on_event_create,
             notify_on_payment_create: fetched.notify_on_payment_create,
             notify_on_birthday_create: fetched.notify_on_birthday_create,
+            notify_on_task_create: fetched.notify_on_task_create,
           }
         : defaultPrefs(),
     [fetched],

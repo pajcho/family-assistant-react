@@ -218,8 +218,8 @@ function formatLastSeen(iso: string | null | undefined): string {
 
 /**
  * Per-entity toggles for "instant" pushes when another family member
- * creates a list / event / payment / birthday. Backed by 4 boolean
- * columns on `notification_preferences`; share the same hook as the
+ * creates a list / event / payment / birthday / dated task. Backed by 5
+ * boolean columns on `notification_preferences`; share the same hook as the
  * digests card so all opt-ins save together. Defaults to opted-in for
  * every kind - turning notifications on means you probably want to
  * know when your partner adds something.
@@ -233,7 +233,8 @@ function FamilyCreateNotificationsCard() {
     form.notify_on_list_create !== prefs.notify_on_list_create ||
     form.notify_on_event_create !== prefs.notify_on_event_create ||
     form.notify_on_payment_create !== prefs.notify_on_payment_create ||
-    form.notify_on_birthday_create !== prefs.notify_on_birthday_create;
+    form.notify_on_birthday_create !== prefs.notify_on_birthday_create ||
+    form.notify_on_task_create !== prefs.notify_on_task_create;
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -279,6 +280,14 @@ function FamilyCreateNotificationsCard() {
             onChange={(v) => setForm((s) => ({ ...s, notify_on_birthday_create: v }))}
             disabled={isLoading || saving}
           />
+          <FamilyCreateRow
+            id="task"
+            label="Novi zadatak"
+            description="Važi samo za zadatak sa datumom (podsetnik) - stavka na listi za kupovinu ne šalje push."
+            checked={form.notify_on_task_create}
+            onChange={(v) => setForm((s) => ({ ...s, notify_on_task_create: v }))}
+            disabled={isLoading || saving}
+          />
           <div className="flex justify-end pt-3">
             <Button type="submit" disabled={isLoading || saving || !dirty}>
               {saving ? "Čuva…" : "Sačuvaj"}
@@ -293,27 +302,45 @@ function FamilyCreateNotificationsCard() {
 interface FamilyCreateRowProps {
   id: string;
   label: string;
+  /**
+   * Optional clarifying line under the label, for a kind whose push
+   * condition isn't obvious from the label alone (e.g. tasks, which only
+   * push when dated). Omitted by the other kinds, which need no caveat.
+   */
+  description?: string;
   checked: boolean;
   onChange: (next: boolean) => void;
   disabled?: boolean;
 }
 
-function FamilyCreateRow({ id, label, checked, onChange, disabled }: FamilyCreateRowProps) {
+function FamilyCreateRow({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+  disabled,
+}: FamilyCreateRowProps) {
   return (
-    <label
-      htmlFor={`notify-${id}-toggle`}
-      className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-normal"
-    >
-      <input
-        id={`notify-${id}-toggle`}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        className="size-4 cursor-pointer rounded-sm border-border accent-accent"
-      />
-      {label}
-    </label>
+    <>
+      <label
+        htmlFor={`notify-${id}-toggle`}
+        className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-normal"
+      >
+        <input
+          id={`notify-${id}-toggle`}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+          className="size-4 cursor-pointer rounded-sm border-border accent-accent"
+        />
+        {label}
+      </label>
+      {description ? (
+        <p className="pl-7 text-xs font-normal text-muted-foreground">{description}</p>
+      ) : null}
+    </>
   );
 }
 

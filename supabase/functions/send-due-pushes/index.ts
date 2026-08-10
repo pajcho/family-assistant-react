@@ -1,8 +1,8 @@
 // supabase/functions/send-due-pushes/index.ts
 //
-// Cron-triggered every minute. Five dispatch paths (digests, event / payment /
-// activity / external-calendar reminders) all decided by `plan.ts`, which is
-// pure and unit-tested. This file is only the I/O shell:
+// Cron-triggered every minute. Six dispatch paths (digests, event / payment /
+// activity / external-calendar / task reminders) all decided by `plan.ts`, which
+// is pure and unit-tested. This file is only the I/O shell:
 //
 //   1. one Promise.all of bulk reads -> every row the job could need
 //   2. planDispatch() -> the exact list of pushes due this minute
@@ -30,6 +30,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 
+import type { TaskOccurrenceRecord } from "../_shared/expandTask.ts";
 import {
   addDays,
   type ActivityOverrideRow,
@@ -51,6 +52,8 @@ import {
   type PushSubRow,
   type ScheduleRuleRow,
   type ShiftAnchorRow,
+  TASK_WINDOW_DAYS_AFTER,
+  type TaskRow,
   utcDateOf,
 } from "./plan.ts";
 
@@ -127,6 +130,8 @@ interface DispatchContext {
   participants: ParticipantRow[];
   overrides: ActivityOverrideRow[];
   anchors: ShiftAnchorRow[];
+  tasks: TaskRow[];
+  taskOccurrences: TaskOccurrenceRecord[];
 }
 
 /**
@@ -145,6 +150,7 @@ async function loadDispatchContext(
   const windowStart = addDays(utcToday, -EVENT_WINDOW_DAYS_BEFORE);
   const eventWindowEnd = addDays(utcToday, EVENT_WINDOW_DAYS_AFTER);
   const paymentWindowEnd = addDays(utcToday, PAYMENT_WINDOW_DAYS_AFTER);
+  const taskWindowEnd = addDays(utcToday, TASK_WINDOW_DAYS_AFTER);
 
   const [
     prefsRes,
@@ -160,6 +166,8 @@ async function loadDispatchContext(
     partsRes,
     ovRes,
     anchorsRes,
+    tasksRes,
+    taskOccRes,
   ] = await Promise.all([
     supabase
       .from("notification_preferences")
@@ -226,6 +234,40 @@ async function loadDispatchContext(
     supabase
       .from("school_shift_anchors")
       .select("person_id, anchor_week_start, anchor_shift, flip_interval_weeks, is_alternating"),
+    // Dated tasks only: a `tasks` row with no due_date is a plain list item (a
+    // shopping list is a few hundred of them) and reaches neither the agenda nor
+    // a digest.
+    //
+    // The window cannot be a simple `due_date >= windowStart` the way payments
+    // is, because a recurring task's `due_date` is the series ANCHOR and never
+    // advances: a chore set up last year is still due every Tuesday. So the
+    // filter is "starts on or before the window ends" AND either the date itself
+    // falls in the window (one-offs) or the row repeats and plan.ts projects it.
+    //
+    // `is_completed` is the payments `is_paid = false` prefilter: a finished
+    // one-off neither counts nor reminds, and a RECURRING task is structurally
+    // forbidden from setting the column at all (tasks_recurring_not_completed),
+    // so this drops nothing that recurrence would have rescued. `scope` and
+    // `owner_id` come along so plan.ts can re-apply the RLS rule this
+    // service-role read bypasses.
+    supabase
+      .from("tasks")
+      .select(
+        "id, family_id, name, scope, owner_id, due_date, due_time, recurrence_period, recurrence_interval, recurrence_weekdays, recurrence_until, completion_mode, is_completed, remind_minutes_before, remind_days_before",
+      )
+      .eq("is_completed", false)
+      .not("due_date", "is", null)
+      .lte("due_date", taskWindowEnd)
+      .or(`due_date.gte.${windowStart},recurrence_period.in.(daily,weekly,monthly)`),
+    // Occurrence rows for the window, plus the ones a move relocated INTO it -
+    // those key on their original date, which can sit outside the window
+    // entirely.
+    supabase
+      .from("task_occurrences")
+      .select("task_id, occurrence_date, person_id, status, moved_to_date")
+      .or(
+        `and(occurrence_date.gte.${windowStart},occurrence_date.lte.${taskWindowEnd}),and(moved_to_date.gte.${windowStart},moved_to_date.lte.${taskWindowEnd})`,
+      ),
   ]);
 
   // Everything the digest counts has to throw rather than degrade to []: a
@@ -242,6 +284,10 @@ async function loadDispatchContext(
     actsRes,
     schedRes,
     partsRes,
+    tasksRes,
+    // An occurrence read that silently degraded to [] would count and nag about
+    // occurrences somebody already ticked off or skipped.
+    taskOccRes,
   ]) {
     if (res.error) throw new Error(res.error.message);
   }
@@ -260,6 +306,8 @@ async function loadDispatchContext(
     participants: (partsRes.data ?? []) as ParticipantRow[],
     overrides: (ovRes.data ?? []) as ActivityOverrideRow[],
     anchors: (anchorsRes.data ?? []) as ShiftAnchorRow[],
+    tasks: (tasksRes.data ?? []) as TaskRow[],
+    taskOccurrences: (taskOccRes.data ?? []) as TaskOccurrenceRecord[],
   };
 }
 

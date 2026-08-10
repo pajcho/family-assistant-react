@@ -23,8 +23,13 @@ describe("invalidationKeysFor", () => {
   });
 
   it("collapses tables that share one root key", () => {
-    // lists and list_items both invalidate ["lists", familyId].
-    expect(invalidationKeysFor(["lists", "list_items"], FAMILY)).toEqual([["lists", FAMILY]]);
+    // A task change invalidates the flat task list AND the nested
+    // lists-with-tasks select, so ["lists", familyId] must not be emitted twice
+    // when the same window also carries a `lists` change.
+    expect(invalidationKeysFor(["lists", "tasks"], FAMILY)).toEqual([
+      ["lists", FAMILY],
+      ["tasks", FAMILY],
+    ]);
   });
 
   it("keeps the family-less payment_history key family-less", () => {

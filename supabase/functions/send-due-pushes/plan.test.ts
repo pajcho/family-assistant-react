@@ -18,7 +18,9 @@ import {
   type PushSubRow,
   type ScheduleRuleRow,
   type ShiftAnchorRow,
+  type TaskRow,
 } from "./plan.ts";
+import type { TaskOccurrenceRecord } from "../_shared/expandTask.ts";
 
 // Europe/Belgrade is CEST (+02:00) from late March to late October, so every
 // instant below is written as UTC and read as local +2. Zagreb shares the
@@ -83,6 +85,37 @@ function ext(over: Partial<ExternalEventRow> & { id: string }): ExternalEventRow
   };
 }
 
+/** A dated task. Family scope, no recurrence and no reminder unless stated. */
+function taskRow(over: Partial<TaskRow> & { id: string }): TaskRow {
+  return {
+    family_id: FAMILY,
+    name: "Izneti smeće",
+    scope: "family",
+    owner_id: PARENT,
+    due_date: "2026-07-29",
+    due_time: null,
+    recurrence_period: null,
+    recurrence_interval: 1,
+    recurrence_weekdays: null,
+    recurrence_until: null,
+    completion_mode: "shared",
+    is_completed: false,
+    remind_minutes_before: null,
+    remind_days_before: null,
+    ...over,
+  };
+}
+
+function taskOcc(over: Partial<TaskOccurrenceRecord> & { task_id: string }): TaskOccurrenceRecord {
+  return {
+    occurrence_date: "2026-07-29",
+    person_id: null,
+    status: "done",
+    moved_to_date: null,
+    ...over,
+  };
+}
+
 function input(over: Partial<DispatchInput> & { now: Date }): DispatchInput {
   return {
     force: null,
@@ -99,6 +132,8 @@ function input(over: Partial<DispatchInput> & { now: Date }): DispatchInput {
     participants: [],
     overrides: [],
     anchors: [],
+    tasks: [],
+    taskOccurrences: [],
     ...over,
   };
 }
@@ -252,7 +287,7 @@ describe("digests", () => {
     expect(claims[0].push?.body).toBe("Danas: 2 događaja, 1 plaćanje, 1 rođendan.");
   });
 
-  // The agenda lists five kinds of thing per day; a digest that counted only
+  // The agenda lists six kinds of thing per day; a digest that counted only
   // three stayed silent on days the user could see were busy.
   it("counts a weekly activity even when it carries no reminder of its own", () => {
     const claims = planDispatch(
@@ -298,6 +333,186 @@ describe("digests", () => {
         status: null,
       },
     ]);
+  });
+
+  // Tasks are the sixth source. A task that shows on Danas but not in the
+  // morning digest is the same silent-morning bug activities had.
+  it("counts a dated task even when it carries no reminder of its own", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        tasks: [taskRow({ id: "t-1" })],
+      }),
+    );
+    expect(claims[0].push?.body).toBe("Danas: 1 zadatak.");
+  });
+
+  it("counts a recurring task's occurrence, whose due_date is only the anchor", () => {
+    // Weekly from Wednesday 2026-07-01: the digest's day is 2026-07-29, four
+    // steps on, so a `due_date = target` lookup would have missed it entirely.
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        tasks: [taskRow({ id: "t-1", due_date: "2026-07-01", recurrence_period: "weekly" })],
+      }),
+    );
+    expect(claims[0].push?.body).toBe("Danas: 1 zadatak.");
+  });
+
+  it("counts tomorrow's tasks in the evening digest too", () => {
+    const claims = planDispatch(
+      input({
+        // 18:00 UTC = 20:00 Belgrade, the default evening time.
+        now: at("2026-07-29T18:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, evening_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        tasks: [
+          taskRow({ id: "t-1", due_date: "2026-07-30" }),
+          // Today's task is not tomorrow's business.
+          taskRow({ id: "t-2", due_date: "2026-07-29" }),
+        ],
+      }),
+    );
+    expect(claims.map(shape)).toEqual([
+      {
+        userId: PARENT,
+        kind: "evening_digest",
+        refId: "2026-07-30",
+        title: "Pregled za sutra",
+        body: "Sutra: 1 zadatak.",
+        status: null,
+      },
+    ]);
+  });
+
+  it("stops counting an occurrence somebody ticked off or skipped", () => {
+    const shared = {
+      now: at("2026-07-29T06:00:00Z"),
+      prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+      profiles: [profile(PARENT)],
+      subs: [sub(PARENT)],
+      tasks: [taskRow({ id: "t-1", due_date: "2026-07-01", recurrence_period: "weekly" })],
+    };
+    for (const status of ["done", "skipped"] as const) {
+      const claims = planDispatch(
+        input({ ...shared, taskOccurrences: [taskOcc({ task_id: "t-1", status })] }),
+      );
+      expect(claims.map((c) => c.emptyStatus)).toEqual(["nothing_to_send"]);
+    }
+    // A completed ONE-OFF never reaches the digest either - index.ts filters
+    // `is_completed` in the query, and the expander reads the column too.
+    const oneOff = planDispatch(
+      input({ ...shared, tasks: [taskRow({ id: "t-2", is_completed: true })] }),
+    );
+    expect(oneOff.map((c) => c.emptyStatus)).toEqual(["nothing_to_send"]);
+  });
+
+  it("counts a task at its moved date, not at the series date", () => {
+    const moved = [
+      taskOcc({
+        task_id: "t-1",
+        occurrence_date: "2026-07-29",
+        status: "moved",
+        moved_to_date: "2026-07-30",
+      }),
+    ];
+    const shared = {
+      prefs: [prefs({ user_id: PARENT, morning_enabled: true, evening_enabled: true })],
+      profiles: [profile(PARENT)],
+      subs: [sub(PARENT)],
+      tasks: [taskRow({ id: "t-1", due_date: "2026-07-01", recurrence_period: "weekly" })],
+      taskOccurrences: moved,
+    };
+    // Morning digest on the 29th: gone. Evening digest on the 29th, which
+    // reports the 30th: there.
+    const morning = planDispatch(input({ ...shared, now: at("2026-07-29T06:00:00Z") }));
+    expect(morning.map((c) => c.emptyStatus)).toEqual(["nothing_to_send"]);
+    const evening = planDispatch(input({ ...shared, now: at("2026-07-29T18:00:00Z") }));
+    expect(evening.map((c) => c.push?.body)).toEqual(["Sutra: 1 zadatak."]);
+  });
+
+  it("keeps a personal task out of everybody else's digest", () => {
+    // Service-role reads bypass RLS, so `scope = 'personal'` has to be
+    // re-applied here or the title lands on the whole family's lock screens.
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [
+          prefs({ user_id: PARENT, morning_enabled: true }),
+          prefs({ user_id: OTHER_PARENT, morning_enabled: true }),
+        ],
+        profiles: [profile(PARENT), profile(OTHER_PARENT)],
+        subs: [sub(PARENT), sub(OTHER_PARENT)],
+        tasks: [taskRow({ id: "t-1", scope: "personal", owner_id: PARENT })],
+      }),
+    );
+    expect(claims.map((c) => c.push?.body ?? c.emptyStatus)).toEqual([
+      "Danas: 1 zadatak.",
+      "nothing_to_send",
+    ]);
+  });
+
+  it("counts an unknown scope for nobody at all", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        tasks: [taskRow({ id: "t-1", scope: "something-new", owner_id: PARENT })],
+      }),
+    );
+    expect(claims.map((c) => c.emptyStatus)).toEqual(["nothing_to_send"]);
+  });
+
+  it("counts tasks with the paucal plural Serbian needs", () => {
+    const shared = {
+      now: at("2026-07-29T06:00:00Z"),
+      prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+      profiles: [profile(PARENT)],
+      subs: [sub(PARENT)],
+    };
+    const many = (n: number) =>
+      planDispatch(
+        input({
+          ...shared,
+          tasks: Array.from({ length: n }, (_, i) => taskRow({ id: `t-${i}` })),
+        }),
+      )[0].push?.body;
+    expect(many(1)).toBe("Danas: 1 zadatak.");
+    expect(many(2)).toBe("Danas: 2 zadatka.");
+    expect(many(5)).toBe("Danas: 5 zadataka.");
+  });
+
+  it("orders the task count between activities and payments", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_enabled: true })],
+        profiles: [profile(PARENT)],
+        subs: [sub(PARENT)],
+        events: [event({ id: "ev-1" })],
+        tasks: [taskRow({ id: "t-1" })],
+        payments: [
+          {
+            id: "pay-1",
+            family_id: FAMILY,
+            name: "Struja",
+            amount: 3500,
+            due_date: "2026-07-29",
+            remind_days_before: null,
+          } satisfies PaymentRow,
+        ],
+      }),
+    );
+    expect(claims[0].push?.body).toBe("Danas: 1 događaj, 1 zadatak, 1 plaćanje.");
   });
 
   it("counts a mirrored Google event, but only for someone allowed to see it", () => {
@@ -962,6 +1177,290 @@ describe("external reminders", () => {
         subs: [sub(PARENT)],
         externalLocals: [local],
         externalEvents: [ext({ id: "x-1", start_time: null })],
+      }),
+    );
+    expect(claims).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task reminders
+// ---------------------------------------------------------------------------
+
+describe("task reminders", () => {
+  const base = { profiles: [profile(PARENT)], subs: [sub(PARENT)] };
+
+  it("fires a timed task at due_time minus remind_minutes_before", () => {
+    // 15:30 UTC = 17:30 Belgrade = 18:00 minus 30.
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [
+          taskRow({
+            id: "t-1",
+            name: "Pozvati zubara",
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+      }),
+    );
+    expect(claims.map(shape)).toEqual([
+      {
+        userId: PARENT,
+        kind: "task_reminder",
+        refId: "t-1:2026-07-29",
+        title: "Pozvati zubara",
+        body: "Dospeva za 30 min (u 18:00).",
+        status: null,
+      },
+    ]);
+  });
+
+  it("words a zero-minute offset as the due time itself", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T16:00:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_time: "18:00:00", remind_minutes_before: 0 })],
+      }),
+    );
+    expect(claims.map((c) => c.push?.body)).toEqual(["Dospeva u 18:00."]);
+  });
+
+  it("fires an all-day task remind_days_before at the recipient's morning time", () => {
+    const claims = planDispatch(
+      input({
+        // 07:00 UTC = 09:00 Belgrade, this user's own morning time.
+        now: at("2026-07-29T07:00:00Z"),
+        prefs: [prefs({ user_id: PARENT, morning_time: "09:00:00" })],
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_date: "2026-07-31", remind_days_before: 2 })],
+      }),
+    );
+    expect(claims.map(shape)).toEqual([
+      {
+        userId: PARENT,
+        kind: "task_reminder",
+        refId: "t-1:2026-07-31",
+        title: "Izneti smeće",
+        body: "Dospeva za 2 dana.",
+        status: null,
+      },
+    ]);
+  });
+
+  it("defaults to 08:00 Europe/Belgrade for a member with no preferences row", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_date: "2026-07-30", remind_days_before: 1 })],
+      }),
+    );
+    expect(claims.map((c) => c.push?.body)).toEqual(["Dospeva sutra."]);
+  });
+
+  it("words a same-day all-day reminder as today", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_date: "2026-07-29", remind_days_before: 0 })],
+      }),
+    );
+    expect(claims.map((c) => c.push?.body)).toEqual(["Dospeva danas."]);
+  });
+
+  it("uses the offset that matches the task's shape and ignores the other", () => {
+    // A timed task reads remind_minutes_before, an all-day one
+    // remind_days_before - a value in the wrong slot fires nothing.
+    const timedWithDays = planDispatch(
+      input({
+        now: at("2026-07-29T06:00:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_time: "18:00:00", remind_days_before: 0 })],
+      }),
+    );
+    expect(timedWithDays).toHaveLength(0);
+
+    const allDayWithMinutes = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", remind_minutes_before: 30 })],
+      }),
+    );
+    expect(allDayWithMinutes).toHaveLength(0);
+  });
+
+  it("keys each occurrence of a recurring task on its own series date", () => {
+    const claims = planDispatch(
+      input({
+        // Weekly Wednesdays from 2026-07-01, 17:30 Belgrade on the 29th.
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [
+          taskRow({
+            id: "t-1",
+            due_date: "2026-07-01",
+            recurrence_period: "weekly",
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+      }),
+    );
+    expect(claims.map((c) => c.refId)).toEqual(["t-1:2026-07-29"]);
+    expect(claims[0].push?.tag).toBe("task-reminder-t-1:2026-07-29");
+  });
+
+  it("fires a moved occurrence on its new date, still keyed on the old one", () => {
+    const claims = planDispatch(
+      input({
+        // The 29th's occurrence was pushed to the 30th, so nothing fires on the
+        // 29th and the 30th's push still claims the 29th's slot.
+        now: at("2026-07-30T15:30:00Z"),
+        ...base,
+        tasks: [
+          taskRow({
+            id: "t-1",
+            due_date: "2026-07-01",
+            recurrence_period: "weekly",
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+        taskOccurrences: [
+          taskOcc({
+            task_id: "t-1",
+            occurrence_date: "2026-07-29",
+            status: "moved",
+            moved_to_date: "2026-07-30",
+          }),
+        ],
+      }),
+    );
+    expect(claims.map((c) => c.refId)).toEqual(["t-1:2026-07-29"]);
+  });
+
+  it("never nags about an occurrence already ticked off or skipped", () => {
+    for (const status of ["done", "skipped"] as const) {
+      const claims = planDispatch(
+        input({
+          now: at("2026-07-29T15:30:00Z"),
+          ...base,
+          tasks: [
+            taskRow({
+              id: "t-1",
+              due_date: "2026-07-01",
+              recurrence_period: "weekly",
+              due_time: "18:00:00",
+              remind_minutes_before: 30,
+            }),
+          ],
+          taskOccurrences: [taskOcc({ task_id: "t-1", status })],
+        }),
+      );
+      expect(claims).toHaveLength(0);
+    }
+  });
+
+  it("stops at recurrence_until", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [
+          taskRow({
+            id: "t-1",
+            due_date: "2026-07-01",
+            recurrence_period: "weekly",
+            recurrence_until: "2026-07-28",
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+      }),
+    );
+    expect(claims).toHaveLength(0);
+  });
+
+  it("never claims a slot for a member without a push subscription", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        profiles: [profile(PARENT), profile(KID)],
+        subs: [sub(PARENT)],
+        tasks: [taskRow({ id: "t-1", due_time: "18:00:00", remind_minutes_before: 30 })],
+      }),
+    );
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
+  });
+
+  it("reaches members in different timezones at different instants", () => {
+    const shared = {
+      prefs: [
+        prefs({ user_id: PARENT, timezone: BG }),
+        prefs({ user_id: OTHER_PARENT, timezone: LDN }),
+      ],
+      profiles: [profile(PARENT), profile(OTHER_PARENT)],
+      subs: [sub(PARENT), sub(OTHER_PARENT)],
+      tasks: [taskRow({ id: "t-1", due_time: "18:00:00", remind_minutes_before: 30 })],
+    };
+    expect(
+      planDispatch(input({ ...shared, now: at("2026-07-29T15:30:00Z") })).map((c) => c.userId),
+    ).toEqual([PARENT]);
+    expect(
+      planDispatch(input({ ...shared, now: at("2026-07-29T16:30:00Z") })).map((c) => c.userId),
+    ).toEqual([OTHER_PARENT]);
+  });
+
+  it("keeps a personal task's reminder to its owner", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        profiles: [profile(PARENT), profile(OTHER_PARENT)],
+        subs: [sub(PARENT), sub(OTHER_PARENT)],
+        tasks: [
+          taskRow({
+            id: "t-1",
+            scope: "personal",
+            owner_id: PARENT,
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+      }),
+    );
+    expect(claims.map((c) => c.userId)).toEqual([PARENT]);
+  });
+
+  it("ignores another family's tasks", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [
+          taskRow({
+            id: "t-1",
+            family_id: OTHER_FAMILY,
+            due_time: "18:00:00",
+            remind_minutes_before: 30,
+          }),
+        ],
+      }),
+    );
+    expect(claims).toHaveLength(0);
+  });
+
+  it("skips tasks with no reminder offset at all", () => {
+    const claims = planDispatch(
+      input({
+        now: at("2026-07-29T15:30:00Z"),
+        ...base,
+        tasks: [taskRow({ id: "t-1", due_time: "18:00:00" }), taskRow({ id: "t-2" })],
       }),
     );
     expect(claims).toHaveLength(0);

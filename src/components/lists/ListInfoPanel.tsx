@@ -6,20 +6,20 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
-import type { ListWithItems, Profile } from "@/types/database";
+import type { ListWithTasks, Profile } from "@/types/database";
 import { formatDateTime, formatRelative } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 
 export type ListInfoPanelProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  list: ListWithItems;
+  list: ListWithTasks;
 };
 
 /**
  * Read-only info panel for one list.
  *
- * Surfaces the audit columns we now keep on `lists` and `list_items`:
+ * Surfaces the audit columns we now keep on `lists` and `tasks`:
  *   • who created the list (owner_id) and when
  *   • who last modified the list - note this also fires on any nested
  *     item change, since the AFTER trigger bumps the parent's stamps
@@ -62,13 +62,13 @@ export function ListInfoPanel({ open, onOpenChange, list }: ListInfoPanelProps) 
           </dl>
         </section>
 
-        {list.list_items.length > 0 ? (
+        {list.tasks.length > 0 ? (
           <section className="mt-4 space-y-3">
             <h3 className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
               Aktivnost stavki
             </h3>
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {list.list_items.map((item) => {
+              {list.tasks.map((item) => {
                 const creator = item.created_by_id ? byId.get(item.created_by_id) : undefined;
                 const editor = item.updated_by_id ? byId.get(item.updated_by_id) : undefined;
                 // Hide the "last edited" line when it's identical to "created"

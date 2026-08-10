@@ -518,7 +518,7 @@ export function categorize(name: string): GroceryCategory {
  * by the items' existing `sort_order`, so smart-sort is stable: running it
  * twice produces the same result, and within-category order doesn't
  * scramble between runs. Exported so the auto-resort path inside
- * `useCreateListItem` / `useUpdateListItem` can reuse the same comparator
+ * `useCreateTask` / `useUpdateTask` can reuse the same comparator
  * as the explicit smart-sort action.
  */
 export function applyCategorySort<T extends { name: string; sort_order: number }>(items: T[]): T[] {

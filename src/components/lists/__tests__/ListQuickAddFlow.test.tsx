@@ -20,7 +20,7 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigate,
 }));
 
-vi.mock("@/hooks/useLists", () => ({
+vi.mock("@/hooks/useTasks", () => ({
   useCreateList: () => ({
     mutateAsync,
     isPending: false,

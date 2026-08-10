@@ -85,7 +85,7 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
       .order("updated_at", { ascending: false })
       .limit(MAX_PER_GROUP),
     supabase
-      .from("list_items")
+      .from("tasks")
       .select("id,name,list_id,lists(name)")
       .eq("family_id", familyId)
       .ilike("name", pattern)

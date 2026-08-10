@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { ListFormDialog } from "@/components/lists/ListFormDialog";
 import type { ListFormPayload } from "@/components/lists/ListForm";
-import { useCreateList } from "@/hooks/useLists";
+import { useCreateList } from "@/hooks/useTasks";
 
 export type ListQuickAddFlowProps = {
   open: boolean;

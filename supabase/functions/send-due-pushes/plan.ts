@@ -9,28 +9,37 @@
 // `planDispatch`, claims every planned slot with one `notification_log`
 // upsert, sends what the claim granted, and bulk-deletes dead subscriptions.
 //
-// Five dispatch paths, in the order their results are reported:
+// Six dispatch paths, in the order their results are reported:
 //
 //   1. digests            - per user, at their configured morning/evening time
 //   2. event reminders    - per event, to subscribed family members
 //   3. payment reminders  - per unpaid payment, at each recipient's morning time
 //   4. activity reminders - per weekly-schedule occurrence, per participant
 //   5. external reminders - per mirrored Google event occurrence
+//   6. task reminders     - per unresolved task occurrence, timed or all-day
 //
-// Paths 2-5 fan out per family member but only to members with a push
+// Paths 2-6 fan out per family member but only to members with a push
 // subscription (see `claimableSubs` for why that filter must happen before
 // the claim).
 //
-// The digest counts the same five things the app's agenda lists for a day
+// The digest counts the same six things the app's agenda lists for a day
 // (events incl. multi-day spans, mirrored Google events, weekly activities,
-// due payments, birthdays) - see `planDigest`. Anything the agenda shows but
-// the digest ignores turns into a silent morning on a day the user can see is
-// busy, which is exactly how activities went unreported until 2026-08.
+// tasks incl. recurring ones, due payments, birthdays) - see `planDigest`.
+// Anything the agenda shows but the digest ignores turns into a silent morning
+// on a day the user can see is busy, which is exactly how activities went
+// unreported until 2026-08.
 //
 // Idempotency is unchanged: every planned push carries a
 // (user_id, kind, ref_id) key that `notification_log` protects with a UNIQUE
 // constraint. Planning only decides *what* to claim; the claim itself still
 // happens in Postgres.
+
+import {
+  expandTaskOccurrences,
+  type TaskOccurrenceRecord,
+  taskOccurrenceKey,
+  type TaskSeries,
+} from "../_shared/expandTask.ts";
 
 export type DigestKind = "morning_digest" | "evening_digest";
 
@@ -39,7 +48,8 @@ export type NotificationKind =
   | "event_reminder"
   | "payment_reminder"
   | "activity_reminder"
-  | "external_reminder";
+  | "external_reminder"
+  | "task_reminder";
 
 // --- input rows -------------------------------------------------------------
 
@@ -126,6 +136,39 @@ function externalVisibleTo(x: ExternalEventRow, userId: string): boolean {
   return x.visibility === "private" && x.owner_user_id === userId;
 }
 
+/**
+ * A `tasks` row. `TaskSeries` carries the recurrence columns the shared walk
+ * reads, so the two can never disagree about which fields the rule needs.
+ */
+export interface TaskRow extends TaskSeries {
+  family_id: string;
+  name: string;
+  /** 'family' = the whole family's, 'personal' = owner_id's alone. Anything else: nobody. */
+  scope: string;
+  owner_id: string | null;
+  /** Null = an all-day task, which reminds `remind_days_before` days ahead instead. */
+  due_time: string | null;
+  remind_minutes_before: number | null;
+  remind_days_before: number | null;
+}
+
+/**
+ * Who may see a task. Same hazard as `externalVisibleTo` above: this job reads
+ * with the service role, which bypasses RLS, so the "Users view accessible
+ * tasks" policy has to be re-applied by hand. Without it a personal task -
+ * whose entire point is that the rest of the family cannot see it - would put
+ * its title on every family member's lock screen and count in their digests.
+ *
+ * `scope` is trustworthy on its own, without looking at the parent list:
+ * `set_task_defaults()` forces a listed task's scope to its list's scope on
+ * INSERT and `cascade_list_scope_to_tasks` re-stamps it when the list flips
+ * (see 20260811000000_tasks.sql). Unknown values fail CLOSED.
+ */
+function taskVisibleTo(t: TaskRow, userId: string): boolean {
+  if (t.scope === "family") return true;
+  return t.scope === "personal" && t.owner_id !== null && t.owner_id === userId;
+}
+
 export interface ActivityRow {
   id: string;
   family_id: string;
@@ -189,6 +232,8 @@ export interface DispatchInput {
   participants: ParticipantRow[];
   overrides: ActivityOverrideRow[];
   anchors: ShiftAnchorRow[];
+  tasks: TaskRow[];
+  taskOccurrences: TaskOccurrenceRecord[];
 }
 
 // --- output -----------------------------------------------------------------
@@ -235,6 +280,12 @@ export const EVENT_WINDOW_DAYS_BEFORE = 1;
 export const EVENT_WINDOW_DAYS_AFTER = 2;
 /** Longest `remind_days_before` preset plus a day of timezone slack. */
 export const PAYMENT_WINDOW_DAYS_AFTER = 14;
+/**
+ * How far ahead task occurrences are projected. An all-day task reminds
+ * `remind_days_before` days early, exactly like a payment, so it needs the same
+ * reach - and the evening digest's target (local tomorrow) has to be inside it.
+ */
+export const TASK_WINDOW_DAYS_AFTER = 14;
 
 export function utcDateOf(now: Date): string {
   return now.toISOString().slice(0, 10);
@@ -248,6 +299,7 @@ export function planDispatch(input: DispatchInput): PlannedClaim[] {
     ...planPaymentReminders(input, idx),
     ...planActivityReminders(input, idx),
     ...planExternalReminders(input, idx),
+    ...planTaskReminders(input, idx),
   ];
 }
 
@@ -267,6 +319,25 @@ interface Index {
   birthdaysByFamily: Map<string, BirthdayRow[]>;
   externalByFamilyDate: Map<string, ExternalEventRow[]>;
   activities: ActivityIndex;
+  /** Unresolved task occurrences by `${family_id}|${effectiveDate}`, for the digest. */
+  taskInstancesByFamilyDate: Map<string, TaskInstance[]>;
+  /** The same instances flat, for the reminder path - it walks the whole window. */
+  taskInstances: TaskInstance[];
+}
+
+/**
+ * One task occurrence a family actually has on a day, after overrides.
+ *
+ * Shared by the digest (which counts them) and the reminder path (which fires
+ * on the ones carrying an offset), so those two can never drift - the same
+ * arrangement `resolveActivityOccurrences` has.
+ */
+export interface TaskInstance {
+  task: TaskRow;
+  /** The series date this instance keys on - stable across a move. */
+  occurrenceDate: string;
+  /** Where it shows: `occurrenceDate` unless an override relocated it. */
+  effectiveDate: string;
 }
 
 /** Everything the weekly-activity resolver needs, prebuilt once per tick. */
@@ -332,6 +403,34 @@ function buildIndex(input: DispatchInput): Index {
     pushInto(externalByFamilyDate, `${x.family_id}|${x.local_date}`, x);
   }
 
+  // Tasks cannot be bucketed by a column the way events and payments are: a
+  // recurring task's `due_date` is only the series ANCHOR, so the dates it
+  // actually lands on have to be projected. The whole tick's window is expanded
+  // once here, and both the digest and the reminder path read the result.
+  const occurrencesByKey = new Map<string, TaskOccurrenceRecord[]>();
+  for (const o of input.taskOccurrences) {
+    pushInto(occurrencesByKey, taskOccurrenceKey(o.task_id, o.occurrence_date), o);
+  }
+  const taskFrom = addDays(utcDateOf(input.now), -EVENT_WINDOW_DAYS_BEFORE);
+  const taskTo = addDays(utcDateOf(input.now), TASK_WINDOW_DAYS_AFTER);
+  const taskInstancesByFamilyDate = new Map<string, TaskInstance[]>();
+  const taskInstances: TaskInstance[] = [];
+  for (const t of input.tasks) {
+    for (const inst of expandTaskOccurrences(t, taskFrom, taskTo, occurrencesByKey)) {
+      // A resolved occurrence is neither counted nor nagged about: ticked off is
+      // done, and 'skipped' means "not needed this time" - the agenda drops it
+      // too. Everything else counts, including one nobody has got to yet.
+      if (inst.isDone || inst.isSkipped) continue;
+      const instance: TaskInstance = {
+        task: t,
+        occurrenceDate: inst.occurrenceDate,
+        effectiveDate: inst.effectiveDate,
+      };
+      taskInstances.push(instance);
+      pushInto(taskInstancesByFamilyDate, `${t.family_id}|${inst.effectiveDate}`, instance);
+    }
+  }
+
   return {
     prefsByUser,
     tzByUser,
@@ -343,6 +442,8 @@ function buildIndex(input: DispatchInput): Index {
     birthdaysByFamily,
     externalByFamilyDate,
     activities: buildActivityIndex(input),
+    taskInstancesByFamilyDate,
+    taskInstances,
   };
 }
 
@@ -549,7 +650,7 @@ function planDigest(
     return { ...base, push: null, emptyStatus: "no_family" };
   }
 
-  // The five sources here are exactly what the app's agenda shows for a day
+  // The six sources here are exactly what the app's agenda shows for a day
   // (see useAgenda) - a digest that counted fewer stayed silent on days the
   // user could plainly see were busy.
   const nativeEvents = idx.eventsByFamilyDate.get(`${familyId}|${targetDate}`) ?? [];
@@ -566,8 +667,20 @@ function planDigest(
   // One entry per (rule, participant) - the same granularity the agenda lists,
   // so two kids at the same practice read as two items in both places.
   const activityCount = resolveActivityOccurrences(idx.activities, familyId, targetDate).length;
+  // One entry per (task, occurrence) - a recurring chore counts once for the
+  // day, however many people it is assigned to, which is how the Danas screen
+  // draws it. A personal task counts for its owner alone.
+  const taskCount = (idx.taskInstancesByFamilyDate.get(`${familyId}|${targetDate}`) ?? []).filter(
+    (i) => taskVisibleTo(i.task, pref.user_id),
+  ).length;
 
-  if (eventCount === 0 && payments.length === 0 && birthdays.length === 0 && activityCount === 0) {
+  if (
+    eventCount === 0 &&
+    payments.length === 0 &&
+    birthdays.length === 0 &&
+    activityCount === 0 &&
+    taskCount === 0
+  ) {
     return { ...base, push: null, emptyStatus: "nothing_to_send" };
   }
 
@@ -575,6 +688,10 @@ function planDigest(
   if (eventCount) counts.push(`${eventCount} ${plural(eventCount, "događaj", "događaja")}`);
   if (activityCount)
     counts.push(`${activityCount} ${plural(activityCount, "aktivnost", "aktivnosti")}`);
+  // "zadatak" needs the paucal form the other four nouns happen not to need:
+  // 2 zadatka but 5 zadataka, where "događaj" is "događaja" for both.
+  if (taskCount)
+    counts.push(`${taskCount} ${pluralPaucal(taskCount, "zadatak", "zadatka", "zadataka")}`);
   if (payments.length)
     counts.push(`${payments.length} ${plural(payments.length, "plaćanje", "plaćanja")}`);
   if (birthdays.length)
@@ -924,6 +1041,96 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
 }
 
 // ---------------------------------------------------------------------------
+// 6. Task reminders
+// ---------------------------------------------------------------------------
+//
+// Two offsets, the same split events and payments already have:
+//
+//   due_time set  -> `remind_minutes_before` before that minute, like an event
+//   all-day       -> `remind_days_before` days ahead at the recipient's own
+//                    morning time, like a payment
+//
+// Recipients are every push-subscribed member of the family, again like events
+// and payments - `task_assignees` says who the chore is FOR, not who gets told
+// about it (a child usually has no login at all). The one narrowing is
+// `taskVisibleTo`: a personal task never leaves its owner.
+//
+// The idempotency key is `<task_id>:<occurrence_date>`, keyed on the SERIES date
+// rather than the effective one, so moving an occurrence does not hand it a
+// fresh slot and a second push.
+
+function planTaskReminders(input: DispatchInput, idx: Index): PlannedClaim[] {
+  const out: PlannedClaim[] = [];
+  for (const inst of idx.taskInstances) {
+    const task = inst.task;
+    const timed = task.due_time != null;
+    const remindMinutes = task.remind_minutes_before;
+    const remindDays = task.remind_days_before;
+    if (timed ? remindMinutes == null : remindDays == null) continue;
+
+    const members = idx.profilesByFamily.get(task.family_id) ?? [];
+    if (members.length === 0) continue;
+
+    const refId = `${task.id}:${inst.occurrenceDate}`;
+    // A timed task has a wall clock to count back from; an all-day one lands on
+    // whatever morning time the recipient set, so its fire time is per member.
+    const timedFire =
+      timed && task.due_time != null && remindMinutes != null
+        ? eventLocalFireTime(inst.effectiveDate, task.due_time, remindMinutes)
+        : null;
+    const allDayFireDate =
+      !timed && remindDays != null ? addDays(inst.effectiveDate, -remindDays) : null;
+
+    for (const member of members) {
+      // Service-role read - RLS is not doing this for us. See taskVisibleTo.
+      if (!taskVisibleTo(task, member.id)) continue;
+      const subs = claimableSubs(idx, member.id);
+      if (!subs) continue; // no push -> not a recipient (see claimableSubs)
+
+      const pref = idx.prefsByUser.get(member.id);
+      const tz = pref?.timezone ?? FAMILY_TZ_DEFAULT;
+      const fireDate = timedFire ? timedFire.date : allDayFireDate;
+      const fireTime = timedFire
+        ? timedFire.time
+        : (pref?.morning_time ?? DEFAULT_MORNING_TIME).slice(0, 5);
+      if (localDateISO(tz, input.now) !== fireDate || localTime(tz, input.now) !== fireTime) {
+        continue;
+      }
+
+      out.push({
+        userId: member.id,
+        kind: "task_reminder",
+        refId,
+        result: { user_id: member.id, kind: "task_reminder", ref_id: refId },
+        push: {
+          title: task.name,
+          body: timed
+            ? taskTimedBody(task.due_time, remindMinutes)
+            : taskAllDayBody(remindDays ?? 0),
+          url: "/tasks",
+          tag: `task-reminder-${refId}`,
+        },
+        emptyStatus: null,
+        subs,
+      });
+    }
+  }
+  return out;
+}
+
+function taskTimedBody(dueTime: string | null, remindMinutes: number | null): string {
+  const hhmm = (dueTime ?? "00:00").slice(0, 5);
+  if (remindMinutes == null || remindMinutes <= 0) return `Dospeva u ${hhmm}.`;
+  return `Dospeva za ${remindMinutes} min (u ${hhmm}).`;
+}
+
+function taskAllDayBody(remindDays: number): string {
+  if (remindDays <= 0) return "Dospeva danas.";
+  if (remindDays === 1) return "Dospeva sutra.";
+  return `Dospeva za ${remindDays} dana.`;
+}
+
+// ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 
@@ -1030,4 +1237,17 @@ function sameMonthDay(birthISO: string, dateISO: string): boolean {
 
 function plural(n: number, singular: string, many: string): string {
   return n === 1 ? singular : many;
+}
+
+/**
+ * Serbian counting for a noun whose paucal (2-4) and plural (5+) forms differ:
+ * 1 zadatak, 2 zadatka, 5 zadataka, and again 21 zadatak / 22 zadatka, while
+ * the teens all take the plural (11 zadataka).
+ */
+function pluralPaucal(n: number, one: string, few: string, many: string): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
 }

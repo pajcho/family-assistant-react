@@ -127,12 +127,18 @@ function makeOccurrences(
     const roll = rand();
     const status = roll < 0.55 ? "done" : roll < 0.8 ? "skipped" : "moved";
     const personId = rand() < 0.3 ? "person-1" : null;
+    // `moved_to_date` is WHERE the occurrence sits and `status` is WHETHER it is
+    // resolved - two independent columns, one row per slot. So 'done' and
+    // 'skipped' rows carry a relocation too: that is a moved occurrence somebody
+    // then ticked off (or gave up on), and it has to stay where it was moved to.
+    // Only 'moved' is FORCED to carry one, by task_occurrences_moved_needs_date.
+    const relocated = status === "moved" || rand() < 0.4;
     const row = {
       task_id: taskId,
       occurrence_date: occurrenceDate,
       person_id: personId,
       status: status as "done" | "skipped" | "moved",
-      moved_to_date: status === "moved" ? isoDay(base, Math.floor(rand() * 20) - 5) : null,
+      moved_to_date: relocated ? isoDay(base, Math.floor(rand() * 20) - 5) : null,
     };
     const key = `${taskId}|${occurrenceDate}`;
 

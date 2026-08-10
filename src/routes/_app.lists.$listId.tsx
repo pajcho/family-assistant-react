@@ -41,18 +41,18 @@ import { useSmartSort } from "@/hooks/useSmartSort";
 import { writeLastOpenedListId } from "@/lib/lastOpenedList";
 import type { ListFormMode, ListFormPayload } from "@/components/lists/ListForm";
 import {
-  useClearCompletedItems,
-  useCopyListItems,
+  useClearCompletedTasks,
+  useCopyTasks,
   useCreateList,
-  useCreateListItem,
+  useCreateTask,
   useDeleteList,
-  useDeleteListItem,
-  useListsWithItems,
+  useDeleteTask,
+  useListsWithTasks,
   useUpdateList,
-  useUpdateListItem,
-} from "@/hooks/useLists";
+  useUpdateTask,
+} from "@/hooks/useTasks";
 import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
-import type { List, ListItem, ListWithItems } from "@/types/database";
+import type { List, Task, ListWithTasks } from "@/types/database";
 
 export const Route = createFileRoute("/_app/lists/$listId")({
   component: ListDetailPage,
@@ -70,14 +70,14 @@ export const Route = createFileRoute("/_app/lists/$listId")({
  *
  * Reuses `ListBody` for the items + add-input + per-item delete confirm so any
  * change to that interaction lands everywhere. The list is read from the same
- * `useListsWithItems()` query the master uses - the cached array gives instant
+ * `useListsWithTasks()` query the master uses - the cached array gives instant
  * render on selection, and realtime keeps it fresh.
  */
 function ListDetailPage() {
   const { listId } = useParams({ from: "/_app/lists/$listId" });
   const navigate = useNavigate();
   const isWide = useIsWide();
-  const listsQuery = useListsWithItems();
+  const listsQuery = useListsWithTasks();
   const list = (listsQuery.data ?? []).find((l) => l.id === listId) ?? null;
 
   // Remember the open list so a later bare `/lists` visit (on desktop) re-opens
@@ -125,7 +125,7 @@ function ListDetailLoaded({
   onBack,
   showBack,
 }: {
-  list: ListWithItems;
+  list: ListWithTasks;
   onBack: () => void;
   showBack: boolean;
 }) {
@@ -133,12 +133,12 @@ function ListDetailLoaded({
 
   const updateList = useUpdateList();
   const createList = useCreateList();
-  const copyListItems = useCopyListItems();
+  const copyListItems = useCopyTasks();
   const deleteList = useDeleteList();
-  const createItem = useCreateListItem();
-  const updateItem = useUpdateListItem();
-  const deleteItem = useDeleteListItem();
-  const clearCompleted = useClearCompletedItems();
+  const createItem = useCreateTask();
+  const updateItem = useUpdateTask();
+  const deleteItem = useDeleteTask();
+  const clearCompleted = useClearCompletedTasks();
   const smartSort = useSmartSort(list);
 
   // One dialog serves edit + duplicate. `formMode` is the source of truth for
@@ -185,7 +185,7 @@ function ListDetailLoaded({
         // open - a retry would create a second duplicate list.
         if (formMode === "duplicate" && payload.copyItems) {
           await copyListItems
-            .mutateAsync({ items: list.list_items, targetListId: created.id })
+            .mutateAsync({ tasks: list.tasks, targetListId: created.id })
             .catch(() => undefined);
         }
       }
@@ -222,18 +222,15 @@ function ListDetailLoaded({
     createItem.mutate({ list_id: id, name });
   };
 
-  const handleToggleItem = (item: ListItem) => {
+  const handleToggleItem = (item: Task) => {
     updateItem.mutate({ id: item.id, payload: { is_completed: !item.is_completed } });
   };
 
-  const handleUpdateItem = (
-    item: ListItem,
-    payload: { name: string; description: string | null },
-  ) => {
+  const handleUpdateItem = (item: Task, payload: { name: string; description: string | null }) => {
     updateItem.mutate({ id: item.id, payload });
   };
 
-  const handleDeleteItem = (item: ListItem) => {
+  const handleDeleteItem = (item: Task) => {
     deleteItem.mutate(item.id);
   };
 
@@ -354,7 +351,7 @@ function ListHeader({
   onShowInfo,
   smartSort,
 }: {
-  list: ListWithItems;
+  list: ListWithTasks;
   /** Mobile only - the desktop sidebar is the way back. */
   showBack: boolean;
   onBack: () => void;
@@ -365,10 +362,10 @@ function ListHeader({
   onShowInfo: () => void;
   smartSort: ReturnType<typeof useSmartSort>;
 }) {
-  const active = list.list_items.filter((i) => !i.is_completed).length;
-  const completed = list.list_items.filter((i) => i.is_completed).length;
+  const active = list.tasks.filter((i) => !i.is_completed).length;
+  const completed = list.tasks.filter((i) => i.is_completed).length;
   const scopeLabel = list.scope === "family" ? "Porodica" : "Lično";
-  const canExport = list.list_items.length > 0;
+  const canExport = list.tasks.length > 0;
 
   // The actions menu: an anchored dropdown on desktop, a bottom sheet of
   // DetailActionRow rows on phones (the DetailSheet convention) - an anchored

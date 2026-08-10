@@ -64,7 +64,6 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   families: [rootKey("profile")],
   income_entries: [familyKey("income_entries")],
   incomes: [familyKey("incomes")],
-  list_items: [familyKey("lists")],
   lists: [familyKey("lists")],
   payment_history: [familyKey("payments"), paymentHistoryKey],
   payment_overrides: [familyKey("payment_overrides")],
@@ -83,6 +82,12 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   school_breaks: [familyKey("school_breaks")],
   school_shift_anchors: [familyKey("school_shift_anchors")],
   school_timetable_entries: [familyKey("school_timetable")],
+  task_assignees: [familyKey("task_assignees")],
+  task_occurrences: [familyKey("task_occurrences")],
+  // Task rows live in TWO caches - the flat family list and the nested
+  // lists-with-tasks select - so a change has to reach both or a row shows
+  // ticked on Danas and unticked inside its list. See hooks/useTasks.ts.
+  tasks: [familyKey("tasks"), familyKey("lists")],
 };
 
 interface ChangeMessage {

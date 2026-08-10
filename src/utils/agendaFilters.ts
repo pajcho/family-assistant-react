@@ -12,6 +12,7 @@ export type AgendaKind = AgendaItem["kind"];
 /** Canonical display order for the item kinds. */
 export const AGENDA_KINDS: readonly AgendaKind[] = [
   "activity",
+  "task",
   "event",
   "external",
   "payment",
@@ -30,6 +31,10 @@ export function agendaItemPersonIds(item: AgendaItem): string[] {
   switch (item.kind) {
     case "activity":
       return [item.block.personId];
+    case "task":
+      // No assignees means family-wide, which behaves like an unassigned event:
+      // hidden while a person filter is active, because it is nobody's.
+      return item.assigneeIds;
     case "event":
     case "payment":
     case "external":

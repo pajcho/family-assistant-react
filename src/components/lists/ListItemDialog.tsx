@@ -13,7 +13,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import type { ListItem } from "@/types/database";
+import type { Task } from "@/types/database";
 
 export type ListItemDialogPayload = {
   name: string;
@@ -23,10 +23,10 @@ export type ListItemDialogPayload = {
 
 export type ListItemDialogProps = {
   /** When non-null, the dialog is open and renders this item's editor. */
-  item: ListItem | null;
+  item: Task | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (item: ListItem, payload: ListItemDialogPayload) => void;
-  onDelete: (item: ListItem) => void;
+  onSubmit: (item: Task, payload: ListItemDialogPayload) => void;
+  onDelete: (item: Task) => void;
   saving?: boolean;
 };
 
@@ -75,7 +75,7 @@ export function ListItemDialog({
 }
 
 type BodyProps = {
-  item: ListItem;
+  item: Task;
   onSubmit: (payload: ListItemDialogPayload) => void;
   onCancel: () => void;
   onDelete: () => void;

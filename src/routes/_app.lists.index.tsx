@@ -5,9 +5,9 @@ import { ClipboardDocumentListIcon, PlusIcon } from "@heroicons/react/24/outline
 import { Button } from "@/components/ui/button";
 import { ListMaster } from "@/components/lists/ListMaster";
 import { useIsWide } from "@/hooks/useIsWide";
-import { useListsWithItems } from "@/hooks/useLists";
+import { useListsWithTasks } from "@/hooks/useTasks";
 import { readLastOpenedListId } from "@/lib/lastOpenedList";
-import type { ListWithItems } from "@/types/database";
+import type { ListWithTasks } from "@/types/database";
 
 export const Route = createFileRoute("/_app/lists/")({
   component: ListsIndex,
@@ -25,12 +25,12 @@ export const Route = createFileRoute("/_app/lists/")({
  * (no lists) a placeholder. Selection is URL-driven, so deep-links,
  * back/forward and the dashboard all land on the right list.
  *
- * `useIsWide` + `useListsWithItems` are called unconditionally at the top to
+ * `useIsWide` + `useListsWithTasks` are called unconditionally at the top to
  * satisfy the rules of hooks before any branch.
  */
 function ListsIndex() {
   const isWide = useIsWide();
-  const listsQuery = useListsWithItems();
+  const listsQuery = useListsWithTasks();
 
   if (!isWide) {
     return <ListMaster variant="page" />;
@@ -70,7 +70,7 @@ function ListsIndex() {
  * if it still exists, otherwise the first list in the sidebar's display order
  * (newest-created first, matching `ListMaster`).
  */
-function resolveInitialList(lists: ListWithItems[]): string | null {
+function resolveInitialList(lists: ListWithTasks[]): string | null {
   if (lists.length === 0) return null;
   const lastId = readLastOpenedListId();
   if (lastId && lists.some((l) => l.id === lastId)) return lastId;

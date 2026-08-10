@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Linkify } from "@/components/common/Linkify";
 import { previewLine } from "@/components/common/MarkdownText";
 import { cn } from "@/lib/cn";
-import type { ListItem } from "@/types/database";
+import type { Task } from "@/types/database";
 
 /**
  * Bindings forwarded from `useSortable` so this row can host a drag
@@ -20,11 +20,11 @@ export type DragHandleBindings = {
 };
 
 export type ListItemRowProps = {
-  item: ListItem;
-  onToggle: (item: ListItem) => void;
+  item: Task;
+  onToggle: (item: Task) => void;
   /** Open the full edit/view dialog for this item (replaces the old inline edit). */
-  onOpen: (item: ListItem) => void;
-  onDelete: (item: ListItem) => void;
+  onOpen: (item: Task) => void;
+  onDelete: (item: Task) => void;
   /**
    * When provided, the row renders a drag handle on its right side and
    * forwards the dnd-kit listeners onto that button. Omit to render a
