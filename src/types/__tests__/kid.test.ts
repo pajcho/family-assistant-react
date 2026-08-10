@@ -9,7 +9,7 @@ import {
 } from "@/types/kid";
 
 /**
- * The `/kid/pregled` exclusion is the whole reason this predicate exists, and
+ * The `/kid/preview` exclusion is the whole reason this predicate exists, and
  * it is invisible from the call sites: a parent previewing their child's app is
  * still a parent, so nothing addressed to a child may reach that screen.
  *
@@ -22,17 +22,17 @@ describe("isKidShellPath", () => {
     expect(isKidShellPath("/kid")).toBe(true);
     expect(isKidShellPath("/kid/")).toBe(true);
     expect(isKidShellPath("/kid/login")).toBe(true);
-    expect(isKidShellPath("/kid/veza")).toBe(true);
-    expect(isKidShellPath("/kid/raspored")).toBe(true);
+    expect(isKidShellPath("/kid/link")).toBe(true);
+    expect(isKidShellPath("/kid/schedule")).toBe(true);
   });
 
   it("is false on the parent's preview of it", () => {
-    expect(isKidShellPath("/kid/pregled")).toBe(false);
+    expect(isKidShellPath("/kid/preview")).toBe(false);
   });
 
   it("is false everywhere in the grown-up app", () => {
     expect(isKidShellPath("/")).toBe(false);
-    expect(isKidShellPath("/novac")).toBe(false);
+    expect(isKidShellPath("/money")).toBe(false);
     expect(isKidShellPath("/login")).toBe(false);
   });
 
@@ -49,7 +49,7 @@ describe("isKidShellPath", () => {
  * The half that matters most is tested next door, in
  * `supabase/functions/_shared/kidCrypto.test.ts`: that this normalization is
  * character-for-character the edge function's. A client that folds differently
- * hashes a different string, and every typed code becomes "pogrešan kod" with
+ * hashes a different string, and every typed code comes back rejected with
  * nothing on either screen to explain why. It has to live over there because
  * the Deno half is outside every tsconfig project and cannot be imported from
  * `src`.
@@ -101,9 +101,9 @@ describe("formatKidInviteCode", () => {
 
 describe("kidInviteTokenFromScan", () => {
   it("takes the token out of a device-link URL", () => {
-    expect(kidInviteTokenFromScan("https://example.com/kid/veza#A7K29QXM")).toBe("A7K29QXM");
+    expect(kidInviteTokenFromScan("https://example.com/kid/link#A7K29QXM")).toBe("A7K29QXM");
     // On Pages the app lives under a base path.
-    expect(kidInviteTokenFromScan("https://example.com/family-assistant/kid/veza#A7K29QXM")).toBe(
+    expect(kidInviteTokenFromScan("https://example.com/family-assistant/kid/link#A7K29QXM")).toBe(
       "A7K29QXM",
     );
   });
@@ -112,7 +112,7 @@ describe("kidInviteTokenFromScan", () => {
     // An older parent app minting 32-byte tokens: not our call to reject, the
     // server still knows those hashes.
     const legacy = "hR3-_qZ9".repeat(5);
-    expect(kidInviteTokenFromScan(`https://example.com/kid/veza#${legacy}`)).toBe(legacy);
+    expect(kidInviteTokenFromScan(`https://example.com/kid/link#${legacy}`)).toBe(legacy);
   });
 
   it("accepts a bare code, in whatever case it was written", () => {
@@ -124,7 +124,7 @@ describe("kidInviteTokenFromScan", () => {
     // The QR codes a child's camera will actually meet first.
     expect(kidInviteTokenFromScan("https://suf.purs.gov.rs/v/?vl=A5NKa")).toBe(null);
     expect(kidInviteTokenFromScan("WIFI:S:Kucni;T:WPA;P:tajna;;")).toBe(null);
-    expect(kidInviteTokenFromScan("https://example.com/kid/veza")).toBe(null); // no fragment
+    expect(kidInviteTokenFromScan("https://example.com/kid/link")).toBe(null); // no fragment
     expect(kidInviteTokenFromScan("https://example.com/kid/login#A7K29QXM")).toBe(null);
     expect(kidInviteTokenFromScan("not a url at all")).toBe(null);
     expect(kidInviteTokenFromScan("   ")).toBe(null);

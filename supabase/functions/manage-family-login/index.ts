@@ -17,7 +17,7 @@
 //          CASCADE (family_admin migration), so the single UPDATE cascades. If
 //          the re-key fails we delete the just-created auth user to avoid an
 //          orphaned login with no profile.
-// disable: tear down dečiji režim if it is on (shared with kid-access) → re-home
+// disable: tear down kid mode if it is on (shared with kid-access) -> re-home
 //          the member's lists to the admin (lists.owner_id cascades on
 //          auth-user delete, which would otherwise drop their lists) → delete
 //          the auth user. The profile row survives (its FK to auth.users was
@@ -117,8 +117,8 @@ async function createLogin(
   const existing = await admin.auth.admin.getUserById(profileId);
   if (existing.data?.user) return json({ error: "Član već ima nalog." }, 409);
 
-  // The mirror of kid-access's "Član već ima nalog za prijavu.": a child in
-  // dečiji režim has a SYNTHETIC auth user under a different id, so the check
+  // The mirror of kid-access's already-has-a-login error: a child in kid
+  // mode has a SYNTHETIC auth user under a different id, so the check
   // above never sees it. Giving them a login on top would leave two ways into
   // one member, one of which nothing in the parent UI knows how to revoke.
   const { data: kidAccess } = await admin
@@ -182,7 +182,7 @@ async function disableLogin(
   // second, independent way into this member (device token + PIN against a
   // synthetic auth user), so leaving them behind means "Ugasi nalog" did not
   // do what it says. Failing before the auth user is deleted is also the only
-  // retryable order: once the login is gone, this action answers "Član nema
+  // retryable order: once the login is gone, this action answers with a no-login
   // nalog." and could never finish the teardown on a second press.
   const teardown = await tearDownKidAccess(admin, profileId);
   if (!teardown.ok) return json({ error: teardown.error }, 500);

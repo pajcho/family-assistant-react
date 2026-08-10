@@ -11,7 +11,7 @@ import { KidAuthScreen } from "@/components/kid/KidAuthScreen";
  * up with an app that has never heard of them, and rescanning only reopens
  * Safari. Doing it in this order spends the one-time code where it counts.
  *
- * Not a wall: "Nastavi ovde" is right there for anyone who just wants to use
+ * Not a wall: a continue-here action is right there for anyone who just wants to use
  * the app in the browser, and the code is still good afterwards.
  */
 export function KidInstallFirst({ onContinue }: { onContinue: () => void }) {

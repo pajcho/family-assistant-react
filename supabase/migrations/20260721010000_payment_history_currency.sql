@@ -1,18 +1,20 @@
--- Multi-currency, deo 3: kurs po RATI (pay-time rate).
+-- Multi-currency, part 3: a per-INSTALMENT rate (the pay-time rate).
 --
---   • Strano plaćanje se do sada konvertovalo JEDNOM, pri definisanju — pa je
---     svaka rata knjižena po tom početnom kursu. Ispravna semantika: svaka
---     plaćena rata nosi SVOJ kurs (podrazumevano NBS srednji na dan plaćanja,
---     uz ručnu korekciju u potvrdi). Zato payment_history dobija isti frozen
---     trio kao expenses/payments: currency + original_amount + exchange_rate,
---     snapšotovan u trenutku "Označi kao plaćeno".
+--   - A foreign payment used to be converted ONCE, at definition time - so
+--     every instalment was booked at that initial rate. The correct semantics:
+--     every paid instalment carries its OWN rate (the NBS middle rate on the
+--     payment date by default, with a manual correction in the confirmation).
+--     Hence payment_history gets the same frozen trio as expenses/payments:
+--     currency + original_amount + exchange_rate, snapshotted at the moment the
+--     payment is marked as paid.
 --
---   • budget_expense_from_payment sada čita valutu DIREKTNO iz history reda
---     (NEW.*) umesto ranije heuristike "iznos se poklapa sa definicijom" —
---     rata plaćena po drugačijem kursu i dalje nosi tačan € original u ledger.
+--   - budget_expense_from_payment now reads the currency DIRECTLY from the
+--     history row (NEW.*) instead of the earlier "the amount matches the
+--     definition" heuristic - an instalment paid at a different rate still
+--     carries the exact foreign original into the ledger.
 --
---   • Otkazane rate ostaju čist RSD snapshot (ne knjiže se u troškove).
---     Postojeći redovi su RSD (default) — bez backfill-a.
+--   - Canceled instalments stay a pure RSD snapshot (they are not booked as
+--     expenses). Existing rows are RSD (the default) - no backfill.
 
 ALTER TABLE payment_history
   ADD COLUMN currency TEXT NOT NULL DEFAULT 'RSD',

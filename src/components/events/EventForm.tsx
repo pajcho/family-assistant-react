@@ -44,7 +44,7 @@ export type EventFormState = {
   name: string;
   description: string;
   date: string | null;
-  /** "Više dana" toggle; when on, `end_date` is the inclusive last day. */
+  /** Multi-day toggle; when on, `end_date` is the inclusive last day. */
   multiDay: boolean;
   end_date: string | null;
   allDay: boolean;
@@ -100,9 +100,9 @@ export type EventFormProps = {
 };
 
 /**
- * Mobile (<sm) - the "Brzi unos" layout: Naziv, Datum (danas + quick chips),
- * the Ceo dan switch and (when timed) Početak/Završetak stay inline; Opis,
- * Za koga, Podsetnik and Napomene move behind a "Više detalja" row into a
+ * Mobile (<sm) - the quick-entry layout: name, date (today + quick chips),
+ * the all-day switch and (when timed) start/end stay inline; description,
+ * person, reminder and notes move behind a more-details row into a
  * sub-view. The Odustani/Dodaj bar is pinned by the dialog below the scroll
  * area.
  *
@@ -189,7 +189,7 @@ export function EventForm({
     });
   };
 
-  // Duration chips for the end date - "3 dana" picks span start + 2.
+  // Duration chips for the end date - a 3-day span picks start + 2.
   const spanBase = form.date ?? today.str;
   const durationChips = [2, 3, 5, 7].map((days) => ({
     label: `${days} dana`,
@@ -247,7 +247,7 @@ export function EventForm({
 
   // Reminders anchor to a wall-clock start_time, so the field only makes
   // sense once one is set. Desktop renders it inline under the time grid;
-  // mobile surfaces it in the "Više detalja" sub-view (see EventFormDialog).
+  // mobile surfaces it in the more-details sub-view (see EventFormDialog).
   const reminderField =
     !form.allDay && form.start_time ? (
       <div>

@@ -3,13 +3,14 @@ import { ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/cn";
 
 /**
- * "Vrati na sada" pilula - zajednička za sve vremenske navigatore (vremenske
- * trake, redizajn 2.0): Novac i Mesec se vraćaju na tekući mesec, nedeljne
- * trake na danas / ovu sedmicu. Renderuje se SAMO dok je korisnik odlutao od
- * "sada", pa je hrom u mirovanju čist - zato ne nosi sopstveno "hidden" stanje.
+ * The back-to-now pill - shared by every time navigator (the time strips of
+ * redesign 2.0): Money and the month view jump back to the current month, the
+ * week strips to today / this week. It renders ONLY while the user has drifted
+ * away from "now", so the chrome stays clean at rest - which is why it carries
+ * no "hidden" state of its own.
  *
- * Vizuelno 28px pilula, ali je dodirna meta uvećana providnim pseudo-elementom
- * (isti trik kao FilterChip) da prst ne mora da cilja.
+ * Visually a 28px pill, but the touch target is enlarged with a transparent
+ * pseudo-element (the same trick as FilterChip) so a finger need not aim.
  */
 export function NowPill({
   label,

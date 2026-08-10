@@ -23,7 +23,7 @@ import {
 } from "@/types/kid";
 
 /**
- * "Poveži uređaj": the one-time code a parent shows the child's phone, as a QR
+ * Link a device: the one-time code a parent shows the child's phone, as a QR
  * AND as eight readable characters. They are the same secret - see
  * `randomInviteCode` in supabase/functions/_shared/kidCrypto.ts - because the
  * two ways of reading it are not interchangeable on iOS: an installed kid app

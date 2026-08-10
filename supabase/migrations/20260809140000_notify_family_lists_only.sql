@@ -1,21 +1,24 @@
--- Licna lista vise ne salje push celoj porodici.
+-- A personal list no longer pushes to the whole family.
 --
--- `notify_on_list_create` je od 20260520250000_notify_on_create.sql bio
--- FOR EACH ROW bez ijednog uslova, a `notify-on-create` salje svakom profilu u
--- porodici (index.ts, upit nad `profiles` po `family_id`) i stavlja ime entiteta
--- u telo poruke. Znaci: lista sa `scope = 'personal'`, cija je cela poenta da je
--- drugi ne vide, objavila je svoj naslov na zakljucanom ekranu svim ukucanima.
--- RLS to nikad nije dozvolio (politika iz 20260520200000_lists_feature.sql
--- pusta licnu listu samo vlasniku), a i zaglavlje broadcast migracije
--- 20260729010000 izricito racuna sa istim pravilom kad objasnjava zasto poruka
--- ne nosi ceo red. Push put je jedini koji to pravilo nikad nije dobio.
+-- Since 20260520250000_notify_on_create.sql, `notify_on_list_create` was FOR
+-- EACH ROW with no condition at all, while `notify-on-create` sends to every
+-- profile in the family (index.ts, a query on `profiles` by `family_id`) and
+-- puts the entity name in the message body. So: a list with
+-- `scope = 'personal'`, whose entire point is that others do not see it,
+-- published its title on everyone's lock screen. RLS never allowed that (the
+-- policy from 20260520200000_lists_feature.sql lets only the owner see a
+-- personal list), and the header of the broadcast migration 20260729010000
+-- explicitly assumes the same rule when it explains why the message does not
+-- carry the whole row. The push path is the only one that never got it.
 --
--- Uslov stoji u WHEN, a ne u telu funkcije: tako se `notify_family_on_entity_create`
--- ne menja (deli je jos triger za dogadjaje, placanja i rodjendane), a za licnu
--- listu se ne potrosi ni jedan `net.http_post`.
+-- The condition sits in WHEN rather than in the function body: that way
+-- `notify_family_on_entity_create` is unchanged (the triggers for events,
+-- payments and birthdays share it), and a personal list does not spend a single
+-- `net.http_post`.
 --
--- Prelazak licne liste u porodicnu kasnije je UPDATE, ne INSERT, pa push za nju
--- ne stize - to je isto ponasanje kao i do sada za svaku vec kreiranu listu.
+-- Turning a personal list into a family one later is an UPDATE, not an INSERT,
+-- so no push arrives for it - the same behaviour as before for any list that
+-- already existed.
 
 DROP TRIGGER IF EXISTS notify_on_list_create ON lists;
 

@@ -23,7 +23,7 @@
 --     20260716000000_receipt_import.sql): the SUF token is globally unique
 --     and a cross-family re-scan must stay a friendly "already added", never
 --     a double-counted ledger row. expenses.receipt_url remains (written for
---     compatibility + the "Otvori račun" link + duplicate-jump lookup) but
+--     compatibility + the open-receipt link + duplicate-jump lookup) but
 --     its index is now a plain lookup index.
 --
 --   * Claiming a line = setting receipt_items.expense_id. The FK is
@@ -61,7 +61,7 @@ CREATE TABLE receipts (
   store_name TEXT NULL,
   total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount > 0),
   issued_on DATE NOT NULL,
-  -- Last "Osveži stavke" claim (server-enforced cooldown) - moves here from
+  -- The last refresh-items claim (a server-enforced cooldown) - moves here from
   -- expenses.receipt_checked_at because a refresh is a property of the
   -- RECEIPT, not of one expense carved out of it.
   checked_at TIMESTAMP WITH TIME ZONE NULL,
@@ -182,7 +182,7 @@ ALTER TABLE expenses ENABLE TRIGGER USER;
 -- 6. save_receipt_expense - the transactional save for a scanned receipt.
 --    Replaces the client's two best-effort inserts (expense, then items) with
 --    one atomic call: receipt row (insert or orphan re-use), expense row,
---    claimed lines. All-or-nothing, so "Trošak je sačuvan, ali stavke nisu"
+--    claimed lines. All-or-nothing, so "the expense saved but the items did not"
 --    can no longer happen.
 --
 --    SECURITY INVOKER on purpose - every statement runs under the caller's
@@ -304,7 +304,7 @@ GRANT EXECUTE ON FUNCTION save_receipt_expense(JSONB, JSONB, JSONB) TO authentic
 --    retry_after_seconds}), but the cooldown now lives on receipts.checked_at.
 --
 --    Self-heal: an expense imported by an old client AFTER this migration has
---    receipt_url but no receipts row. The first "Osveži stavke" on it creates
+--    receipt_url but no receipts row. The first refresh of its items creates
 --    the receipt from the expense snapshot, links receipt_id, and ports any
 --    legacy expense_items - so stragglers converge without manual fixes.
 --

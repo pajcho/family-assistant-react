@@ -1,6 +1,6 @@
 // supabase/functions/_shared/kidTeardown.ts
 //
-// Taking a child's dečiji režim credentials away, in one place.
+// Taking a child's kid mode credentials away, in one place.
 //
 // WHY IT IS SHARED. Kid mode and a real login are mutually exclusive: a member
 // with an account signs in normally, and `kid-access`'s `enable` refuses to
@@ -71,7 +71,7 @@ export async function tearDownKidAccess(
  * WHY THIS EXISTS. Deleting a `kid_devices` row withdraws the right to START a
  * session; it does nothing to one that is already open. supabase-js refreshes
  * that session by itself, forever, without ever touching the device token
- * again - so before this helper, "Ukloni uređaj" stopped only future sign-ins
+ * again - so before this helper, removing a device stopped only future sign-ins
  * and the child kept full access indefinitely.
  *
  * THE TRADE-OFF, stated plainly: all of a child's devices share ONE synthetic

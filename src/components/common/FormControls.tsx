@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { sanitizeDecimalInput } from "@/utils/currency";
 
 /**
- * The redesign's shared form vocabulary ("Šljiva"): every entry form is built
+ * The redesign's shared form vocabulary (the "plum" language): every entry form is built
  * out of these pieces, so a chip in the expense form and a chip in the payment
  * form are literally the same element. Semantic tokens only, never raw palette
  * classes.

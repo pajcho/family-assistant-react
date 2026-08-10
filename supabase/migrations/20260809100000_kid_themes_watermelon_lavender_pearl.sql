@@ -1,21 +1,23 @@
--- Tri nove decje teme: Lubenica, Lavanda i Biser (5 -> 8).
+-- Three new kid themes: watermelon, lavender and pearl (5 -> 8).
 --
--- Kljucevi su engleski, kao i svi ostali: 'watermelon', 'lavender', 'pearl'.
--- Srpski postoji samo kao natpis u aplikaciji (KID_THEME_OPTIONS u
+-- The keys are English, like all the others: 'watermelon', 'lavender', 'pearl'.
+-- Serbian exists only as the label in the app (KID_THEME_OPTIONS in
 -- src/types/kid.ts).
 --
--- Spisak tema stoji na DVA mesta u bazi, i oba moraju da se prosire zajedno:
--- CHECK nad `kid_access.theme` i telo funkcije `public.kid_set_theme`. Da je
--- prosiren samo CHECK, RPC bi i dalje odbijao nove kljuceve porukom
--- "Nepoznata tema"; da je prosireno samo telo funkcije, UPDATE unutar nje bi
--- pukao na CHECK-u. Nema smanjenja skupa, pa nema ni migracije podataka.
+-- The theme list lives in TWO places in the database, and both have to be
+-- widened together: the CHECK on `kid_access.theme` and the body of
+-- `public.kid_set_theme`. If only the CHECK were widened, the RPC would still
+-- reject the new keys as an unknown theme; if only the function body were, the
+-- UPDATE inside it would fail on the CHECK. Nothing is removed from the set, so
+-- there is no data migration either.
 
 -- ---------------------------------------------------------------------------
--- 1. CHECK nad kolonom
+-- 1. The CHECK on the column
 -- ---------------------------------------------------------------------------
--- Ogranicenje je u 20260808000000_kid_mode.sql napisano unutar CREATE TABLE, pa
--- mu je Postgres sam dao ime `kid_access_theme_check`. Ovde ga rusimo i vracamo
--- pod istim imenom, da bi sledeca ovakva migracija imala sta da nadje.
+-- The constraint was written inline in CREATE TABLE in
+-- 20260808000000_kid_mode.sql, so Postgres named it `kid_access_theme_check`
+-- itself. Here we drop it and put it back under the same name, so the next
+-- migration like this has something to find.
 ALTER TABLE kid_access DROP CONSTRAINT IF EXISTS kid_access_theme_check;
 
 ALTER TABLE kid_access
@@ -23,11 +25,12 @@ ALTER TABLE kid_access
   CHECK (theme IN ('ocean', 'jungle', 'sun', 'candy', 'watermelon', 'lavender', 'pearl', 'space'));
 
 -- ---------------------------------------------------------------------------
--- 2. kid_set_theme - jedini upis koji decja sesija sme da uradi
+-- 2. kid_set_theme - the only write a kid session may perform
 -- ---------------------------------------------------------------------------
--- Prepisana definicija iz 20260808000000_kid_mode.sql, promenjen je samo spisak
--- u IF-u. Razlog zasto je ovo RPC a ne UPDATE politika stoji tamo: politika bi
--- vazila za CEO red, pa bi dete moglo da prepise `pin_hash` ili `is_enabled`.
+-- The definition from 20260808000000_kid_mode.sql, rewritten with only the list
+-- in the IF changed. The reason this is an RPC and not an UPDATE policy is
+-- explained there: a policy would cover the WHOLE row, so a child could
+-- overwrite `pin_hash` or `is_enabled`.
 CREATE OR REPLACE FUNCTION public.kid_set_theme(p_theme TEXT)
 RETURNS void
 LANGUAGE plpgsql
@@ -38,7 +41,7 @@ BEGIN
   IF p_theme IS NULL OR p_theme NOT IN (
     'ocean', 'jungle', 'sun', 'candy', 'watermelon', 'lavender', 'pearl', 'space'
   ) THEN
-    RAISE EXCEPTION 'Nepoznata tema: %', p_theme USING ERRCODE = '22023';
+    RAISE EXCEPTION 'Unknown theme: %', p_theme USING ERRCODE = '22023';
   END IF;
 
   UPDATE public.kid_access
@@ -49,9 +52,10 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.kid_set_theme(TEXT) IS
-  'Menja temu deteta koje poziva. Jedini upis koji decja sesija sme da uradi.';
+  'Changes the calling child''s theme. The only write a kid session may perform.';
 
--- CREATE OR REPLACE cuva postojeca prava, ali ih ponavljamo da bi funkcija bila
--- ispravno zatvorena i kad se ova migracija primeni na bazu bez prethodne.
+-- CREATE OR REPLACE keeps the existing grants, but we repeat them so the
+-- function is locked down correctly even when this migration is applied to a
+-- database without the previous one.
 REVOKE ALL ON FUNCTION public.kid_set_theme(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.kid_set_theme(TEXT) TO authenticated;

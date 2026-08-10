@@ -36,7 +36,7 @@
 --    merchant     — display name parsed from the receipt (store name, e.g.
 --                   "ZARA TC USCE"); also the key for merchant→category memory.
 --    receipt_url  — the canonical suf.purs.gov.rs/v/?vl=<token> link; opened
---                   from the expense detail ("Otvori račun ↗") and the dedup key.
+--                   from the expense detail (the open-receipt link) and the dedup key.
 -- ───────────────────────────────────────────────────────────────────────────
 ALTER TABLE expenses
   ADD COLUMN IF NOT EXISTS merchant TEXT NULL,

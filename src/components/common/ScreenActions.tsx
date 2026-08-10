@@ -11,7 +11,7 @@ import { useSearchDialog } from "@/hooks/useSearchDialog";
 /**
  * The two chrome controls a top-level screen header carries on the right
  * (redizajn 2.0 moved the app bar into the screens themselves, so every screen
- * repeats them): global search, and the avatar as the way into Podešavanja.
+ * repeats them): global search, and the avatar as the way into settings.
  *
  * They live together so Danas, Kalendar and Novac stay pixel-identical.
  */
@@ -28,7 +28,7 @@ export function SearchIconButton() {
   );
 }
 
-/** Avatar button - opens Podešavanja (profile, family, notifications, theme). */
+/** Avatar button - opens settings (profile, family, notifications, theme). */
 export function ProfileAvatarLink() {
   const { user } = useAuth();
   const { profile } = useProfile();

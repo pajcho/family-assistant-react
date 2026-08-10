@@ -10,11 +10,11 @@ import { canInstallOnIos } from "@/utils/pwaInstall";
 import { useKidLogin } from "@/hooks/useKidLogin";
 
 /**
- * Veza - the PIN step of linking a device, and the one screen every route into
- * it ends at: a QR scanned with the phone's camera app, the same QR scanned
- * from inside the installed kid app, and a code typed by hand.
+ * Device link - the PIN step of linking a device, and the one screen every
+ * route into it ends at: a QR scanned with the phone's camera app, the same QR
+ * scanned from inside the installed kid app, and a code typed by hand.
  *
- * The invite token rides in the URL FRAGMENT (`/kid/veza#<token>`), so it never
+ * The invite token rides in the URL FRAGMENT (`/kid/link#<token>`), so it never
  * reaches a server log, a proxy or a Referer header. We read it once on mount
  * and strip it from the address bar immediately, so it also never survives in
  * history or in a screenshot of the address bar.
@@ -27,7 +27,7 @@ import { useKidLogin } from "@/hooks/useKidLogin";
  * it is on the home screen (separate storage container), and the invite is
  * single use, so the order actually matters.
  */
-export const Route = createFileRoute("/kid/veza")({
+export const Route = createFileRoute("/kid/link")({
   component: KidLinkDeviceScreen,
 });
 
@@ -70,7 +70,7 @@ function KidLinkDeviceScreen() {
   // replaceState is silently undone a tick later and the token comes back.
   useEffect(() => {
     if (!routerHash) return;
-    void navigate({ to: "/kid/veza", hash: "", replace: true, resetScroll: false });
+    void navigate({ to: "/kid/link", hash: "", replace: true, resetScroll: false });
   }, [routerHash, navigate]);
 
   const [lockSeconds, setLockSeconds] = useState(0);
@@ -101,7 +101,7 @@ function KidLinkDeviceScreen() {
     }
   }
 
-  // Somebody opened /kid/veza without a token, or the link was already spent.
+  // Somebody opened /kid/link without a token, or the link was already spent.
   if (!token || deadLink) {
     return (
       <KidAuthScreen emoji="🔗" title="Ups!" subtitle="ovaj link ne radi">

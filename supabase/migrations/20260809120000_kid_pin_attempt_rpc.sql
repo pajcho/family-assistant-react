@@ -1,28 +1,29 @@
--- kid_register_pin_failure - brojac promasenih PIN-ova u JEDNOM iskazu.
+-- kid_register_pin_failure - the missed-PIN counter in ONE statement.
 --
--- Do sada je `kid-auth` citao `failed_attempts` iz reda ucitanog ranije, dodavao
--- jedinicu u JS-u i upisivao APSOLUTNU vrednost nazad. Dva istovremena pogodka
--- procitaju istu vrednost i upisu isti rezultat, pa N paralelnih pokusaja kosta
--- JEDAN strajk. Zaglavlje same funkcije kaze da je zakljucavanje - a ne hes -
--- ono sto cetvorocifreni PIN cini odbranjivim, tako da je oslabljena tacno ona
--- kontrola na koju se dizajn oslanja.
+-- Until now `kid-auth` read `failed_attempts` from a row loaded earlier, added
+-- one in JS and wrote the ABSOLUTE value back. Two simultaneous attempts read
+-- the same value and write the same result, so N parallel attempts cost ONE
+-- strike. The function's own header says it is the lockout - not the hash -
+-- that makes a four-digit PIN defensible, so what was weakened is exactly the
+-- control the design leans on.
 --
--- Ovde se citanje i pisanje dese u jednom UPDATE-u: drugi poziv ceka na
--- kljucanju reda, pa posle commit-a prvog ponovo procita SVEZU vrednost
--- (READ COMMITTED re-check) i doda svoju jedinicu. Rezultat je +2, ne +1.
+-- Here the read and the write happen inside one UPDATE: the second call waits
+-- on the row lock, then after the first commits re-reads the FRESH value
+-- (READ COMMITTED re-check) and adds its own one. The result is +2, not +1.
 --
--- Semantika je namerno identicna dosadasnjoj:
---   * promasaj koji NE dostize prag samo uveca brojac;
---   * promasaj koji dostigne prag postavi `locked_until` i VRATI brojac na 0,
---     tako da sledeci prozor krece cist umesto da se zakljucava na svaki dalji
---     pokusaj;
---   * zatecen `locked_until` iz proslosti se ne dira (kao ni do sada) - njega
---     edge funkcija ionako procenjuje pre poziva.
+-- The semantics are deliberately identical to what came before:
+--   * a miss that does NOT reach the threshold only increments the counter;
+--   * a miss that reaches it sets `locked_until` and RESETS the counter to 0,
+--     so the next window starts clean instead of locking on every further
+--     attempt;
+--   * an existing `locked_until` in the past is left alone (as before) - the
+--     edge function evaluates that before calling anyway.
 --
--- Prag i trajanje stizu kao argumenti da bi ostali tamo gde vec zive
--- (MAX_PIN_ATTEMPTS / LOCKOUT_MINUTES u supabase/functions/kid-auth/index.ts,
--- ogledani u KID_MAX_PIN_ATTEMPTS u src/types/kid.ts). Baza i dalje samo cuva
--- stanje, kao sto kaze komentar uz kolone u 20260808000000_kid_mode.sql.
+-- The threshold and the duration arrive as arguments so they stay where they
+-- already live (MAX_PIN_ATTEMPTS / LOCKOUT_MINUTES in
+-- supabase/functions/kid-auth/index.ts, mirrored by KID_MAX_PIN_ATTEMPTS in
+-- src/types/kid.ts). The database still only stores state, as the column
+-- comments in 20260808000000_kid_mode.sql say.
 
 CREATE OR REPLACE FUNCTION public.kid_register_pin_failure(
   p_profile_id UUID,
@@ -50,13 +51,14 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.kid_register_pin_failure(UUID, INT, INT) IS
-  'Belezi jedan promasen PIN atomicno i vraca stanje posle upisa. Poziva je iskljucivo edge funkcija kid-auth servisnom ulogom.';
+  'Records one missed PIN atomically and returns the state after the write. Called only by the kid-auth edge function with the service role.';
 
--- Samo servisna uloga. `kid-auth` je jedini pozivalac i radi service role
--- kljucem; dete i gost ovde nemaju sta da traze - moglo bi da im posluzi za
--- zakljucavanje tudjeg naloga bez ijednog pokusaja prijave. REVOKE mora da
--- imenuje i anon i authenticated, jer im ALTER DEFAULT PRIVILEGES nad semom
--- public daje EXECUTE vec u trenutku kreiranja (REVOKE FROM PUBLIC to ne skida).
+-- Service role only. `kid-auth` is the sole caller and uses the service role
+-- key; a child or a guest has no business here - it would let them lock someone
+-- else's account without a single sign-in attempt. The REVOKE has to name anon
+-- and authenticated explicitly, because ALTER DEFAULT PRIVILEGES on the public
+-- schema grants them EXECUTE at creation time (REVOKE FROM PUBLIC does not take
+-- that away).
 REVOKE ALL ON FUNCTION public.kid_register_pin_failure(UUID, INT, INT)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.kid_register_pin_failure(UUID, INT, INT)

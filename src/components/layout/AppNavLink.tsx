@@ -10,7 +10,7 @@ import { isNavSectionActive, type NavSection } from "@/components/layout/navSect
  * a quiet strip and a highlighted background would fight the elevated "+".
  *
  * The highlight comes from {@link isNavSectionActive} rather than the router's
- * own `activeProps`: Porodica and Podešavanja share a pathname, and only the
+ * own `activeProps`: family and settings share a pathname, and only the
  * `tab` search param says which of the two the location belongs to.
  */
 

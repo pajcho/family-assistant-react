@@ -202,7 +202,7 @@ export function isDateInBreak(dateISO: string, brk: SchoolBreak): boolean {
 
 /**
  * Whether a break applies to a child. An EMPTY member list is the default and
- * means the whole family's students - so "svi su na raspustu", the common case,
+ * means the whole family's students - so everyone being on a break, the common case,
  * needs no picking at all.
  */
 export function breakCoversPerson(

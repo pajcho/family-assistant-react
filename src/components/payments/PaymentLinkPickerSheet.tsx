@@ -29,7 +29,7 @@ const GROUPS: ReadonlyArray<{ kind: PaymentLinkKind; label: string }> = [
 ];
 
 /**
- * Full-sheet "Poveži sa" picker - the mobile replacement for the
+ * Full-sheet link-to picker - the mobile replacement for the
  * `PaymentLinkField` popover, which the software keyboard shoves off-screen
  * inside a bottom sheet. Rendered as a sheet-stack sub-view ("←" pops back):
  * a search box (no autofocus - tapping it is the member's choice), the ranked

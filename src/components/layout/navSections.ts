@@ -13,24 +13,24 @@ import {
 } from "@heroicons/react/24/outline";
 
 /**
- * Single source of truth for the app's ten navigation destinations: the
- * mobile bottom bar, the "Meni" sheet and the desktop nav all render from this
- * list, so a new section is added exactly once.
+ * Single source of truth for the app's ten navigation destinations: the mobile
+ * bottom bar, the menu sheet and the desktop nav all render from this list, so
+ * a new section is added exactly once.
  *
- * Redizajn 2.0 reshaped the map:
- *   - "Uskoro" became the Agenda view inside KALENDAR (which also owns the new
- *     week and month views);
- *   - "Plaćanja" + "Budžet" merged into NOVAC (Pregled / Troškovi / Plaćanja);
- *   - "Porodica" surfaced as its own destination (a section of Podešavanja).
+ * Redesign 2.0 reshaped the map:
+ *   - the old "upcoming" page became the agenda view inside CALENDAR (which
+ *     also owns the new week and month views);
+ *   - payments + budget merged into MONEY (overview / expenses / payments);
+ *   - family surfaced as its own destination (a section of settings).
  *
- * ŠKOLA joined later, for the same reason: the timetable, the A/B shifts, the
- * bell schedule and the raspusti had outgrown a gear button in the Aktivnosti
- * header, where nobody could find them. It sits right after Aktivnosti - the
- * two answer the same question ("where does this child have to be this week")
- * and Aktivnosti still draws the school blocks in its grid.
+ * SCHOOL joined later, for the same reason: the timetable, the A/B shifts, the
+ * bell schedule and the school breaks had outgrown a gear button in the
+ * activities header, where nobody could find them. It sits right after
+ * activities - the two answer the same question ("where does this child have
+ * to be this week") and activities still draws the school blocks in its grid.
  *
  * The old keys still live in `profiles.nav_slots` rows and in per-device
- * "Nedavno" storage, so {@link normalizeNavSlots} maps them forward in code -
+ * "recent" storage, so {@link normalizeNavSlots} maps them forward in code -
  * deliberately no DB migration for something a pure function can absorb.
  */
 
@@ -49,26 +49,26 @@ export type NavSectionKey =
 export interface NavSection {
   key: NavSectionKey;
   to: string;
-  /** Search params the link needs (Porodica is a section of Podešavanja). */
+  /** Search params the link needs (family is a section of settings). */
   search?: Record<string, string>;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
 /**
- * All destinations in canonical (Meni grid) order.
+ * All destinations in canonical (menu grid) order.
  *
  * Keys are English because they are persisted (`profiles.nav_slots`, the
- * per-device "Nedavno" list) - only the labels are Serbian, so a future
+ * per-device "recent" list) - only the labels are Serbian, so a future
  * localization pass never touches stored values.
  */
 export const NAV_SECTIONS: readonly NavSection[] = [
   { key: "today", to: "/", label: "Danas", icon: SunIcon },
-  { key: "calendar", to: "/kalendar", label: "Kalendar", icon: CalendarDaysIcon },
-  { key: "money", to: "/novac", label: "Novac", icon: WalletIcon },
+  { key: "calendar", to: "/calendar", label: "Kalendar", icon: CalendarDaysIcon },
+  { key: "money", to: "/money", label: "Novac", icon: WalletIcon },
   { key: "lists", to: "/lists", label: "Liste", icon: ClipboardDocumentListIcon },
   { key: "activities", to: "/activities", label: "Aktivnosti", icon: SparklesIcon },
-  { key: "school", to: "/skola", label: "Škola", icon: AcademicCapIcon },
+  { key: "school", to: "/school", label: "Škola", icon: AcademicCapIcon },
   { key: "events", to: "/events", label: "Događaji", icon: CalendarIcon },
   { key: "birthdays", to: "/birthdays", label: "Rođendani", icon: CakeIcon },
   {
@@ -86,13 +86,13 @@ export const NAV_SECTION_MAP: Readonly<Record<NavSectionKey, NavSection>> = Obje
 ) as Record<NavSectionKey, NavSection>;
 
 /**
- * What the "Meni" sheet draws as tiles - everything except Podešavanja, which
- * gets its own full-width row under the grid.
+ * What the menu sheet draws as tiles - everything except settings, which gets
+ * its own full-width row under the grid.
  *
  * That is not a demotion, it is what keeps the grid readable: the tiles are a
  * 3-column grid, so the count has to stay a multiple of three or the last row
- * is one lonely tile. Podešavanja is the right one to sit outside it - it is
- * the only section that cannot go in the bottom bar, it is already one tap away
+ * is one lonely tile. Settings is the right one to sit outside it - it is the
+ * only section that cannot go in the bottom bar, it is already one tap away
  * through the avatar, and a settings row at the foot of a menu is where every
  * app puts it. Adding a tenth SECTION therefore costs nothing here; the next
  * one to be added is the one that needs a decision again.
@@ -101,12 +101,12 @@ export const MENU_GRID_SECTIONS: readonly NavSection[] = NAV_SECTIONS.filter(
   (section) => section.key !== "settings",
 );
 
-/** "Danas" is not up for grabs - always the first bottom-bar slot. */
+/** Today is not up for grabs - always the first bottom-bar slot. */
 export const FIXED_SECTION: NavSectionKey = "today";
 
 /**
  * How many bottom-bar slots the user fills. Down from 3: the redesigned bar is
- * Danas · slot · [+] · slot · Meni, so the centre "+" costs one slot.
+ * today - slot - [+] - slot - menu, so the centre "+" costs one slot.
  */
 export const MAX_FREE_SLOTS = 2;
 
@@ -114,15 +114,16 @@ export const MAX_FREE_SLOTS = 2;
 export const DEFAULT_NAV_SLOTS: readonly NavSectionKey[] = ["calendar", "money"];
 
 /**
- * Sections that may NOT be put in the bar. Podešavanja is always one tap away
- * through the avatar and the Meni sheet, so spending a slot on it is waste.
+ * Sections that may NOT be put in the bar. Settings is always one tap away
+ * through the avatar and the menu sheet, so spending a slot on it is waste.
  */
 export const UNSLOTTABLE_SECTIONS: readonly NavSectionKey[] = ["settings"];
 
 /**
  * Pre-redesign keys, as they still sit in `profiles.nav_slots`. Mapped forward
- * on read so a returning user's bar keeps pointing at the same content:
- * Uskoro is now Kalendar's agenda, and both Plaćanja and Budžet are Novac.
+ * on read so a returning user's bar keeps pointing at the same content: the
+ * old upcoming page is now the calendar's agenda, and both payments and budget
+ * are money.
  */
 const LEGACY_KEY_MAP: Readonly<Record<string, NavSectionKey>> = {
   danas: "today",
@@ -144,8 +145,8 @@ export function resolveNavSectionKey(value: unknown): NavSectionKey | null {
 
 /**
  * Turn the raw `profiles.nav_slots` value into something the bar can render:
- * map legacy keys forward, drop unknown ones and the fixed "danas", dedupe
- * (both Plaćanja and Budžet collapse to Novac, so duplicates are expected),
+ * map legacy keys forward, drop unknown ones and the fixed today slot, dedupe
+ * (both payments and budget collapse to money, so duplicates are expected),
  * cap at {@link MAX_FREE_SLOTS}. NULL/undefined means "never customized" and
  * falls back to the default layout; an empty array is a deliberate minimal bar
  * and stays empty.
@@ -163,12 +164,12 @@ export function normalizeNavSlots(raw: readonly unknown[] | null | undefined): N
 }
 
 /**
- * Which destination a pathname belongs to ("/lists/123" → lists). Used to
- * record "Nedavno" visits; null for routes outside the sections (login…).
+ * Which destination a pathname belongs to ("/lists/123" -> lists). Used to
+ * record "recent" visits; null for routes outside the sections (login...).
  *
- * Porodica shares its pathname with Podešavanja (it is a section of it), so
- * path matching resolves to settings - Porodica is only ever reached through
- * an explicit link.
+ * Family shares its pathname with settings (it is a section of it), so path
+ * matching resolves to settings - family is only ever reached through an
+ * explicit link.
  */
 export function sectionForPathname(pathname: string): NavSectionKey | null {
   if (pathname === "/") return "today";
@@ -186,12 +187,12 @@ function searchMatches(section: NavSection, search: Record<string, unknown>): bo
 
 /**
  * Whether a nav item is the one the current location belongs to - what every
- * surface (rail, bottom bar, Meni grid) highlights.
+ * surface (rail, bottom bar, menu grid) highlights.
  *
- * Porodica and Podešavanja share `/settings`, so the pathname alone can't tell
- * them apart: `?tab=family` is Porodica's, and Podešavanja owns the hub plus
- * every other tab. Without that split, following the rail's own Porodica link
- * lit up Podešavanja instead.
+ * Family and settings share `/settings`, so the pathname alone can't tell them
+ * apart: `?tab=family` is family's, and settings owns the hub plus every other
+ * tab. Without that split, following the rail's own family link lit up
+ * settings instead.
  */
 export function isNavSectionActive(
   section: NavSection,
@@ -204,6 +205,6 @@ export function isNavSectionActive(
   const siblings = NAV_SECTIONS.filter((other) => other.to === section.to);
   if (siblings.length < 2) return true;
   if (section.search) return searchMatches(section, search);
-  // The plain section (Podešavanja) takes whatever none of its siblings claim.
+  // The plain section (settings) takes whatever none of its siblings claim.
   return !siblings.some((other) => other.search && searchMatches(other, search));
 }

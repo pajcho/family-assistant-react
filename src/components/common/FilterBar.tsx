@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Shared single-row list toolbar: `[period] [🔍] [Filteri •N]`. On mobile the
- * search collapses to an icon that expands over the whole row (with "Otkaži");
+ * search collapses to an icon that expands over the whole row (with a cancel);
  * from `sm` up the input stays visible inline. Sheet-based filters hang off
  * the trailing `FilterTriggerButton` - the sheet itself is the page's
  * `FilterSheet`.
@@ -51,7 +51,7 @@ export function FilterBar({
   };
 
   return (
-    // flex-wrap: when the picker carries its "Ovaj mesec" reset (or a long
+    // flex-wrap: when the picker carries its this-month reset (or a long
     // "Svi …" label) the trailing buttons wrap to a second line instead of
     // clipping - the single-row promise holds in the common case.
     <div className="flex flex-wrap items-center gap-2">

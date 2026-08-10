@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { KidUpcomingView } from "@/components/kid/KidUpcomingView";
 
-/** Uskoro. See `KidUpcomingView` - shared with the parent-side preview. */
-export const Route = createFileRoute("/kid/uskoro")({
+/** Upcoming. See `KidUpcomingView` - shared with the parent-side preview. */
+export const Route = createFileRoute("/kid/upcoming")({
   component: KidUpcomingView,
 });

@@ -121,7 +121,7 @@ walk and day virtualization (separate, riskier plan); `gcal-sync` batching
 ## Git workflow
 
 - Branch: `git checkout -b advisor/011-resume-and-fetch-cost advisor/010-payment-recurrence-unify` (STOP if base missing).
-- One commit per step, Serbian imperative. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- One commit per step, English imperative. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR.
 
 ## Steps

@@ -32,7 +32,7 @@ import { recurrenceLabel } from "@/utils/payment";
  * Neither maps onto a mutable `Payment` occurrence, so this shows the frozen
  * snapshot plus - in the shared detail-sheet layout - the few actions that
  * apply as rows: "Izmeni" on the underlying series, the history drill-in, and
- * "Poništi" on the last history entry. The live occurrence gets the full
+ * an undo on the last history entry. The live occurrence gets the full
  * `PaymentDetailDialog` instead.
  *
  * History and the undo confirm are sub-views on the sheet stack - each opens

@@ -39,7 +39,7 @@ import { matchesCategoryFilter } from "@/utils/categoryFilter";
 
 /** Minimum characters before the client-side search kicks in. */
 const MIN_SEARCH_CHARS = 2;
-/** Rows revealed per "Prikaži još" click (and the initial page size). */
+/** Rows revealed per show-more click (and the initial page size). */
 const PAGE_SIZE = 30;
 
 /* --- Summary computation -------------------------------------------------- */
@@ -91,7 +91,7 @@ function computeSummary({
 
   // History entries for this month (skip one-time due in this month -
   // already in payment count). Canceled (skipped) occurrences were never paid,
-  // so they don't count toward "Plaćeno".
+  // so they don't count as paid.
   const oneTimePaymentIdsInMonth = new Set(
     payments
       .filter((p) => p.recurrence_period === "one-time" && p.due_date.startsWith(selectedMonth))
@@ -343,7 +343,7 @@ function computeCombinedList({
 /* --- The page itself ------------------------------------------------------ */
 
 export interface PaymentsPageProps {
-  /** "YYYY-MM" or "all" (Sva plaćanja), owned by the Novac hub's month pager. */
+  /** "YYYY-MM" or "all" (every payment), owned by the Money hub's month pager. */
   month: string;
   /** Hub-owned search term; while active it spans ALL months. */
   searchTerm: string;
@@ -352,17 +352,17 @@ export interface PaymentsPageProps {
 }
 
 /**
- * The Plaćanja view of Novac: this month's bills, every status, grouped by
+ * The payments view of Money: this month's bills, every status, grouped by
  * day. The month, the search field and the QR scanner live in the hub header
- * (see `NovacScreen`); everything below - person filter, the resolved-rows
+ * (see `MoneyScreen`); everything below - person filter, the resolved-rows
  * toggle, and the whole dialog layer - stays here.
  */
 export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) {
-  // The hub owns the month; "all" (Sva plaćanja) is picked in its pager.
+  // The hub owns the month; "all" (every payment) is picked in its pager.
   const selectedMonth = month;
   // Resolved (paid/canceled) rows are hidden by default - the list opens with
   // what's still outstanding. Revealing them is a chip AND the
-  // "Sakriveno N · Prikaži" link under the list.
+  // hidden-count link under the list.
   const [showPaid, setShowPaid] = useState(false);
   const searchActive = searchTerm.trim().length >= MIN_SEARCH_CHARS;
   // Person + category filters - same convention as the dashboard's person
@@ -466,7 +466,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   );
 
   // Search mode: match name/description over ALL payments (live rows, every
-  // month, ignoring "Sakrij plaćena"), newest due date first. The month and
+  // month, ignoring the hide-paid toggle), newest due date first. The month and
   // paid filters would hide exactly what the user is trying to find.
   const searchResults = useMemo<PaymentListItemUnion[]>(() => {
     if (!searchActive) return [];
@@ -509,7 +509,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   }, [searchActive, searchResults, combinedList, showPaid]);
 
   // How many resolved rows the default view is hiding - feeds the quiet
-  // "Sakriveno N · Prikaži" link under the list.
+  // hidden-count link under the list.
   const hiddenResolvedCount =
     searchActive || showPaid ? 0 : combinedList.length - displayedList.length;
 
@@ -535,7 +535,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
     [visiblePayments, visibleHistory, selectedMonth, overridesByKey],
   );
 
-  // Counts + next due date for the month summary card ("1 od 12", "Sledeće:
+  // Counts + next due date for the month summary card (a paid-of-total count, the next due date:
   // 15.07."). Canceled and paused occurrences are neither paid nor due.
   const { str: todayStr } = useToday();
   const monthStats = useMemo(() => {
@@ -656,7 +656,7 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
   };
 
   // Underlying series row for the selected occurrence (history / upcoming) -
-  // powers that dialog's Izmeni / Istorija / Poništi.
+  // powers that dialog's edit / history / undo.
   const occurrencePaymentId = selectedOccurrence
     ? selectedOccurrence.type === "history"
       ? selectedOccurrence.payment_id

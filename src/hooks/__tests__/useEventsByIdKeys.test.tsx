@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
  * to exactly ONE event made the two keys identical: the batch hook (mounted by
  * the payment detail sheet's "Povezano sa" row) filled the cache with `[event]`
  * and the by-id hook then handed that list to the event form as if it were an
- * event - which rendered as a blank "Izmeni događaj".
+ * event - which rendered as a blank edit-event dialog.
  *
  * These tests pin what keeps that from coming back: distinct keys for the two
  * shapes, and both nested under ["events", familyId] so every event mutation's

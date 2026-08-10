@@ -31,7 +31,7 @@ export interface ParsedReceipt {
   issuedAt: string;
   totalAmount: number;
   items: ParsedReceiptItem[];
-  /** Non-fatal notes (Serbian), e.g. "Stavke nisu prepoznate …". */
+  /** Non-fatal notes, in Serbian - e.g. that the line items were not recognized. */
   warnings: string[];
   /** True when the issuer hasn't synced the receipt journal to PURS yet, so
    *  items are unavailable (optional: older function versions omit it). */
@@ -75,7 +75,7 @@ export function useReceiptImport() {
 }
 
 /**
- * Per-receipt "Osveži stavke" cooldown, mirroring the SERVER-side value in the
+ * Per-receipt refresh-items cooldown, mirroring the SERVER-side value in the
  * Edge Function (REFRESH_COOLDOWN_SECONDS). The client copy only drives the
  * disabled-button countdown; the function enforces the real limit (429).
  */

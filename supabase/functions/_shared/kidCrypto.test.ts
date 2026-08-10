@@ -117,7 +117,7 @@ describe("randomInviteCode", () => {
  * `src/types/kid.ts` restates this normalization for the parent's screen and
  * the child's code field, because Deno cannot import across the frontend
  * boundary. If the two ever fold a character differently they hash different
- * strings, and a correctly typed code comes back "pogrešan kod" with nothing
+ * strings, and a correctly typed code comes back rejected with nothing
  * anywhere to explain it. Imported from this side because `supabase/` sits
  * outside every tsconfig project and so cannot be imported from `src/`.
  */

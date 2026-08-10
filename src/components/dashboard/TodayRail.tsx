@@ -32,7 +32,7 @@ export function TodayRail({
   today: string;
   overdueItems: ReadonlyArray<AgendaItem>;
   /**
-   * Agenda items from today on, ascending - the source for "Sledeći dani".
+   * Agenda items from today on, ascending - the source for the next-days block.
    * Already run through the screen's person/type filter, like `countByDay`;
    * the rail never re-filters.
    */
@@ -51,8 +51,8 @@ export function TodayRail({
     <aside className="hidden lg:sticky lg:top-0 lg:flex lg:flex-col lg:gap-3 lg:self-start">
       {overdueItems.length > 0 ? (
         <Link
-          to="/novac"
-          search={{ tab: "placanja" }}
+          to="/money"
+          search={{ tab: "payments" }}
           className="flex items-center gap-2.5 rounded-xl bg-neg-soft px-3.5 py-3 text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.99]"
         >
           <ExclamationTriangleIcon className="size-[17px] flex-none" />
@@ -103,8 +103,8 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
           {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
         </span>
         <Link
-          to="/kalendar"
-          search={{ view: "mesec" }}
+          to="/calendar"
+          search={{ view: "month" }}
           className="ml-auto text-[11.5px] font-semibold text-accent-deep hover:underline"
         >
           Otvori kalendar
@@ -131,9 +131,9 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
               onClick={() => {
                 // `resetScroll: false`: the agenda scrolls itself to the day,
                 // and the router's own scroll pass would cancel that jump
-                // (see the note in routes/_app.kalendar.tsx).
+                // (see the note in routes/_app.calendar.tsx).
                 void navigate({
-                  to: "/kalendar",
+                  to: "/calendar",
                   search: { view: "agenda", day: cell.day },
                   resetScroll: false,
                 });
@@ -183,7 +183,7 @@ function NextDays({
           Sledeći dani
         </h4>
         <Link
-          to="/kalendar"
+          to="/calendar"
           search={{ view: "agenda" }}
           className="ml-auto text-[11.5px] font-semibold text-accent-deep hover:underline"
         >
@@ -200,7 +200,7 @@ function NextDays({
           {rows.map((item) => (
             <Link
               key={agendaItemKey(item)}
-              to="/kalendar"
+              to="/calendar"
               search={{ view: "agenda", day: item.date }}
               resetScroll={false}
               className="flex items-center gap-2 border-b border-border py-2 text-[13px] last:border-b-0 hover:bg-muted"

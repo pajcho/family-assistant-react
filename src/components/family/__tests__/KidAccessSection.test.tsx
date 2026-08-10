@@ -210,7 +210,7 @@ describe("KidAccessSection - turning it on", () => {
     // hundred runs.
     expect(await screen.findByRole("img", { name: /QR kod/ })).toBeInTheDocument();
     expect(await screen.findByText(/Važi još/)).toBeInTheDocument();
-    expect(await screen.findByText(/kid\/veza#tok-abc/)).toBeInTheDocument();
+    expect(await screen.findByText(/kid\/link#tok-abc/)).toBeInTheDocument();
   });
 });
 
@@ -268,8 +268,8 @@ describe("KidAccessSection - previewing the child's app", () => {
     renderSection();
     fireEvent.click(screen.getByRole("button", { name: /^Pogledaj dečiju aplikaciju/ }));
     expect(h.navigate).toHaveBeenCalledWith({
-      to: "/kid/pregled",
-      search: { dete: "kid-1" },
+      to: "/kid/preview",
+      search: { child: "kid-1" },
     });
   });
 
@@ -278,8 +278,8 @@ describe("KidAccessSection - previewing the child's app", () => {
     renderSection();
     fireEvent.click(screen.getByRole("button", { name: /^Pogledaj dečiju aplikaciju/ }));
     expect(h.navigate).toHaveBeenCalledWith({
-      to: "/kid/pregled",
-      search: { dete: "kid-1" },
+      to: "/kid/preview",
+      search: { child: "kid-1" },
     });
   });
 });

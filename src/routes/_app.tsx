@@ -46,7 +46,7 @@ function AppLayout() {
   // exactly once for the whole authenticated tree.
   useFamilyChannel();
 
-  // Paint the user's chosen accent ("boja aplikacije") onto <html>.
+  // Paint the user's chosen accent (the app colour) onto <html>.
   useAccentSync();
 
   // Feed the "Nedavno" row in the Meni sheet: every visit to one of the
@@ -96,7 +96,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <Navigate to="/login" />;
   }
 
-  // Dečiji režim: a kid signs in against the same Supabase project but has no
+  // Kid mode: a kid signs in against the same Supabase project but has no
   // row in `profiles`, so every screen under `_app` would render empty for
   // them. Their whole app is the `/kid` shell (a sibling layout route, so none
   // of this frame is even mounted). Read straight off the JWT claims - no

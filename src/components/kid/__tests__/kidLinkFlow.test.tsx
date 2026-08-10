@@ -35,7 +35,7 @@ describe("KidCodeForm", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Kod za povezivanje"), {
-      target: { value: "https://example.com/kid/veza#A7K29QXM" },
+      target: { value: "https://example.com/kid/link#A7K29QXM" },
     });
 
     expect(screen.getByLabelText("Kod za povezivanje")).toHaveValue("A7K2-9QXM");

@@ -71,7 +71,7 @@ export function decodeAccessTokenClaims(token: string): AccessTokenClaims | null
 }
 
 /**
- * Is this a dečiji režim session? The claims are written into the synthetic
+ * Is this a kid mode session? The claims are written into the synthetic
  * auth user's `app_metadata` at provision time (see kid-access's `enable`), so
  * they ride along in the JWT and cost no round trip. Mirrors `readKidClaims`
  * in src/types/kid.ts, restated because Deno cannot import across the frontend

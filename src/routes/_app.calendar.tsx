@@ -3,22 +3,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarScreen, type CalendarView } from "@/components/calendar/CalendarScreen";
 
 /**
- * "Kalendar" - the redesign merged the old "Uskoro" page into it as the Agenda
- * view, alongside Nedelja and the new Mesec.
+ * Calendar - the redesign merged the old "Uskoro" page into it as the Agenda
+ * view, alongside the week and month views.
  *
  * `view` is a search param so a specific view is linkable and survives a
- * reload; `day` is how the Danas week strip (and the month grid) hand a date
+ * reload; `day` is how the Today week strip (and the month grid) hand a date
  * over to the agenda. Both are validated here so a hand-edited URL can only
  * ever land on a real view.
  */
 
-export type KalendarView = CalendarView;
+export type { CalendarView };
 
-export const Route = createFileRoute("/_app/kalendar")({
+export const Route = createFileRoute("/_app/calendar")({
   validateSearch: (search: Record<string, unknown>): { view?: CalendarView; day?: string } => {
     const result: { view?: CalendarView; day?: string } = {};
     const view = search.view;
-    if (view === "agenda" || view === "nedelja" || view === "mesec") result.view = view;
+    if (view === "agenda" || view === "week" || view === "month") result.view = view;
     else if (view != null) result.view = "agenda";
     // `day` (YYYY-MM-DD) scrolls the agenda to a specific day.
     if (typeof search.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.day)) {
@@ -26,10 +26,10 @@ export const Route = createFileRoute("/_app/kalendar")({
     }
     return result;
   },
-  component: KalendarRoute,
+  component: CalendarRoute,
 });
 
-function KalendarRoute() {
+function CalendarRoute() {
   const { view = "agenda", day } = Route.useSearch();
   const navigate = Route.useNavigate();
 

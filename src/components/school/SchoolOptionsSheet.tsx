@@ -64,7 +64,7 @@ function memberName(member: Profile | undefined): string {
 }
 
 /**
- * The "Opcije" hub of the Škola screen - everything that CONFIGURES school,
+ * The options hub of the school screen - everything that CONFIGURES school,
  * as opposed to the page itself, which only shows the result.
  *
  * Instead of closing on every action it drills in (sheet stack): picking an
@@ -73,9 +73,9 @@ function memberName(member: Profile | undefined): string {
  * anywhere. `initialView` lets the page skip the hub entirely - the pencil on
  * the shift card opens "Smena" directly, with no hub underneath to go back to.
  *
- * Member management (add / remove / colors / logins) and the "Učenik" toggle
+ * Member management (add / remove / colors / logins) and the student toggle
  * that makes someone a student in the first place live on the Porodica
- * settings tab - the "Porodica i članovi" row just redirects there.
+ * settings tab - the family-and-members row just redirects there.
  */
 export function SchoolOptionsSheet({
   open,
@@ -243,7 +243,7 @@ function Hub({
   onManageFamily: () => void;
 }) {
   // Only students (those with a shift anchor) get school controls here. A
-  // member becomes a student via the "Učenik" toggle in Podešavanja → Porodica.
+  // member becomes a student via the student toggle in settings -> family.
   const students = useMemo(
     () => members.filter((member) => anchorsByPersonId.has(member.id)),
     [members, anchorsByPersonId],

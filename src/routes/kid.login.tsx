@@ -25,11 +25,11 @@ import type { KidDeviceEntry } from "@/types/kid";
  * Two factors: the device token behind each entry (planted once by a parent's
  * QR link) and the PIN. Neither alone gets in.
  *
- * Linking STARTS here as well as at `/kid/veza`, and on iOS that is the only
+ * Linking STARTS here as well as at `/kid/link`, and on iOS that is the only
  * way it can work: a home-screen web app has its own storage container and
  * Safari never hands it a scanned URL, so a code scanned with the iOS Camera
  * app links Safari and leaves the installed app none the wiser. Both paths hand
- * their token to `/kid/veza`, which owns the PIN step.
+ * their token to `/kid/link`, which owns the PIN step.
  */
 export const Route = createFileRoute("/kid/login")({
   component: KidLoginScreen,
@@ -87,11 +87,11 @@ function KidLoginScreen() {
   /**
    * Hand a freshly read code to the PIN step. Through the URL fragment, the
    * same door a scanned QR comes in by, so there is exactly one claim screen:
-   * `/kid/veza` reads the token on its first render and wipes it from the
+   * `/kid/link` reads the token on its first render and wipes it from the
    * address bar immediately.
    */
   function linkWith(token: string) {
-    void navigate({ to: "/kid/veza", hash: token });
+    void navigate({ to: "/kid/link", hash: token });
   }
 
   if (linkMode === "scan") {

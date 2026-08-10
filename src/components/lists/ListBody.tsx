@@ -162,7 +162,7 @@ export function ListBody({
 
   // Categorise active items only. Completed items are tucked away under
   // the collapse and don't need to participate in category grouping -
-  // a "Voće i povrće" header above a single struck-through "Jabuke" entry
+  // a category header above a single struck-through entry
   // would just be visual noise. Items are guaranteed to be in category
   // order whenever `showCategoryHeaders` is on (the parent list's
   // `smart_sort_enabled` flag drives auto-resort on every change).

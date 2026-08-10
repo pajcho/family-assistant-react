@@ -129,7 +129,7 @@ anything you discover; plan 010 does that.
 ## Git workflow
 
 - Branch: `git checkout -b advisor/009-payment-recurrence-tests advisor/005-ux-drift-pack` (STOP if base missing).
-- Serbian imperative commit, e.g. `Testovi za ponavljanje placanja: fiksiraj trenutno ponasanje i dokumentuj razlaz`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- One English imperative commit, e.g. `Payment recurrence tests: pin the current behaviour and document the divergence`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR.
 
 ## Steps

@@ -15,7 +15,7 @@ import { effectivePaymentDueDate, isPaymentOverdue } from "@/utils/payment";
  * Sits beside `useAgenda` rather than inside it: overdue lives BEFORE any agenda
  * window (`[today, …]`), so it isn't "in range". The underlying payment queries
  * are shared via React Query's cache, so calling both in a tab costs no extra
- * fetch. The dashboard renders these in the "Prekoračeno" section above today.
+ * fetch. The dashboard renders these in the overdue section above today.
  */
 export interface UseOverduePaymentsResult {
   items: AgendaItem[];

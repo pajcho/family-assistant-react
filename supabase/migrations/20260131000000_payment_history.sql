@@ -1,7 +1,7 @@
 -- Payment History: Track each payment occurrence for recurring payments
 -- Also adds pause functionality
 
--- Tabela za istoriju plaćanja
+-- The payment history table
 CREATE TABLE payment_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,

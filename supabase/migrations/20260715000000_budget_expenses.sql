@@ -15,7 +15,7 @@
 --         into BOTH `spent_on` and `payment_due_date`. `spent_on = due_date`
 --         (not the paid_date timestamp) is deliberate: due_date is the canonical
 --         occurrence the money is FOR, so July rent lands in July's budget even
---         if you tap "Plaćeno" on Aug 2. It also keeps `spent_on` aligned with
+--         if you mark it paid on Aug 2. It also keeps `spent_on` aligned with
 --         the idempotency key.
 --       - Idempotency: UNIQUE(payment_id, payment_due_date) WHERE source='payment'
 --         + ON CONFLICT DO NOTHING, so re-firing can never double-insert.

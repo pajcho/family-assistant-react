@@ -21,7 +21,7 @@ import { computeBellGrid } from "@/utils/schoolTimetable";
 import { daysUntilBreak, type NextBreakHit, type SchoolWeekOutlook } from "@/utils/schoolOverview";
 
 /**
- * The three cards that frame the timetable on the Škola screen: what smena
+ * The three cards that frame the timetable on the school screen: which shift
  * this week is, when the bells ring, and when the next raspust lands.
  *
  * They are siblings in one file because they only ever appear together, as one
@@ -212,7 +212,7 @@ export type SchoolBreaksCardProps = {
   breaks: ReadonlyArray<SchoolBreak>;
   memberIdsByBreak: ReadonlyMap<string, ReadonlySet<string>>;
   students: ReadonlyArray<Profile>;
-  /** Today (YYYY-MM-DD) - what "za N dana" counts from. */
+  /** Today (YYYY-MM-DD) - what the countdown counts from. */
   today: string;
   onAdd: () => void;
   onEdit: (breakId: string) => void;

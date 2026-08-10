@@ -1,5 +1,5 @@
 /**
- * The category facet's pure half, shared by Troškovi and Plaćanja.
+ * The category facet's pure half, shared by the expenses and payments views.
  *
  * Kept out of the component file on purpose: `CategoryFilterChip` reaches
  * `lib/supabase` through `useExpenseCategories`, and a test importing anything

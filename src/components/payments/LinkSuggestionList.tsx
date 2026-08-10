@@ -7,11 +7,11 @@ import { suggestionDetail, type LinkSuggestion } from "@/utils/linkSuggestions";
 import { cn } from "@/lib/cn";
 
 /**
- * The ranked "Poveži sa" suggestions, as tappable rows under the link field
+ * The ranked link-to suggestions, as tappable rows under the link field
  * (and at the top of the picker sheet).
  *
  * Every row prints its evidence on a second line - "u toku · 05.08. -
- * 15.08.2026", "u to vreme · 17:00 - 18:00", "za 2 dana · 11.08.2026". That
+ * a relative phrase plus the date it resolves to. That
  * line is the point of the whole thing: the previous version offered a single
  * bare name with no date, which is how a payment made in August ended up
  * linked to an event from May.

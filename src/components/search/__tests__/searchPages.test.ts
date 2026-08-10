@@ -17,7 +17,7 @@ describe("SEARCH_PAGES", () => {
   });
 
   it("keys pages by section key, so the ids stay unique", () => {
-    // Porodica and Podešavanja share /settings; a path-keyed list would collide.
+    // Family and settings share /settings; a path-keyed list would collide.
     const ids = SEARCH_PAGES.map((page) => page.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -30,13 +30,13 @@ describe("SEARCH_PAGES", () => {
   });
 
   it("points at no pre-redesign redirect stub", () => {
-    const stubs = ["/uskoro", "/payments", "/budget"];
+    const stubs = ["/payments", "/budget"];
     for (const page of SEARCH_PAGES) {
       expect(stubs).not.toContain(page.to);
     }
   });
 
-  it("carries Porodica's search params through", () => {
+  it("carries the family section's search params through", () => {
     const family = SEARCH_PAGES.find((page) => page.id === "family");
     expect(family?.to).toBe("/settings");
     expect(family?.search?.tab).toBe("family");
@@ -65,22 +65,22 @@ describe("matchSearchPages", () => {
   it("shows an old name's hit under the section's CURRENT identity", () => {
     // Typing "uskoro" must offer "Kalendar" - the row is where the content
     // lives now, not a ghost of the page that used to hold it.
-    const [uskoro] = matchSearchPages("uskoro");
-    expect(uskoro?.label).toBe("Kalendar");
-    expect(uskoro?.to).toBe("/kalendar");
+    const [upcoming] = matchSearchPages("uskoro");
+    expect(upcoming?.label).toBe("Kalendar");
+    expect(upcoming?.to).toBe("/calendar");
 
-    const [placanja] = matchSearchPages("placanja");
-    expect(placanja?.label).toBe("Novac");
-    expect(placanja?.to).toBe("/novac");
+    const [payments] = matchSearchPages("placanja");
+    expect(payments?.label).toBe("Novac");
+    expect(payments?.to).toBe("/money");
   });
 
   it("returns a section once even when both its label and an old name match", () => {
-    // "ac" is inside Novac and inside placanja.
+    // "ac" is inside "Novac" and inside "placanja".
     expect(matchSearchPages("ac").map((page) => page.id)).toEqual(["money"]);
   });
 
   it("keeps the canonical nav order and ignores an empty term", () => {
-    // "a" is in Danas, Kalendar, Novac... - the order is NAV_SECTIONS'.
+    // "a" is in "Danas", "Kalendar", "Novac"... - the order is NAV_SECTIONS'.
     const ids = matchSearchPages("a").map((page) => page.id);
     expect(ids).toEqual(
       NAV_SECTIONS.map((section) => section.key).filter((key) => ids.includes(key)),

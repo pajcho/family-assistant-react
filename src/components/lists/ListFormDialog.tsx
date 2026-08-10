@@ -18,7 +18,7 @@ export type ListFormDialogProps = {
    * from a list while still creating a new one.
    */
   mode?: ListFormMode;
-  /** Create mode only - pre-fills the name (starter-chip "+ Šoping"). */
+  /** Create mode only - pre-fills the name (from a starter chip). */
   initialName?: string;
   error?: string | null;
   saving?: boolean;

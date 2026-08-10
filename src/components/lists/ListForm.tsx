@@ -41,7 +41,7 @@ export type ListFormProps = {
   list?: List | null;
   /** Defaults to "create". See {@link ListFormMode}. */
   mode?: ListFormMode;
-  /** Create mode only - pre-fills the name (starter-chip "+ Šoping"). */
+  /** Create mode only - pre-fills the name (from a starter chip). */
   initialName?: string;
   saving?: boolean;
   onSubmit: (payload: ListFormPayload) => void;
@@ -54,7 +54,7 @@ type FormState = {
   /** Stored as string for the controlled <select>; serialised at submit. */
   autoDelete: string;
   description: string;
-  /** "Kopiraj i stavke" - only shown (and submitted) in duplicate mode. */
+  /** Copy the items too - only shown (and submitted) in duplicate mode. */
   copyItems: boolean;
 };
 

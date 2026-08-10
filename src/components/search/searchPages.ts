@@ -3,23 +3,23 @@ import type { ComponentType, SVGProps } from "react";
 import { NAV_SECTIONS, type NavSectionKey } from "@/components/layout/navSections";
 
 /**
- * The "Stranice" group of the global search palette, derived from the nav's own
+ * The pages group of the global search palette, derived from the nav's own
  * section list instead of a second hardcoded table.
  *
  * The palette used to carry its own page array, written before the 2026-08
- * redesign: it still offered Uskoro, Plaćanja and Budžet (now redirect stubs)
- * and had never heard of Kalendar, Novac or Škola. Deriving from
- * {@link NAV_SECTIONS} means a new section is searchable the moment it is added,
- * and a renamed one can never go stale here.
+ * redesign: it still offered the upcoming, payments and budget pages and had
+ * never heard of calendar, money or school. Deriving from {@link NAV_SECTIONS}
+ * means a new section is searchable the moment it is added, and a renamed one
+ * can never go stale here.
  *
  * Kept free of any Supabase-touching import so the derivation stays unit
  * testable - `GlobalSearchDialog` itself reaches the client transitively.
  */
 export interface SearchPage {
   /**
-   * Section key, not the path: Porodica and Podešavanja both live at
-   * `/settings` and differ only by search params, so a path-keyed lookup would
-   * return the wrong one.
+   * Section key, not the path: family and settings both live at `/settings`
+   * and differ only by search params, so a path-keyed lookup would return the
+   * wrong one.
    */
   id: string;
   to: string;
@@ -28,7 +28,7 @@ export interface SearchPage {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
-/** Navigable pages, matched by (normalized) name - "skola" finds Škola. */
+/** Navigable pages, matched by (normalized) name - "skola" finds "Škola". */
 export const SEARCH_PAGES: readonly SearchPage[] = NAV_SECTIONS.map((section) => ({
   id: section.key,
   to: section.to,
@@ -51,20 +51,23 @@ export function normalizeTerm(s: string): string {
 /**
  * What the sections used to be called, so the old vocabulary still finds them.
  *
- * The redizajn folded Uskoro into Kalendar and merged Plaćanja + Budžet into
- * Novac, but that is a rename, not a removal: the household types what it typed
- * last week. The app already forgives the old names in two other places - stored
- * `nav_slots` keys are mapped forward by `LEGACY_KEY_MAP`, and the `/uskoro`,
- * `/payments` and `/budget` routes still stand as redirect stubs for bookmarks
- * and push links - so search has no business being the one surface that forgets.
+ * The redesign folded the upcoming page into the calendar and merged payments
+ * + budget into money, but that is a rename, not a removal: the household
+ * types what it typed last week. The app already forgives the old names in two
+ * other places - stored `nav_slots` keys are mapped forward by
+ * `LEGACY_KEY_MAP`, and the `/payments` and `/budget` routes still stand as
+ * redirect stubs for bookmarks and push links - so search has no business
+ * being the one surface that forgets.
  *
+ * These are search TERMS, not URLs: they are what a person types into the
+ * palette, and the palette still speaks Serbian because the labels do.
  * Deliberately NOT `LEGACY_KEY_MAP` itself: that one maps STORED English keys
- * (`payments`, `budget`) and search matches what a person TYPES, in Serbian
- * ("placanja", "budzet"). Same idea, different alphabets - merging them would
- * force one table to serve two vocabularies.
+ * (`payments`, `budget`). Same idea, different vocabularies - merging them
+ * would force one table to serve both.
  *
- * Written in the form {@link normalizeTerm} produces (no diacritics, lowercase),
- * because that is what they are compared against; the test pins that.
+ * Written in the form {@link normalizeTerm} produces (no diacritics,
+ * lowercase), because that is what they are compared against; the test pins
+ * that.
  */
 const LEGACY_PAGE_NAMES: Readonly<Record<string, NavSectionKey>> = {
   uskoro: "calendar",
@@ -91,8 +94,8 @@ const MATCH_TERMS: ReadonlyMap<string, readonly string[]> = new Map(
  * may hand over a raw or an already-normalized string.
  *
  * One pass over the pages, never one per matched name: a term that hits both a
- * label and an old name of the SAME section ("ac" is in both Novac and
- * placanja) still returns that section exactly once.
+ * label and an old name of the SAME section ("ac" is in both "Novac" and
+ * "placanja") still returns that section exactly once.
  */
 export function matchSearchPages(term: string): SearchPage[] {
   const q = normalizeTerm(term.trim());

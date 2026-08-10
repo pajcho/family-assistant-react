@@ -10,7 +10,7 @@ import { isKidShellPath } from "@/types/kid";
  * Listens for service-worker updates from vite-plugin-pwa.
  *
  * When a new SW activates (because a fresh deploy went live), this surfaces
- * a persistent sonner toast with a "Osveži" action. We deliberately don't
+ * a persistent sonner toast with a refresh action. We deliberately don't
  * silently reload - users may have unsaved input in a dialog. The toast
  * stays until they dismiss or refresh.
  *

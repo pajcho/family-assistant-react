@@ -1,32 +1,36 @@
--- Prihodi po mesecu (Faza budžet, deo 3).
+-- Income per month (budget phase, part 3).
 --
--- `incomes` OSTAJE tabela IZVORA (recurring šabloni: "Plata — Nikola", iznos,
--- dan u mesecu). Stvarni priliv se sad beleži ovde — jednom po mesecu — pa se
--- istorija prihoda ZAMRZAVA: izmena izvora danas ne menja prošle mesece. Ista
--- ideja kao payment_history + expenses za rashode.
+-- `incomes` REMAINS the SOURCE table (recurring templates: a salary, its
+-- amount, the day of the month). The actual receipt is now recorded here - once
+-- per month - so income history is FROZEN: editing a source today does not
+-- change past months. The same idea as payment_history + expenses on the
+-- outgoing side.
 --
--- Semantika koju frontend računa (src/utils/budget.ts):
---   • Mesečni budžet sabira POTVRĐENE prilive za taj mesec (`month`).
---   • Aktivni recurring izvor BEZ potvrde za tekući/budući mesec prikazuje se
---     kao "za potvrdu" (očekivani prihod, projekcija) dok se ne unese stvarni
---     iznos. Prošli meseci prikazuju samo ono što je stvarno potvrđeno.
---   • Jednokratni prihodi (bonus) = red sa income_id IS NULL, is_one_time=true.
+-- The semantics the frontend computes (src/utils/budget.ts):
+--   - The monthly budget sums the CONFIRMED receipts for that month (`month`).
+--   - An active recurring source WITHOUT a confirmation for the current/future
+--     month is shown as awaiting confirmation (expected income, a projection)
+--     until the real amount is entered. Past months show only what was actually
+--     confirmed.
+--   - One-off income (a bonus) = a row with income_id IS NULL,
+--     is_one_time=true.
 
 CREATE TABLE income_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  -- Izvor (recurring plata) koji je potvrđen; NULL = jednokratni prihod.
-  -- ON DELETE SET NULL: brisanje izvora ne briše istoriju priliva.
+  -- The source (a recurring salary) being confirmed; NULL = one-off income.
+  -- ON DELETE SET NULL: deleting the source does not delete the receipt
+  -- history.
   income_id UUID REFERENCES incomes(id) ON DELETE SET NULL,
-  -- Ko ga je zaradio. ON UPDATE CASCADE (promocija login-less člana u pravi
-  -- login re-keyuje profiles.id), ON DELETE SET NULL zadržava red u istoriji.
+  -- Who earned it. ON UPDATE CASCADE (promoting a login-less member to a real
+  -- login re-keys profiles.id), ON DELETE SET NULL keeps the row in history.
   person_id UUID REFERENCES profiles(id) ON DELETE SET NULL ON UPDATE CASCADE,
-  -- Snapshot naziva u trenutku potvrde (ili labela jednokratnog prihoda).
+  -- A snapshot of the name at confirmation time (or the label of a one-off).
   name TEXT NOT NULL,
   amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
-  -- 'YYYY-MM' — mesec za koji se prihod računa (budžetski bucket + idempotencija).
+  -- 'YYYY-MM' - the month the income counts for (budget bucket + idempotency).
   month TEXT NOT NULL CHECK (month ~ '^[0-9]{4}-[0-9]{2}$'),
-  -- Kad je stvarno leglo (informativno; NULL dozvoljeno).
+  -- When it actually landed (informational; NULL allowed).
   received_on DATE,
   note TEXT,
   is_one_time BOOLEAN NOT NULL DEFAULT false,
@@ -34,9 +38,10 @@ CREATE TABLE income_entries (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Jedna potvrda po IZVORU po mesecu. NULL-ovi su distinktni u UNIQUE indeksu
--- (Postgres default), pa jednokratni prihodi (income_id NULL) se NE sudaraju —
--- može ih biti više u istom mesecu. Ovo je i ON CONFLICT meta za "potvrdi/izmeni".
+-- One confirmation per SOURCE per month. NULLs are distinct in a UNIQUE index
+-- (the Postgres default), so one-off income (income_id NULL) does NOT collide -
+-- there may be several in the same month. This is also the ON CONFLICT target
+-- for confirm/edit.
 CREATE UNIQUE INDEX idx_income_entries_source_month ON income_entries(income_id, month);
 CREATE INDEX idx_income_entries_family_month ON income_entries(family_id, month);
 

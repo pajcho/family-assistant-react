@@ -12,7 +12,7 @@
 --   bell_schedules            — one editable row per family. Uniform period /
 --                               break durations + per-band start time and the
 --                               position of the big break (veliki odmor). Three
---                               bands: morning, afternoon, afternoon-with-pred-čas.
+--                               bands: morning, afternoon, afternoon-with-early-class.
 --   school_timetable_entries  — (person, variant, day, period#, subject). The
 --                               variant is the A/B rota label; times are NOT here.
 --   school_shift_anchors.*    — two new per-child columns that DECOUPLE the
@@ -51,12 +51,12 @@ CREATE TABLE IF NOT EXISTS bell_schedules (
   morning_big_break_after SMALLINT NOT NULL DEFAULT 2
     CHECK (morning_big_break_after BETWEEN 0 AND 12),
 
-  -- Regular afternoon band (no pred-čas).
+  -- Regular afternoon band (no early class).
   afternoon_start TIME NOT NULL DEFAULT '14:00',
   afternoon_big_break_after SMALLINT NOT NULL DEFAULT 2
     CHECK (afternoon_big_break_after BETWEEN 0 AND 12),
 
-  -- Afternoon band WITH the leading "pred-čas": the day starts an hour
+  -- Afternoon band WITH the leading early class: the day starts an hour
   -- earlier (13:00) and the big break slides one class later (after the 3rd).
   -- Applied per child via `school_shift_anchors.afternoon_uses_predcas`.
   afternoon_predcas_start TIME NOT NULL DEFAULT '13:00',
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS school_timetable_entries (
   day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
 
   -- 1-based class slot WITHIN the band. Slot 1 is the first class of the day
-  -- for that band (so for a pred-čas afternoon, slot 1 = the 13:00 pred-čas).
+  -- for that band (so on an early-class afternoon, slot 1 = the 13:00 one).
   -- The resolver maps this index onto the computed bell grid.
   period_index SMALLINT NOT NULL CHECK (period_index BETWEEN 1 AND 12),
 
@@ -122,7 +122,7 @@ ALTER TABLE school_shift_anchors
   ADD COLUMN IF NOT EXISTS fixed_time_band TEXT
     CHECK (fixed_time_band IN ('morning', 'afternoon'));
 
--- Whether THIS child's afternoon weeks use the pred-čas band (13:00 start, big
+-- Whether THIS child's afternoon weeks use the early band (13:00 start, big
 -- break after the 3rd) rather than the regular afternoon band (14:00, after
 -- the 2nd). Defaults true since that's how most kids at the family's school go;
 -- irrelevant for children whose `fixed_time_band` pins them to mornings.

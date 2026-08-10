@@ -25,7 +25,7 @@ import {
  * "Ostali sati") followed by four minute chips (:00 :15 :30 :45); picking the
  * minutes closes the sheet. Anything unusual (11:37) is still reachable: a
  * LONG PRESS on the field opens the native `<input type="time">`, and the
- * picker itself carries a "Tačno vreme" box.
+ * picker itself carries an exact-time box.
  */
 
 const LONG_PRESS_MS = 450;
@@ -112,7 +112,7 @@ export function TimeField({
       input.focus();
       try {
         // Chromium/Firefox open the wheel directly; Safari has no showPicker
-        // and relies on the focus above (plus the "Tačno vreme" box as a
+        // and relies on the focus above (plus the exact-time box as a
         // guaranteed fallback inside the panel).
         input.showPicker?.();
       } catch {

@@ -20,8 +20,7 @@ import { useProfile } from "@/hooks/useProfile";
  * Visibility is opt-in, per child, one birthday at a time.
  *
  * `note` is per child as well, because the same birthday means something
- * different to each of them ("pozovi baku i čestitaj joj" vs "nacrtaj
- * čestitku"). It is rendered straight to the child, so it is written TO the
+ * different to each of them. It is rendered straight to the child, so it is written TO the
  * child.
  *
  * Surface:

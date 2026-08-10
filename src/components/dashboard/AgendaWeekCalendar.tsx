@@ -56,7 +56,7 @@ import { cn } from "@/lib/cn";
  * and its own `useAgenda({week})` fetch, so the agenda's growing-horizon query
  * doesn't run while the grid is shown.
  *
- * "Prikaži školu" folds the school timetable in (the same resolved blocks the
+ * The show-school toggle folds the school timetable in (the same resolved blocks the
  * /activities grid draws, from the bell schedule + A/B shift anchors). School
  * classes are drawn quietly - dashed, neutral - and lane against the agenda
  * items in the SAME sweep, so an afternoon class that overlaps a training sits
@@ -90,7 +90,7 @@ export type AgendaWeekCalendarProps = {
 const STRIP_WEEKS_BACK = 26;
 const STRIP_WEEKS_FORWARD = 26;
 
-/** All-day chips a day shows before collapsing the rest into "+ još N" (the
+/** All-day chips a day shows before collapsing the rest into "+ N more" (the
  *  month view's MAX_CHIPS rule, so the two grids behave alike). */
 const MAX_ALL_DAY = 3;
 

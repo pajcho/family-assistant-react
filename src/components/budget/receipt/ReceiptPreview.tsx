@@ -33,7 +33,7 @@ import {
  * don't add up, selection is off and the receipt saves whole, like before.
  *
  * Mobile collapses the editable bits into picker rows (Kategorija / Stavke /
- * Više detalja) that swap the sheet to a sub-view with a "←" header; desktop
+ * more details) that swap the sheet to a sub-view with a "back" header; desktop
  * shows everything inline. In `attachMode` - a receipt landing on an expense
  * that already exists - only Stavke is left: everything else is already
  * filled in on that expense and stays.
@@ -44,7 +44,7 @@ import {
  * picked.
  */
 
-// "link" is one level deeper than the others: Detalji → Poveži sa (the
+// "link" is one level deeper than the others: details -> link to (the
 // ExpenseFormDialog nesting, so a scanned receipt links exactly like a typed
 // expense).
 export type ReceiptPreviewView = "main" | "category" | "details" | "items" | "link";
@@ -64,7 +64,7 @@ export type ReceiptPreviewProps = {
   partial: boolean;
   /**
    * The receipt is being attached to an expense that already exists, so the
-   * fields it already has (kategorija / za koga / beleška / poveži sa) are not
+   * fields it already has (category / person / note / link) are not
    * ours to set - only the amount and the items change. Hides those rows.
    */
   attachMode?: boolean;
@@ -305,7 +305,7 @@ export function ReceiptPreview({
     <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">{error}</div>
   ) : null;
 
-  // Same "Više detalja" summary the manual expense form builds.
+  // The same more-details summary the manual expense form builds.
   const detailParts: string[] = [];
   if (personId) detailParts.push("Za koga ✓");
   if (note.trim()) detailParts.push("Beleška ✓");

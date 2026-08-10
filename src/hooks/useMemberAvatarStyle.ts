@@ -14,7 +14,7 @@ import {
 } from "@/utils/memberAvatar";
 
 /**
- * "Prikaz članova" - how THIS user sees other family members: initials on a
+ * Member display - how THIS user sees other family members: initials on a
  * colour, or the member's emoji.
  *
  * Per user and stored on the profile, exactly like `accent`: two parents

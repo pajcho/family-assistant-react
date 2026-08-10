@@ -46,7 +46,7 @@ export interface Profile {
    */
   nav_slots: string[] | null;
   /**
-   * In-app accent color ("boja aplikacije"): "blue" (default) | "purple" |
+   * In-app accent color (the app colour setting): "blue" (default) | "purple" |
    * "green" | "brown" - English because it is stored, Serbian only in the
    * labels. NULL = never picked. Read through `normalizeAccent`.
    * The brand outside the app (PWA icon, login mark, splash) stays blue.
@@ -175,7 +175,7 @@ export interface Payment {
   is_paused: boolean;
   /**
    * Marks a recurring bill whose amount varies each period (struja, infostan…).
-   * When true, `amount` is only a rough default ("okvirni iznos") used for
+   * When true, `amount` is only a rough default used for
    * projections, and each "mark as paid" prompts for the actual amount - which
    * is snapshotted into `payment_history.amount` (and the auto-expense). Only
    * ever true for recurring payments; the form gates the toggle. Defaults false.
@@ -197,7 +197,7 @@ export interface Payment {
   event_id: string | null;
   /**
    * Optional link to a birthday (poklon-tracking: "poklon za Markov
-   * rođendan"). Part of the same `payments_single_link` CHECK - a payment
+   * a gift). Part of the same `payments_single_link` CHECK - a payment
    * links to at most ONE of activity/event/birthday. ON DELETE SET NULL.
    */
   birthday_id: string | null;
@@ -348,12 +348,12 @@ export interface Expense {
   /** Store name parsed from a scanned receipt (source='receipt'); else null. */
   merchant: string | null;
   /** suf.purs.gov.rs verification URL for a scanned receipt; else null.
-   *  Kept alongside receipt_id (the "Otvori račun" link + duplicate-jump
+   *  Kept alongside receipt_id (the open-receipt link + duplicate-jump
    *  lookup read it directly). */
   receipt_url: string | null;
   /** The {@link Receipt} this expense was carved out of; null for non-receipt
    *  rows (and for stragglers saved by pre-receipts clients, healed on their
-   *  first "Osveži stavke"). */
+   *  first refresh of the items). */
   receipt_id: string | null;
   /** Legacy mirror of receipts.checked_at (still written by the refresh claim
    *  so deployed clients keep their countdown). Null until the first refresh. */
@@ -367,7 +367,7 @@ export interface Expense {
  * dedup key (the old expenses.receipt_url unique index moved here);
  * `total_amount` / `issued_on` are the receipt's own facts, which an expense's
  * amount/spent_on will diverge from once receipt-splitting lands. `checked_at`
- * is the "Osveži stavke" cooldown claim (was expenses.receipt_checked_at).
+ * is the refresh-items cooldown claim (was expenses.receipt_checked_at).
  * pib / company_name / store_name are parse extras (null on backfilled rows).
  */
 export interface Receipt {
@@ -587,7 +587,7 @@ export interface SchoolShiftAnchor {
    */
   fixed_time_band: SchoolShift | null;
   /**
-   * On this child's afternoon weeks, use the pred-čas band (13:00 start, big
+   * On this child's afternoon weeks, use the early band (13:00 start, big
    * break after the 3rd class) instead of the regular afternoon band (14:00,
    * after the 2nd). Defaults true. Irrelevant when `fixed_time_band` is
    * `'morning'`.
@@ -627,7 +627,7 @@ export interface BellSchedule {
   morning_big_break_after: number;
   afternoon_start: string;
   afternoon_big_break_after: number;
-  /** Pred-čas afternoon: earlier start, big break one class later. */
+  /** Early afternoon band: earlier start, big break one class later. */
   afternoon_predcas_start: string;
   afternoon_predcas_big_break_after: number;
   created_at: string;
@@ -806,7 +806,7 @@ export interface GoogleConnectionSafe {
   /**
    * True after a token refresh failed (e.g. the 7-day refresh-token expiry that
    * applies while the OAuth app is in Google "Testing" mode) - the UI shows a
-   * "Poveži ponovo" prompt until the member re-consents.
+   * reconnect prompt until the member re-consents.
    */
   needs_reauth: boolean;
   created_at: string;
@@ -959,7 +959,7 @@ export interface KidDevice {
  * opt-in, so a parent's friends' birthdays never reach the children.
  *
  * `note` is per child on purpose: one kid gets "pozovi baku", another
- * "nacrtaj čestitku" for the same birthday.
+ * a different one for the same birthday.
  */
 export interface BirthdayVisibility {
   birthday_id: string;

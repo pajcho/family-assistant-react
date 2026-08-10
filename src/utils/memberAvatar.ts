@@ -68,7 +68,7 @@ export const MEMBER_AVATAR_ANIMALS: readonly string[] = [
   "🐔",
   "🐣",
   "🦆",
-  // Šuma i divljina
+  // Forest and wildlife
   "🦊",
   "🐻",
   "🐼",

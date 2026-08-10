@@ -28,7 +28,7 @@ export type SchoolShiftUpsertInput = {
    * `null`/undefined = derive from the rota.
    */
   fixed_time_band?: SchoolShift | null;
-  /** Afternoon weeks use the 13:00 pred-čas band. Default true. */
+  /** Afternoon weeks use the earlier 13:00 band. Default true. */
   afternoon_uses_predcas?: boolean;
 };
 

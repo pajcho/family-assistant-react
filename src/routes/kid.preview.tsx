@@ -20,8 +20,8 @@ import { DEFAULT_KID_THEME, normalizeKidTheme } from "@/types/kid";
 import { getDisplayName } from "@/utils/identity";
 
 /**
- * Pregled dečije aplikacije - the kid shell, rendered for a parent, as one of
- * their children.
+ * Kid app preview - the kid shell, rendered for a parent, as one of their
+ * children.
  *
  * The point is the decision it unblocks: kid access is a thing a parent has to
  * turn ON, and nobody should have to turn something on to find out what it is.
@@ -29,7 +29,7 @@ import { getDisplayName } from "@/utils/identity";
  * after (Vuk, already signed in somewhere) alike.
  *
  * Four tabs, one route. The kid shell's own tabs are four sibling routes, but
- * routing the preview the same way would mean carrying `?dete=` through every
+ * routing the preview the same way would mean carrying `?child=` through every
  * link and four more route files that do nothing. Local state instead - and the
  * screens themselves are the very same components `/kid` renders, never copies.
  *
@@ -39,18 +39,18 @@ import { getDisplayName } from "@/utils/identity";
  * are the two places that matters most, because birthdays have no participants
  * to derive visibility from.
  */
-export const Route = createFileRoute("/kid/pregled")({
-  // `?dete=<profileId>` - which child to render as. Validated here to a string;
-  // whether it is really this parent's child is a data question, answered below
-  // against the family roster.
-  validateSearch: (search: Record<string, unknown>): { dete?: string } => ({
-    dete: typeof search.dete === "string" ? search.dete : undefined,
+export const Route = createFileRoute("/kid/preview")({
+  // `?child=<profileId>` - which child to render as. Validated here to a
+  // string; whether it is really this parent's child is a data question,
+  // answered below against the family roster.
+  validateSearch: (search: Record<string, unknown>): { child?: string } => ({
+    child: typeof search.child === "string" ? search.child : undefined,
   }),
   component: KidPreviewRoute,
 });
 
 function KidPreviewRoute() {
-  const { dete } = Route.useSearch();
+  const { child } = Route.useSearch();
   const navigate = useNavigate();
   const { familyId } = useProfile();
   const { members } = useFamilyMembers();
@@ -60,23 +60,24 @@ function KidPreviewRoute() {
   const [tab, setTab] = useState<KidTabPath>("/kid");
 
   const member = useMemo(
-    () => (dete ? (members.find((candidate) => candidate.id === dete) ?? null) : null),
-    [dete, members],
+    () => (child ? (members.find((candidate) => candidate.id === child) ?? null) : null),
+    [child, members],
   );
 
   // Built from the search param, not `member`, so the hook order stays flat
   // while the member is still being resolved. Passed to `navigate` whole - the
-  // `search` half is what puts the parent back on Porodica, on this child.
-  const exitTo = useMemo(() => kidPreviewExit(dete), [dete]);
+  // `search` half is what puts the parent back on the family screen, on this
+  // child.
+  const exitTo = useMemo(() => kidPreviewExit(child), [child]);
   const exit = useCallback(() => {
     void navigate(exitTo);
   }, [navigate, exitTo]);
 
-  // The child's real theme when there is a row to read it from, Okean when
-  // there is not (access still off). Painted through `KidThemeScope`, the same
-  // in-memory channel the login screen uses - the kid layout owns the actual
-  // `data-kid-theme` attribute, and only ever one writer may.
-  const storedTheme = dete ? byProfileId.get(dete)?.theme : undefined;
+  // The child's real theme when there is a row to read it from, the default
+  // when there is not (access still off). Painted through `KidThemeScope`, the
+  // same in-memory channel the login screen uses - the kid layout owns the
+  // actual `data-kid-theme` attribute, and only ever one writer may.
+  const storedTheme = child ? byProfileId.get(child)?.theme : undefined;
   const theme = storedTheme ? normalizeKidTheme(storedTheme) : DEFAULT_KID_THEME;
   useEffect(() => {
     setPreviewTheme(theme);
@@ -94,13 +95,13 @@ function KidPreviewRoute() {
   // and the child is not in it" bounced every direct hit on this URL. A family
   // always contains at least the parent doing the asking, so a non-empty list
   // is the honest signal.
-  const rejected = !dete || (members.length > 0 && !member);
+  const rejected = !child || (members.length > 0 && !member);
   const bounced = useRef(false);
   useEffect(() => {
     if (!rejected || bounced.current) return;
     bounced.current = true;
     toast.error("Taj profil nije član tvoje porodice.");
-    // No `clan` on the way out here: the id is exactly what was rejected.
+    // No `member` on the way out here: the id is exactly what was rejected.
     void navigate({ ...kidPreviewExit(), replace: true });
   }, [rejected, navigate]);
 
@@ -127,9 +128,9 @@ function KidPreviewRoute() {
     <KidPreviewProvider value={value}>
       {tab === "/kid" ? (
         <KidTodayView />
-      ) : tab === "/kid/uskoro" ? (
+      ) : tab === "/kid/upcoming" ? (
         <KidUpcomingView />
-      ) : tab === "/kid/raspored" ? (
+      ) : tab === "/kid/schedule" ? (
         <KidScheduleView />
       ) : (
         <KidFamilyView />

@@ -40,7 +40,7 @@ import { placanjaLabel } from "@/utils/plural";
  * today's plans), then the timeline.
  *
  * One `useAgenda` covers the timeline, both strips' load dots and the rail's
- * "Sledeći dani": it loads today through the end of this week and the timeline
+ * the next-days block: it loads today through the end of this week and the timeline
  * takes today's slice. Keeping it to a single agenda query per screen is
  * deliberate - the hook fans out to several tables.
  */
@@ -62,7 +62,7 @@ export function TodayScreen() {
 
   // How far ahead to load. The phone only needs this week (the strip shows one
   // week and its past days are not selectable); the desktop rail also shows a
-  // mini-month and "Sledeći dani", so it reaches the end of the month. Either
+  // mini-month and the next-days block, so it reaches the end of the month. Either
   // way it stays ONE useAgenda - the hook fans out to several tables per call.
   const isWide = useIsWide();
   const rangeEnd = useMemo(() => {
@@ -77,7 +77,7 @@ export function TodayScreen() {
   const overdue = useOverduePayments();
 
   // Filter once, at the top: the timeline, the week strip's load dots, the
-  // mini-month's dots and "Sledeći dani" are four views of the same list, so a
+  // mini-month's dots and the next-days block are four views of the same list, so a
   // person chip has to move all four together (Kalendar's agenda already ties
   // its strip to its sections the same way). Filtering only the timeline made
   // the dots promise items that the day below then didn't show.
@@ -186,7 +186,7 @@ export function TodayScreen() {
                 <button
                   type="button"
                   onClick={() => {
-                    void navigate({ to: "/novac", search: { tab: "placanja" } });
+                    void navigate({ to: "/money", search: { tab: "payments" } });
                   }}
                   className="mb-2.5 flex w-full items-center gap-2.5 rounded-lg bg-neg-soft px-3.5 py-3 text-left text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.98] lg:hidden"
                 >
@@ -287,7 +287,7 @@ function TodayEmpty({
         {description}
       </p>
       <Link
-        to="/kalendar"
+        to="/calendar"
         search={{ view: "agenda" }}
         className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-accent-deep hover:underline"
       >

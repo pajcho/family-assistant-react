@@ -43,7 +43,7 @@ import { formatDateTime, formatRelative } from "@/utils/date";
 import type { KidDevice, Profile } from "@/types/database";
 
 /**
- * "Dečiji pristup" - the parent's whole control panel for one child's kid
+ * Kid access - the parent's whole control panel for one child's kid
  * mode, rendered inside `MemberDetail` right under "Nalog za prijavu".
  *
  * Only offered to members WITHOUT a real login: a member who signs in with an
@@ -92,7 +92,7 @@ export function KidAccessSection({ member, memberName }: KidAccessSectionProps) 
   // Works in BOTH states, and that is the point: the parent deciding whether to
   // turn kid access on is exactly the person who has not seen the child's app.
   const openPreview = () => {
-    void navigate({ to: "/kid/pregled", search: { dete: member.id } });
+    void navigate({ to: "/kid/preview", search: { child: member.id } });
   };
 
   const enableAccess = useEnableKidAccess();
@@ -283,7 +283,7 @@ export function KidAccessSection({ member, memberName }: KidAccessSectionProps) 
         render={(view, level) => {
           // The root level always renders the view the section just asked for.
           // `useSheetStack` adopts a new root in an effect (one render late),
-          // and "uključi pristup" hands over to "poveži uređaj" while the flow
+          // and enabling access hands over to device linking while the flow
           // stays open - both would otherwise show the previous screen.
           const actual = level === 0 ? (flowRoot ?? view) : view;
           return (

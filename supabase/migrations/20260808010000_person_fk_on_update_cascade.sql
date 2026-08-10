@@ -1,30 +1,31 @@
--- ON UPDATE CASCADE na tri zaostala strana kljuca ka profiles(id).
+-- ON UPDATE CASCADE on the three foreign keys to profiles(id) that were missed.
 --
--- 20260602000000_family_admin.sql je uveo pravilo: SVAKI strani kljuc ka
--- profiles(id) koji clan BEZ naloga moze da popuni mora da nosi ON UPDATE
--- CASCADE. Razlog je nacin na koji se clan promovise u pravi nalog -
--- supabase/functions/manage-family-login pravi auth korisnika pa uradi
--- `UPDATE profiles SET id = <novi auth id>`, da bi sva istorija tog clana
--- (aktivnosti, raspored, smene) presla na novi identitet. Bez CASCADE-a taj
--- UPDATE puca na FK gresci i promocija se rollbackuje.
+-- 20260602000000_family_admin.sql introduced the rule: EVERY foreign key to
+-- profiles(id) that a member WITHOUT a login can fill must carry ON UPDATE
+-- CASCADE. The reason is how a member is promoted to a real account -
+-- supabase/functions/manage-family-login creates an auth user and then runs
+-- `UPDATE profiles SET id = <new auth id>`, so that all of that member's
+-- history (activities, timetable, shifts) moves onto the new identity. Without
+-- CASCADE that UPDATE fails on an FK error and the promotion is rolled back.
 --
--- Tri tabele dodate posle tog pravila su ga propustile i stoje na NO ACTION:
+-- Three tables added after that rule missed it and sit at NO ACTION:
 --
 --   event_participants.person_id
 --   payment_participants.person_id
 --   school_break_members.person_id
 --
--- Sve tri dete stvarno popunjava - deca su ucesnici dogadjaja, ucesnici
--- placanja i clanovi skolskih raspusta. Znaci promocija bilo kog deteta koje
--- ima red u nekoj od njih danas puca. Bag je zatecen, nije uveden decjim
--- rezimom, ali se na njemu lako pogadja, pa ide kao zasebna migracija koja ne
--- zavisi ni od cega iz te price.
+-- A child really does fill all three - children are event participants,
+-- payment participants and members of school breaks. So promoting any child
+-- with a row in one of them fails today. The bug was pre-existing, not
+-- introduced by kid mode, but kid mode makes it easy to hit, so it ships as a
+-- separate migration that depends on nothing from that story.
 --
--- Popravka je isti DROP + ADD ples kao sekcija 2 pomenute migracije. ON DELETE
--- ponasanje se ne dira: sve tri su bile i ostaju ON DELETE CASCADE (brisanje
--- clana uklanja njegovo ucesce, ne i sam dogadjaj / placanje / raspust).
+-- The fix is the same DROP + ADD dance as section 2 of that migration. The ON
+-- DELETE behaviour is untouched: all three were and remain ON DELETE CASCADE
+-- (deleting a member removes their participation, not the event / payment /
+-- break itself).
 --
--- Nema prepravke podataka - menja se samo pravilo, ne redovi.
+-- No data is rewritten - only the rule changes, not the rows.
 
 -- ---------------------------------------------------------------------------
 -- event_participants

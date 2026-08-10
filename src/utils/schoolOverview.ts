@@ -17,7 +17,7 @@ import {
 } from "./schoolTimetable";
 
 /**
- * Presentation-level derivations for the Škola screen.
+ * Presentation-level derivations for the school screen.
  *
  * `schoolTimetable.ts` answers "which class happens when"; this answers the
  * questions the screen actually asks on top of that - is a class running right
@@ -61,8 +61,8 @@ export interface SchoolDaySummary {
 }
 
 /**
- * The day's state in one phrase: "3. čas u toku", "počinje u 08:00", "odmor do
- * 09:55", "gotovo za danas". For a day that is not today (`nowMinutes` null)
+ * The day's state in one phrase: which class is running, when it starts, how
+ * long the break lasts, or that the day is over. For a day that is not today (`nowMinutes` null)
  * it is the span instead, because "in progress" is meaningless there.
  */
 export function schoolDaySummary(
@@ -105,7 +105,7 @@ export interface SchoolWeekOutlook {
   band: SchoolShift;
   /** "HH:MM" the first class of that week starts. */
   startTime: string;
-  /** Whether the earlier "pred-čas" afternoon start is in effect this week. */
+  /** Whether the earlier afternoon start is in effect this week. */
   usesPredcas: boolean;
 }
 
@@ -118,7 +118,7 @@ export function weekOutlook(
   const variant = variantForWeek(anchor, weekStart);
   const band = timeBandForWeek(anchor, weekStart);
   // Gated on the band: `afternoon_uses_predcas` stays true on a morning week,
-  // and a "pred-čas od 13:00" badge on a child sitting in class at 08:00 lies.
+  // and an early-start badge on a child sitting in class at 08:00 lies.
   const usesPredcas = band === "afternoon" && anchor.afternoon_uses_predcas;
   const { start } = bandParams(bell, band, usesPredcas);
   return { weekStart, variant, band, startTime: normalizeTime(start), usesPredcas };

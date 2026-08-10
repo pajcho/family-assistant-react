@@ -84,7 +84,7 @@ function MoneyRow({
 }
 
 /**
- * "Plaćanja" box listing the payments linked to one activity, event or
+ * Payments box listing the payments linked to one activity, event or
  * birthday - the reverse side of the payment link. Renders nothing when the
  * list is empty, so callers can mount it unconditionally. With `onSelect` the
  * rows open that payment's detail popup. `children` slots extra read-only
@@ -144,7 +144,7 @@ export function expenseRowTitle(expense: Expense): string {
 }
 
 /**
- * "Troškovi" box - manual + receipt expenses linked to one activity or event
+ * Expenses box - manual + receipt expenses linked to one activity or event
  * (see `useLinkedExpenses`; payment-sourced auto rows are excluded there).
  * Same row anatomy as the payments box; with `onSelect` a row opens the
  * expense's detail (receipt) or edit form (manual).

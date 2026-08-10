@@ -19,7 +19,7 @@ import type { AgendaKind } from "@/utils/agendaFilters";
  * event is blue on every surface at once.
  *
  * Tones come from the semantics layer (pos/warn/neg/info), never from the
- * accent, so they survive the user switching "boja aplikacije". The exception
+ * accent, so they survive the user switching the app colour. The exception
  * is activities, which are coloured by the family member they belong to - the
  * app's oldest colour convention.
  */

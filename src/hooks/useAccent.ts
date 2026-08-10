@@ -7,13 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile, type ProfileWithFamily } from "@/hooks/useProfile";
 
 /**
- * "Boja aplikacije" - the in-app accent, one token per user.
+ * App colour - the in-app accent, one token per user.
  *
  * Keys are English color names ("blue" | "purple" | "green" | "brown") because
  * they are persisted in the database; only the labels are Serbian, so a future
  * localization pass never has to touch stored values.
  *
- * The design language ("Šljiva") is the neutral layer and never changes; the
+ * The design language (the "plum" palette) is the neutral layer and never changes; the
  * accent is a separate CSS variable trio (--accent / --accent-soft /
  * --accent-deep, see styles/index.css) swapped by a `data-accent` attribute on
  * <html>. The brand OUTSIDE the app - PWA icon, login mark, splash - stays

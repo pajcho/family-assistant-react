@@ -12,8 +12,8 @@ import { cn } from "@/lib/cn";
  * bordered row with icon + label + description.
  *
  * The ORDER of the actions is domain knowledge that lives in each dialog and
- * must not change (payment: Označi kao plaćeno -> Izmeni -> Istorija -> Pomeri
- * -> Otkaži -> Pauziraj -> Obriši). These are only the shared pieces each
+ * must not change (payment: mark paid -> edit -> history -> reschedule
+ * -> cancel -> pause -> delete). These are only the shared pieces each
  * dialog composes; sub-flows keep living on the sheet stack (`useSheetStack`).
  */
 
@@ -283,11 +283,11 @@ export function DetailDeleteBody({ name, note }: { name: string; note?: string }
 }
 
 /**
- * The "delete" sub-view's footer: `Nazad` back to the actions, `Obriši` to go
+ * The "delete" sub-view's footer: back to the actions, or delete to go
  * through with it.
  *
  * `Nazad` (not `Odustani`) because the delete view is a step INSIDE the sheet,
- * not a form of its own. The destructive button says `Brišem…` while the
+ * not a form of its own. The destructive button shows a pending label while the
  * request is in flight - three of the four sheets used to say nothing at all,
  * so a slow delete looked like a dead button.
  */

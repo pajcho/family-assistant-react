@@ -97,7 +97,7 @@ report, do NOT change it here); any production deploy.
 ## Git workflow
 
 - Branch: `git checkout -b advisor/010-payment-recurrence-unify advisor/009-payment-recurrence-tests` (STOP if base missing).
-- One commit per step. Serbian imperative. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- One commit per step. English imperative. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR, no deploy.
 
 ## Steps
@@ -107,9 +107,9 @@ report, do NOT change it here); any production deploy.
 Migration (timestamp after the newest existing one):
 
 ```sql
--- Dan u mesecu na koji je placanje originalno postavljeno. Bez njega se
--- mesecni datum dospeca trajno gubi: addMonth(2026-01-31) vraca 2026-02-28,
--- pa sledeci korak racuna od 28. i serija zauvek ostaje na 28.
+-- The day of the month the payment was originally set to. Without it the
+-- monthly due date is lost for good: addMonth(2026-01-31) returns 2026-02-28,
+-- so the next step counts from the 28th and the series stays there forever.
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS due_anchor_day SMALLINT;
 
 UPDATE payments SET due_anchor_day = EXTRACT(DAY FROM due_date)::SMALLINT

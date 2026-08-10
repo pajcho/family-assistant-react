@@ -107,8 +107,8 @@ describe("sectionForPathname", () => {
   });
 
   it("maps section roots and their subroutes", () => {
-    expect(sectionForPathname("/kalendar")).toBe("calendar");
-    expect(sectionForPathname("/novac")).toBe("money");
+    expect(sectionForPathname("/calendar")).toBe("calendar");
+    expect(sectionForPathname("/money")).toBe("money");
     expect(sectionForPathname("/lists/abc-123")).toBe("lists");
     expect(sectionForPathname("/settings")).toBe("settings");
   });
@@ -123,7 +123,7 @@ describe("sectionForPathname", () => {
 
   it("covers every path-addressable section's own route", () => {
     for (const section of NAV_SECTIONS) {
-      // Porodica shares /settings with Podešavanja and is only reached via an
+      // Family shares /settings with settings and is only reached via an
       // explicit link, so path matching resolves it to settings.
       if (section.search) continue;
       expect(sectionForPathname(section.to)).toBe(section.key);
@@ -153,10 +153,10 @@ describe("isNavSectionActive", () => {
 
   it("keeps Danas exact so every other screen turns it off", () => {
     expect(isNavSectionActive(NAV_SECTION_MAP.today, "/", {})).toBe(true);
-    expect(isNavSectionActive(NAV_SECTION_MAP.today, "/kalendar", {})).toBe(false);
+    expect(isNavSectionActive(NAV_SECTION_MAP.today, "/calendar", {})).toBe(false);
   });
 
   it("ignores search params on sections that do not share a path", () => {
-    expect(isNavSectionActive(NAV_SECTION_MAP.money, "/novac", { tab: "placanja" })).toBe(true);
+    expect(isNavSectionActive(NAV_SECTION_MAP.money, "/money", { tab: "payments" })).toBe(true);
   });
 });

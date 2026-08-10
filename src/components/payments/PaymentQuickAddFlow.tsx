@@ -11,7 +11,7 @@ export type PaymentQuickAddFlowProps = {
 };
 
 /**
- * "Dodaj → Plaćanje" from surfaces that don't own the payments mutations (the
+ * Add -> payment from surfaces that don't own the payments mutations (the
  * global "+" in the bottom bar). Add only, owns its mutation and error, never
  * navigates - see `EventQuickAddFlow` for the shared shape.
  *

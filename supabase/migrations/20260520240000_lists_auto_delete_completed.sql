@@ -14,7 +14,7 @@
 --               than N hours
 --
 -- We keep the unit as hours (not days) so we can offer "1 sat" and
--- "6 sati" alongside "1 dan" / "1 nedelja" in the UI without schema
+-- 6 hours alongside 1 day / 1 week in the UI without schema
 -- changes; days simply use 24/72/168.
 
 ALTER TABLE lists

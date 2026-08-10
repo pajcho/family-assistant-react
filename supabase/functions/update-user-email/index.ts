@@ -63,12 +63,12 @@ Deno.serve(async (req) => {
   const userId = caller?.sub;
   if (!userId) return json({ error: "unauthorized" }, 401);
 
-  // A dečiji režim session is a real session with a real `sub`, so without this
+  // A kid mode session is a real session with a real `sub`, so without this
   // it would sail through everything below. The address it would rewrite is the
   // one `kid_access.login_email` points at, and both kid-auth and kid-access
   // find the child's synthetic user through that address and refuse to act when
   // the ids disagree - so a child changing it would permanently break the
-  // parent's "Ukloni uređaj" and their own sign-ins. Nothing in the kid shell
+  // parent's device removal and their own sign-ins. Nothing in the kid shell
   // offers this, which is exactly why the check belongs on the server.
   if (isKidToken(caller)) {
     return json({ error: "Dečiji nalog ne može da menja e-mail." }, 403);

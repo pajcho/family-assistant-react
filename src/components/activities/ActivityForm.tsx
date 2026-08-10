@@ -171,7 +171,7 @@ export type ActivityFormProps = {
   peopleWithShift: ReadonlySet<string>;
   saving?: boolean;
   /**
-   * Read-only "Plaćanja" block (linked payments + monthly breakdown), slotted
+   * Read-only payments block (linked payments + monthly breakdown), slotted
    * in above the footer buttons when editing. The dialog owns the data - the
    * form stays a dumb layout shell for it.
    */
@@ -183,10 +183,10 @@ export type ActivityFormProps = {
 };
 
 /**
- * Mobile (<sm) - the "Brzi unos" layout: Naziv, Učesnici and the Termini
+ * Mobile (<sm) - the quick-entry layout: name, participants and the session
  * rule cards stay inline (the schedule IS the activity), Pauziraj becomes a
- * switch card on edit; Opis, Sezona, Podsetnik and Beleške move behind a
- * "Više detalja" row into a sub-view. The Odustani/Dodaj bar is pinned by
+ * switch card on edit; description, season, reminder and notes move behind a
+ * more-details row into a sub-view. The dismiss/add bar is pinned by
  * the dialog below the scroll area.
  *
  * Desktop (sm+) - the classic fully-expanded layout, unchanged.
@@ -313,7 +313,7 @@ export function ActivityForm({
                 // Card-style stacked layout - works in the narrow drawer on
                 // mobile and stays readable on desktop. Day select on top
                 // gets the full row width so the longest names (Ponedeljak,
-                // Četvrtak) never truncate.
+                // never truncate.
                 "space-y-2 rounded-lg border p-2",
                 invalid ? "border-neg bg-neg-soft/40" : "border-border",
               )}

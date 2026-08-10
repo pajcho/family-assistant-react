@@ -19,7 +19,7 @@ export type ShiftSetupFormProps = {
 
 /**
  * The school-shift setup form for one child: anchor week + shift, plus the
- * two independent toggles (A/B rotation, fixed morning band) and the pred-čas
+ * two independent toggles (A/B rotation, fixed morning band) and the early
  * option. Self-contained - owns its save + remove mutations.
  *
  * Remove uses an inline two-step confirm (not a separate dialog) so it can

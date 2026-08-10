@@ -38,8 +38,8 @@ import {
  * The field itself is a PickerRow; tapping it opens the picker (bottom sheet
  * on mobile, anchored popover on desktop). Inside, the shortcuts are chosen by
  * the field's MEANING, not by a generic calendar:
- *   - `future` (due dates, events): Danas · Sutra · Vikend · Za nedelju dana
- *   - `past` (expenses): Danas · Juče · Prekjuče
+ *   - `future` (due dates, events): today, tomorrow, this weekend, in a week
+ *   - `past` (expenses): today, yesterday, the day before
  *   - `dob` (birth dates): starts on the YEAR grid plus a "15.05.1985" text
  *     box - three taps to a date 40 years back instead of 480 arrow clicks.
  *
@@ -54,7 +54,7 @@ export type DateFieldQuickChip = { label: string; iso: string; hint?: string };
 
 export type DateFieldProps = {
   id?: string;
-  /** Row label, e.g. "Datum dospeća *". */
+  /** Row label, e.g. the due-date field's. */
   label: ReactNode;
   value: string | null;
   onChange: (value: string | null) => void;

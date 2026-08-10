@@ -14,7 +14,7 @@ export type ConfirmDialogProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   message: string;
-  /** Defaults to "Obriši" to match the Nuxt original. */
+  /** Defaults to the delete label, to match the Nuxt original. */
   confirmLabel?: string;
   loading?: boolean;
   onConfirm: () => void;

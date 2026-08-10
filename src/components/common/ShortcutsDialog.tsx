@@ -9,7 +9,7 @@ import { actionShortcuts, navShortcutKeys } from "@/lib/shortcuts";
  *
  * Linear ships the same thing, and for the same reason: a shortcut nobody can
  * find is a shortcut nobody uses. It is also the fallback for keyboard layouts
- * where `?` is awkward to reach, since Podešavanja links here too.
+ * where `?` is awkward to reach, since settings links here too.
  */
 export function ShortcutsDialog({
   open,

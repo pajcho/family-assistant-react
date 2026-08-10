@@ -31,7 +31,7 @@ export type EventFormDialogProps = {
   initialPersonIds?: string[];
   /** ADD-mode prefill (e.g. "Organizuj proslavu") - see EventFormDefaults. */
   defaults?: EventFormDefaults;
-  /** Dialog title override; falls back to Dodaj/Izmeni događaj. */
+  /** Dialog title override; falls back to the add/edit event title. */
   title?: string;
   /** Inline error banner shown above the form (e.g. mutation failure). */
   error?: string | null;
@@ -43,7 +43,7 @@ type View = { kind: "form" | EventFormViewKind };
 
 /**
  * The "Brzi unos" shell around <EventForm> - same architecture as
- * PaymentFormDialog: dialog-owned SheetStack (mobile "Više detalja" pushes
+ * PaymentFormDialog: dialog-owned SheetStack (the mobile more-details row pushes
  * the Detalji sub-view into the same sheet), dialog-owned form state (so the
  * a sub-view opening over the form keeps what was typed), reseed on open / entity /
  * defaults change, pinned mobile footer. Desktop renders fully expanded.

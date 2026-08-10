@@ -132,8 +132,8 @@ a verification you did not perform.
 ## Git workflow
 
 - Branch from main: `git checkout -b advisor/008-rls-self-elevation main`
-- One commit, Serbian imperative, e.g.
-  `RLS: clan vise ne moze sam sebi da da admin niti da promeni porodicu`
+- One commit, English imperative, e.g.
+  `RLS: a member can no longer grant themselves admin or change family`
   with trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - Do NOT push, do NOT open a PR, do NOT deploy.
 
@@ -142,14 +142,15 @@ a verification you did not perform.
 ### Step 1: Write the migration
 
 Create the migration with this shape (adapt names/comments to match the
-surrounding migration style - ASCII-only Serbian comments):
+surrounding migration style - ASCII-only English comments):
 
 ```sql
--- Zameni presiroku self-update politiku: kolone koje odlucuju o privilegijama
--- (is_admin) i o pripadnosti porodici (family_id, id) ne smeju da se menjaju
--- kroz self-update. Stara politika je bila FOR UPDATE USING (auth.uid() = id)
--- bez WITH CHECK, pa je clan mogao sam sebi da postavi is_admin = true ili da
--- prepise family_id i time pomeri ceo opseg podataka koje vidi.
+-- Replace the too-wide self-update policy: the columns that decide privileges
+-- (is_admin) and family membership (family_id, id) must not be writable
+-- through a self-update. The old policy was
+-- FOR UPDATE USING (auth.uid() = id) with no WITH CHECK, so a member could set
+-- is_admin = true on themselves, or overwrite family_id and move the entire
+-- data scope they can see.
 
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 

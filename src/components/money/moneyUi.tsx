@@ -3,8 +3,8 @@ import type { ComponentProps, ComponentType, ReactNode, SVGProps } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Small chrome pieces shared by the three Novac views (Pregled / Troškovi /
- * Plaćanja), lifted straight out of the redesign prototype so the hub reads as
+ * Small chrome pieces shared by the three Money views (overview / expenses /
+ * payments), lifted straight out of the redesign prototype so the hub reads as
  * one screen instead of two pages glued together.
  *
  * Everything here is presentational and token-only: the money semantics
@@ -24,7 +24,7 @@ const TONE_TILE: Record<MoneyTone, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-/** Status pill ("kasni 3 dana", "deo računa", "Administrator"). */
+/** Status pill (an overdue count, a receipt part, an admin badge). */
 export function StatusPill({
   tone = "accent",
   className,
@@ -49,7 +49,7 @@ export function StatusPill({
 
 /**
  * Uppercase group heading with an optional count bubble and a right-aligned
- * action ("Po kategorijama ... Uredi ›"). `tone="neg"` is the Prekoračeno
+ * action (a section title with an edit link). `tone="neg"` is the overdue
  * group, the one heading that carries colour.
  *
  * The `mt-8` is the section rhythm for the whole Novac hub - it must NOT be a
@@ -89,7 +89,7 @@ export function GroupHeader({
   );
 }
 
-/** The quiet "Uredi ›" / "Prikaži sve" link that sits inside a GroupHeader. */
+/** The quiet edit / show-all link that sits inside a GroupHeader. */
 export function GroupHeaderAction({
   onClick,
   children,

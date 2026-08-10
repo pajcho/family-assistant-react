@@ -17,11 +17,11 @@ const HORIZON_DAYS = 14;
  * Uskoro - the next two weeks, grouped by day.
  *
  * Deliberately a fixed, short horizon rather than the grown-up app's growing
- * one: "sledeće dve nedelje" is a span a child can hold in their head, and a
+ * one: the next two weeks is a span a child can hold in their head, and a
  * list that never ends is a list nobody reaches the bottom of. Day headings
- * carry a countdown chip ("za 5 dana") once a bare date stops meaning anything.
+ * carry a countdown chip once a bare date stops meaning anything.
  *
- * A component rather than a route body so `/kid/uskoro` and the preview render
+ * A component rather than a route body so `/kid/upcoming` and the preview render
  * the SAME screen.
  */
 export function KidUpcomingView() {
@@ -51,7 +51,7 @@ export function KidUpcomingView() {
   // pops in after the list has already settled.
   const loading = isLoading || birthdays.isLoading;
   // Two weeks whose only rows are cancellations are not two full weeks, so the
-  // closing line says so rather than "to je sve za sada".
+  // closing line says so rather than implying there was something.
   const anythingOn = mine.some((item) => !isCanceledAgendaItem(item));
 
   return (

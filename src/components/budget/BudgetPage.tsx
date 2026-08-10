@@ -93,14 +93,14 @@ const SUGGESTED_CATEGORIES: ReadonlyArray<{ name: string; icon: string; color: s
   { name: "Ostalo", icon: "tag", color: "#6b7280" },
 ];
 
-/** Expense-source facet, shown as chips on the Troškovi tab. */
+/** Expense-source facet, shown as chips on the expenses tab. */
 const SOURCE_OPTIONS = [
   { key: "manual", label: "Ručno" },
   { key: "receipt", label: "Račun" },
   { key: "payment", label: "Iz plaćanja" },
 ] as const;
 
-export type BudgetView = "pregled" | "troskovi";
+export type BudgetView = "overview" | "expenses";
 
 export interface BudgetPageProps {
   /** Which of Novac's two budget views to render. */
@@ -122,11 +122,11 @@ export interface BudgetPageProps {
 }
 
 /**
- * The Pregled and Troškovi views of Novac.
+ * The overview and expenses views of Money.
  *
  * Both live in one component because they read the same month of expenses and
  * share the whole modal layer (expense form, receipt detail, the payment popup
- * a "iz plaćanja" row opens). `view` only decides which sections render.
+ * a payment-sourced row opens). `view` only decides which sections render.
  */
 export function BudgetPage({
   view,
@@ -143,7 +143,7 @@ export function BudgetPage({
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
   // Payment-sourced expense tapped → open that payment's detail popup.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  // Its "Izmeni" opens the payment edit form INLINE (no /novac?tab=placanja hop).
+  // Its edit action opens the payment edit form INLINE (no hop to /money).
   const [paymentFormOpen, setPaymentFormOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentHasHistory, setPaymentHasHistory] = useState(false);
@@ -154,7 +154,7 @@ export function BudgetPage({
   const [categoryDetail, setCategoryDetail] = useState<CategoryBreakdown | null>(null);
   // Set while the expense form was opened FROM that drill-down: it pre-picks
   // the category, and the sheet underneath only hides, so closing the form
-  // lands back on the category (with the new trošak already in its list).
+  // lands back on the category (with the new expense already in its list).
   const [addCategoryId, setAddCategoryId] = useState<string | null>(null);
   // Filters: person + expense source + category, all with the empty-set = "no
   // filter" convention. They narrow the VISIBLE lists (breakdown, timeline,
@@ -164,7 +164,7 @@ export function BudgetPage({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  // "Projekcija do kraja meseca" row - collapsed by default, tap to expand.
+  // End-of-month projection row - collapsed by default, tap to expand.
   const [projOpen, setProjOpen] = useState(false);
 
   // Search (note/merchant + receipt line items) - spans ALL months, so while
@@ -194,7 +194,7 @@ export function BudgetPage({
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
   // Person/source/category filters narrow what the lists show. The cycle
-  // summary (Prihodi/Potrošeno/Preostalo) intentionally stays family-level -
+  // summary (income / spent / left) intentionally stays family-level -
   // income isn't per-person, so a filtered "Preostalo" would lie.
   const filteredExpenses = useMemo(() => {
     if (
@@ -392,7 +392,7 @@ export function BudgetPage({
     setAddOpen(true);
   };
 
-  // "Dodaj trošak" inside the category drill-down.
+  // The add-expense action inside the category drill-down.
   const openAddInCategory = (categoryId: string) => {
     setEditing(null);
     setAddCategoryId(categoryId);
@@ -517,7 +517,7 @@ export function BudgetPage({
     }
   };
 
-  // Delete lives inside the edit modal now (bottom-left "Obriši" → confirm
+  // Delete lives inside the edit modal now (bottom-left delete -> confirm
   // sub-view) - no separate row action.
   const handleDeleteEditing = async () => {
     if (!editing) return;
@@ -529,8 +529,8 @@ export function BudgetPage({
     }
   };
 
-  const isOverview = view === "pregled" && !searchActive;
-  const isExpenses = view === "troskovi" && !searchActive;
+  const isOverview = view === "overview" && !searchActive;
+  const isExpenses = view === "expenses" && !searchActive;
 
   return (
     <div className="animate-fade-in">

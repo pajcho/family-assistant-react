@@ -106,7 +106,7 @@ using the exact `if (error) return []` pattern; supabase/functions/\*\*.
 ## Git workflow
 
 - Branch: `git checkout -b advisor/007-query-error-policy advisor/003-lint-ratchet` (STOP if base missing).
-- Serbian imperative commits, e.g. `Upiti vise ne gutaju greske - throw + jedan toast`, trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- English imperative commits, e.g. `Queries no longer swallow errors - throw plus one toast`, trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR.
 
 ## Steps

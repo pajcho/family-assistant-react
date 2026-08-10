@@ -50,7 +50,7 @@ import { decodeQrFromFile } from "@/lib/qrScan";
  * renders from the stored receipt (claimed lines disabled, no Edge call, no
  * rate-limit spend) and only the free lines are selectable.
  *
- * The preview's sub-views (Kategorija / Stavke / Detalji → Poveži sa) live on
+ * The preview's sub-views (category / items / details -> link to) live on
  * THIS dialog's sheet stack (see `useSheetStack`), and the preview's field
  * values AND line selection live in this component: dismissing a sub-view
  * (swipe-down, tap outside) returns to the preview instead of throwing away
@@ -67,13 +67,13 @@ export type ReceiptScanDialogProps = {
   onJumpToMonth?: (yyyymm: string) => void;
   /**
    * Pre-link the saved expense to an activity/event (the scan started from
-   * that context, e.g. "Skeniraj račun" in an activity detail). The preview's
-   * "Poveži sa" row starts here and stays editable.
+   * that context, e.g. scan-receipt in an activity detail). The preview's
+   * link row starts here and stays editable.
    */
   link?: PaymentLinkValue | null;
   /**
    * ATTACH MODE: instead of creating an expense, hand this scanned receipt to
-   * an existing manual one ("Skeniraj račun" while editing it). Only its
+   * an existing manual one (scan-receipt while editing it). Only its
    * amount and its items change - the date, category, person, note and link
    * the member already typed are left alone, so the preview drops those
    * fields entirely.
@@ -235,7 +235,7 @@ export default function ReceiptScanDialog({
     // FAST PATH straight from the DB (RLS read), before spending an Edge call:
     // a receipt we already stored renders its preview from receipt_items -
     // free lines selectable, claimed ones disabled. Fully claimed → the
-    // "već dodat" dialog. The save RPC stays the backstop for races.
+    // already-added dialog. The save RPC stays the backstop for races.
     if (familyId) {
       try {
         const known = await fetchReceiptByUrl(url);
@@ -459,7 +459,7 @@ export default function ReceiptScanDialog({
     );
   };
 
-  // "Dodaj ostatak kao novi trošak": same receipt, remaining free lines
+  // Add the rest as a new expense: same receipt, remaining free lines
   // preselected, fresh category/person/note (the remainder is a different
   // bucket by definition - that's why it's being split). The link falls back
   // to the seed: a scan started from an activity is still about that activity,

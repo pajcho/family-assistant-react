@@ -114,7 +114,7 @@ riskier change - note it, do not do it); any production deploy.
 ## Git workflow
 
 - Branch: `git checkout -b advisor/014-gcal-sync-batching main`
-- Serbian imperative commit, e.g. `Google sinhronizacija: jedan upsert po strani umesto dva upita po dogadjaju`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- One English imperative commit, e.g. `Google sync: one upsert per page instead of two queries per event`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR, no deploy.
 
 ## Steps

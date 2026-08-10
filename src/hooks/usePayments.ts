@@ -351,7 +351,7 @@ export function useDeletePayment() {
  *        month and keep `is_paid: false`. Limited ignores `recurrence_interval`.
  *
  * The live `amount` is never overwritten - for a variable bill it stays as the
- * rough default ("okvirni iznos") that drives next-month projections.
+ * rough default that drives next-month projections.
  *
  * Not transactional - supabase-js doesn't expose Postgres transactions.
  * If any step fails the toast surfaces it and realtime re-syncs state.
@@ -655,7 +655,7 @@ export function useTogglePaymentPause() {
  * Multi-step "undo last payment":
  *   1. Read the live `payments` row.
  *   2. Read the last `payment_history` row for this payment. If none exists
- *      surface a friendly "već vraćeno" error - the entry has already been
+ *      surface a friendly already-undone error - the entry has already been
  *      reverted on another device or in a previous attempt.
  *   3. Delete that history row.
  *   4. Revert the live row based on `recurrence_period`, guarded by an

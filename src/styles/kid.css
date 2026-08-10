@@ -289,7 +289,7 @@ html[data-kid-theme] .kid-font {
   animation: kid-fade-in 0.2s ease;
 }
 
-/* A card border painted with the theme gradient (the "Škola danas" card).
+/* A card border painted with the theme gradient (the school-today card).
    Two backgrounds: the card colour clipped to the padding box, the gradient
    to the border box - the standard gradient-border trick, no pseudo-element. */
 .kid-gradient-border {

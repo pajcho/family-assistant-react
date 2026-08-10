@@ -42,12 +42,12 @@ const MonthCalendar = lazy(() =>
   import("@/components/calendar/MonthCalendar").then((m) => ({ default: m.MonthCalendar })),
 );
 
-export type CalendarView = "agenda" | "nedelja" | "mesec";
+export type CalendarView = "agenda" | "week" | "month";
 
 const VIEW_OPTIONS: ReadonlyArray<SegmentedOption<CalendarView>> = [
   { value: "agenda", label: "Agenda" },
-  { value: "nedelja", label: "Nedelja" },
-  { value: "mesec", label: "Mesec" },
+  { value: "week", label: "Nedelja" },
+  { value: "month", label: "Mesec" },
 ];
 
 export type CalendarScreenProps = {
@@ -67,7 +67,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
   // Slot the views portal their week strip / month row into. The strip's
   // state - weeks, load dots, scroll-spy - lives with the view that owns the
   // data, but its PLACE belongs to the screen: the fixed header on desktop, a
-  // sticky box in the scroll body on phones (the NovacScreen "Dodaj" pattern).
+  // sticky box in the scroll body on phones (the MoneyScreen add-button pattern).
   // `display: contents` so the portalled strip joins its container directly.
   const [stripSlot, setStripSlot] = useState<HTMLElement | null>(null);
 
@@ -142,7 +142,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
       // scrolls itself, so its day header and hour gutter have a scrollport to
       // pin against. On phones it renders at full height instead and the page
       // scrolls (see AgendaWeekCalendar's `pageScroll`).
-      fillBody={view === "nedelja" && isWide}
+      fillBody={view === "week" && isWide}
     >
       {!isWide ? (
         <>
@@ -155,7 +155,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
             ref={setStickyBox}
             className={cn(
               "mb-2",
-              view !== "mesec" && "sticky top-0 z-30 -mx-1.5 bg-background px-1.5 pb-1.5",
+              view !== "month" && "sticky top-0 z-30 -mx-1.5 bg-background px-1.5 pb-1.5",
             )}
           >
             <div ref={setStripSlot} className="contents" />
@@ -164,7 +164,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
       ) : null}
       {!familyId ? (
         <AgendaListSkeleton rows={5} />
-      ) : view === "nedelja" ? (
+      ) : view === "week" ? (
         <AgendaWeekCalendar
           filter={filters.filter}
           stripSlot={stripSlot}
@@ -173,7 +173,7 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
           onEditPayment={forms.openEditPayment}
           onEditBirthday={forms.openEditBirthday}
         />
-      ) : view === "mesec" ? (
+      ) : view === "month" ? (
         <Suspense fallback={<AgendaListSkeleton rows={4} />}>
           <MonthCalendar
             filter={filters.filter}

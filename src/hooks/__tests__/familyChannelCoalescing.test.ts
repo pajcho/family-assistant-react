@@ -15,7 +15,7 @@ const FAMILY = "fam-1";
 
 describe("invalidationKeysFor", () => {
   it("emits a shared key once for a burst that touches it repeatedly", () => {
-    // One "označi kao plaćeno": the write, its history row, and the expense a
+    // One mark-as-paid: the write, its history row, and the expense a
     // trigger creates. Both payment tables map onto ["payments", familyId].
     const keys = invalidationKeysFor(["payments", "payment_history", "expenses"], FAMILY);
 

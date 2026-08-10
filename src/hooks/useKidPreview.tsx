@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 
 /**
- * Pregled dečije aplikacije - a grown-up looking at the kid shell as one of
+ * Kid app preview - a grown-up looking at the kid shell as one of
  * their children, from their own session.
  *
  * It exists for the decision a parent cannot otherwise make: whether to turn
@@ -25,17 +25,17 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
  *     `filterKidAgendaItems` and `useKidBirthdayVisibility`) - which is what
  *     makes the preview honest rather than flattering.
  *
- * The preview has no routes of its own beyond `/kid/pregled`: it hosts the four
+ * The preview has no routes of its own beyond `/kid/preview`: it hosts the four
  * kid tabs as local state so it can reuse the very same screen components a
  * child gets, instead of a parallel copy that would drift.
  */
 
 /** The four kid tabs, as the real route paths they are outside the preview. */
-export const KID_TAB_PATHS = ["/kid", "/kid/uskoro", "/kid/raspored", "/kid/porodica"] as const;
+export const KID_TAB_PATHS = ["/kid", "/kid/upcoming", "/kid/schedule", "/kid/family"] as const;
 export type KidTabPath = (typeof KID_TAB_PATHS)[number];
 
 /**
- * Where "Izađi iz pregleda" goes: the family screen the preview was launched
+ * Where leaving the preview goes: the family screen the preview was launched
  * from, with the same child still open.
  *
  * Typed navigate options rather than an href, because the app is served under a
@@ -43,27 +43,27 @@ export type KidTabPath = (typeof KID_TAB_PATHS)[number];
  * `navigate` whole, never destructured down to `to`, or the `search` half goes
  * missing and the parent lands on the settings hub instead of Porodica.
  *
- * `clan` is what turns this from "go to the family screen" into a real back:
+ * `member` is what turns this from "go to the family screen" into a real back:
  * the member master-detail keeps its selection in local state, so without a
  * param to seed it the parent returns to the roster rather than to the child
  * they were just previewing.
  */
 export interface KidPreviewExit {
   to: "/settings";
-  search: { tab: "family"; clan?: string };
+  search: { tab: "family"; member?: string };
 }
 
 export function kidPreviewExit(profileId?: string | null): KidPreviewExit {
   return {
     to: "/settings",
-    search: { tab: "family", ...(profileId ? { clan: profileId } : {}) },
+    search: { tab: "family", ...(profileId ? { member: profileId } : {}) },
   };
 }
 
 export interface KidPreviewValue {
   /** The child being previewed - stands in for the kid session's profile id. */
   previewProfileId: string;
-  /** Their first name, for the banner ("Ovako aplikaciju vidi Vuk"). */
+  /** Their first name, for the banner that names whose app this is. */
   previewName: string;
   /** The parent's family, so `useKidSession` can answer honestly. */
   familyId: string | null;
@@ -116,7 +116,7 @@ export function useKidActiveTab(): KidTabPath {
   const preview = useKidPreview();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   if (preview) return preview.tab;
-  // Longest match first, so `/kid/uskoro` never resolves to `/kid`.
+  // Longest match first, so `/kid/upcoming` never resolves to `/kid`.
   return (
     [...KID_TAB_PATHS]
       .sort((a, b) => b.length - a.length)

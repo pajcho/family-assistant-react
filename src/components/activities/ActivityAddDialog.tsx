@@ -13,7 +13,7 @@ import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
  * Self-contained "add activity" dialog - owns the roster, shift anchors and the
  * three-write create flow (activity + schedule rules + participants) that
  * otherwise lives in the /activities page. Lets the dashboard's "Dodaj" menu
- * offer Aktivnost alongside Događaj / Plaćanje / Rođendan without duplicating the
+ * offer an activity alongside event / payment / birthday without duplicating the
  * wiring at the call site: the parent only flips `open`.
  */
 export function ActivityAddDialog({

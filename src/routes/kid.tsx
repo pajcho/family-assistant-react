@@ -21,7 +21,7 @@ import { useVisibilityRefetch } from "@/hooks/useVisibilityRefetch";
 import { DEFAULT_KID_THEME } from "@/types/kid";
 
 /**
- * Dečiji režim - the layout route for the whole kid shell.
+ * Kid mode - the layout route for the whole kid shell.
  *
  * It is a SIBLING of the pathless `_app` layout, not a child of it, which is
  * the entire architectural point: it inherits ThemeProvider, QueryClient, Auth
@@ -36,7 +36,7 @@ import { DEFAULT_KID_THEME } from "@/types/kid";
  *
  * Guards mirror `_app`'s `AuthGate` in the other direction: no session goes to
  * the kid login, a grown-up session goes back to the main app - with exactly
- * one exception, `/kid/pregled`, where a grown-up is deliberately looking at a
+ * one exception, `/kid/preview`, where a grown-up is deliberately looking at a
  * child's app from their own session.
  */
 export const Route = createFileRoute("/kid")({
@@ -45,17 +45,17 @@ export const Route = createFileRoute("/kid")({
 
 /** Routes that exist precisely because there is no session yet. */
 function isPreSessionRoute(pathname: string): boolean {
-  return pathname.startsWith("/kid/login") || pathname.startsWith("/kid/veza");
+  return pathname.startsWith("/kid/login") || pathname.startsWith("/kid/link");
 }
 
 /** The device-link route. Singled out because its token is single use. */
 function isLinkRoute(pathname: string): boolean {
-  return pathname.startsWith("/kid/veza");
+  return pathname.startsWith("/kid/link");
 }
 
 /** The one kid route a grown-up may open - and a child may not. */
 function isPreviewRoute(pathname: string): boolean {
-  return pathname.startsWith("/kid/pregled");
+  return pathname.startsWith("/kid/preview");
 }
 
 function KidLayout() {
@@ -129,8 +129,8 @@ function KidLayoutInner() {
   // On the way OUT of the kid shell this layout re-renders with the new
   // pathname a beat before it unmounts, so for one render every guard below is
   // being asked about a route that is no longer ours. Answering would override
-  // a destination that was already chosen: "Izađi iz pregleda" navigated to
-  // Podešavanja, this layout saw a non-preview path under a grown-up session,
+  // a destination that was already chosen: leaving the preview navigated to
+  // settings, this layout saw a non-preview path under a grown-up session,
   // and sent them to the dashboard instead. Nothing outside `/kid` is this
   // route's business.
   if (!inKidShell) return <KidSplash />;
@@ -171,7 +171,7 @@ function KidLayoutInner() {
   if (linkRoute || (preSession && !isKid)) return <KidSessionBusyScreen />;
 
   // A grown-up who somehow lands on /kid belongs in the main app - unless they
-  // came to preview a child, which is the whole reason /kid/pregled exists.
+  // came to preview a child, which is the whole reason /kid/preview exists.
   // The route itself still checks the child is theirs.
   if (!isKid) return previewRoute ? <Outlet /> : <Navigate to="/" replace />;
 

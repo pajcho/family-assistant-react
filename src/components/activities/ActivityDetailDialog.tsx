@@ -42,7 +42,7 @@ import { formatDate } from "@/utils/date";
  * `BlockActionDialog`, opened from a block on the week grid). Same shared
  * detail-sheet layout as event / payment / birthday: detalji on top (hero,
  * state badges, info rows with the termini), every action below as a visible
- * row - Izmeni, Dodaj plaćanje ili trošak, Obriši - and the linked payments +
+ * row - edit, add payment or expense, delete - and the linked payments +
  * expenses at the bottom, each row opening its own detail.
  *
  * Opened wherever an activity is REFERENCED rather than scheduled - today
@@ -59,7 +59,7 @@ export type ActivityDetailDialogProps = {
 
 type View = "detail" | "money" | "delete";
 
-/** "Ponedeljak 17:00-18:00 · svake 2 nedelje" - one line per schedule rule. */
+/** A weekday, its time range and its repeat - one line per schedule rule. */
 function ruleLabel(rule: ActivitySchedule): string {
   const day = DAY_LABELS_FULL[rule.day_of_week] ?? "-";
   const time = `${normalizeTime(rule.start_time)}-${normalizeTime(rule.end_time)}`;

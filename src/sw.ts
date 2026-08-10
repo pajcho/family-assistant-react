@@ -10,7 +10,7 @@ import { NavigationRoute, registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate } from "workbox-strategies";
 
 /**
- * Custom service worker for Porodični Asistent.
+ * Custom service worker for the family assistant app.
  *
  * Strategy:
  *   • Precache the built app shell (JS/CSS/HTML/icons) - `__WB_MANIFEST` is
@@ -35,7 +35,7 @@ declare const self: ServiceWorkerGlobalScope & {
 // Don't skip waiting on install - that would make every new deploy take
 // over silently and the `useRegisterSW` "needRefresh" state would never
 // flip true. Instead, wait for the explicit `SKIP_WAITING` message that
-// `updateServiceWorker(true)` posts when the user taps the "Osveži" toast.
+// `updateServiceWorker(true)` posts when the user taps the refresh toast.
 //
 // NOTE: with this prompt flow, a destructive DB migration (e.g. dropping
 // a column) can crash a stale client that hasn't refreshed yet. Treat

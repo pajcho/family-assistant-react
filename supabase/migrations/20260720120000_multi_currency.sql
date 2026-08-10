@@ -1,4 +1,4 @@
--- Multi-currency troškovi (EUR za početak) — "frozen rate" design.
+-- Multi-currency expenses (EUR to start with) - the "frozen rate" design.
 --
 -- Design notes worth reading before touching this file:
 --

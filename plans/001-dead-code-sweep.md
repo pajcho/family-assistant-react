@@ -69,7 +69,7 @@ everywhere (see AGENTS.md) - use plain ASCII `-` in anything you write.
   - `src/utils/activity.ts:43` - `fromMondayFirstDow`
   - `src/utils/pickerGrid.ts:203` - `isoBefore`
 - Dead exported types (zero references, verified): `src/types/database.ts:362` `ExpenseItem` (its own docblock marks it LEGACY, superseded by `ReceiptItem`), `src/types/database.ts:803` `NotificationLogRow`, `src/types/kid.ts:233` `KidCheckResponse`.
-- Things that LOOK dead but are NOT (do not touch): `src/components/ui/calendar.tsx` (imported by `src/components/dashboard/WeekStrip.tsx:6`); `workbox-window` (peer dependency of `vite-plugin-pwa`); `zxing-wasm` (dynamically imported at `src/lib/qrScan.ts:49-50`); all `src/routes/**` files (file-based router entry points); `src/sw.ts`; `src/lib/kidInstallIdentity.ts` (imported by `vite.config.ts`); all `supabase/functions/**` (deployed Deno functions); the redirect stub routes `_app.uskoro.tsx`, `_app.payments.tsx`, `_app.budget.tsx`, `_app.profile.tsx` (deliberate, documented deep-link targets).
+- Things that LOOK dead but are NOT (do not touch): `src/components/ui/calendar.tsx` (imported by `src/components/dashboard/WeekStrip.tsx:6`); `workbox-window` (peer dependency of `vite-plugin-pwa`); `zxing-wasm` (dynamically imported at `src/lib/qrScan.ts:49-50`); all `src/routes/**` files (file-based router entry points); `src/sw.ts`; `src/lib/kidInstallIdentity.ts` (imported by `vite.config.ts`); all `supabase/functions/**` (deployed Deno functions); the redirect stub routes `_app.payments.tsx`, `_app.budget.tsx`, `_app.profile.tsx` (deliberate, documented deep-link targets).
 
 ## Commands you will need
 
@@ -108,7 +108,7 @@ Use `pnpm build` as the typecheck gate here.
 ## Git workflow
 
 - Branch: `advisor/001-dead-code-sweep` (never commit to `main` directly)
-- Commit messages in Serbian, imperative, matching repo style (e.g. `Ciscenje mrtvog koda: 7 fajlova, devtools paketi i neiskorisceni exporti`). One commit per step is ideal for bisects.
+- Commit messages in English, imperative, matching repo style (e.g. `Dead code sweep: 7 files, devtools packages and unused exports`). One commit per step is ideal for bisects.
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps

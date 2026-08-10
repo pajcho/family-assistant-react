@@ -124,7 +124,7 @@ function initialLink(payment: Payment | null | undefined): PaymentLinkValue | nu
 
 /**
  * Seed for the dialog-owned form state. `today` (yyyy-MM-dd) pre-fills the
- * due date when ADDING - the most common due date is "danas", and the quick
+ * due date when ADDING - the most common due date is today, and the quick
  * chips / picker make any other date one tap away.
  */
 export function initialPaymentFormState(
@@ -156,7 +156,7 @@ export function initialPaymentFormState(
   };
 }
 
-/** "Mesečno · svaka 2 meseca · promenljiv iznos · pauzirano" - the Tip row summary. */
+/** The recurrence summary shown on the payment-type picker row. */
 function recurrenceSummary(form: PaymentFormState): string {
   const parts: string[] = [
     RECURRENCE_OPTIONS.find((o) => o.value === form.recurrence_period)?.label ?? "",
@@ -196,19 +196,19 @@ export type PaymentFormProps = {
 /**
  * Mobile (<sm) - the "Brzi unos" layout: the three always-typed fields
  * (Naziv, big Iznos, Datum with quick chips), then three picker rows (Tip
- * plaćanja / Kategorija / Više detalja) opening sub-views in the same sheet,
+ * type / category / more details) opening sub-views in the same sheet,
  * with a sticky Odustani/Dodaj footer.
  *
  * Desktop (sm+) - the classic fully-expanded layout, unchanged:
  *   • Naziv / Opis - full width
  *   • Za koga - assignee pills (optional)
- *   • Poveži sa - link combobox to one activity/event (optional)
+ *   - link to - a combobox onto one activity/event (optional)
  *   • Kategorija - native select
  *   • Tip - native select, disabled when `hasHistory`; gates Ponavljanje /
- *     Preostalo uplata / Promenljiv iznos below it
+ *     remaining instalments / variable amount below it
  *   • Iznos - label + currency toggle row, NBS-rate row for foreign entries
- *   • Datum dospeća, Pauziraj (edit+recurring), Podsetnik
- *   • Right-aligned footer (Odustani / Sačuvaj izmene | Dodaj)
+ *   - due date, pause (edit + recurring), reminder
+ *   - right-aligned footer (dismiss / save changes | add)
  */
 export function PaymentForm({
   form,

@@ -34,7 +34,7 @@ import { nowLineIndex, splitDayTimeline } from "@/utils/dayTimeline";
  *   2. the timed items, each on its own row with the time in a left gutter,
  *      with a "Sada · HH:mm" line dropped in at the current time and everything
  *      before it dimmed, so "what is next" is the first thing the eye lands on;
- *   3. "Plaćanja danas" - due today but not tied to an hour, so they'd be
+ *   3. payments due today - due today but not tied to an hour, so they'd be
  *      guesswork on the clock and noise in the middle of it.
  *
  * Unlike the old day calendar this is NOT proportional: an hour of empty

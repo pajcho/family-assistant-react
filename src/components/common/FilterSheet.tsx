@@ -21,12 +21,12 @@ import { cn } from "@/lib/cn";
  * every list page opens from `FilterTriggerButton`. Pages compose it from
  * `FilterSection` (uppercase heading + chip row) and `FilterSwitchRow`
  * (labelled switch for boolean view options). Changes apply live; "Gotovo"
- * only closes. "Poništi sve" appears once any non-default filter is on.
+ * only closes. A clear-all action appears once any non-default filter is on.
  */
 export type FilterSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Any non-default filter applied - shows the "Poništi sve" affordance. */
+  /** Any non-default filter applied - shows the clear-all affordance. */
   isActive: boolean;
   onReset: () => void;
   children: ReactNode;
@@ -71,7 +71,7 @@ export function FilterSection({ title, children }: { title: string; children: Re
 }
 
 /**
- * Labelled boolean row with a switch - for view options ("Prikaži i plaćena")
+ * Labelled boolean row with a switch - for view options (show paid items too)
  * that aren't chips. Plain button underneath (`role="switch"`), no Radix dep.
  */
 export function FilterSwitchRow({
@@ -117,7 +117,7 @@ export function FilterSwitchRow({
 
 /**
  * The applied-filters row under the toolbar: one removable chip per active
- * filter + "Poništi". Renders nothing when no filter is applied, so the row
+ * filter plus a clear action. Renders nothing when no filter is applied, so the row
  * costs zero chrome in the default state - but an active filter is never
  * invisible (the classic hidden-filter trap of overflow patterns).
  */

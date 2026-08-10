@@ -82,13 +82,13 @@ anywhere - ASCII `-` only.
 - `src/components/search/__tests__/searchPages.test.ts` (NEW)
 
 **Out of scope**: `navSections.ts` itself; the redirect stub routes
-(`_app.uskoro.tsx`, `_app.payments.tsx`, `_app.budget.tsx` stay - they serve
+(`_app.payments.tsx`, `_app.budget.tsx` stay - they serve
 push deep links and bookmarks); `useGlobalSearch.ts`; any entity-search logic.
 
 ## Git workflow
 
 - Branch: create from plan 003's result: `git checkout -b advisor/004-global-search-nav advisor/003-lint-ratchet` (STOP if that base branch does not exist).
-- Commit style: Serbian imperative, e.g. `Pretraga zna za Kalendar, Novac i Skolu - stranice iz navSections`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- Commit style: English imperative, e.g. `Search knows about Calendar, Money and School - pages derived from navSections`. Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - Do NOT push or open a PR.
 
 ## Steps
@@ -122,10 +122,10 @@ share `/settings`, so a path-keyed `find` would return the wrong entry.
   may be undefined - fine). If TypeScript rejects the plain-string `to`,
   mirror AppNav's exact pattern; as a last resort a `to: page.to as never`
   cast is NOT acceptable - STOP instead and report the typing obstacle.
-- `case "external"`: first read `src/routes/_app.kalendar.tsx` and determine
+- `case "external"`: first read `src/routes/_app.calendar.tsx` and determine
   the search-param shape (`validateSearch`) and its default view. If the
   agenda view is the default, change the navigate target to
-  `void navigate({ to: "/kalendar" })`; otherwise pass the explicit search
+  `void navigate({ to: "/calendar" })`; otherwise pass the explicit search
   param for the agenda view. The `/uskoro` stub must no longer be referenced
   from this file.
 - Remove now-unused heroicon imports (oxlint will flag them).
@@ -159,8 +159,8 @@ the existing test in `src/components/layout/__tests__/`. Assert:
 
 - Base branch `advisor/003-lint-ratchet` missing.
 - Router typing rejects string `to` and AppNav's pattern does not transfer.
-- The kalendar route's search validation REQUIRES params such that plain
-  `/kalendar` navigation fails validation.
+- The calendar route's search validation REQUIRES params such that plain
+  `/calendar` navigation fails validation.
 - The new test cannot avoid importing the Supabase chain.
 
 ## Maintenance notes

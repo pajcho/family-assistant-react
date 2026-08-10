@@ -1,4 +1,4 @@
--- "Osveži stavke" for receipts imported without line items (offline issuer,
+-- Refreshing the line items of receipts imported without them (offline issuer,
 -- journal pending — see the receipt-import PENDING-JOURNAL fallback). The
 -- refresh re-fetches the SUF page through the same Edge Function; these are the
 -- server-side guardrails so the re-fetch can't be spammed:

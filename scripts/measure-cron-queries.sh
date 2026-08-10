@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 #
-# Izmeri koliko SQL upita kosta jedan tick `send-due-pushes` funkcije.
+# Measure how many SQL queries one tick of `send-due-pushes` costs.
 #
-# Funkcija se vrti svakog minuta preko pg_cron, pa je njen trosak stalan i
-# nezavisan od toga da li ista treba poslati. Ovo je alat kojim se to meri pre
-# i posle izmene - polazna slika je bila 512 PostgREST zahteva po ticku na 40
-# korisnika, posle prelaska na bulk upite 12.
+# The function runs every minute through pg_cron, so its cost is constant and
+# independent of whether anything actually needs sending. This is the tool that
+# measures it before and after a change - the starting picture was 512 PostgREST
+# requests per tick for 40 users, and 12 after the move to bulk queries.
 #
-# Radi nad LOKALNIM Supabase stack-om (`supabase start`) i cita brojeve iz
-# `pg_stat_statements`. Isti pristup radi i na produkciji, samo se promene
-# DB_CONTAINER / FUNCTIONS_URL (na prod-u se umesto docker exec koristi psql
-# prema pooler-u).
+# Runs against the LOCAL Supabase stack (`supabase start`) and reads the numbers
+# from `pg_stat_statements`. The same approach works in production, only
+# DB_CONTAINER / FUNCTIONS_URL change (in production psql against the pooler
+# replaces docker exec).
 #
-# Upotreba:
+# Usage:
 #
-#   scripts/measure-cron-queries.sh seed      # napravi sinteticki teret
-#   scripts/measure-cron-queries.sh measure   # resetuj statistiku pa meri
-#   scripts/measure-cron-queries.sh cleanup   # obrisi sinteticki teret
+#   scripts/measure-cron-queries.sh seed      # create the synthetic load
+#   scripts/measure-cron-queries.sh measure   # reset the stats, then measure
+#   scripts/measure-cron-queries.sh cleanup   # delete the synthetic load
 #
-# Sinteticki teret je ogranicen na porodice ciji `name` pocinje sa
-# "ZZ scaling probe" i na auth korisnike sa `@scaling-probe.local` mejlom, pa
-# `cleanup` ne moze da dodirne stvarne demo podatke.
+# The synthetic load is limited to families whose `name` starts with
+# "ZZ scaling probe" and to auth users with an `@scaling-probe.local` email, so
+# `cleanup` cannot touch real demo data.
 #
-# Preduslov za `measure`: edge funkcije moraju da se vrte sa custom secret-ima
-# (CRON_SECRET, VAPID_*), sto `supabase start` sam po sebi NE radi:
+# Prerequisite for `measure`: edge functions have to run with the custom secrets
+# (CRON_SECRET, VAPID_*), which `supabase start` on its own does NOT do:
 #
 #   supabase functions serve --env-file supabase/functions/.env.local
 #
@@ -35,12 +35,12 @@ DB_CONTAINER="${DB_CONTAINER:-supabase_db_family-assistant}"
 FUNCTIONS_URL="${FUNCTIONS_URL:-http://127.0.0.1:54321/functions/v1/send-due-pushes}"
 ENV_FILE="${ENV_FILE:-supabase/functions/.env.local}"
 
-# Velicina sintetickog tereta. Podrazumevano 10 porodica x 4 clana = 40
-# korisnika, sto je ~1/4 scenarija iz plana (100 porodica / 150 korisnika).
+# Size of the synthetic load. 10 families x 4 members = 40 users by default,
+# which is ~1/4 of the planned scenario (100 families / 150 users).
 FAMILIES="${FAMILIES:-10}"
 MEMBERS="${MEMBERS:-4}"
-ITEMS="${ITEMS:-5}"   # dogadjaja i placanja po porodici
-RUNS="${RUNS:-3}"     # koliko tickova se meri
+ITEMS="${ITEMS:-5}"   # events and payments per family
+RUNS="${RUNS:-3}"     # how many ticks to measure
 
 PROBE_FAMILY_PREFIX="ZZ scaling probe"
 PROBE_EMAIL_DOMAIN="scaling-probe.local"
@@ -51,7 +51,7 @@ psql_q() {
 
 require_stack() {
   if ! docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
-    echo "Kontejner '$DB_CONTAINER' ne radi. Pokreni 'supabase start'." >&2
+    echo "Container '$DB_CONTAINER' is not running. Run 'supabase start'." >&2
     exit 1
   fi
 }
@@ -62,7 +62,7 @@ require_stack() {
 
 seed() {
   require_stack
-  echo "Pravim $FAMILIES porodica x $MEMBERS clanova, $ITEMS dogadjaja i $ITEMS placanja po porodici..."
+  echo "Creating $FAMILIES families x $MEMBERS members, $ITEMS events and $ITEMS payments per family..."
   psql_q <<SQL
 DO \$\$
 DECLARE
@@ -87,32 +87,32 @@ BEGIN
         format('probe-%s-%s@$PROBE_EMAIL_DOMAIN', f, m), '', now(), now(), now()
       );
       INSERT INTO profiles (id, family_id, first_name, last_name)
-      VALUES (user_id, fam_id, format('Probe%s', f), format('Clan%s', m));
+      VALUES (user_id, fam_id, format('Probe%s', f), format('Member%s', m));
 
-      -- Oba digesta ukljucena: sa ?force=morning svaki korisnik prolazi kroz
-      -- processDigest, sto je najskuplja putanja u starom kodu.
+      -- Both digests enabled: with ?force=morning every user goes through
+      -- processDigest, which is the most expensive path in the old code.
       INSERT INTO notification_preferences (
         user_id, morning_enabled, morning_time, evening_enabled, evening_time, timezone
       ) VALUES (user_id, true, '08:00', true, '20:00', 'Europe/Belgrade');
     END LOOP;
 
     FOR i IN 1..$ITEMS LOOP
-      -- Dogadjaj danas sa podsetnikom: ulazi u +-1 dan prozor svakog ticka.
+      -- An event today with a reminder: inside the +-1 day window every tick.
       INSERT INTO events (family_id, name, date, start_time, remind_minutes_before)
-      VALUES (fam_id, format('Probe dogadjaj %s-%s', f, i), CURRENT_DATE, '18:00', 30);
+      VALUES (fam_id, format('Probe event %s-%s', f, i), CURRENT_DATE, '18:00', 30);
 
-      -- Neplaceno placanje sa podsetnikom: ulazi u [-1, +14] prozor.
+      -- An unpaid payment with a reminder: inside the [-1, +14] window.
       INSERT INTO payments (family_id, name, amount, due_date, remind_days_before, is_paid, is_paused)
-      VALUES (fam_id, format('Probe placanje %s-%s', f, i), 1000, CURRENT_DATE + 3, 2, false, false);
+      VALUES (fam_id, format('Probe payment %s-%s', f, i), 1000, CURRENT_DATE + 3, 2, false, false);
     END LOOP;
 
     INSERT INTO birthdays (family_id, name, birth_date)
-    VALUES (fam_id, format('Probe rodjendan %s', f), CURRENT_DATE - INTERVAL '30 years');
+    VALUES (fam_id, format('Probe birthday %s', f), CURRENT_DATE - INTERVAL '30 years');
   END LOOP;
 END
 \$\$;
 SQL
-  echo "Gotovo."
+  echo "Done."
   summary
 }
 
@@ -122,20 +122,20 @@ SQL
 
 cleanup() {
   require_stack
-  echo "Brisem sinteticki teret..."
+  echo "Deleting the synthetic load..."
   psql_q <<SQL
 DELETE FROM auth.users WHERE email LIKE '%@$PROBE_EMAIL_DOMAIN';
 DELETE FROM families WHERE name LIKE '$PROBE_FAMILY_PREFIX%';
 SQL
-  echo "Gotovo."
+  echo "Done."
   summary
 }
 
 summary() {
   psql_q -tAc "
-    SELECT 'probe porodica: ' || count(*) FROM families WHERE name LIKE '$PROBE_FAMILY_PREFIX%'
+    SELECT 'probe families: ' || count(*) FROM families WHERE name LIKE '$PROBE_FAMILY_PREFIX%'
     UNION ALL
-    SELECT 'probe korisnika: ' || count(*) FROM auth.users WHERE email LIKE '%@$PROBE_EMAIL_DOMAIN';"
+    SELECT 'probe users: ' || count(*) FROM auth.users WHERE email LIKE '%@$PROBE_EMAIL_DOMAIN';"
 }
 
 # ---------------------------------------------------------------------------
@@ -146,26 +146,26 @@ measure() {
   require_stack
 
   if [ ! -f "$ENV_FILE" ]; then
-    echo "Nema '$ENV_FILE' - u njemu je CRON_SECRET." >&2
+    echo "No '$ENV_FILE' - that is where CRON_SECRET lives." >&2
     exit 1
   fi
   local secret
   secret="$(sed -n 's/^CRON_SECRET=//p' "$ENV_FILE" | tr -d "\"'\r")"
   if [ -z "$secret" ]; then
-    echo "CRON_SECRET nije postavljen u '$ENV_FILE'." >&2
+    echo "CRON_SECRET is not set in '$ENV_FILE'." >&2
     exit 1
   fi
 
-  echo "Polazno stanje:"
+  echo "Starting state:"
   summary
   echo
 
   for force in "" "morning"; do
     local url="$FUNCTIONS_URL"
-    local label="bez force (obican tick)"
+    local label="no force (plain tick)"
     if [ -n "$force" ]; then
       url="$FUNCTIONS_URL?force=$force"
-      label="?force=$force (jutarnji digest za sve)"
+      label="?force=$force (morning digest for everyone)"
     fi
 
     psql_q -tAc "SELECT pg_stat_statements_reset();" > /dev/null
@@ -176,14 +176,14 @@ measure() {
     done
 
     echo "=== $label ==="
-    echo "HTTP odgovori:$codes ($RUNS tickova)"
+    echo "HTTP responses:$codes ($RUNS ticks)"
     psql_q -tAc "
-      SELECT 'SQL upita ukupno: ' || COALESCE(sum(calls), 0) ||
-             ' (po ticku: ' || round(COALESCE(sum(calls), 0)::numeric / $RUNS, 1) || ')'
+      SELECT 'SQL queries total: ' || COALESCE(sum(calls), 0) ||
+             ' (per tick: ' || round(COALESCE(sum(calls), 0)::numeric / $RUNS, 1) || ')'
       FROM pg_stat_statements s
       JOIN pg_roles r ON r.oid = s.userid
       WHERE r.rolname IN ('authenticator', 'service_role', 'anon', 'authenticated');"
-    echo "Najcesci upiti:"
+    echo "Most frequent queries:"
     psql_q -c "
       SELECT calls, round(calls::numeric / $RUNS, 1) AS per_tick, left(regexp_replace(query, '\s+', ' ', 'g'), 88) AS query
       FROM pg_stat_statements s
@@ -200,7 +200,7 @@ case "$MODE" in
   cleanup) cleanup ;;
   measure) measure ;;
   *)
-    echo "Upotreba: $0 [seed|measure|cleanup]" >&2
+    echo "Usage: $0 [seed|measure|cleanup]" >&2
     exit 1
     ;;
 esac

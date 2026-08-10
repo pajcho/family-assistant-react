@@ -126,7 +126,7 @@ en dash / Unicode minus FORBIDDEN everywhere - ASCII `-` only.
 ## Git workflow
 
 - Branch: `advisor/003-lint-ratchet`
-- Commit style: Serbian imperative, e.g. `Lint ratchet: no-explicit-any, eqeqeq, no-console i context-value pravila`.
+- Commit style: English imperative, e.g. `Lint ratchet: no-explicit-any, eqeqeq, no-console and the context-value rules`.
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps

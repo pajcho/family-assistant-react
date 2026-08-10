@@ -5,10 +5,10 @@ import { cn } from "@/lib/cn";
 /**
  * Pulse-animated placeholder bar for loading states. Compose several into a
  * row-shaped skeleton that roughly matches the real content (see e.g.
- * `AgendaListSkeleton`) instead of showing a bare "Učitavanje…" line.
+ * `AgendaListSkeleton`) instead of showing a bare loading line.
  *
  * Purely decorative - give the wrapping container `role="status"` +
- * `aria-busy` with an sr-only "Učitavanje" so screen readers hear one loading
+ * `aria-busy` with an sr-only loading label so screen readers hear one loading
  * announcement, not a pile of empty divs.
  */
 function Skeleton({ className, ...props }: ComponentProps<"div">) {

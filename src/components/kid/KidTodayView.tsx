@@ -34,7 +34,7 @@ import { getWeekStart } from "@/utils/activity";
  * everything else in time order, then a full stop that says the day is done.
  * Nothing here is editable and there is no "+" - a tap only ever opens details.
  *
- * A component rather than a route body so `/kid` and `/kid/pregled` render the
+ * A component rather than a route body so `/kid` and `/kid/preview` render the
  * SAME screen. Everything it shows is filtered to `kidProfileId` in code, which
  * is what makes it safe to render under a parent's much wider session.
  */
@@ -78,7 +78,7 @@ export function KidTodayView() {
   // state away on its own.
   const nothingAtAll = !loading && mine.length === 0 && todayBlocks.length === 0;
   // ...but the closing line must not count a cancelled row as a plan: "to je
-  // sve za danas" after one struck-through card would imply there was a day.
+  // an all-done line after one struck-through card would imply there was a day.
   const anythingOn = todayBlocks.length > 0 || mine.some((item) => !isCanceledAgendaItem(item));
 
   return (
@@ -115,7 +115,7 @@ export function KidTodayView() {
           <KidSchoolTodayCard
             blocks={todayBlocks}
             nowPeriod={nowPeriod}
-            onOpen={() => goToTab("/kid/raspored")}
+            onOpen={() => goToTab("/kid/schedule")}
           />
 
           <KidAgendaList items={mine} todayISO={today.str} birthdayNotes={birthdays.notes} />

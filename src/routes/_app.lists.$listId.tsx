@@ -162,7 +162,7 @@ function ListDetailLoaded({
   };
 
   // Duplicate copies the list's *settings* into a fresh list; the form's
-  // "Kopiraj i stavke" checkbox (default on) additionally clones the items
+  // The copy-items checkbox (default on) additionally clones the items
   // as not-completed. The "(kopija)" suffix stops a blind Save from
   // producing two identically-named lists.
   const openDuplicate = () => {

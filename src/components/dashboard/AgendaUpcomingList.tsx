@@ -28,7 +28,7 @@ import { cn } from "@/lib/cn";
 import { getAppScrollEl, getAppScrollTop, offsetTopWithinApp, scrollAppTo } from "@/lib/appScroll";
 
 /**
- * The calendar's AGENDA view - an overdue "Prekoračeno" section, then
+ * The calendar's AGENDA view - an overdue section, then
  * everything from today onward grouped by day, with infinite scroll.
  *
  * The visible window starts at `INITIAL_DAYS` and grows `CHUNK_DAYS` at a time

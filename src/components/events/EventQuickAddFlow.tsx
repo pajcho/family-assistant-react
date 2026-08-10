@@ -11,7 +11,7 @@ export type EventQuickAddFlowProps = {
 };
 
 /**
- * "Dodaj → Događaj" from surfaces that don't own the events mutations (the
+ * Add -> event from surfaces that don't own the events mutations (the
  * global "+" in the bottom bar). Same shape as `ExpenseQuickAddFlow`: owns the
  * create mutation and the inline error, never navigates - whatever screen you
  * were on, you stay on it.
@@ -34,7 +34,7 @@ export function EventQuickAddFlow({ open, onOpenChange }: EventQuickAddFlowProps
       await createEvent.mutateAsync(payload);
       onOpenChange(false);
       // The flow never navigates, so without this the sheet just vanishes and
-      // nothing on screen says the event exists (same reason as the trošak).
+      // nothing on screen says the event exists (same reason as the expense).
       toast.success("Događaj je dodat.");
     } catch (err) {
       setFormError(

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * The gradient screen behind both pre-session routes (`/kid/login` and
- * `/kid/veza`).
+ * `/kid/link`).
  *
  * It is the whole page rather than a header, because before a child is signed
  * in there is nothing else to show - and because a full-bleed gradient with

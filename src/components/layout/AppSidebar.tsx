@@ -101,7 +101,7 @@ export function AppSidebar() {
           <SidebarLink
             key={section.key}
             section={section}
-            // Porodica and Podešavanja are account-level, not day-to-day
+            // Family and settings are account-level, not day-to-day
             // destinations - a hairline sets them apart without hiding them.
             separated={section.key === "family" && index > 0}
           />

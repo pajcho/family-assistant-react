@@ -51,8 +51,8 @@ function BirthdaysPage() {
 
   // Filters - the shared control set: a month picker CLAMPED to the current
   // year (birthdays repeat annually, so "Avg" means "this year's August"),
-  // defaulting to "Svi rođendani"; a text search; and a "Sakrij prošle
-  // rođendane" toggle - ON by default, so the list opens with only the
+  // defaulting to every birthday; a text search; and a hide-past toggle
+  // - ON by default, so the list opens with only the
   // upcoming ones.
   const currentYear = new Date().getFullYear();
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);

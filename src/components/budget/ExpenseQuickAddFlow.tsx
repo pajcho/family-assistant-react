@@ -19,7 +19,7 @@ export type ExpenseQuickAddFlowProps = {
  *
  * `stage` is what makes the receipt shortcut work here: this component's
  * `open` is a PROP, and its host (the global "+") unmounts the whole flow the
- * moment that goes false. So "Skeniraj račun" must not close the flow to swap
+ * moment that goes false. So scan-receipt must not close the flow to swap
  * dialogs - it switches stage within it, exactly like `LinkedMoneyFlow`.
  * Closing is still the host's call, and it tears down both stages.
  */

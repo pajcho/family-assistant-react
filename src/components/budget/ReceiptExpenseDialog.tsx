@@ -60,13 +60,13 @@ import { cn } from "@/lib/cn";
  * automatic row" affordance payments get.
  *
  * Split support: when this expense's lines are complete (they sum to its
- * amount), "Podeli račun" opens a sub-view where some lines move onto a NEW
+ * amount), splitting the receipt opens a sub-view where some lines move onto a NEW
  * expense - amounts adjust on both sides, ledger total unchanged. When the
- * receipt has several expenses (or unclaimed lines), a "Deo računa" block
+ * receipt has several expenses (or unclaimed lines), a receipt-part block
  * shows the whole-receipt picture with a jump to the sibling parts.
  *
  * Mirrors the "Brzi unos" expense form: on mobile the editable bits collapse
- * into picker rows (Kategorija / Stavke / Više detalja) that open sub-views on
+ * into picker rows (category / items / more details) that open sub-views on
  * the sheet stack; on desktop everything stays inline. The delete confirm is
  * another sub-view ("←" back, dismissal returns to detail).
  */
@@ -79,13 +79,13 @@ export type ReceiptExpenseDialogProps = {
   allowDelete?: boolean;
   /**
    * Swap the dialog to another expense of the same receipt (the sibling jump
-   * in "Deo računa"). Hosts that can't re-target the dialog omit it - the
+   * in the receipt-part block). Hosts that can't re-target the dialog omit it - the
    * sibling rows then render non-interactive.
    */
   onOpenExpense?: (expense: Expense) => void;
 };
 
-// "link" sits one level under "details" (Detalji → Poveži sa), the same
+// "link" sits one level under "details" (details -> link to), the same
 // nesting the manual expense form uses.
 type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link";
 
@@ -184,7 +184,7 @@ export function ReceiptExpenseDialog({
   const splitExpense = useSplitReceiptExpense();
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
   // Whole-receipt picture (all lines + sibling expenses) - powers "Deo
-  // računa" and the split guardrails. Lazy like the items.
+  // block and the split guardrails. Lazy like the items.
   const { context: receiptContext } = useReceiptContext(
     open && expense ? expense.receipt_id : null,
   );
@@ -222,7 +222,7 @@ export function ReceiptExpenseDialog({
     }
   }, [expense, reset]);
 
-  // Cooldown countdown for "Osveži stavke" - mirrors the server-enforced claim.
+  // Cooldown countdown for the refresh-items action - mirrors the server-enforced claim.
   const checkedAt = expense?.receipt_checked_at ? Date.parse(expense.receipt_checked_at) : null;
   const claimAt = Math.max(checkedAt ?? 0, localClaimAt ?? 0) || null;
   const cooldownRemainingMs =
@@ -286,7 +286,7 @@ export function ReceiptExpenseDialog({
     }
   };
 
-  // --- Split ("Podeli račun") ---
+  // --- Split the receipt ---
   // Only when carving by lines keeps the ledger exact: at least two lines,
   // and their totals sum to precisely this expense's amount.
   const splitLines: SelectableReceiptLine[] = useMemo(
@@ -332,7 +332,7 @@ export function ReceiptExpenseDialog({
     );
   };
 
-  // --- "Deo računa" (whole-receipt picture) ---
+  // --- Receipt part (whole-receipt picture) ---
   const siblings = useMemo(
     () => (receiptContext?.expenses ?? []).filter((e) => e.id !== expense?.id),
     [receiptContext, expense],

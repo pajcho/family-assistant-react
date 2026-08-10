@@ -21,7 +21,7 @@ vi.mock("@/hooks/useKidAccess", () => ({
   }),
 }));
 
-// The row's tile follows the viewer's "Prikaz članova" setting.
+// The row's tile follows the viewer's member-display setting.
 vi.mock("@/hooks/useMemberAvatarStyle", () => ({
   useMemberAvatarStyleValue: () => h.avatarStyle,
 }));

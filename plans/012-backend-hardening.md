@@ -133,7 +133,7 @@ production deploy. The `profiles` RLS fix (that is plan 008).
 ## Git workflow
 
 - Branch: `git checkout -b advisor/012-backend-hardening main`
-- One commit per numbered defect (3 commits). Serbian imperative. Trailer:
+- One commit per numbered defect (3 commits). English imperative. Trailer:
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR, no deploy.
 

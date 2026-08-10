@@ -42,7 +42,7 @@ export type BirthdayFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   birthday: Birthday | null;
-  /** Optional inline error from the parent (e.g. "Greška pri ažuriranju..."). */
+  /** Optional inline error from the parent (e.g. an update failure). */
   error?: string | null;
   saving?: boolean;
   /** Awaited when it returns a promise, so the visibility write can follow it. */

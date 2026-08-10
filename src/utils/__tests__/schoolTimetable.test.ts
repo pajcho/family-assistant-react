@@ -16,7 +16,7 @@ import {
 } from "../schoolTimetable";
 
 // Mirrors the migration defaults: 45' classes, 5' small / 20' big breaks,
-// morning 08:00 (big break after 2), afternoon 14:00 (after 2), pred-čas
+// morning 08:00 (big break after 2), afternoon 14:00 (after 2), early band
 // afternoon 13:00 (after 3).
 const BELL: BellSchedule = {
   family_id: "fam",

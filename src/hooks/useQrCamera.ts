@@ -8,7 +8,7 @@ import { decodeQrFromImageData, getBarcodeDetector } from "@/lib/qrScan";
  * else, and stops the moment the caller accepts a payload.
  *
  * Shared by the two scanners in the app - fiscal receipts in the grown-up app
- * and "poveži uređaj" in the kid shell - which look nothing alike but need
+ * and device linking in the kid shell - which look nothing alike but need
  * exactly the same camera handling, including the iOS-specific parts that took
  * a device to get right (explicit resolution hints, `playsInline`, continuous
  * focus where the browser offers it).

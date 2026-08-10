@@ -269,7 +269,7 @@ export function AllDayChip({ item, onClick }: { item: AgendaItem; onClick: () =>
     const upcoming = isUpcomingPaymentOccurrence(item);
     // Two fixed rows so a 140px column can never clip anything: name truncates
     // on its own line, the amount sits alone on the second (at ~65px it always
-    // fits). No "Nadolazeće" tag and no member badges here - "upcoming" is
+    // fits). No upcoming tag and no member badges here - "upcoming" is
     // carried by style alone (dashed border + dimmed), and both stay visible
     // in the list and the detail dialog.
     const inner = (

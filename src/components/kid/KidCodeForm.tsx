@@ -34,9 +34,9 @@ export function KidCodeForm({
   const ready = isKidInviteCode(code);
 
   function handleChange(raw: string) {
-    // A pasted link (`.../kid/veza#A7K29QXM`) becomes the code inside it, so a
+    // A pasted link (`.../kid/link#A7K29QXM`) becomes the code inside it, so a
     // parent can send the link in a message and the child can just paste.
-    const fromLink = raw.includes("/kid/veza") ? kidInviteTokenFromScan(raw) : null;
+    const fromLink = raw.includes("/kid/link") ? kidInviteTokenFromScan(raw) : null;
     if (fromLink && isKidInviteCode(fromLink)) {
       setCode(fromLink);
       return;

@@ -97,7 +97,7 @@ const COALESCE_MS = 200;
  * invalidate, in first-seen order.
  *
  * Pure and exported so the coalescing rule can be tested without a timer. One
- * user action fans out across tables that SHARE a key: "označi kao plaćeno"
+ * user action fans out across tables that SHARE a key: marking a payment paid
  * writes `payment_history` and `payments`, and a trigger touches `expenses` -
  * three messages, but `["payments", familyId]` and `["payment_history"]` each
  * need invalidating exactly once.
@@ -133,7 +133,7 @@ export function useFamilyChannel(): void {
     if (!familyId) return;
     hasSubscribed.current = false;
 
-    // Messages arrive in bursts: one "označi kao plaćeno" tap writes
+    // Messages arrive in bursts: one mark-as-paid tap writes
     // `payment_history` + `payments` and a trigger touches `expenses`, so an
     // uncoalesced handler refetched the payments list 4-5 times for one tap.
     // Buffer the table names and invalidate each distinct key ONCE per flush.

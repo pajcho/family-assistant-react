@@ -122,7 +122,7 @@ DayTimeline/AgendaWeekCalendar component JSX.
 ## Git workflow
 
 - Branch: `git checkout -b advisor/006-copy-and-grid-dedup advisor/003-lint-ratchet` (STOP if base missing).
-- One Serbian imperative commit per section (A, B, C). Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- One English imperative commit per section (A, B, C). Trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR.
 
 ## Steps

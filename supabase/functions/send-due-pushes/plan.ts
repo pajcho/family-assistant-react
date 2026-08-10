@@ -557,7 +557,7 @@ function planDigest(
     externalVisibleTo(x, pref.user_id),
   );
   // Mirrored Google events read as ordinary events to the user, so they share
-  // the "događaj" count rather than getting a category of their own.
+  // the event count rather than getting a category of their own.
   const eventCount = nativeEvents.length + mirrored.length;
   const payments = idx.paymentsByFamilyDate.get(`${familyId}|${targetDate}`) ?? [];
   const birthdays = (idx.birthdaysByFamily.get(familyId) ?? []).filter((b) =>
@@ -912,7 +912,7 @@ function planExternalReminders(input: DispatchInput, idx: Index): PlannedClaim[]
         push: {
           title: ev.title ?? "Google događaj",
           body: `Počinje za ${remind} min (u ${startHHMM}).`,
-          url: "/uskoro",
+          url: "/calendar?view=agenda",
           tag: `external-reminder-${refId}`,
         },
         emptyStatus: null,

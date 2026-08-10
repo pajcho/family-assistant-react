@@ -85,7 +85,7 @@ export function MobileBottomNav() {
       </button>
 
       {right ? <BottomTab section={NAV_SECTION_MAP[right]} /> : <span className="flex-1" />}
-      <MeniSheet slots={slots} />
+      <MenuSheet slots={slots} />
     </nav>
   );
 }
@@ -94,7 +94,7 @@ function BottomTab({ section }: { section: NavSection }) {
   return <AppNavLink section={section} className="flex-1" />;
 }
 
-type MeniView = "root" | "edit";
+type MenuView = "root" | "edit";
 
 /**
  * "Meni" - the last bar slot. The root view is the map of the whole app
@@ -102,9 +102,9 @@ type MeniView = "root" | "edit";
  * same sheet. The trigger stays highlighted while the current route is a
  * section that is NOT in the bar, mirroring Todoist's "Browse".
  */
-function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
+function MenuSheet({ slots }: { slots: NavSectionKey[] }) {
   const [open, setOpen] = useState(false);
-  const stack = useSheetStack<MeniView>(open, setOpen, "root");
+  const stack = useSheetStack<MenuView>(open, setOpen, "root");
   const { pop, push } = stack;
   const { pathname, search } = useLocation();
   const updateNavSlots = useUpdateNavSlots();
@@ -243,7 +243,7 @@ function MeniSheet({ slots }: { slots: NavSectionKey[] }) {
 }
 
 /**
- * Podešavanja as a full-width row under the grid - same chrome as "Uredi
+ * Settings as a full-width row under the grid - same chrome as the edit
  * traku", so the two read as the menu's own footer rather than as a tile that
  * fell out of the grid.
  */

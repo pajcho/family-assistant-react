@@ -56,7 +56,7 @@ export type MonthCalendarProps = {
 
 const MAX_DOTS = 3;
 
-/** Named chips a desktop cell shows before collapsing the rest into "+ još N". */
+/** Named chips a desktop cell shows before collapsing the rest into "+ N more". */
 const MAX_CHIPS = 3;
 
 /** Below this travel we can't yet tell a vertical month-swipe from a tap. */
@@ -164,7 +164,7 @@ export function MonthCalendar({
   }, [byDay]);
 
   // Desktop cells have room for names, so each day also carries up to three
-  // labelled chips ("+ još N" for the rest). Phones keep the dots - a 46px
+  // labelled chips ("+ N more" for the rest). Phones keep the dots - a 46px
   // cell cannot hold a word.
   const chipsByDay = useMemo(() => {
     const map = new Map<

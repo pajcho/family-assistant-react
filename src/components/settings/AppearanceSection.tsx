@@ -15,7 +15,7 @@ import { useTheme, type ThemeMode } from "@/hooks/useTheme";
 import type { MemberAvatarStyle } from "@/utils/memberAvatar";
 
 /**
- * "Izgled", "Boja aplikacije" and "Prikaz članova" - the rows of the Aplikacija
+ * Theme, app colour and member display - the rows of the app
  * group that carry their control inline instead of pushing to a sub-screen.
  *
  * All three are per user and apply everywhere INSIDE the app; the brand outside
@@ -74,7 +74,7 @@ const MEMBER_AVATAR_OPTIONS: ReadonlyArray<{
 ];
 
 /**
- * "Prikaz članova" - initials on a colour, or each member's emoji.
+ * Member display - initials on a colour, or each member's emoji.
  *
  * A viewer's setting, not a member's: the emoji itself belongs to the person
  * and is picked in Porodica, while this row only says whether I want to SEE it.
