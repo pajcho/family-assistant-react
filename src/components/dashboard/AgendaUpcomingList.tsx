@@ -369,7 +369,6 @@ export function AgendaUpcomingList({
     });
     return () => cancelAnimationFrame(raf);
     // scrollToDaySection is re-created per render but only reads refs + DOM.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingJumpDay, to, showLoading]);
 
   // Nothing in the whole horizon and no filter - the day skeleton alone reads

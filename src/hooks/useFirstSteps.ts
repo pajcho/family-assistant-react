@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useActivities } from "@/hooks/useActivities";
 import { useAuth } from "@/hooks/useAuth";
-import { useEventsList } from "@/hooks/useEvents";
+import { useHasAnyEvents } from "@/hooks/useEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { useProfile } from "@/hooks/useProfile";
@@ -49,7 +49,10 @@ export function useFirstSteps(): UseFirstStepsResult {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { members, isLoading: membersLoading } = useFamilyMembers();
-  const eventsQuery = useEventsList();
+  // Existence only - the checklist never reads a single event's fields, and
+  // this card is mounted on Danas, so an unbounded list query here was the
+  // whole events table kept warm for one boolean.
+  const eventsQuery = useHasAnyEvents();
   const activitiesQuery = useActivities();
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const queryClient = useQueryClient();
@@ -87,7 +90,7 @@ export function useFirstSteps(): UseFirstStepsResult {
     {
       id: "calendar",
       label: "Zakaži prvi događaj ili aktivnost",
-      done: (eventsQuery.data?.length ?? 0) > 0 || (activitiesQuery.data?.length ?? 0) > 0,
+      done: (eventsQuery.data ?? false) || (activitiesQuery.data?.length ?? 0) > 0,
     },
     {
       id: "payment",

@@ -394,7 +394,7 @@ function ActivitiesPage() {
             <EmptyState
               variant="overlay"
               icon={Squares2X2Icon}
-              tone="violet"
+              tone="purple"
               title="Trening, muzička, engleski..."
               description="Unesi nedeljni raspored jednom - ponavlja se sam, a izmene rešavaš izuzecima."
               action={{ label: "Dodaj aktivnost", onClick: openAdd }}

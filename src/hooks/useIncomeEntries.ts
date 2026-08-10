@@ -29,7 +29,7 @@ async function fetchIncomeEntries(familyId: string, month: string): Promise<Inco
     .eq("month", month)
     .order("received_on", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as IncomeEntry[]) ?? [];
 }
 

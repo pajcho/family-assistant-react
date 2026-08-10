@@ -31,7 +31,7 @@ async function fetchSchedule(familyId: string): Promise<ActivitySchedule[]> {
     .eq("family_id", familyId)
     .order("day_of_week", { ascending: true })
     .order("start_time", { ascending: true });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ActivitySchedule[]) ?? [];
 }
 

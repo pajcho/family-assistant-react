@@ -89,7 +89,7 @@ export function KidSheetTitle({ emoji, title, id }: { emoji: string; title: stri
 }
 
 /** One fact line inside a sheet: a small glyph gutter and the text. */
-export function KidSheetRow({ icon, children }: { icon: string; children: ReactNode }) {
+function KidSheetRow({ icon, children }: { icon: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-3 border-t-[1.5px] border-[var(--k-line)] px-0.5 py-3 text-[14px] font-normal first-of-type:mt-1.5 first-of-type:border-t-0">
       <span aria-hidden="true" className="w-6 flex-none text-center">

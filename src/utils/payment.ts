@@ -1,5 +1,5 @@
 import type { Payment, PaymentOverride, RecurrencePeriod } from "@/types/database";
-import { addMonth, addWeek, formatDate } from "@/utils/date";
+import { addMonthAnchored, addWeek, dayOfMonth, formatDate, monthBounds } from "@/utils/date";
 
 /**
  * Short label for a payment's recurrence - used in list rows, dashboard cards,
@@ -50,15 +50,25 @@ export function recurrenceLabel(period: RecurrencePeriod | null, interval: numbe
 export function nextPaymentOccurrenceDate(
   payment: Pick<
     Payment,
-    "due_date" | "recurrence_period" | "recurrence_interval" | "remaining_occurrences"
+    | "due_date"
+    | "due_anchor_day"
+    | "recurrence_period"
+    | "recurrence_interval"
+    | "remaining_occurrences"
   >,
 ): string | null {
   const period = payment.recurrence_period;
   const interval = Math.max(1, payment.recurrence_interval ?? 1);
+  // Anchored, because the mutations this mirrors are: telling the user the next
+  // instalment lands on the 28th while the DB advances to the 31st is exactly
+  // the split this file exists to close.
+  const anchorDay = payment.due_anchor_day ?? dayOfMonth(payment.due_date);
   if (period === "weekly") return addWeek(payment.due_date, interval);
-  if (period === "monthly") return addMonth(payment.due_date, interval);
+  if (period === "monthly") return addMonthAnchored(payment.due_date, anchorDay, interval);
   if (period === "limited") {
-    return (payment.remaining_occurrences ?? 0) > 1 ? addMonth(payment.due_date) : null;
+    return (payment.remaining_occurrences ?? 0) > 1
+      ? addMonthAnchored(payment.due_date, anchorDay)
+      : null;
   }
   return null;
 }
@@ -194,39 +204,44 @@ export interface PaymentOccurrence {
   effectiveDate: string;
 }
 
+/** The fields the occurrence walk reads - every payment surface passes a full row. */
+type RecurringPaymentFields = Pick<
+  Payment,
+  | "id"
+  | "due_date"
+  | "due_anchor_day"
+  | "recurrence_period"
+  | "recurrence_interval"
+  | "remaining_occurrences"
+>;
+
 /**
- * Enumerate a payment's occurrences whose EFFECTIVE date lands within
- * `[from, to]` (inclusive, YYYY-MM-DD). Walks forward from the live `due_date`
- * by the recurrence step - mirroring `nextPaymentOccurrenceDate` / mark-paid:
- * weekly → +N weeks, monthly → +N months, limited → +1 month for up to
- * `remaining_occurrences`, one-time → a single occurrence. Each occurrence's
- * per-instance override is applied: a `cancel` drops it, a `reschedule` moves
- * its effective date.
+ * THE occurrence walk - the single source of truth for which dates a payment
+ * series has. Yields every occurrence date from the live `due_date` up to and
+ * including `to`, oldest first, with no overrides applied and no lower bound
+ * (callers clip). Steps mirror `nextPaymentOccurrenceDate` / mark-paid: weekly
+ * → +N weeks, monthly → +N months, limited → +1 month for up to
+ * `remaining_occurrences`, one-time → a single occurrence.
  *
- * Pure (no React / Supabase) so the unified `useAgenda` layer - and the Phase 4
- * calendar - can project payments across a range and unit-test the walk.
- * Bucketed by `effectiveDate`, so a payment moved inside the window surfaces on
- * its new day. Known edge: an occurrence whose ORIGINAL date sits just past
- * `to` but is rescheduled INTO the window won't appear - reschedules are capped
- * at "the day before the next occurrence", so the gap is at most one step.
+ * Monthly steps are ANCHORED (`due_anchor_day`, falling back to the day the
+ * series starts on), so the day is re-derived at every step instead of being
+ * inherited from an already-clamped one: 31 -> 28 (Feb) -> 31 (Mar), not
+ * 31 -> 28 -> 28 forever. Weekly needs no anchor - week arithmetic never
+ * overflows a month.
+ *
+ * Walking forward from `due_date` also means a series can never report an
+ * occurrence BEFORE it starts.
  */
-export function expandPaymentOccurrences(
-  payment: Pick<
-    Payment,
-    "id" | "due_date" | "recurrence_period" | "recurrence_interval" | "remaining_occurrences"
-  >,
-  from: string,
-  to: string,
-  overridesByKey: Map<string, PaymentOverride>,
-): PaymentOccurrence[] {
+function walkOccurrenceDates(payment: RecurringPaymentFields, to: string): string[] {
   const period = payment.recurrence_period;
   const interval = Math.max(1, payment.recurrence_interval ?? 1);
+  const anchorDay = payment.due_anchor_day ?? dayOfMonth(payment.due_date);
 
   // Step to the next occurrence, or null when the series has just one.
   const step = (date: string): string | null => {
     if (period === "weekly") return addWeek(date, interval);
-    if (period === "monthly") return addMonth(date, interval);
-    if (period === "limited") return addMonth(date); // monthly cadence; interval ignored
+    if (period === "monthly") return addMonthAnchored(date, anchorDay, interval);
+    if (period === "limited") return addMonthAnchored(date, anchorDay); // monthly cadence; interval ignored
     return null; // one-time / null
   };
 
@@ -237,20 +252,74 @@ export function expandPaymentOccurrences(
       ? Math.max(1, payment.remaining_occurrences ?? 1)
       : Number.POSITIVE_INFINITY;
 
-  const out: PaymentOccurrence[] = [];
+  const dates: string[] = [];
   let cur: string | null = payment.due_date;
   while (cur !== null && cur <= to && remaining > 0) {
-    const ov = overridesByKey.get(overrideKey(payment.id, cur));
-    if (ov?.action !== "cancel") {
-      const effectiveDate =
-        ov?.action === "reschedule" && ov.override_date ? ov.override_date : cur;
-      if (effectiveDate >= from && effectiveDate <= to) {
-        out.push({ occurrenceDate: cur, effectiveDate });
-      }
-    }
+    dates.push(cur);
     remaining -= 1;
     cur = step(cur);
   }
+  return dates;
+}
 
+/**
+ * Enumerate a payment's occurrences whose EFFECTIVE date lands within
+ * `[from, to]` (inclusive, YYYY-MM-DD), walking `walkOccurrenceDates`. Each
+ * occurrence's per-instance override is applied: a `cancel` drops it, a
+ * `reschedule` moves its effective date.
+ *
+ * Pure (no React / Supabase) so the unified `useAgenda` layer - and the Phase 4
+ * calendar - can project payments across a range and unit-test the walk.
+ * Bucketed by `effectiveDate`, so a payment moved inside the window surfaces on
+ * its new day. Known edge: an occurrence whose ORIGINAL date sits just past
+ * `to` but is rescheduled INTO the window won't appear - reschedules are capped
+ * at "the day before the next occurrence", so the gap is at most one step.
+ */
+export function expandPaymentOccurrences(
+  payment: RecurringPaymentFields,
+  from: string,
+  to: string,
+  overridesByKey: Map<string, PaymentOverride>,
+): PaymentOccurrence[] {
+  const out: PaymentOccurrence[] = [];
+  for (const occurrenceDate of walkOccurrenceDates(payment, to)) {
+    const ov = overridesByKey.get(overrideKey(payment.id, occurrenceDate));
+    if (ov?.action === "cancel") continue;
+    const effectiveDate =
+      ov?.action === "reschedule" && ov.override_date ? ov.override_date : occurrenceDate;
+    if (effectiveDate >= from && effectiveDate <= to) out.push({ occurrenceDate, effectiveDate });
+  }
+  return out;
+}
+
+/**
+ * The same walk, restricted to one month (`YYYY-MM`) - what the Payments page
+ * draws its month view from. Sharing `walkOccurrenceDates` with
+ * `expandPaymentOccurrences` is the point: the page and the agenda / budget /
+ * busy-days can no longer name different days for the same instalment, which
+ * used to make an override saved on one surface invisible to the other.
+ *
+ * Two deliberate differences from `expandPaymentOccurrences`, both because the
+ * page is a ledger of the month rather than a projection onto days:
+ *   - buckets by OCCURRENCE date, so an instalment rescheduled out of its month
+ *     stays listed in the month it belongs to (its `effectiveDate` is where it
+ *     is drawn);
+ *   - KEEPS canceled occurrences - the page renders them as resolved rows and
+ *     does its own filtering, while the agenda drops them.
+ */
+export function paymentOccurrencesInMonth(
+  payment: RecurringPaymentFields,
+  monthYYYYMM: string,
+  overridesByKey: Map<string, PaymentOverride>,
+): PaymentOccurrence[] {
+  const { from, to } = monthBounds(monthYYYYMM);
+  const out: PaymentOccurrence[] = [];
+  for (const occurrenceDate of walkOccurrenceDates(payment, to)) {
+    if (occurrenceDate < from) continue;
+    const ov = overridesByKey.get(overrideKey(payment.id, occurrenceDate));
+    const effectiveDate =
+      ov?.action === "reschedule" && ov.override_date ? ov.override_date : occurrenceDate;
+    out.push({ occurrenceDate, effectiveDate });
+  }
   return out;
 }

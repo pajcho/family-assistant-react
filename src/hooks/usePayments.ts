@@ -5,11 +5,12 @@ import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 import { replacePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import {
-  addMonth,
+  addMonthAnchored,
   addWeek,
+  dayOfMonth,
   dueDateInCurrentMonth,
   isDateBeforeToday,
-  subtractMonth,
+  subtractMonthAnchored,
   subtractWeek,
 } from "@/utils/date";
 
@@ -106,6 +107,17 @@ export type UpdatePaymentInput = Partial<
   personIds?: string[];
 };
 
+/**
+ * The day of the month a series is anchored to: the stored `due_anchor_day`,
+ * else the day the live `due_date` sits on. Every monthly advance / revert
+ * below steps from THIS, not from the previous result - otherwise a bill due on
+ * the 31st is rewritten to the 28th by its first February and stays there
+ * (`addMonth("2026-02-28")` is "2026-03-28", and undo could never restore it).
+ */
+function anchorDayOf(row: { due_date: string; due_anchor_day?: number | null }): number {
+  return row.due_anchor_day ?? dayOfMonth(row.due_date);
+}
+
 async function fetchPayments(familyId: string, hidePaid: boolean): Promise<Payment[]> {
   let q = supabase
     .from("payments")
@@ -114,7 +126,7 @@ async function fetchPayments(familyId: string, hidePaid: boolean): Promise<Payme
     .order("due_date", { ascending: true });
   if (hidePaid) q = q.eq("is_paid", false);
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as Payment[]) ?? [];
 }
 
@@ -137,7 +149,7 @@ async function fetchPaymentHistory(
     q = q.gte("due_date", startDate).lt("due_date", endDate);
   }
   const { data, error } = await q;
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as PaymentHistory[]) ?? [];
 }
 
@@ -149,7 +161,7 @@ async function fetchPaymentHistoryByPaymentId(paymentId: string): Promise<Paymen
     // created_at, not paid_date - canceled entries have no paid_date but must
     // still sort newest-first (the latest entry gets the Undo action).
     .order("created_at", { ascending: false });
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as PaymentHistory[]) ?? [];
 }
 
@@ -243,6 +255,9 @@ export function useCreatePayment() {
         .insert({
           family_id: familyId,
           ...columns,
+          // Anchor the series on the day the user picked, explicitly - the
+          // column has no DB default, and every later advance steps from it.
+          due_anchor_day: dayOfMonth(columns.due_date),
           is_paid: false,
           paid_date: null,
         })
@@ -271,9 +286,16 @@ export function useUpdatePayment() {
   return useMutation({
     mutationFn: async (args: { id: string; payload: UpdatePaymentInput }): Promise<Payment> => {
       const { personIds, ...columns } = args.payload;
+      // Re-picking the due date re-anchors the series: editing a bill onto the
+      // 31st has to move the anchor too, otherwise the next advance would snap
+      // back to the old day.
+      const withAnchor =
+        columns.due_date != null
+          ? { ...columns, due_anchor_day: dayOfMonth(columns.due_date) }
+          : columns;
       const { data, error } = await supabase
         .from("payments")
-        .update(columns)
+        .update(withAnchor)
         .eq("id", args.id)
         .select()
         .single();
@@ -369,6 +391,7 @@ export function useMarkPaymentPaid() {
       const period = row.recurrence_period as RecurrencePeriod | null;
       const isRecurring = row.is_recurring === true;
       const interval = Math.max(1, Number(row.recurrence_interval ?? 1));
+      const anchorDay = anchorDayOf(row);
 
       // If this occurrence was rescheduled, log the payment under the moved
       // date (and clear the now-resolved override). The series anchor
@@ -431,7 +454,7 @@ export function useMarkPaymentPaid() {
           .update({
             is_paid: false,
             paid_date: null,
-            due_date: addMonth(row.due_date, interval),
+            due_date: addMonthAnchored(row.due_date, anchorDay, interval),
           })
           .eq("id", id);
         if (error) throw new Error(error.message);
@@ -466,7 +489,7 @@ export function useMarkPaymentPaid() {
           .update({
             is_paid: false,
             paid_date: null,
-            due_date: addMonth(row.due_date),
+            due_date: addMonthAnchored(row.due_date, anchorDay),
             remaining_occurrences: remaining,
           })
           .eq("id", id);
@@ -514,6 +537,7 @@ export function useCancelPaymentOccurrence() {
 
       const period = row.recurrence_period as RecurrencePeriod | null;
       const interval = Math.max(1, Number(row.recurrence_interval ?? 1));
+      const anchorDay = anchorDayOf(row);
 
       // If this occurrence was rescheduled, log the cancellation under the
       // moved date and clear the now-resolved override.
@@ -551,7 +575,7 @@ export function useCancelPaymentOccurrence() {
       if (period === "monthly") {
         const { error } = await supabase
           .from("payments")
-          .update({ due_date: addMonth(row.due_date, interval) })
+          .update({ due_date: addMonthAnchored(row.due_date, anchorDay, interval) })
           .eq("id", args.id);
         if (error) throw new Error(error.message);
       } else if (period === "weekly") {
@@ -571,7 +595,10 @@ export function useCancelPaymentOccurrence() {
         } else {
           const { error } = await supabase
             .from("payments")
-            .update({ due_date: addMonth(row.due_date), remaining_occurrences: remaining })
+            .update({
+              due_date: addMonthAnchored(row.due_date, anchorDay),
+              remaining_occurrences: remaining,
+            })
             .eq("id", args.id);
           if (error) throw new Error(error.message);
         }
@@ -639,7 +666,8 @@ export function useTogglePaymentPause() {
  *
  * Revert rules:
  *   - one-time / non-recurring → `is_paid: false, paid_date: null`.
- *   - monthly → roll `due_date` back one month via `subtractMonth`.
+ *   - monthly → roll `due_date` back one month via `subtractMonthAnchored`, so
+ *     an instalment undone out of March returns to the 31st, not the 28th.
  *   - limited → increment `remaining_occurrences`; if the payment was marked
  *     `is_paid: true` (because the prior mark-paid drove `remaining_occurrences`
  *     to 0), additionally flip `is_paid: false, paid_date: null`. Always roll
@@ -678,6 +706,7 @@ export function useUndoLastPayment() {
       const period = payment.recurrence_period as RecurrencePeriod | null;
       const isRecurring = payment.is_recurring === true;
       const interval = Math.max(1, Number(payment.recurrence_interval ?? 1));
+      const anchorDay = anchorDayOf(payment);
 
       // Check if due_date was already reverted (history due_date matches current payment due_date)
       // This can happen if previous undo attempt failed to delete history but succeeded in reverting
@@ -701,7 +730,7 @@ export function useUndoLastPayment() {
           const { error } = await supabase
             .from("payments")
             .update({
-              due_date: subtractMonth(payment.due_date, interval),
+              due_date: subtractMonthAnchored(payment.due_date, anchorDay, interval),
             })
             .eq("id", paymentId);
           if (error) throw new Error(error.message);
@@ -740,7 +769,7 @@ export function useUndoLastPayment() {
           }
 
           // Move due_date back
-          updates.due_date = subtractMonth(payment.due_date);
+          updates.due_date = subtractMonthAnchored(payment.due_date, anchorDay);
 
           // Increment remaining occurrences
           updates.remaining_occurrences = (payment.remaining_occurrences ?? 0) + 1;

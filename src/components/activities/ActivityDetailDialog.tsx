@@ -14,6 +14,8 @@ import {
   DetailActionList,
   DetailActionRow,
   DetailBadgeRow,
+  DetailDeleteBody,
+  DetailDeleteFooter,
   DetailHero,
   DetailInfoRow,
   DetailInfoRows,
@@ -197,10 +199,7 @@ export function ActivityDetailDialog({
                     }}
                   />
                 ) : view === "delete" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Da li ste sigurni da želite da obrišete „{activity.name}"? Brišu se i svi njeni
-                    termini. Ova radnja se ne može opozvati.
-                  </p>
+                  <DetailDeleteBody name={activity.name} note="Brišu se i svi njeni termini." />
                 ) : (
                   <>
                     <DetailBadgeRow badges={statusBadges} />
@@ -281,20 +280,13 @@ export function ActivityDetailDialog({
                 </Button>
               </ResponsiveDialogFooter>
             ) : view === "delete" ? (
-              <ResponsiveDialogFooter>
-                <Button variant="outline" onClick={pop} disabled={saving}>
-                  Nazad
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    void handleDelete();
-                  }}
-                  disabled={saving}
-                >
-                  {saving ? "Briše…" : "Obriši"}
-                </Button>
-              </ResponsiveDialogFooter>
+              <DetailDeleteFooter
+                deleting={saving}
+                onBack={pop}
+                onConfirm={() => {
+                  void handleDelete();
+                }}
+              />
             ) : null}
           </ResponsiveDialogContent>
         )}

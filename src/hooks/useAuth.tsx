@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -101,13 +101,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setSession(null);
   }, []);
 
-  const value: AuthContextValue = {
-    session,
-    user: session?.user ?? null,
-    loading,
-    signIn,
-    signOut,
-  };
+  const value: AuthContextValue = useMemo(
+    () => ({
+      session,
+      user: session?.user ?? null,
+      loading,
+      signIn,
+      signOut,
+    }),
+    [session, loading, signIn, signOut],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

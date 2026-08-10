@@ -17,12 +17,20 @@
 //          CASCADE (family_admin migration), so the single UPDATE cascades. If
 //          the re-key fails we delete the just-created auth user to avoid an
 //          orphaned login with no profile.
-// disable: re-home the member's lists to the admin (lists.owner_id cascades on
+// disable: tear down dečiji režim if it is on (shared with kid-access) → re-home
+//          the member's lists to the admin (lists.owner_id cascades on
 //          auth-user delete, which would otherwise drop their lists) → delete
 //          the auth user. The profile row survives (its FK to auth.users was
 //          dropped long ago) and becomes a login-less member again.
+//
+// Kid mode and a real login are mutually exclusive, and BOTH directions are
+// enforced here: `create` refuses a member who has kid mode on, and `disable`
+// takes the kid credentials with it. Before that, "Ugasi nalog" left a working
+// device token + PIN behind - the login was gone and the child kept signing in.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+import { tearDownKidAccess } from "../_shared/kidTeardown.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -109,6 +117,19 @@ async function createLogin(
   const existing = await admin.auth.admin.getUserById(profileId);
   if (existing.data?.user) return json({ error: "Član već ima nalog." }, 409);
 
+  // The mirror of kid-access's "Član već ima nalog za prijavu.": a child in
+  // dečiji režim has a SYNTHETIC auth user under a different id, so the check
+  // above never sees it. Giving them a login on top would leave two ways into
+  // one member, one of which nothing in the parent UI knows how to revoke.
+  const { data: kidAccess } = await admin
+    .from("kid_access")
+    .select("profile_id")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (kidAccess) {
+    return json({ error: "Član ima uključen dečiji režim. Prvo ga isključi." }, 409);
+  }
+
   // GoTrue validates email format + uniqueness and returns readable messages,
   // which we relay verbatim (e.g. "A user with this email address has already
   // been registered").
@@ -156,6 +177,15 @@ async function disableLogin(
       return json({ error: "Ne možeš ugasiti poslednjeg administratora." }, 400);
     }
   }
+
+  // Kid credentials go FIRST, and a failure here stops everything. They are a
+  // second, independent way into this member (device token + PIN against a
+  // synthetic auth user), so leaving them behind means "Ugasi nalog" did not
+  // do what it says. Failing before the auth user is deleted is also the only
+  // retryable order: once the login is gone, this action answers "Član nema
+  // nalog." and could never finish the teardown on a second press.
+  const teardown = await tearDownKidAccess(admin, profileId);
+  if (!teardown.ok) return json({ error: teardown.error }, 500);
 
   // Preserve lists: re-home ownership to the admin before deleting the auth
   // user (lists.owner_id ON DELETE CASCADE would otherwise drop them).

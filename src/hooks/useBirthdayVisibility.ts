@@ -51,7 +51,7 @@ async function fetchBirthdayVisibility(familyId: string): Promise<BirthdayVisibi
     .from("birthday_visibility")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as BirthdayVisibility[]) ?? [];
 }
 

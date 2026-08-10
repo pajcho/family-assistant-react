@@ -56,8 +56,8 @@ export function SwitchRow({
   );
 }
 
-/** The switch glyph on its own, for rows that manage their own layout. */
-export function Switch({ checked }: { checked: boolean }) {
+/** The switch glyph on its own. */
+function Switch({ checked }: { checked: boolean }) {
   return (
     <span
       aria-hidden="true"

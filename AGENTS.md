@@ -61,8 +61,12 @@ znakove da bi uopšte objasnio koji su zabranjeni.
   (domenska otkazivanja), `Zatvori` (zatvori prikaz bez izmena), `Nazad` (korak nazad u
   pod-prikazu).
 - Lint/format je Oxc: `pnpm check` = `oxfmt --check` + `oxlint --deny-warnings` +
-  provera crtica. Na svakom PR-u to isto vrti i CI (`.github/workflows/ci.yml`), zajedno
-  sa `pnpm test` i `pnpm build` (build je ujedno i typecheck - `vite build` generiše
-  `src/routeTree.gen.ts`, koji je git-ignorisan, pa `tsc -b` bez njega ne prolazi).
+  provera crtica + `pnpm typecheck`. Typecheck radi samostalno i na svežem checkout-u:
+  `pnpm typecheck` = `tsr generate && tsc -b`, tj. sam generiše git-ignorisani
+  `src/routeTree.gen.ts` (podešavanja u [tsr.config.json](tsr.config.json) prate
+  `tanstackRouter` plugin iz [vite.config.ts](vite.config.ts)). Na svakom PR-u CI
+  (`.github/workflows/ci.yml`) vrti te iste provere, ali kao zasebne korake, plus
+  `pnpm test` i `pnpm build`; `pnpm build` tamo ostaje merodavan build + typecheck,
+  jer route tree generiše sam `vite build`.
   Svejedno pokreni `pnpm check` i `pnpm test` lokalno pre nego što otvoriš PR.
 - Nikad ne commit-uj direktno na `main` - uvek grana pa PR (squash-merge).

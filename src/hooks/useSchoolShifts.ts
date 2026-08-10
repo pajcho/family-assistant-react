@@ -37,7 +37,7 @@ async function fetchShiftAnchors(familyId: string): Promise<SchoolShiftAnchor[]>
     .from("school_shift_anchors")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as SchoolShiftAnchor[]) ?? [];
 }
 

@@ -20,7 +20,7 @@ async function fetchParticipants(familyId: string): Promise<ActivityParticipant[
     .from("activity_participants")
     .select("*")
     .eq("family_id", familyId);
-  if (error) return [];
+  if (error) throw new Error(error.message);
   return (data as ActivityParticipant[]) ?? [];
 }
 

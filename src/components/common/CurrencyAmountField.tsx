@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
 import {
   convertToRsd,
-  currencySymbol,
   formatRateInput,
   parseDecimal,
   sanitizeDecimalInput,
@@ -242,6 +241,3 @@ export function ExchangeRateRow({
     </div>
   );
 }
-
-/** Re-export for form suffixes ("EUR" / "USD" / "RSD"). */
-export { currencySymbol };

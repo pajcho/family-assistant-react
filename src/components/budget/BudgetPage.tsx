@@ -20,8 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { useToday } from "@/hooks/useToday";
-import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { BudgetAddMenu } from "@/components/budget/BudgetAddMenu";
 import { CategoryDetailSheet } from "@/components/budget/CategoryDetailSheet";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
@@ -68,9 +68,7 @@ import {
   monthRange,
   shiftMonth,
 } from "@/utils/budget";
-import { fallbackColorForProfile } from "@/utils/activity";
 import { UNCATEGORIZED, matchesCategoryFilter } from "@/utils/categoryFilter";
-import { getDisplayName } from "@/utils/identity";
 import { cn } from "@/lib/cn";
 
 type CategoryBreakdown = {
@@ -187,7 +185,6 @@ export function BudgetPage({
   const paymentsQuery = usePaymentsList({ hidePaid: false });
   const { byKey: paymentOverrides } = usePaymentOverrides();
   const { byPayment } = usePaymentParticipants();
-  const { members } = useFamilyMembers();
 
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
@@ -980,23 +977,10 @@ export function BudgetPage({
                 {option.label}
               </FilterChip>
             ))}
-            {/* One member = nobody to narrow to (same rule as Danas / Kalendar). */}
-            {members.length > 1
-              ? members.map((member) => (
-                  <FilterChip
-                    key={member.id}
-                    active={selectedPersonIds.has(member.id)}
-                    onToggle={() => togglePerson(member.id)}
-                    color={member.color ?? fallbackColorForProfile(member.id)}
-                  >
-                    {getDisplayName({
-                      firstName: member.first_name,
-                      lastName: member.last_name,
-                      email: null,
-                    }) || "Bez imena"}
-                  </FilterChip>
-                ))
-              : null}
+            {/* Same member chips as Danas / Kalendar, emoji and all - this row
+                used to draw its own, without them. One member = nobody to
+                narrow to, and the shared component drops itself on that rule. */}
+            <MemberFilterChips selected={selectedPersonIds} onToggle={togglePerson} />
           </FilterChipRow>
 
           {isLoading ? (

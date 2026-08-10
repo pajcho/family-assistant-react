@@ -82,34 +82,6 @@ export function ChipRow({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("flex flex-wrap gap-1.5", className)} {...props} />;
 }
 
-/** Single-select chip row driven by a value list - the app's radio pattern. */
-export function ChipSelect<T extends string | number | null>({
-  value,
-  onChange,
-  options,
-  ariaLabel,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; hint?: string }>;
-  ariaLabel?: string;
-}) {
-  return (
-    <ChipRow role="group" aria-label={ariaLabel}>
-      {options.map((option) => (
-        <Chip
-          key={String(option.value)}
-          selected={value === option.value}
-          hint={option.hint}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </Chip>
-      ))}
-    </ChipRow>
-  );
-}
-
 /** Icon + label tile in the 4-column category grid (".cat"). */
 export function Tile({
   icon: Icon,
@@ -221,38 +193,6 @@ export function FormTextarea({ className, ...props }: ComponentProps<"textarea">
 }
 
 /**
- * The big centred value card at the top of a form (".fbig") - amount, scanned
- * receipt total, picked time. `children` is the value; `footer` carries the
- * conversion line or the currency segment.
- */
-export function BigValueCard({
-  label,
-  children,
-  footer,
-  className,
-}: {
-  label: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-border bg-card p-3.5 text-center shadow-card",
-        className,
-      )}
-    >
-      <div className="text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
-        {label}
-      </div>
-      <div className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{children}</div>
-      {footer}
-    </div>
-  );
-}
-
-/**
  * The amount field shared by the expense and payment forms: one big centred
  * value with the numeric keypad, the currency CODE beside it and slots for the
  * NBS conversion line (`footer`) and the currency segment (`currencyToggle`).
@@ -314,41 +254,6 @@ export function AmountInputCard({
         </span>
       </div>
       {footer}
-    </div>
-  );
-}
-
-/** Toggle row with an icon, label, optional sub-label and a control (".swrow2"). */
-export function ControlRow({
-  icon: Icon,
-  label,
-  description,
-  control,
-  className,
-}: {
-  icon?: ComponentType<SVGProps<SVGSVGElement>>;
-  label: ReactNode;
-  description?: ReactNode;
-  control: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-11 items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5",
-        className,
-      )}
-    >
-      {Icon ? (
-        <Icon className="size-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-normal">{label}</div>
-        {description ? (
-          <div className="text-[11.5px] leading-snug text-muted-foreground">{description}</div>
-        ) : null}
-      </div>
-      {control}
     </div>
   );
 }

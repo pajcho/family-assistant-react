@@ -6,40 +6,17 @@
  * edge case (leap years, month ends, midnight wrap) is unit-testable.
  */
 
-/** Serbian month names, nominative - used for the picker caption. */
-export const MONTH_NAMES_SR = [
-  "januar",
-  "februar",
-  "mart",
-  "april",
-  "maj",
-  "jun",
-  "jul",
-  "avgust",
-  "septembar",
-  "oktobar",
-  "novembar",
-  "decembar",
-] as const;
-
-/** Short month labels for the month grid (year -> month drill step). */
-export const MONTH_SHORT_SR = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "maj",
-  "jun",
-  "jul",
-  "avg",
-  "sep",
-  "okt",
-  "nov",
-  "dec",
-] as const;
-
-/** Weekday headers, Monday first (the app's week starts on Monday). */
-export const WEEKDAY_SHORT_SR = ["pon", "uto", "sre", "čet", "pet", "sub", "ned"] as const;
+/**
+ * Name tables live in `@/utils/serbianCalendar` (one copy for the whole app);
+ * re-exported under the picker's established names so its consumers keep one
+ * import site: `MONTH_NAMES_SR` is the picker caption, `MONTH_SHORT_SR` the
+ * month grid (year -> month drill step), `WEEKDAY_SHORT_SR` the day headers.
+ */
+export {
+  MONTHS_LONG_SR as MONTH_NAMES_SR,
+  MONTHS_SHORT_SR as MONTH_SHORT_SR,
+  WEEKDAY_SHORT_SR,
+} from "@/utils/serbianCalendar";
 
 const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_RE = /^(\d{1,2}):(\d{2})$/;
@@ -197,11 +174,6 @@ export function parseTypedDate(input: string, pivotYear = new Date().getFullYear
   if (month < 0 || month > 11) return null;
   if (day < 1 || day > daysInMonth(year, month)) return null;
   return isoFromParts(year, month, day);
-}
-
-/** ISO string comparison works lexicographically - spelled out for intent. */
-export function isoBefore(a: string, b: string): boolean {
-  return a < b;
 }
 
 /** Clamp an ISO date into an optional [min, max] window. */

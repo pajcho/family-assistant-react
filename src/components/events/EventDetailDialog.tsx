@@ -19,6 +19,8 @@ import {
   DetailActionList,
   DetailActionRow,
   DetailBadgeRow,
+  DetailDeleteBody,
+  DetailDeleteFooter,
   DetailHero,
   DetailInfoRow,
   DetailInfoRows,
@@ -301,10 +303,7 @@ export function EventDetailDialog({
                     </div>
                   </div>
                 ) : view === "delete" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Da li ste sigurni da želite da obrišete „{event.name}"? Ova radnja se ne može
-                    opozvati.
-                  </p>
+                  <DetailDeleteBody name={event.name} />
                 ) : (
                   <>
                     <DetailBadgeRow badges={statusBadges} />
@@ -448,20 +447,13 @@ export function EventDetailDialog({
                 </Button>
               </ResponsiveDialogFooter>
             ) : view === "delete" ? (
-              <ResponsiveDialogFooter>
-                <Button variant="outline" onClick={pop} disabled={saving}>
-                  Nazad
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    void handleDelete();
-                  }}
-                  disabled={saving}
-                >
-                  Obriši
-                </Button>
-              </ResponsiveDialogFooter>
+              <DetailDeleteFooter
+                deleting={saving}
+                onBack={pop}
+                onConfirm={() => {
+                  void handleDelete();
+                }}
+              />
             ) : null}
           </ResponsiveDialogContent>
         )}

@@ -9,6 +9,7 @@ import type {
   PaymentOverride,
 } from "@/types/database";
 import { expandPaymentOccurrences } from "@/utils/payment";
+import { MONTHS_LONG_SR } from "@/utils/serbianCalendar";
 
 /**
  * Pure budget helpers (NO React / Supabase) so the Budget page and its unit
@@ -16,20 +17,11 @@ import { expandPaymentOccurrences } from "@/utils/payment";
  * "YYYY-MM-DD".
  */
 
-const MONTH_NAMES_SR = [
-  "Januar",
-  "Februar",
-  "Mart",
-  "April",
-  "Maj",
-  "Jun",
-  "Jul",
-  "Avgust",
-  "Septembar",
-  "Oktobar",
-  "Novembar",
-  "Decembar",
-] as const;
+/**
+ * Title-case month names ("Jul 2026") - derived from the one shared lowercase
+ * table rather than kept as a second list that can drift out of step with it.
+ */
+const MONTH_NAMES_SR = MONTHS_LONG_SR.map((m) => m.charAt(0).toUpperCase() + m.slice(1));
 
 /** Inclusive first/last calendar day of a "YYYY-MM" month. */
 export function monthRange(month: string): { from: string; to: string } {

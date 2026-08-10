@@ -1,6 +1,8 @@
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
+import { Button } from "@/components/ui/button";
+import { ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { cn } from "@/lib/cn";
 
 /**
@@ -263,4 +265,49 @@ export function DetailActionRow({
 /** Uniform spacing wrapper around a sheet's DetailActionRow stack. */
 export function DetailActionList({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-2">{children}</div>;
+}
+
+/**
+ * The "delete" sub-view's question, identical on every detail sheet.
+ *
+ * `note` is the entity's extra consequence, inserted between the question and
+ * the "cannot be undone" line - deleting an activity also deletes its slots,
+ * and that is the kind of thing you have to be told BEFORE you confirm.
+ */
+export function DetailDeleteBody({ name, note }: { name: string; note?: string }) {
+  return (
+    <p className="text-sm text-muted-foreground">
+      {`Da li ste sigurni da želite da obrišete „${name}"?${note ? ` ${note}` : ""} Ova radnja se ne može opozvati.`}
+    </p>
+  );
+}
+
+/**
+ * The "delete" sub-view's footer: `Nazad` back to the actions, `Obriši` to go
+ * through with it.
+ *
+ * `Nazad` (not `Odustani`) because the delete view is a step INSIDE the sheet,
+ * not a form of its own. The destructive button says `Brišem…` while the
+ * request is in flight - three of the four sheets used to say nothing at all,
+ * so a slow delete looked like a dead button.
+ */
+export function DetailDeleteFooter({
+  deleting,
+  onBack,
+  onConfirm,
+}: {
+  deleting: boolean;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <ResponsiveDialogFooter>
+      <Button variant="outline" onClick={onBack} disabled={deleting}>
+        Nazad
+      </Button>
+      <Button variant="destructive" onClick={onConfirm} disabled={deleting}>
+        {deleting ? "Brišem…" : "Obriši"}
+      </Button>
+    </ResponsiveDialogFooter>
+  );
 }

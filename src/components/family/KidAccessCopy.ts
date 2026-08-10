@@ -1,4 +1,5 @@
 import { KID_PIN_LENGTHS, isValidKidPin } from "@/types/kid";
+import { pluralSr } from "@/utils/plural";
 
 /**
  * Pure copy + validation helpers for the parent-side kid access UI. Kept out
@@ -7,17 +8,11 @@ import { KID_PIN_LENGTHS, isValidKidPin } from "@/types/kid";
  */
 
 /**
- * Serbian plural pick: 1 / 2-4 / 5+, with the 11-14 exception. `21 minut`,
- * `11 minuta`, `3 minuta`.
+ * The paucal rule lives in `@/utils/plural` (`21 minut`, `11 minuta`,
+ * `3 minuta`); re-exported so this module stays the one import site for the
+ * kid-access copy.
  */
-export function pluralSr(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(n);
-  const mod100 = abs % 100;
-  const mod10 = abs % 10;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
+export { pluralSr };
 
 /** "3 uređaja" / "1 uređaj" - used in the status row and the drill-in. */
 export function deviceCountLabel(count: number): string {

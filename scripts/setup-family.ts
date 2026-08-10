@@ -1,4 +1,4 @@
-import { createInterface, type Interface } from "readline";
+import { createInterface, type Interface } from "node:readline";
 
 import { createClient } from "@supabase/supabase-js";
 

@@ -24,6 +24,8 @@ import {
   DetailActionList,
   DetailActionRow,
   DetailBadgeRow,
+  DetailDeleteBody,
+  DetailDeleteFooter,
   DetailHero,
   DetailInfoRow,
   DetailInfoRows,
@@ -518,10 +520,7 @@ export function PaymentDetailDialog({
                     </div>
                   </div>
                 ) : view === "delete" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Da li ste sigurni da želite da obrišete „{payment.name}"? Ova radnja se ne može
-                    opozvati.
-                  </p>
+                  <DetailDeleteBody name={payment.name} />
                 ) : view === "history" ? (
                   <PaymentHistoryList payment={payment} onRequestUndo={() => push("undo")} />
                 ) : view === "undo" ? (
@@ -748,20 +747,13 @@ export function PaymentDetailDialog({
                 </Button>
               </ResponsiveDialogFooter>
             ) : view === "delete" ? (
-              <ResponsiveDialogFooter>
-                <Button variant="outline" onClick={pop} disabled={saving}>
-                  Nazad
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    void handleDelete();
-                  }}
-                  disabled={saving}
-                >
-                  Obriši
-                </Button>
-              </ResponsiveDialogFooter>
+              <DetailDeleteFooter
+                deleting={saving}
+                onBack={pop}
+                onConfirm={() => {
+                  void handleDelete();
+                }}
+              />
             ) : view === "history" ? (
               <ResponsiveDialogFooter>
                 <Button

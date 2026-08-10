@@ -7,7 +7,6 @@ import {
   format,
   formatDistanceToNow,
   isBefore,
-  isAfter,
   isValid,
   lastDayOfMonth,
   getDate,
@@ -43,22 +42,6 @@ export function isOverdue(dueDateStr: string): boolean {
   return isBefore(due, today);
 }
 
-/** True if due date is today or within the next N days (inclusive). */
-export function isUpcoming(dueDateStr: string, withinDays: number): boolean {
-  const due = parseDate(dueDateStr);
-  const today = startOfToday();
-  const end = addDays(today, withinDays);
-  return !isBefore(due, today) && !isAfter(due, end);
-}
-
-/** True if date (YYYY-MM-DD) falls within [from, to] (inclusive, start-of-day). */
-export function isDateInRange(dateStr: string, from: Date, to: Date): boolean {
-  const date = parseDate(dateStr);
-  const fromStart = startOfDay(from);
-  const toEnd = startOfDay(to);
-  return !isBefore(date, fromStart) && !isAfter(date, toEnd);
-}
-
 /**
  * Add `count` months. Day is capped to the last day of the target month
  * (e.g. Jan 31 + 1m → Feb 28). `count` defaults to 1 so existing
@@ -72,6 +55,60 @@ export function addMonth(dateStr: string, count = 1): string {
   const safeDay = Math.min(day, lastDay);
   next.setDate(safeDay);
   return format(next, "yyyy-MM-dd");
+}
+
+/** The day of the month (1-31) of a YYYY-MM-DD string. */
+export function dayOfMonth(dateStr: string): number {
+  return getDate(parseISO(dateStr + "T12:00:00"));
+}
+
+/**
+ * The anchor day to step by: `anchorDay` when it is a whole 1-31, otherwise
+ * the day of `dateStr` - which makes the anchored helpers degrade to exactly
+ * `addMonth` / `subtractMonth` for rows that have no anchor.
+ */
+function resolveAnchorDay(anchorDay: number | null | undefined, dateStr: string): number {
+  if (anchorDay != null && Number.isInteger(anchorDay) && anchorDay >= 1 && anchorDay <= 31) {
+    return anchorDay;
+  }
+  return dayOfMonth(dateStr);
+}
+
+/**
+ * Next monthly occurrence, anchored: derives the day from `anchorDay`, not
+ * from the previous (possibly clamped) result, so a 31st never becomes a 28th
+ * permanently. Only the MONTH is taken from `dateStr`; the day is
+ * `min(anchorDay, last day of that month)` - the same rule
+ * `getDueDateInMonth` applies.
+ *
+ *   addMonth("2026-01-31")              -> "2026-02-28", then "2026-03-28" (drift)
+ *   addMonthAnchored("2026-02-28", 31)  -> "2026-03-31"   (day recovered)
+ */
+export function addMonthAnchored(
+  dateStr: string,
+  anchorDay: number | null | undefined,
+  count = 1,
+): string {
+  const next = addMonths(parseISO(dateStr + "T12:00:00"), count);
+  const lastDay = getDate(lastDayOfMonth(next));
+  next.setDate(Math.min(resolveAnchorDay(anchorDay, dateStr), lastDay));
+  return format(next, "yyyy-MM-dd");
+}
+
+/**
+ * The symmetric step back - undo of `addMonthAnchored`. Plain `subtractMonth`
+ * cannot restore a clamped day (`subtractMonth("2026-02-28")` -> "2026-01-28"),
+ * so an undone instalment used to come back on the wrong day.
+ */
+export function subtractMonthAnchored(
+  dateStr: string,
+  anchorDay: number | null | undefined,
+  count = 1,
+): string {
+  const prev = subMonths(parseISO(dateStr + "T12:00:00"), count);
+  const lastDay = getDate(lastDayOfMonth(prev));
+  prev.setDate(Math.min(resolveAnchorDay(anchorDay, dateStr), lastDay));
+  return format(prev, "yyyy-MM-dd");
 }
 
 /** Subtract `count` months. Day is capped to the last day of the target month. */
@@ -106,7 +143,13 @@ export function subtractDay(dateStr: string, count = 1): string {
   return format(prev, "yyyy-MM-dd");
 }
 
-/** Same calendar day in a given month (YYYY-MM). Day capped to last day of month. */
+/**
+ * Same calendar day in a given month (YYYY-MM). Day capped to last day of month.
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` (utils/payment.ts) - the Payments
+ * page no longer derives occurrence dates here. Kept, with its tests, until a
+ * follow-up removes the four superseded recurrence helpers.
+ */
 export function getDueDateInMonth(monthYYYYMM: string, dueDateStr: string): string {
   const [year, month] = monthYYYYMM.split("-").map(Number);
   const due = parseISO(dueDateStr + "T12:00:00");
@@ -116,12 +159,26 @@ export function getDueDateInMonth(monthYYYYMM: string, dueDateStr: string): stri
   return `${year}-${String(month).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
 }
 
+/** First and last day of a "YYYY-MM" month, as YYYY-MM-DD. */
+export function monthBounds(monthYYYYMM: string): { from: string; to: string } {
+  const [year, month] = monthYYYYMM.split("-").map(Number);
+  const lastDay = getDate(lastDayOfMonth(new Date(year, month - 1, 1)));
+  return {
+    from: `${monthYYYYMM}-01`,
+    to: `${monthYYYYMM}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 /** Current month as YYYY-MM. */
 export function currentMonthYYYYMM(): string {
   return format(new Date(), "yyyy-MM");
 }
 
-/** For limited payments: list of YYYY-MM for the next `remaining` months starting from due date. */
+/**
+ * For limited payments: list of YYYY-MM for the next `remaining` months starting from due date.
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left.
+ */
 export function getLimitedMonths(dueDateStr: string, remaining: number): string[] {
   const months: string[] = [];
   let currentMonthStr = dueDateStr;
@@ -138,6 +195,8 @@ export function getLimitedMonths(dueDateStr: string, remaining: number): string[
  * ones land every `interval` months after. Used to suppress upcoming rows in
  * "off" months when interval > 1 (e.g. quarterly payment in Apr → no upcoming
  * row in May/Jun, only in Jul).
+ *
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left.
  */
 export function isMonthlyOccurrenceMonth(
   dueDateStr: string,
@@ -158,8 +217,9 @@ export function isMonthlyOccurrenceMonth(
  * `dueDate + 14N`, … - we walk forward (or backward when the requested month
  * is in the past relative to the due date) and collect the ones that match.
  *
- * Used by the payments page to generate upcoming rows for each occurrence in
- * the selected month, and by the per-month summary to total unpaid amounts.
+ * SUPERSEDED by `paymentOccurrencesInMonth` - no runtime consumers left. It
+ * used to feed the payments page, where its unfloored rewind could report an
+ * occurrence BEFORE the series started; the shared walk only moves forward.
  */
 export function getWeeklyOccurrencesInMonth(
   dueDateStr: string,
@@ -225,13 +285,8 @@ export function isDateBeforeToday(dateStr: string): boolean {
   return isBefore(parseDate(dateStr), startOfToday());
 }
 
-/** Check if a date string is today or in the future. */
-export function isDateTodayOrFuture(dateStr: string): boolean {
-  return !isBefore(parseDate(dateStr), startOfToday());
-}
-
 /** Days from today to date (positive = future). */
-export function daysFromToday(dateStr: string): number {
+function daysFromToday(dateStr: string): number {
   return differenceInDays(parseDate(dateStr), startOfToday());
 }
 
