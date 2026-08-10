@@ -13,8 +13,8 @@ The interface is in Serbian, with push reminders and realtime sync between famil
 |                    Today                     |                        Week                         |                      Month                      |
 | :------------------------------------------: | :-------------------------------------------------: | :---------------------------------------------: |
 |     ![Today](docs/screenshots/danas.png)     |   ![Week](docs/screenshots/kalendar-nedelja.png)    |  ![Month](docs/screenshots/kalendar-mesec.png)  |
-|                  **Budget**                  |                    **Payments**                     |                    **Lists**                    |
-|    ![Budget](docs/screenshots/budzet.png)    |     ![Payments](docs/screenshots/placanja.png)      |      ![Lists](docs/screenshots/liste.png)       |
+|                  **Budget**                  |                    **Payments**                     |                    **Tasks**                    |
+|    ![Budget](docs/screenshots/budzet.png)    |     ![Payments](docs/screenshots/placanja.png)      |      ![Tasks](docs/screenshots/zadaci.png)      |
 |                  **School**                  |                      **Menu**                       |                **Global search**                |
 |    ![School](docs/screenshots/skola.png)     |         ![Menu](docs/screenshots/meni.png)          | ![Global search](docs/screenshots/pretraga.png) |
 |                 **Kid mode**                 |                  **Kid schedule**                   |                 **Dark theme**                  |

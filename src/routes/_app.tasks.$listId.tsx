@@ -306,15 +306,21 @@ function ListDetailLoaded({
   );
 }
 
-/** "porodična · 4 aktivna · 2 sa datumom · 1 kasni" - the sub-line under the title. */
+/**
+ * "porodična · 4 aktivna · 1 kasni" - the sub-line under the title.
+ *
+ * Three segments at most, because four did not fit a 390px phone and the line
+ * truncated mid-word. The one that went is "N sa datumom": inside a list you can
+ * already see which rows carry a date chip, and the grid card on the index still
+ * says it there, where it helps you pick a list. Scope and "kasni" have no other
+ * home on this screen, so they stay.
+ */
 function listSubtitle(list: ListWithTasks, today: string): string {
   const active = list.tasks.filter((task) => !task.is_completed);
-  const dated = active.filter((task) => task.due_date !== null).length;
   const late = active.filter((task) => isTaskOverdue(task, today)).length;
   return [
     list.scope === "family" ? "porodična" : "lična",
     `${active.length} ${active.length === 1 ? "aktivan" : "aktivnih"}`,
-    dated > 0 ? `${dated} sa datumom` : null,
     late > 0 ? `${late} kasni` : null,
   ]
     .filter(Boolean)

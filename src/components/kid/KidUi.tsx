@@ -195,7 +195,7 @@ export function KidCheckCircle({
  * A card with TWO controls: the tick circle and the body that opens the details.
  *
  * They are SIBLINGS, never nested. A button inside a button is invalid markup
- * and the inner one swallows the outer's taps - the same reason `ListItemRow`
+ * and the inner one swallows the outer's taps - the same reason `TaskListRow`
  * keeps its checkbox label beside the row body in the grown-up app. The body
  * carries the padding so it fills the card's full height and reaches its right
  * edge: everything except the circle opens the sheet, wherever the thumb lands.

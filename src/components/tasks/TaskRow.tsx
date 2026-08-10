@@ -1,5 +1,3 @@
-import { CheckIcon } from "@heroicons/react/24/outline";
-
 import {
   ItemCard,
   ItemMain,
@@ -10,6 +8,7 @@ import {
 } from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { Pill } from "@/components/common/Pill";
+import { TaskCheckCircle } from "@/components/tasks/TaskCheckCircle";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { useProfile } from "@/hooks/useProfile";
@@ -27,7 +26,7 @@ import { isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
  * redundant anyway - the circle already says "this is something to finish".
  *
  * The circle is a `<label>`-wrapped checkbox rendered as `ItemCard`'s `leading`
- * SIBLING of the row button, the same markup `ListItemRow` has always used: a
+ * SIBLING of the row button, the same markup `TaskListRow` has always used: a
  * control nested inside a button is invalid HTML and the browser swallows its
  * clicks. So the two taps never collide - the circle completes without
  * navigating, the row body opens `TaskDetailSheet`.
@@ -78,7 +77,7 @@ export function TaskRow({
       dimmed={done}
       ariaLabel={`Otvori detalje za „${task.name}"`}
       leading={
-        <TaskCircle
+        <TaskCheckCircle
           done={done}
           name={task.name}
           onToggle={() => {
@@ -111,48 +110,6 @@ export function TaskRow({
         </ItemSide>
       ) : null}
     </ItemCard>
-  );
-}
-
-/**
- * The completion circle: a visually-hidden checkbox inside a generously padded
- * `<label>`, so the whole 47x48 area at the head of the row is the tap target
- * (the trick `ListItemRow` uses for the same reason) while the keyboard still
- * gets a real checkbox with a focus ring on the drawn circle.
- *
- * No pending state on purpose - `useToggleTask` is optimistic in both of its
- * shapes, so the circle has already flipped by the time a spinner could appear
- * and a spinner would only fight it.
- */
-function TaskCircle({
-  done,
-  name,
-  onToggle,
-}: {
-  done: boolean;
-  name: string;
-  onToggle: () => void;
-}) {
-  return (
-    <label
-      className="group/tick flex shrink-0 cursor-pointer items-center self-stretch py-3 pl-[13px] pr-[11px]"
-      // Says what the tap DOES; the row button beside it says what the task is.
-      aria-label={done ? `Vrati „${name}" u aktivne` : `Označi „${name}" kao završeno`}
-    >
-      <input type="checkbox" checked={done} onChange={onToggle} className="peer sr-only" />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid size-[26px] place-items-center rounded-full border-2 transition-colors",
-          "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-card",
-          done
-            ? "border-task bg-task text-card"
-            : "border-muted-foreground/45 text-transparent group-hover/tick:border-task",
-        )}
-      >
-        <CheckIcon className="size-4" strokeWidth={3} />
-      </span>
-    </label>
   );
 }
 

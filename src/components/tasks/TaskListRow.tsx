@@ -7,6 +7,7 @@ import { Linkify } from "@/components/common/Linkify";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { previewLine } from "@/components/common/MarkdownText";
 import { Pill } from "@/components/common/Pill";
+import { TaskCheckCircle } from "@/components/tasks/TaskCheckCircle";
 import { cn } from "@/lib/cn";
 import type { Task } from "@/types/database";
 
@@ -101,17 +102,10 @@ export function TaskListRow({
 
   return (
     <div className="group flex items-stretch rounded-md bg-card transition-colors hover:bg-muted/60">
-      <label
-        className="flex shrink-0 cursor-pointer items-center py-3 pl-3 pr-4 pointer-fine:py-1.5 pointer-fine:pl-2 pointer-fine:pr-2"
-        aria-label={done ? `Vrati „${item.name}" u aktivne` : `Označi „${item.name}" kao završeno`}
-      >
-        <input
-          type="checkbox"
-          checked={done}
-          onChange={() => onToggle(item)}
-          className="h-5 w-5 shrink-0 cursor-pointer rounded-sm border-border bg-card text-accent focus:ring-ring"
-        />
-      </label>
+      {/* The SAME circle the agenda row and the kid card use. A square checkbox
+          here and a circle there would be two controls for one concept, on rows
+          that hold the very same task. */}
+      <TaskCheckCircle done={done} name={item.name} onToggle={() => onToggle(item)} dense />
       {/* Hit-target scoping: the wrapper owns the flex-1 stretch (with inert
           right padding) while the button shrinks to text width so only the
           visible label area is a tap target. `items-stretch` lets the button
