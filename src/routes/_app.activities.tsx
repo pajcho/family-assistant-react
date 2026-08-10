@@ -201,7 +201,7 @@ function ActivitiesPage() {
   // Dashboard "Izmeni aktivnost" deep-link: open the edit dialog for the
   // activity in `?edit`, then strip the param so it won't reopen on a
   // re-render or back navigation. Waits for activities + schedule +
-  // participants to load so the form opens with its termini and učesnici
+  // participants to load so the form opens with its sessions and participants
   // already populated; clears the param even if the id is stale (deleted).
   useEffect(() => {
     if (!editId) return;
@@ -306,7 +306,7 @@ function ActivitiesPage() {
             <IconButton
               icon={AcademicCapIcon}
               aria-label="Otvori Školu"
-              onClick={() => void navigate({ to: "/skola" })}
+              onClick={() => void navigate({ to: "/school" })}
             />
             <IconButton icon={PlusIcon} aria-label="Dodaj aktivnost" onClick={openAdd} />
           </>

@@ -422,7 +422,7 @@
           var isDark = stored === "dark" || ((!stored || stored === "auto") && prefersDark);
           if (isDark) document.documentElement.classList.add("dark");
 
-          // Same idea for the in-app accent ("boja aplikacije", see
+          // Same idea for the in-app accent (the app colour setting, see
           // src/hooks/useAccent): the profile is the source of truth, but the
           // local mirror lets the first paint use the right accent instead of
           // flashing the default blue. "blue" is the CSS default = no attr.

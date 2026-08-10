@@ -16,16 +16,17 @@ import { cn } from "@/lib/cn";
 import { currentMonthYYYYMM } from "@/utils/date";
 
 /**
- * Mreža meseci za daleki skok - godina sa strelicama, 12 meseci, prečica
- * "Ovaj mesec" i (opciono) jedan dodatni red poput "Sva plaćanja".
+ * A month grid for jumping far - a year with arrows, 12 months, a shortcut back
+ * to the current month and (optionally) one extra row such as "all payments".
  *
- * Deljena između Novca (MonthPager) i Kalendarovog Mesec prikaza, da "izaberi
- * mesec i godinu" svuda izgleda i radi isto. Okidač dolazi kao `children`
- * (asChild), pa svaki ekran zadržava svoj izgled naslova.
+ * Shared between Money (MonthPager) and the calendar's month view, so that
+ * "pick a month and a year" looks and behaves the same everywhere. The trigger
+ * arrives as `children` (asChild), so each screen keeps its own title styling.
  *
- * Na desktopu je popover usidren uz naslov; na mobilnom se otvara kao bottom
- * sheet - isto pravilo kao svi pickeri u formama (PickerOverlay), jer je modal
- * na telefonu pregledniji i lakši za izbor od malog usidrenog panela.
+ * On desktop the popover is anchored to the title; on mobile it opens as a
+ * bottom sheet - the same rule every picker in a form follows (PickerOverlay),
+ * because on a phone a modal is easier to read and to pick from than a small
+ * anchored panel.
  */
 
 const MONTH_SHORT_SR = [
@@ -50,13 +51,13 @@ export function MonthGridPopover({
   align = "start",
   children,
 }: {
-  /** Označeni mesec ("YYYY-MM"), ili null kad nijedan nije (npr. "sva plaćanja"). */
+  /** The selected month ("YYYY-MM"), or null when none is (e.g. all payments). */
   value: string | null;
   onPick: (month: string) => void;
-  /** Dodatni red u podnožju (Plaćanja: "Sva plaćanja"). */
+  /** An extra row in the footer (payments use it for "all payments"). */
   extraOption?: { label: string; active: boolean; onPick: () => void };
   align?: "start" | "center";
-  /** Okidač - prosleđuje se u PopoverTrigger asChild. */
+  /** The trigger - forwarded into PopoverTrigger asChild. */
   children: ReactNode;
 }) {
   const isDesktop = useIsDesktop();
@@ -152,8 +153,9 @@ export function MonthGridPopover({
     );
   }
 
-  // Mobilni okidač: Slot spaja onClick na prosleđeno dugme, pa okidač ostaje
-  // isti element u obe grane (bez omotača koji bi menjao layout naslova).
+  // Mobile trigger: Slot merges onClick onto the passed button, so the trigger
+  // stays the same element in both branches (no wrapper that would change the
+  // title layout).
   return (
     <>
       <Slot.Root onClick={() => handleOpenChange(true)}>{children}</Slot.Root>
@@ -172,7 +174,7 @@ export function MonthGridPopover({
   );
 }
 
-/** 44px dodirna meta oko male strelice u zaglavlju mreže. */
+/** A 44px touch target around the small arrow in the grid header. */
 function YearArrow({
   icon: Icon,
   label,

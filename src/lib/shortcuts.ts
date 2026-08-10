@@ -14,12 +14,12 @@ import { isApplePlatform } from "@/lib/platform";
  * Letters follow the Serbian labels, so the sequence reads as the word you are
  * going to. Two labels collide on their first letter and both are resolved in
  * favour of the more frequent destination:
- *   - Danas and Događaji both want D. Danas keeps it (it is the home screen);
- *     Događaji takes O, its next spoken letter ("dOgađaji").
- *   - Porodica and Podešavanja both want P. Porodica keeps it; Podešavanja
+ *   - "Danas" and "Događaji" both want D. Today keeps it (it is the home
+ *     screen); events take O, their next spoken letter ("dOgađaji").
+ *   - "Porodica" and "Podešavanja" both want P. Family keeps it; settings
  *     takes S, which is what Linear (and most apps) use for settings anyway.
- * Škola is the one destination whose own letters are ALL spoken for (š→s is
- * Podešavanja, k is Kalendar, o is Događaji, l is Liste, a is Aktivnosti), so
+ * "Škola" is the one destination whose own letters are ALL spoken for (š->s
+ * is settings, k is the calendar, o is events, l is lists, a is activities), so
  * it takes E - the letter the word ends on when you ask for it ("školE").
  */
 

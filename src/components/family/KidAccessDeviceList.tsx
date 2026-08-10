@@ -6,7 +6,7 @@ import { formatDate, formatRelative } from "@/utils/date";
 import type { KidDevice } from "@/types/database";
 
 /**
- * The "Uređaji" drill-in: every device a parent has linked for one child, and
+ * The devices drill-in: every device a parent has linked for one child, and
  * the only way to take one back. A device row IS a live session - the token in
  * its localStorage is what lets that phone sign in - so revoking is described
  * in those terms rather than as "deleting a record".

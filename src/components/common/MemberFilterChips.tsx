@@ -6,7 +6,7 @@ import { getDisplayName } from "@/utils/identity";
 
 /**
  * One `FilterChip` per family member - the member half of every filter row in
- * the app (Danas, Kalendar, Plaćanja, Budžet).
+ * the app (today, calendar, payments, budget).
  *
  * It was written out four times and the copies drifted: two of them never got
  * the member emoji, so the same person was drawn differently depending on which

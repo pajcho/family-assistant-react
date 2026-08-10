@@ -90,7 +90,7 @@ including in this repo's config and docs you will edit.
 ## Git workflow
 
 - Branch: `advisor/002-typecheck-wiring`
-- Commit message style: Serbian imperative, e.g. `pnpm typecheck radi samostalno i ulazi u pnpm check`.
+- Commit message style: English imperative, e.g. `pnpm typecheck runs standalone and joins pnpm check`.
 - Do NOT push or open a PR unless the operator instructed it.
 
 ## Steps

@@ -22,7 +22,7 @@
 /**
  * Is this router pathname a screen a CHILD is looking at?
  *
- * `/kid/pregled` is not: that is a parent previewing their child's app from
+ * `/kid/preview` is not: that is a parent previewing their child's app from
  * their own session, so anything addressed to a child (kid-worded copy, the
  * kid install identity) has no business appearing there.
  *
@@ -32,7 +32,7 @@
  */
 export function isKidShellPath(pathname: string): boolean {
   const inShell = pathname === "/kid" || pathname.startsWith("/kid/");
-  return inShell && !pathname.startsWith("/kid/pregled");
+  return inShell && !pathname.startsWith("/kid/preview");
 }
 
 // ---------------------------------------------------------------------------
@@ -280,11 +280,11 @@ export interface KidInviteResponse {
  */
 export function kidInviteUrl(token: string): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${base}/kid/veza#${token}`;
+  return `${window.location.origin}${base}/kid/link#${token}`;
 }
 
 // ---------------------------------------------------------------------------
-// Invite codes - the typed half of "poveži uređaj"
+// Invite codes - the typed half of device linking
 // ---------------------------------------------------------------------------
 //
 // A child cannot always scan. On iOS a home-screen web app has its own storage
@@ -336,7 +336,7 @@ export function formatKidInviteCode(code: string): string {
  * The invite token inside something a camera just read, or null when the QR was
  * simply not ours (a bus ticket, a wifi code, a fiscal receipt).
  *
- * Accepts both shapes on purpose: the full `.../kid/veza#<code>` URL a parent's
+ * Accepts both shapes on purpose: the full `.../kid/link#<code>` URL a parent's
  * screen shows, and a bare code, so a code written on paper scans too. A URL's
  * fragment is passed through WITHOUT the length check - an older parent app may
  * still be minting 32-byte tokens, and the server can decide about those.
@@ -352,7 +352,7 @@ export function kidInviteTokenFromScan(raw: string): string | null {
     } catch {
       return null;
     }
-    if (!url.pathname.replace(/\/+$/, "").endsWith("/kid/veza")) return null;
+    if (!url.pathname.replace(/\/+$/, "").endsWith("/kid/link")) return null;
     let token = url.hash.replace(/^#/, "").trim();
     try {
       token = decodeURIComponent(token);

@@ -38,11 +38,11 @@ import { useDeleteActivityOverride, useUpsertActivityOverride } from "@/hooks/us
  * The actions:
  *
  *   • Izmeni aktivnost      → close + delegate to parent's edit-activity dialog
- *   • Otkaži ovaj termin    → switch to inline cancel form (OPTIONAL reason),
+ *   - cancel this session  -> switch to inline cancel form (OPTIONAL reason),
  *                             upsert override { action: 'cancel', note } on confirm
  *   • Pomeri vreme…         → switch to inline reschedule form, upsert on save
  *   • Vrati u redovan termin → delete the existing override (rescheduled or canceled)
- *   • Dodaj plaćanje ili trošak → "money" sub-view (payment / expense / receipt
+ *   - add payment or expense -> "money" sub-view (payment / expense / receipt
  *                             scan, each pre-linked to the activity) - picking
  *                             one HIDES the sheet under the pre-linked form
  *                             (`LinkedMoneyFlow`, mounted OUTSIDE the sheet)

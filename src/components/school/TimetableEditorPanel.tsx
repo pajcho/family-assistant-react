@@ -115,7 +115,7 @@ export function TimetableEditorPanel({
   }, [variant, day, textFor]);
 
   // Serialize saves through a single chain so overlapping triggers can't fire
-  // two delete+insert pairs for the same column. Tapping "Sačuvaj"/"Gotovo"
+  // two delete+insert pairs for the same column. Tapping save/done
   // first blurs the textarea (→ onBlur persist) and then runs the button
   // handler (→ persist); run concurrently, the second INSERT raced the first
   // and tripped the (person, variant, day, period) unique constraint. Chained,

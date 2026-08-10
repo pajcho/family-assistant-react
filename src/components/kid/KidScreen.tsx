@@ -28,7 +28,7 @@ import { resolveMemberAvatar } from "@/utils/memberAvatar";
  * `position: sticky`, no `position: fixed`, no backdrop-filter - all three of
  * which this project has already been bitten by on iOS.
  *
- * The parent-side preview (`/kid/pregled`) renders this exact frame, with three
+ * The parent-side preview (`/kid/preview`) renders this exact frame, with three
  * differences and no fourth: a banner strip on top, tabs that switch state
  * instead of route (the preview is one route), and a theme that lives in memory
  * because a grown-up may not write `kid_access`.
@@ -53,7 +53,7 @@ export function KidScreen({
   headerExtra,
   children,
 }: {
-  /** The big greeting line - "Ćao! 👋", "Uskoro 🔭". */
+  /** The big greeting line, one per tab. */
   title: string;
   subtitle: string;
   /** Optional row under the greeting, inside the gradient (the day pills). */

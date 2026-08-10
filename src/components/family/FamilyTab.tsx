@@ -24,9 +24,9 @@ import { getDisplayName } from "@/utils/identity";
  * Admin-only for mutations (enforced in RLS + the Edge Function). Non-admins
  * see a read-only roster.
  *
- * `initialMemberId` (from `?clan=`) only SEEDS that local selection - it is not
+ * `initialMemberId` (from `?member=`) only SEEDS that local selection - it is not
  * kept in sync afterwards, so picking another member or going back to the
- * roster works exactly as before. It exists so "Izađi iz pregleda" in the kid
+ * roster works exactly as before. It exists so leaving the kid preview
  * preview returns to the child it was previewing instead of the list.
  */
 export function FamilyTab({ initialMemberId = null }: { initialMemberId?: string | null } = {}) {

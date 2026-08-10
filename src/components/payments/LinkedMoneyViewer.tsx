@@ -37,7 +37,7 @@ export function LinkedMoneyViewer({ target, onClose }: LinkedMoneyViewerProps) {
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
   const [expenseError, setExpenseError] = useState<string | null>(null);
-  // "Skeniraj račun" on a manual row swaps this popup for the scanner in
+  // Scan-receipt on a manual row swaps this popup for the scanner in
   // attach mode - same request, one level of the same flow.
   const [attaching, setAttaching] = useState(false);
 

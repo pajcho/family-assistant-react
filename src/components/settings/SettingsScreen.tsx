@@ -47,7 +47,7 @@ import { getDisplayName } from "@/utils/identity";
 import { serbianPlural } from "@/utils/plural";
 
 /**
- * "Podešavanja" - one hub instead of the old tab strip plus a separate
+ * Settings - one hub instead of the old tab strip plus a separate
  * /profile page. The hub is a list of grouped rows; anything with real content
  * behind it opens as a full sub-screen (still the same route, so
  * `?tab=family`, `?tab=calendar` and the Google OAuth `?gcal=` return keep
@@ -76,7 +76,7 @@ export function SettingsScreen({
   section: SettingsSection | null;
   gcal?: "connected" | "error";
   reason?: string;
-  /** `?clan=` - which member the Porodica tab should open on. */
+  /** `?member=` - which member the family tab should open on. */
   memberId?: string;
   onOpenSection: (next: SettingsSection) => void;
   onBack: () => void;
@@ -235,7 +235,7 @@ function SettingsHub({ onOpenSection }: { onOpenSection: (next: SettingsSection)
                 })}`
               : "nije podešeno"
           }
-          onClick={() => void navigate({ to: "/skola" })}
+          onClick={() => void navigate({ to: "/school" })}
         />
       </SettingsGroup>
 

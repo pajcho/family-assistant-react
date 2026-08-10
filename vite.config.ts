@@ -15,11 +15,11 @@ import {
   // resolve an extensionless TS import.
 } from "./src/lib/kidInstallIdentity.ts";
 
-/** Where `index.html` wants the dečiji režim bootstrap script. */
+/** Where `index.html` wants the kid mode bootstrap script. */
 const KID_BOOTSTRAP_MARKER = "<!-- kid-install-identity-bootstrap -->";
 
 /**
- * Dečiji režim install identity, the two halves the build owns.
+ * Kid mode install identity, the two halves the build owns.
  *
  * 1. `kid.webmanifest` is GENERATED rather than kept in `public/`, because its
  *    `id`, `start_url` and `scope` have to carry the base path - `/` in dev,
@@ -129,7 +129,7 @@ export default defineConfig(({ mode }) => {
         // - vite-plugin-pwa resolves them relative to `base` at build time.
         manifest: {
           // The app's identity to the browser, and what separates this install
-          // from the dečiji režim one (`kid.webmanifest`). Spelled out rather
+          // from the kid mode one (`kid.webmanifest`). Spelled out rather
           // than left to default so a later `start_url` change cannot orphan
           // every home-screen tile; the value is exactly what the default
           // resolves to today, because `id` is parsed against the ORIGIN.
@@ -160,7 +160,7 @@ export default defineConfig(({ mode }) => {
           // `wasm` covers the zxing-wasm QR decoder (~1MB) so the scanner works
           // instantly and offline once the SW has precached it. `webmanifest`
           // covers the generated grown-up manifest AND the generated
-          // `kid.webmanifest`, the dečiji režim install identity - narrow this
+          // `kid.webmanifest`, the kid mode install identity - narrow this
           // pattern and the kid icons stop being available offline.
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,wasm}"],
           // Splash screens are huge (~30MB total) and only used at native

@@ -9,7 +9,7 @@ import { lazy } from "react";
  * wait.
  *
  * {@link preloadReceiptScanDialog} starts that download early. The expense form
- * calls it when it opens: its "Skeniraj račun" row closes the form and opens the
+ * calls it when it opens: its scan-receipt row closes the form and opens the
  * scanner, and with nothing on screen in between (the Suspense fallback is
  * deliberately empty - a spinner over a closing dialog reads as a glitch), a
  * chunk that is still downloading looks exactly like the dialog just closing.

@@ -1,7 +1,7 @@
 import { defineConfig } from "@vite-pwa/assets-generator/config";
 
 /**
- * PWA asset pipeline for the DEČIJI REŽIM home-screen identity.
+ * PWA asset pipeline for the KID MODE home-screen identity.
  *
  * A second config rather than a second entry in `pwa-assets.config.ts`: the
  * generator names every output from a preset-wide `assetName`, so one config

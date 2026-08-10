@@ -42,22 +42,22 @@ export type ExpenseFormDialogProps = {
   /** Present when editing; null when adding. */
   expense?: Expense | null;
   /**
-   * Add mode only - pre-links the expense ("Dodaj trošak" from an activity
+   * Add mode only - pre-links the expense (add-expense from an activity
    * detail). Ignored while editing.
    */
   initialLink?: PaymentLinkValue | null;
   /**
-   * Add mode only - pre-picks the category ("Dodaj trošak" from a category
+   * Add mode only - pre-picks the category (add-expense from a category
    * drill-down on Novac). Ignored while editing.
    */
   initialCategoryId?: string | null;
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
-  /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
+  /** When adding, offers a scan-receipt shortcut into the receipt scanner. */
   onScanReceipt?: () => void;
   /**
-   * When editing a manual expense, offers "Skeniraj račun" to attach a fiscal
+   * When editing a manual expense, offers scan-receipt to attach a fiscal
    * receipt to it (amount + items come from the receipt, the rest stays).
    */
   onAttachReceipt?: () => void;
@@ -66,12 +66,12 @@ export type ExpenseFormDialogProps = {
   deleting?: boolean;
 };
 
-// "link" is one level deeper than the other sub-views: Detalji → Poveži sa.
+// "link" is one level deeper than the other sub-views: details -> link to.
 type View = { kind: "form" | ExpenseFormViewKind | "delete" | "link" };
 
 /**
  * The "Brzi unos" shell around <ExpenseForm> - same architecture as
- * PaymentFormDialog: the dialog owns the SheetStack (mobile "Više detalja"
+ * PaymentFormDialog: the dialog owns the SheetStack (the mobile more-details row
  * row pushes the Detalji sub-view into this same sheet), the form state +
  * currency control (so a sub-view opening over the form can't drop
  * what the user typed), the reseed on open, and the pinned mobile footer.
@@ -111,7 +111,7 @@ export function ExpenseFormDialog({
   const todayRef = useRef(today.str);
   todayRef.current = today.str;
 
-  // "Skeniraj račun" closes this dialog and opens the scanner. That chunk is
+  // Scan-receipt closes this dialog and opens the scanner. That chunk is
   // heavy (camera + zxing-wasm) and nothing is on screen while it downloads, so
   // a cold click reads as "the dialog just closed". Warm it as soon as the form
   // is open - by the time the row is clicked the hop is instant.

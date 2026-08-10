@@ -37,7 +37,7 @@ export type PaymentFormDialogProps = {
    */
   initialName?: string;
   /**
-   * Add mode only - pre-links the payment ("Dodaj plaćanje" from an activity
+   * Add mode only - pre-links the payment (add-payment from an activity
    * detail). Ignored while editing.
    */
   initialLink?: PaymentLinkValue | null;
@@ -51,15 +51,15 @@ export type PaymentFormDialogProps = {
   onSubmit: (payload: PaymentFormPayload) => void;
 };
 
-// "link" is one level deeper than the other sub-views: Više detalja → Poveži sa.
+// "link" is one level deeper than the other sub-views: more details -> link to.
 type View = { kind: "form" | PaymentFormViewKind | "link" };
 
 /**
  * The "Brzi unos" shell around PaymentForm.
  *
  * Owns three things the form itself must not:
- *   - the SheetStack - the mobile picker rows (Tip plaćanja / Kategorija /
- *     Više detalja) push sub-views into this same sheet, "←" pops back;
+ *   - the SheetStack - the mobile picker rows (payment type / category /
+ *     more details) push sub-views into this same sheet, "back" pops;
  *   - the form state + currency control - lifted here so the SheetStack's
  *     sub-view opening over the form (which remounts the form's subtree
  *     behind it) can't drop what the user already typed;

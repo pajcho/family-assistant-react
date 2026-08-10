@@ -1,16 +1,17 @@
--- Rođendani kao treći tip linka.
+-- Birthdays as a third kind of link.
 --
---   payments.birthday_id — "poklon za Markov rođendan": plaćanje se veže za
---   rođendan isto kao za aktivnost/događaj. `payments_single_link` se širi na
---   sva tri stupca (i dalje najviše JEDAN link po plaćanju).
+--   payments.birthday_id - a gift for someone's birthday: a payment links to a
+--   birthday just as it does to an activity/event. `payments_single_link`
+--   widens to all three columns (still at most ONE link per payment).
 --
---   events.birthday_id — "Organizuj proslavu" sa stranice rođendana kreira
---   događaj vezan za taj rođendan, pa stranica može da prikaže "proslava
---   zakazana" čip. Bez CHECK ograničenja — događaj ima najviše taj jedan link.
+--   events.birthday_id - organizing a party from the birthday page creates an
+--   event tied to that birthday, so the page can show a party-booked chip. No
+--   CHECK constraint - an event has at most that one link.
 --
--- ON DELETE SET NULL iz istog razloga kao postojeći linkovi: brisanje
--- rođendana ne sme da povuče plaćanja/događaje — link se samo otkači.
--- Bez RLS/realtime izmena: kolone žive na već pokrivenim tabelama.
+-- ON DELETE SET NULL for the same reason as the existing links: deleting a
+-- birthday must not drag payments/events with it - the link is simply
+-- detached. No RLS/realtime changes: the columns live on tables already
+-- covered.
 
 ALTER TABLE payments
   ADD COLUMN IF NOT EXISTS birthday_id UUID REFERENCES birthdays(id) ON DELETE SET NULL;

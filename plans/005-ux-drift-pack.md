@@ -21,13 +21,13 @@
 
 Four small copy-paste families drifted into user-visible inconsistency:
 
-1. The member filter chip row is written 4x; the Plaćanja and Budžet copies
+1. The member filter chip row is written 4x; the payments and budget copies
    never got the member-emoji feature, so the same person renders differently
    on different screens.
-2. Delete confirmation is hand-rolled in 4 detail dialogs; only Aktivnosti
+2. Delete confirmation is hand-rolled in 4 detail dialogs; only activities
    shows a pending label while deleting - the other three give no feedback on
    a slow delete.
-3. Of the 5 quick-add flows behind the global "+", only Trošak confirms with a
+3. Of the 5 quick-add flows behind the global "+", only the expense one confirms with a
    toast; adding an event/birthday/payment/list just silently closes.
 4. The same date renders as `13.01.2026` (budget list), `13.01.2026.` (receipt
    surfaces) and `13.1.2026.` elsewhere.
@@ -155,7 +155,7 @@ has a pending label); any filter STATE logic (only the chip rendering moves);
 ## Git workflow
 
 - Branch: `git checkout -b advisor/005-ux-drift-pack advisor/003-lint-ratchet` (STOP if base missing).
-- Serbian imperative commits per section (4 commits), trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- English imperative commits per section (4 commits), trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR.
 
 ## Steps

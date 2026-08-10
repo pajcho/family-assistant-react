@@ -52,7 +52,7 @@ export function AgendaItemRow({
 }: {
   item: AgendaItem;
   onClick: () => void;
-  /** Extra meta for a time-less payment row - e.g. the due date in "Prekoračeno". */
+  /** Extra meta for a time-less payment row - e.g. the due date when overdue. */
   dateLabel?: string;
 }) {
   switch (item.kind) {
@@ -69,9 +69,9 @@ export function AgendaItemRow({
       return <EventRow item={item} onClick={onClick} />;
     case "payment":
       // A payment occurrence that ISN'T the series' live one (keyed on
-      // payment.due_date) is a future repetition ("nadolazeće") - only the
+      // payment.due_date) is a future repetition - only the
       // agenda list surfaces those. It's shown read-only there: no detail
-      // dialog, so none of its actions (Pomeri / Otkaži / Označi kao plaćeno /
+      // dialog, so none of its actions (reschedule / cancel / mark paid /
       // Izmeni) can fire before it becomes the current due. The live occurrence
       // stays actionable even when its due date is still in the future (e.g.
       // due tomorrow), matching the payments page.
@@ -161,7 +161,7 @@ function EventRow({
 }) {
   const { event, personIds } = item;
   // Per-day slice times: a multi-day span shows "od 09:00" on its first day,
-  // "ceo dan" through the middle and "do 15:00" on its last (mirrors how the
+  // an all-day label through the middle and an end time on its last (mirrors how the
   // expanded Google events read); single-day rows keep the old labels.
   const isMulti = item.totalDays > 1;
   // Trailing column = the short, scannable "when". The meta line only repeats
@@ -217,7 +217,7 @@ function PaymentRow({
   personIds: string[];
   onClick: () => void;
   dateLabel?: string;
-  /** Not-yet-due occurrence: rendered read-only with a "Nadolazeće" tag instead
+  /** Not-yet-due occurrence: rendered read-only with an upcoming tag instead
    *  of a tappable row, so no action can be taken before its due date. */
   upcoming?: boolean;
 }) {
@@ -284,7 +284,7 @@ const RECURRENCE_LABEL: Record<RecurrencePeriod, string | null> = {
 
 function BirthdayRow({ birthday, onClick }: { birthday: Birthday; onClick: () => void }) {
   // Next age = the birthday they're about to have. Rendered as an ordinal
-  // ("8. rođendan") to sidestep Serbian plural agreement on "godina".
+  // (an ordinal "Nth birthday") to sidestep Serbian plural agreement on "godina".
   const nextAge = currentAge(birthday.birth_date) + 1;
 
   return (

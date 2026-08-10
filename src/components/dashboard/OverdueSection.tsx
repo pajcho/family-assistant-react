@@ -7,7 +7,7 @@ import { type AgendaItem, agendaItemKey } from "@/hooks/useAgenda";
 import { srLocale } from "@/utils/date";
 
 /**
- * The "Prekoračeno" (overdue) section shared by Danas and the calendar's
+ * The overdue section shared by Today and the calendar's
  * agenda - the past-due unpaid payments from `useOverduePayments`, pinned above
  * today. The red header signals lateness and carries the summed amount so the
  * total damage is glanceable; each row repeats its due date in the meta line

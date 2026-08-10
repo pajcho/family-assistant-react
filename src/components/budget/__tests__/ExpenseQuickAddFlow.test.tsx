@@ -82,7 +82,7 @@ describe("ExpenseQuickAddFlow", () => {
     expect(successToast).toHaveBeenCalledWith("Trošak je dodat.");
   });
 
-  // Regression: "Skeniraj račun" used to call onOpenChange(false) to swap
+  // Regression: scan-receipt used to call onOpenChange(false) to swap
   // dialogs, which made the global "+" unmount this flow in the same commit -
   // the scanner never mounted and the modal just vanished.
   it("swaps to the scanner without closing the flow", async () => {

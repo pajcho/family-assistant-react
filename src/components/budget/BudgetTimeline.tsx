@@ -18,13 +18,13 @@ import { stavkeLabel } from "@/utils/plural";
 import { useToday } from "@/hooks/useToday";
 
 /**
- * The month's expenses ("troškovi") as a day-grouped ledger - the Troškovi tab
+ * The month's expenses as a day-grouped ledger - the expenses tab
  * of Novac. Ordered newest day first (a ledger is read "what did we just
  * spend", unlike the forward-looking agenda), so the relative day tokens are
- * Danas / Juče rather than Danas / Sutra.
+ * today / yesterday rather than today / tomorrow.
  *
  * Every row opens a modal on tap: manual → the edit form (with delete inside
- * it), receipt → the receipt detail, payment-sourced ("iz plaćanja") → the
+ * it), receipt -> the receipt detail, payment-sourced -> the
  * underlying payment's detail popup - unless that payment has been deleted, in
  * which case the row is a plain historical spend and opens the edit form like a
  * manual one. Events and birthdays are intentionally
@@ -41,7 +41,7 @@ export type BudgetTimelineProps = {
   onOpenPayment: (expense: Expense) => void;
 };
 
-/** "Danas · ponedeljak" / "Juče · nedelja" / "Sreda, 1. oktobar". */
+/** The day heading: today / yesterday plus the weekday, or a full date. */
 function dayTitle(day: string, today: string, yesterday: string, tomorrow: string): string {
   const date = parseISO(`${day}T12:00:00`);
   const weekday = format(date, "EEEE", { locale: srLocale });
@@ -125,7 +125,7 @@ function ExpenseRow({
               </StatusPill>
             ) : isDetached ? (
               // No lock: the payment it came from is gone, so this row is not
-              // locked to anything - and saying "iz plaćanja" would promise a
+              // locked to anything - and calling it payment-sourced would promise a
               // payment that no longer opens.
               <StatusPill tone="muted">
                 <LinkSlashIcon className="size-2.5" />
@@ -173,7 +173,7 @@ export function BudgetTimeline({
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
 
   // Receipts represented by MORE than one expense this month - their rows say
-  // "deo računa" instead of "račun". Split parts share the receipt's date, so
+  // a receipt PART instead of a whole receipt. Split parts share the receipt's date, so
   // the whole picture is always inside one month's list.
   const multiPartReceiptIds = useMemo(() => {
     const counts = new Map<string, number>();

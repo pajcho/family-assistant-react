@@ -24,7 +24,7 @@
 -- ---------------------------------------------------------------------------
 -- Default true so the feature works out of the box for everyone who
 -- already enabled notifications. Users opt OUT per kind via the
--- "Obaveštenja porodice" card on the settings page.
+-- family notifications card on the settings page.
 
 ALTER TABLE notification_preferences
   ADD COLUMN IF NOT EXISTS notify_on_list_create     BOOLEAN NOT NULL DEFAULT true,

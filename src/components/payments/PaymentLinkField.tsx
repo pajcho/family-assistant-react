@@ -67,13 +67,13 @@ export type PaymentLinkFieldProps = {
 };
 
 /**
- * Jira-style issue-link combobox for the payment form ("Poveži sa"): one field
+ * Jira-style issue-link combobox for the payment form's link row: one field
  * that is both a dropdown and an autocomplete. Closed it renders as an
  * input-shaped trigger showing the linked entity (type icon + name, with a ×
  * to unlink) or a placeholder; open it's a text input over the merged option
  * list - ALL activities (they're few) plus events from the last
  * {@link EVENT_LOOKBACK_MONTHS} months onward, both filtered client-side and
- * grouped "Aktivnosti" / "Događaji". Arrow keys move, Enter links, Escape
+ * grouped into activities / events. Arrow keys move, Enter links, Escape
  * closes. Built on the existing Popover + Input primitives - no combobox
  * dependency.
  *

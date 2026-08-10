@@ -45,14 +45,14 @@ type View = { kind: "form" | ActivityFormViewKind };
 
 /**
  * The "Brzi unos" shell around <ActivityForm> - same architecture as
- * PaymentFormDialog: dialog-owned SheetStack (mobile "Više detalja" pushes
+ * PaymentFormDialog: dialog-owned SheetStack (the mobile more-details row pushes
  * the Detalji sub-view into the same sheet), dialog-owned form state (so
  * a sub-view opening over the form keeps what was typed - including the whole
  * Termini rule list), reseed on open / entity / async-loaded rules or
  * participants, pinned mobile footer. Desktop renders fully expanded.
  *
  * When editing (and the dialog is open - the section fetches payments), the
- * read-only "Plaćanja" block is slotted into the form so linked payments and
+ * read-only payments block is slotted into the form so linked payments and
  * the per-month attendance breakdown show up on the activity's own side of
  * the link. It renders nothing for activities without linked payments.
  */

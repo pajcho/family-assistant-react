@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
  * group is one card, rows inside it are separated by hairlines, and each row
  * is `[icon tile] [label + hint] [value / control]`.
  *
- * Kept here rather than in `common/` because it is the Podešavanja idiom -
+ * Kept here rather than in `common/` because it is the settings idiom -
  * lists and agenda rows are cards in their own right, not rows of a group.
  */
 

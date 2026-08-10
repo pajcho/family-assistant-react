@@ -17,12 +17,12 @@ describe("isKidInstallPath", () => {
     expect(isKidInstallPath("/family-assistant-react/kid/login", PAGES_BASE)).toBe(true);
     // The QR link a child opens on a brand new device, and the reason this has
     // to work on a FIRST visit rather than after React mounts.
-    expect(isKidInstallPath("/family-assistant-react/kid/veza", PAGES_BASE)).toBe(true);
+    expect(isKidInstallPath("/family-assistant-react/kid/link", PAGES_BASE)).toBe(true);
   });
 
   it("covers the same routes in dev, where the base is just /", () => {
     expect(isKidInstallPath("/kid", "/")).toBe(true);
-    expect(isKidInstallPath("/kid/uskoro", "/")).toBe(true);
+    expect(isKidInstallPath("/kid/upcoming", "/")).toBe(true);
   });
 
   it("leaves the grown-up app alone", () => {
@@ -32,9 +32,9 @@ describe("isKidInstallPath", () => {
     expect(isKidInstallPath("/kid", PAGES_BASE)).toBe(false);
   });
 
-  it("excludes /kid/pregled - that is a parent looking at a child's app", () => {
-    expect(isKidInstallPath("/family-assistant-react/kid/pregled", PAGES_BASE)).toBe(false);
-    expect(isKidInstallPath("/kid/pregled", "/")).toBe(false);
+  it("excludes /kid/preview - that is a parent looking at a child's app", () => {
+    expect(isKidInstallPath("/family-assistant-react/kid/preview", PAGES_BASE)).toBe(false);
+    expect(isKidInstallPath("/kid/preview", "/")).toBe(false);
   });
 });
 

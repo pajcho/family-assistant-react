@@ -27,8 +27,8 @@ type SheetProps = {
 };
 
 /**
- * Tip plaćanja: the recurrence-type option list plus everything conditioned
- * on it (Ponavljanje, Preostalo uplata, Promenljiv iznos, Pauziraj) - all of
+ * Payment type: the recurrence-type option list plus everything conditioned
+ * on it (repeat, remaining instalments, variable amount, pause) - all of
  * "how this payment repeats" in one place. Stays open after a selection: the
  * conditional settings below are the reason the user came here.
  */
@@ -136,7 +136,7 @@ export function PaymentTipSheet({
 }
 
 /**
- * Više detalja: the rarely-used optional fields (Opis, Za koga, Poveži sa,
+ * More details: the rarely-used optional fields (description, person, link,
  * Podsetnik). Set values surface back on the picker row as a summary.
  */
 export function PaymentDetailsSheet({

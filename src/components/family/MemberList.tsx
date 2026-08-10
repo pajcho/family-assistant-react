@@ -14,7 +14,7 @@ export type MemberListProps = {
   /** Ids of members who have a school timetable + shifts (an anchor row). */
   studentIds: ReadonlySet<string>;
   currentUserId: string | null;
-  /** Admins get the "+ Dodaj člana" affordance. */
+  /** Admins get the add-member affordance. */
   canManage: boolean;
   onAdd: () => void;
 };

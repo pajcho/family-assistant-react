@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 /**
  * A bordered option card with a title, a one-line description and a toggle
  * switch on the right (".swrow2") - the redesign's replacement for bare
- * checkboxes (Promenljiv iznos, Pauziraj plaćanje, Više dana, Ceo dan). The
+ * checkboxes (variable amount, pause payment, multi-day, all-day). The
  * whole card is the tap target.
  */
 export type SwitchRowProps = {

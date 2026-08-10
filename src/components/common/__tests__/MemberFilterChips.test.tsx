@@ -58,7 +58,7 @@ describe("MemberFilterChips", () => {
   });
 
   it("draws the member emoji once the viewer asks for emoji", () => {
-    // The drift this component exists to end: Plaćanja and Budžet drew their
+    // The drift this component exists to end: payments and budget drew their
     // own chips and never got this.
     h.members = [ana, vuk];
     h.emoji = "🦊";

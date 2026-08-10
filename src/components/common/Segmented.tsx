@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Segmented control - the redesign's in-page view switcher (Kalendar's
- * Agenda/Nedelja/Mesec, Novac's Pregled/Troškovi/Plaćanja).
+ * agenda/week/month, Money's overview/expenses/payments).
  *
  * Distinct from filter chips on purpose: segments are exclusive and always
  * show the full set, so they read as "which view am I in", while chips are

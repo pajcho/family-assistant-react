@@ -33,28 +33,28 @@ async function main(): Promise<void> {
     output: process.stdout,
   });
 
-  console.log("Porodični asistent - kreiranje porodice i korisnika\n");
+  console.log("Family Assistant - create a family and its users\n");
 
-  const familyName = await ask(readInterface, "Naziv porodice: ");
+  const familyName = await ask(readInterface, "Family name: ");
   if (!familyName) {
-    console.error("Naziv porodice je obavezan.");
+    console.error("The family name is required.");
     readInterface.close();
     process.exit(1);
   }
 
-  const email1 = await ask(readInterface, "Email korisnika 1: ");
-  const password1 = await ask(readInterface, "Lozinka korisnika 1: ");
-  const email2 = await ask(readInterface, "Email korisnika 2: ");
-  const password2 = await ask(readInterface, "Lozinka korisnika 2: ");
+  const email1 = await ask(readInterface, "Email of user 1: ");
+  const password1 = await ask(readInterface, "Password of user 1: ");
+  const email2 = await ask(readInterface, "Email of user 2: ");
+  const password2 = await ask(readInterface, "Password of user 2: ");
 
   readInterface.close();
 
   if (!email1 || !password1) {
-    console.error("Sva polja (email i lozinka za prvog korisnika) su obavezna.");
+    console.error("Every field (email and password for the first user) is required.");
     process.exit(1);
   }
 
-  console.log("\nKreiranje porodice...");
+  console.log("\nCreating the family...");
   const { data: family, error: familyErr } = await supabase
     .from("families")
     .insert({ name: familyName })
@@ -62,11 +62,11 @@ async function main(): Promise<void> {
     .single();
 
   if (familyErr || !family) {
-    console.error("Greška pri kreiranju porodice:", familyErr?.message ?? "Nepoznata greška");
+    console.error("Failed to create the family:", familyErr?.message ?? "Unknown error");
     process.exit(1);
   }
   const familyId = family.id as string;
-  console.log("Porodica kreirana, ID:", familyId);
+  console.log("Family created, id:", familyId);
 
   const userIds: string[] = [];
 
@@ -76,21 +76,21 @@ async function main(): Promise<void> {
   ] as [string, string][]) {
     if (!email) continue;
 
-    console.log(`Kreiranje korisnika ${email}...`);
+    console.log(`Creating user ${email}...`);
     const { data: user, error: userErr } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
     });
     if (userErr || !user?.user) {
-      console.error(`Greška pri kreiranju korisnika ${email}:`, userErr?.message ?? "Nepoznata");
+      console.error(`Failed to create user ${email}:`, userErr?.message ?? "Unknown error");
       process.exit(1);
     }
     userIds.push(user.user.id);
-    console.log(`Korisnik kreiran, ID: ${user.user.id}`);
+    console.log(`User created, id: ${user.user.id}`);
   }
 
-  console.log("Povezivanje profila sa porodicom...");
+  console.log("Linking the profiles to the family...");
   for (const userId of userIds) {
     // Both seed users are family admins so a fresh family can manage its
     // roster / logins from the Porodica settings tab out of the box.
@@ -100,19 +100,19 @@ async function main(): Promise<void> {
       is_admin: true,
     });
     if (profileErr) {
-      console.error("Greška pri kreiranju profila:", profileErr.message);
+      console.error("Failed to create the profile:", profileErr.message);
       process.exit(1);
     }
   }
-  console.log("Profili kreirani.\n");
+  console.log("Profiles created.\n");
 
-  console.log("=== Završeno ===");
-  console.log("Porodica ID:", familyId);
-  console.log("Korisnik 1 ID:", userIds[0]);
+  console.log("=== Done ===");
+  console.log("Family id:", familyId);
+  console.log("User 1 id:", userIds[0]);
   if (userIds.length >= 2) {
-    console.log("Korisnik 2 ID:", userIds[1]);
+    console.log("User 2 id:", userIds[1]);
   }
-  console.log("\nKorisnici mogu da se prijave na aplikaciju sa unetim email-om i lozinkom.");
+  console.log("\nThe users can now sign in with the email and password entered above.");
 }
 
 main().catch((err) => {

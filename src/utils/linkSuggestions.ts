@@ -246,7 +246,7 @@ export function rankLinkSuggestions<C extends SuggestionCandidate>(
   return scored.slice(0, limit).map(({ distance: _distance, ...suggestion }) => suggestion);
 }
 
-/** "za 3 dana" / "pre 2 dana" / "sutra" / "juče". */
+/** A relative day phrase: in N days / N days ago / tomorrow / yesterday. */
 function deltaLabel(delta: number): string {
   if (delta === 1) return "sutra";
   if (delta === -1) return "juče";

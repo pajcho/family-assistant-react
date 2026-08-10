@@ -271,7 +271,7 @@ async function createInvite(
     return json({ error: "Dečiji pristup je isključen." }, 409);
   }
 
-  // Only one live invite per child: a parent who tapped "Poveži uređaj" twice
+  // Only one live invite per child: a parent who tapped link-a-device twice
   // should not leave a spare QR code valid on a screen somewhere.
   await admin.from("kid_invites").delete().eq("profile_id", profileId).is("used_at", null);
 

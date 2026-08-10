@@ -292,8 +292,8 @@ function daysFromToday(dateStr: string): number {
 
 /**
  * Serbian-Latin relative phrasing for a due date (YYYY-MM-DD), relative to
- * today: overdue → "kasni N dana", today → "danas", tomorrow → "sutra",
- * future → "za N dana". Used as the payment-row subtitle so a freshly-paid
+ * today: overdue -> "kasni N dana", today -> "danas", tomorrow -> "sutra",
+ * future -> "za N dana". Used as the payment-row subtitle so a freshly-paid
  * recurring payment (whose next occurrence lands inside the window) reads as
  * a future item, not an unpaid one.
  */

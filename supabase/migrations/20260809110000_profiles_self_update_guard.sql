@@ -1,52 +1,54 @@
 -- ---------------------------------------------------------------------------
--- Self-update nad `profiles` vise ne sme da dira privilegije
+-- A self-update on `profiles` may no longer touch privileges
 -- ---------------------------------------------------------------------------
--- Stara politika je glasila:
+-- The old policy read:
 --
 --   CREATE POLICY "Users can update own profile" ON profiles
 --     FOR UPDATE USING (auth.uid() = id);
 --
--- Bez WITH CHECK-a i bez ikakvog ogranicenja po kolonama. Posto se permisivne
--- politike sabiraju sa OR, admin politika "Admins can update family profiles"
--- je time cuvala samo TUDJE redove - svoj red je svaki clan mogao da prepise
--- ceo. Odatle dve rupe, obe dohvatljive obicnim klijentskim pozivom
--- supabase.from("profiles").update():
+-- No WITH CHECK and no column restriction whatsoever. Because permissive
+-- policies combine with OR, the admin policy "Admins can update family
+-- profiles" was therefore only guarding OTHER people's rows - every member
+-- could overwrite their own row entirely. Two holes followed, both reachable
+-- with a plain client call to supabase.from("profiles").update():
 --
---   1. Podizanje privilegija: clan sam sebi postavi is_admin = true i dobije
---      sve sto admin sme (PIN i uredjaji deteta, otvaranje i gasenje naloga,
---      izmena sastava porodice, preimenovanje porodice).
---   2. Preuzimanje druge porodice: clan sam sebi prepise family_id. Posto
---      svaka politika u semi racuna pripadnost preko
+--   1. Privilege escalation: a member sets is_admin = true on themselves and
+--      gets everything an admin may do (a child's PIN and devices, opening and
+--      closing logins, changing who is in the family, renaming the family).
+--   2. Taking over another family: a member overwrites their own family_id.
+--      Since every policy in the schema computes membership through
 --      `family_id IN (SELECT family_id FROM profiles WHERE id = auth.uid())`,
---      sa tom jednom kolonom seli se ceo opseg podataka koji sesija vidi -
---      dogadjaji, placanja, troskovi, racuni, primanja, rodjendani.
+--      that one column moves the entire data scope the session can see -
+--      events, payments, expenses, receipts, income, birthdays.
 --
--- Nova politika uz USING dobija i WITH CHECK koji NOVI red poredi sa redom
--- kakav vec stoji u tabeli: sme da se menja sve osim `is_admin` i `family_id`.
--- Kolona `id` ne moze da se promeni jer je i USING i WITH CHECK vezuju za
--- auth.uid().
+-- Alongside USING, the new policy gains a WITH CHECK that compares the NEW row
+-- against the row already in the table: everything may change except
+-- `is_admin` and `family_id`. The `id` column cannot change because both USING
+-- and WITH CHECK tie it to auth.uid().
 --
--- Zasto politika, a ne BEFORE UPDATE triger: triger bi se okidao i za
--- service_role, a edge funkcija `manage-family-login` bas preko service_role
--- kljuca radi `UPDATE profiles SET id = <novi auth id>` (pri otvaranju naloga
--- clanu bez logina) i `UPDATE profiles SET is_admin = false` (pri gasenju
--- naloga). RLS politike se na service_role ne primenjuju, pa taj put ostaje
--- netaknut.
+-- Why a policy and not a BEFORE UPDATE trigger: a trigger would fire for
+-- service_role too, and the `manage-family-login` edge function does exactly
+-- `UPDATE profiles SET id = <new auth id>` (when opening a login for a member
+-- without one) and `UPDATE profiles SET is_admin = false` (when closing one)
+-- through the service_role key. RLS policies do not apply to service_role, so
+-- that path stays untouched.
 --
--- Podupit nad `profiles` unutar politike NAD `profiles` se ovde ne vrti u
--- krug: SELECT politike te tabele su listovi (`auth.uid() = id` i definer
--- funkcije `auth_user_family_id()` / `kid_family_id()`), pa se sirenje zavrsi
--- posle jednog skoka. Svoj red korisnik uvek vidi kroz "Users can view own
--- profile", a `is_admin` i `family_id` su NOT NULL, pa podupit nikad ne vrati
--- NULL onome ko uopste sme da radi izmenu.
+-- The subquery on `profiles` inside a policy ON `profiles` does not recurse
+-- here: that table's SELECT policies are leaves (`auth.uid() = id` and the
+-- definer functions `auth_user_family_id()` / `kid_family_id()`), so the
+-- expansion ends after one hop. A user always sees their own row through
+-- "Users can view own profile", and `is_admin` and `family_id` are NOT NULL,
+-- so the subquery never returns NULL to anyone allowed to make the update at
+-- all.
 --
--- Sta ovo NE dira: politika "Admins can update family profiles" ostaje ista,
--- pa admin i dalje menja tudje redove, ukljucujuci is_admin. Decja sesija
--- nema red u `profiles`, pa je za nju i stara i nova politika mrtvo slovo.
+-- What this does NOT touch: the policy "Admins can update family profiles"
+-- stays as it was, so an admin still edits other people's rows, is_admin
+-- included. A kid session has no row in `profiles`, so both the old and the new
+-- policy are a dead letter for it.
 --
--- Pravilo za sutra: svaka nova kolona na `profiles` je pod ovom politikom
--- automatski self-writable. Ako nova kolona nosi privilegiju, mora u istoj
--- migraciji da udje i u WITH CHECK ispod.
+-- The rule for tomorrow: every new column on `profiles` is automatically
+-- self-writable under this policy. If a new column carries a privilege, it has
+-- to go into the WITH CHECK below in the same migration.
 
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 
@@ -60,4 +62,4 @@ CREATE POLICY "Users can update own profile" ON profiles
   );
 
 COMMENT ON POLICY "Users can update own profile" ON profiles IS
-  'Clan menja svoj red, ali ne i is_admin, family_id niti id.';
+  'A member edits their own row, but not is_admin, family_id or id.';

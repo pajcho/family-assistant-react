@@ -1,30 +1,34 @@
--- Multi-currency, deo 2: plaćanja u stranim valutama + podešavanje valuta.
+-- Multi-currency, part 2: payments in foreign currencies + a currency setting.
 --
 -- Design notes worth reading before touching this file:
 --
---   • payments dobija ISTI "frozen rate" trio kao expenses (migracija
---     20260720120000): `amount` je UVEK RSD — projekcije (projectedUnpaid),
---     mesečni pregledi i history snapshot ga sabiraju currency-blind i ostaju
---     tačni bez ijedne izmene. `original_amount` + `exchange_rate` se
---     zamrzavaju pri unosu definicije plaćanja.
+--   - payments gets the SAME frozen-rate trio as expenses (migration
+--     20260720120000): `amount` is ALWAYS RSD - the projections
+--     (projectedUnpaid), the monthly summaries and the history snapshot sum it
+--     currency-blind and stay correct with no change at all.
+--     `original_amount` + `exchange_rate` are frozen when the payment
+--     definition is entered.
 --
---   • Occurrence tok ostaje čist RSD: payment_history i dalje snapšotuje RSD
---     iznos (varijabilni iznosi se potvrđuju u RSD), pa tu nema novih kolona.
+--   - The occurrence flow stays pure RSD: payment_history still snapshots the
+--     RSD amount (variable amounts are confirmed in RSD), so there are no new
+--     columns there.
 --
---   • budget_expense_from_payment: kada je plaćen TAČNO definisani iznos
---     (NEW.amount = pay.amount), auto-trošak nasleđuje valutu/original/kurs —
---     ledger onda prikazuje "50 €" i za troškove iz plaćanja. Varijabilna
---     uplata (iznos ≠ definisanom) pada na RSD: zamrznuti original se više ne
---     poklapa sa onim što je stvarno plaćeno.
+--   - budget_expense_from_payment: when EXACTLY the defined amount is paid
+--     (NEW.amount = pay.amount), the auto-expense inherits the
+--     currency/original/rate - the ledger then shows the foreign amount for
+--     payment-sourced expenses too. A variable payment (an amount other than
+--     the defined one) falls back to RSD: the frozen original no longer matches
+--     what was actually paid.
 --
---   • families.enabled_currencies — koje valute forme NUDE pri unosu. RSD je
---     osnovna valuta (NBS kursevi se vuku ka RSD) i CHECK garantuje da nikad
---     ne ispadne iz liste. Isključivanje valute NE dira postojeće redove —
---     samo sužava izbor za nove unose (UI nudi enabled ∪ trenutnu valutu
---     entiteta koji se menja, pa izmena tuđe valute ne puca).
+--   - families.enabled_currencies - which currencies the forms OFFER on entry.
+--     RSD is the base currency (NBS rates are pulled towards RSD) and the CHECK
+--     guarantees it can never drop out of the list. Disabling a currency does
+--     NOT touch existing rows - it only narrows the choice for new entries (the
+--     UI offers the enabled set plus the current currency of the entity being
+--     edited, so editing someone else's currency does not break).
 
 -- ───────────────────────────────────────────────────────────────────────────
--- 1. payments — frozen original entry (isti CHECK obrazac kao expenses).
+-- 1. payments - the frozen original entry (the same CHECK pattern as expenses).
 -- ───────────────────────────────────────────────────────────────────────────
 ALTER TABLE payments
   ADD COLUMN currency TEXT NOT NULL DEFAULT 'RSD',
@@ -37,7 +41,7 @@ ALTER TABLE payments ADD CONSTRAINT payments_foreign_currency_complete CHECK (
 );
 
 -- ───────────────────────────────────────────────────────────────────────────
--- 2. families.enabled_currencies — izbor valuta u formama. Default RSD+EUR.
+-- 2. families.enabled_currencies - the currency choice in the forms. Default RSD+EUR.
 -- ───────────────────────────────────────────────────────────────────────────
 ALTER TABLE families
   ADD COLUMN enabled_currencies TEXT[] NOT NULL DEFAULT ARRAY['RSD', 'EUR'];
@@ -46,8 +50,9 @@ ALTER TABLE families ADD CONSTRAINT families_rsd_always_enabled
   CHECK ('RSD' = ANY (enabled_currencies));
 
 -- ───────────────────────────────────────────────────────────────────────────
--- 3. Auto-expense trigger nasleđuje valutu kad se plaća tačan definisani
---    iznos. Telo je kopija iz 20260715000000 + CASE za tri nove kolone.
+-- 3. The auto-expense trigger inherits the currency when exactly the defined
+--    amount is paid. The body is a copy from 20260715000000 + a CASE for the
+--    three new columns.
 -- ───────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.budget_expense_from_payment()
 RETURNS TRIGGER

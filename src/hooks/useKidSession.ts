@@ -14,7 +14,7 @@ import { readKidClaims } from "@/types/kid";
  *     available on the very first render. That is what lets both layout guards
  *     (`_app` sending kids to `/kid`, `kid` sending grown-ups to `/`) decide
  *     without a loading flash.
- *   - A grown-up previewing a child (`/kid/pregled`). It takes precedence over
+ *   - A grown-up previewing a child (`/kid/preview`). It takes precedence over
  *     the claims - a real kid can never be inside a preview - and supplies the
  *     same `kidProfileId` every kid screen already filters by, which is what
  *     lets those screens be reused verbatim.

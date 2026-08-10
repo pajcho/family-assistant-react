@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
  * The redesign's field row (".prow"): a tappable card-height row with an icon,
  * a label on the left and the current selection on the right, plus a "›"
  * chevron. It is the single shape behind every "opens something else" field -
- * Kategorija, Datum, Vreme, Poveži sa, Više detalja - on both the mobile
+ * category, date, time, link-to, more-details - on both the mobile
  * sheets and the desktop forms.
  *
  * `min-h-11` (44px) is the floor for every instance: these rows are the main
@@ -15,15 +15,15 @@ import { cn } from "@/lib/cn";
  */
 export type PickerRowProps = Omit<ComponentProps<"button">, "value" | "title"> & {
   title: ReactNode;
-  /** Current selection, right-aligned ("Mesečno · promenljiv iznos"). */
+  /** Current selection, right-aligned (e.g. the recurrence summary). */
   summary?: ReactNode;
   /** Leading icon, sized by the caller (usually `size-[17px]`). */
   icon?: ReactNode;
-  /** Set-fields badge (Više detalja); hidden when 0/undefined. */
+  /** Set-fields badge (on the more-details row); hidden when 0/undefined. */
   count?: number;
   /** Hide the trailing chevron for rows that act instead of drilling in. */
   chevron?: boolean;
-  /** Dashed border for the "add something" affordance (Skeniraj račun, Dodaj termin). */
+  /** Dashed border for the "add something" affordance (scan a receipt, add a session). */
   dashed?: boolean;
 };
 
@@ -69,7 +69,7 @@ export function PickerRow({
   );
 }
 
-/** Two picker rows side by side (Početak / Kraj). */
+/** Two picker rows side by side (start / end). */
 export function PickerRowPair({ children }: { children: ReactNode }) {
   return <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1">{children}</div>;
 }

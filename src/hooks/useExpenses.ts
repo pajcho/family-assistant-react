@@ -105,7 +105,7 @@ async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Pro
     .from("expenses")
     .select("*")
     .eq("family_id", familyId)
-    // Auto rows mirror a payment that the "Plaćanja" box already lists -
+    // Auto rows mirror a payment that the payments box already lists -
     // showing them again would double every paid occurrence.
     .neq("source", "payment")
     .order("spent_on", { ascending: false })
@@ -119,7 +119,7 @@ async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Pro
 }
 
 /**
- * Manual + receipt expenses linked to one activity or event - the "Troškovi"
+ * Manual + receipt expenses linked to one activity or event - the expenses
  * box in the detail dialogs. Cross-month by design (the range query above is
  * month-windowed). Keyed under ["expenses", familyId] so every expense
  * mutation's invalidation refreshes this list too.
@@ -293,7 +293,7 @@ async function fetchReceiptById(receiptId: string): Promise<ReceiptWithClaims | 
 
 /**
  * Receipt context for an expense detail: the receipt's own facts, ALL its
- * lines and its sibling expenses - powers "Deo računa · 3 od 12 stavki",
+ * lines and its sibling expenses - powers the receipt-part summary,
  * the sibling jump and the split affordance. Enabled only while a detail
  * for a linked expense is open.
  */

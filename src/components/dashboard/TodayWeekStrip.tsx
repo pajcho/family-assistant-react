@@ -14,7 +14,7 @@ import { stavkeLabel } from "@/utils/plural";
  * glance - up to three load dots per day - and hands off to Kalendar's agenda
  * for the actual day. Today is the only day marked as selected; past days of
  * the current week are dimmed and not tappable, because the agenda starts at
- * today (the "Uskoro počinje od danas" rule).
+ * today (the rule that upcoming starts TODAY).
  */
 
 /** Monday-first three-letter weekday labels - the app-wide abbreviation. */
@@ -55,9 +55,9 @@ export function TodayWeekStrip({
             onClick={() => {
               // `resetScroll: false`: the agenda scrolls itself to `day`, and
               // the router's own scroll pass would land on top of that jump and
-              // cancel it (see the note in routes/_app.kalendar.tsx).
+              // cancel it (see the note in routes/_app.calendar.tsx).
               void navigate({
-                to: "/kalendar",
+                to: "/calendar",
                 search: { view: "agenda", day },
                 resetScroll: false,
               });

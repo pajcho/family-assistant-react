@@ -40,9 +40,9 @@ hits=$(
 if [ -n "$hits" ]; then
   printf '%s\n' "$hits" >&2
   echo >&2
-  echo "Nadjena dugacka crtica. Zameni je obicnim ASCII hyphenom '-'." >&2
-  echo "Pravilo: AGENTS.md" >&2
+  echo "Found a long dash. Replace it with a plain ASCII hyphen '-'." >&2
+  echo "The rule: AGENTS.md" >&2
   exit 1
 fi
 
-echo "check-dashes: nema dugackih crtica"
+echo "check-dashes: no long dashes"

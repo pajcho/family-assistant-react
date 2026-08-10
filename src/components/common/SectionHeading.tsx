@@ -4,8 +4,8 @@ import { cn } from "@/lib/cn";
 
 /**
  * Group header (prototype `.gh`) - the small uppercase label that opens every
- * grouped list in the redesign: a day in the agenda, a month in Rođendani,
- * "Prekoračeno" above the overdue block.
+ * grouped list in the redesign: a day in the agenda, a month in the birthday
+ * list, the heading above the overdue block.
  *
  * `count` renders the outlined bubble on the right of the label; `tone="neg"`
  * turns the whole header red for the overdue group. `muted` dims it further -

@@ -1,38 +1,42 @@
--- Emoji avatar po clanu porodice, plus izbor kako se clanovi prikazuju.
+-- An emoji avatar per family member, plus a choice of how members are shown.
 --
--- Dve kolone, dve razlicite stvari - ne mesati ih:
+-- Two columns, two different things - do not confuse them:
 --
---   avatar_emoji         SVOJSTVO CLANA. Emoji koji predstavlja tu osobu.
---                        Bira ga roditelj u Porodici, uz boju.
---   member_avatar_style  PODESAVANJE GLEDAOCA. Da li JA u svojoj aplikaciji
---                        vidim clanove kao inicijale sa bojom ili kao emoji.
+--   avatar_emoji         A PROPERTY OF THE MEMBER. The emoji that stands for
+--                        that person. A parent picks it on the family screen,
+--                        next to the colour.
+--   member_avatar_style  A VIEWER SETTING. Whether I, in my own app, see
+--                        members as coloured initials or as emoji.
 --
--- Zasto se pol ne cuva i ne pogadja: u srpskom je jedini jak signal nastavak
--- -a za zensko, a na njemu padaju najcesca muska imena (Nikola, Luka, Sava,
--- Ilija, Aleksa, Andrija, Matija, Nemanja, Kosta), pa bi promasaj pogodio
--- konkretnog clana porodice. Zato eksplicitan izbor umesto nagadjanja - a
--- usput dete sme da bude jednorog ako hoce, sto je i poenta decje aplikacije.
+-- Why gender is neither stored nor guessed: in Serbian the only strong signal
+-- is the -a ending for feminine, and the most common male names fall foul of it
+-- (Nikola, Luka, Sava, Ilija, Aleksa, Andrija, Matija, Nemanja, Kosta), so a
+-- miss would hit a specific family member. Hence an explicit choice instead of
+-- a guess - and along the way a child may be a unicorn if they want, which is
+-- rather the point of the kid app.
 --
--- NULL avatar_emoji = nije birano. Tada decja aplikacija i dalje prikazuje
--- deterministicku zivotinju izvedenu iz profiles.id (avatarForProfile), pa
--- nista nije prazno dok neko ne izabere. Zato NULL, a ne default vrednost:
--- "nije birano" i "izabrano bas ovo" moraju da se razlikuju.
+-- A NULL avatar_emoji = not chosen. The kid app then still shows the
+-- deterministic animal derived from profiles.id (avatarForProfile), so nothing
+-- is blank until somebody picks. Hence NULL rather than a default value: "not
+-- chosen" and "chosen to be exactly this" have to be distinguishable.
 --
--- member_avatar_style je namerno PO KORISNIKU, kao `accent`: jedan roditelj
--- moze da gleda inicijale a drugi emoji, bez uticaja na ostale. Podrazumevano
--- 'initials' jer u glavnoj aplikaciji boja nosi znacenje (njome su obojene
--- aktivnosti u nedeljnoj mrezi i kalendaru), a na velicini bedza se inicijali
--- citaju brze nego emoji. Decja aplikacija ovo podesavanje NE gleda - tamo je
--- emoji uvek, jer je plocica velika i dete ne cita inicijale dobro.
+-- member_avatar_style is deliberately PER USER, like `accent`: one parent can
+-- look at initials while the other looks at emoji, with no effect on anyone
+-- else. It defaults to 'initials' because in the main app the colour carries
+-- meaning (it is what tints activities in the week grid and the calendar), and
+-- at badge size initials read faster than emoji. The kid app does NOT look at
+-- this setting - there it is always emoji, because the tile is large and a
+-- child does not read initials well.
 --
--- Upis na obe kolone pokriva postojeca RLS politika "Users can update own
--- profile" (za sebe) odnosno admin politika (za clanove bez naloga).
+-- Writing to both columns is covered by the existing RLS policy "Users can
+-- update own profile" (for yourself) or the admin policy (for members without
+-- a login).
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
 
--- Kratko, ali ne po karakterima: jedan emoji zna da bude vise code pointa
--- (ZWJ sekvence, modifikatori tona koze), pa se granica postavlja na bajtove
--- da nijedan legitiman izbor ne bude odbijen. CHECK samo cuva bazu od smeca
--- kroz direktan upis; klijent bira iz fiksne liste.
+-- Short, but not measured in characters: a single emoji can be several code
+-- points (ZWJ sequences, skin-tone modifiers), so the bound is set in bytes so
+-- no legitimate choice is rejected. The CHECK only keeps junk out of the
+-- database on a direct write; the client picks from a fixed list.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_avatar_emoji_check;
 ALTER TABLE profiles
   ADD CONSTRAINT profiles_avatar_emoji_check
@@ -46,6 +50,6 @@ ALTER TABLE profiles
   CHECK (member_avatar_style IS NULL OR member_avatar_style IN ('initials', 'emoji'));
 
 COMMENT ON COLUMN profiles.avatar_emoji IS
-  'Emoji koji predstavlja ovog clana. NULL = nije birano, pada na deterministicku zivotinju iz id-a.';
+  'The emoji that stands for this member. NULL = not chosen, falls back to the deterministic animal derived from the id.';
 COMMENT ON COLUMN profiles.member_avatar_style IS
-  'Kako OVAJ korisnik vidi clanove u glavnoj aplikaciji. NULL = initials. Decja aplikacija ovo ne gleda.';
+  'How THIS user sees members in the main app. NULL = initials. The kid app ignores this.';

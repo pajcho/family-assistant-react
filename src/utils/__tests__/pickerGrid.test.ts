@@ -45,14 +45,14 @@ describe("mondayFirstWeekday", () => {
   it("puts Monday at index 0", () => {
     // 4. avgust 2026. je utorak.
     expect(mondayFirstWeekday(2026, 7, 4)).toBe(1);
-    // 1. januar 2026. je četvrtak.
+    // 1 January 2026 is a Thursday.
     expect(mondayFirstWeekday(2026, 0, 1)).toBe(3);
-    // 1. mart 2026. je nedelja.
+    // 1 March 2026 is a Sunday.
     expect(mondayFirstWeekday(2026, 2, 1)).toBe(6);
   });
 
   it("handles the leap-day boundary", () => {
-    // 29. februar 2024. je četvrtak.
+    // 29 February 2024 is a Thursday.
     expect(mondayFirstWeekday(2024, 1, 29)).toBe(3);
     // 1. mart 2024. je petak.
     expect(mondayFirstWeekday(2024, 2, 1)).toBe(4);
@@ -67,7 +67,7 @@ describe("buildMonthGrid", () => {
   });
 
   it("pads the first week with the previous month", () => {
-    // Avgust 2026. počinje u subotu -> 5 vodećih dana iz jula.
+    // August 2026 starts on a Saturday -> 5 leading days from July.
     const grid = buildMonthGrid(2026, 7);
     expect(grid[0]).toEqual({ iso: "2026-07-27", day: 27, inMonth: false });
     expect(grid[4]).toEqual({ iso: "2026-07-31", day: 31, inMonth: false });

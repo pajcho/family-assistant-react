@@ -8,7 +8,7 @@ import { memberTintStyle, resolveMemberAvatar, type MemberAvatarStyle } from "@/
 /**
  * One family member as a tile - the app's single answer to "draw this person".
  *
- * Two looks, picked by the VIEWER in Podešavanja (`member_avatar_style`), never
+ * Two looks, picked by the VIEWER in settings (`member_avatar_style`), never
  * by the member:
  *
  *   - `initials` (default): the person's colour filled solid, initials on top.

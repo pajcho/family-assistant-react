@@ -23,7 +23,7 @@ import {
 } from "@/utils/linkSuggestions";
 
 /**
- * The pickable "Poveži sa" targets, and the ranked subset of them the forms
+ * The pickable link-to targets, and the ranked subset of them the forms
  * offer up front.
  *
  * Split out of `PaymentLinkField` so the suggestion layer sits with the other

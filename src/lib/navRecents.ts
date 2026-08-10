@@ -25,7 +25,7 @@ export function readNavRecents(): NavSectionKey[] {
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<NavSectionKey>();
     for (const value of parsed) {
-      // Pre-redesign keys are mapped forward (uskoro → kalendar, payments and
+      // Pre-redesign keys are mapped forward (uskoro -> calendar, payments and
       // budget → novac), so a returning user's row isn't suddenly empty. The
       // dedupe below is what makes the payments+budget collapse harmless.
       const key = resolveNavSectionKey(value);

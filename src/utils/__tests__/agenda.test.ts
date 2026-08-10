@@ -202,7 +202,7 @@ describe("expandPaymentOccurrences", () => {
 describe("isUpcomingPaymentOccurrence", () => {
   it("treats the live occurrence (keyed on due_date) as editable, even when due in the future", () => {
     // The next/first instalment - e.g. due tomorrow - IS the live row, so it
-    // must stay actionable, not be locked as "Nadolazeće".
+    // must stay actionable, not be locked as upcoming.
     expect(
       isUpcomingPaymentOccurrence({
         occurrenceDate: "2026-06-10",

@@ -12,7 +12,7 @@ import { stavkeLabel } from "@/utils/plural";
  * Checkbox list over a receipt's lines - the shared selection surface for
  * both split flows: the scan preview (pick which lines THIS expense takes;
  * lines another expense already claimed render disabled with that expense's
- * category chip) and "Podeli račun" in the expense detail (pick which lines
+ * category chip) and splitting a receipt in the expense detail (pick which lines
  * move to the new expense). Fully controlled; line `total` sums are the
  * caller's job (they drive the hero amount).
  */

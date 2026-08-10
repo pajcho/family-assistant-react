@@ -19,7 +19,7 @@ import { parseUserAgent } from "@/utils/userAgent";
 import type { PushSubscriptionRow } from "@/types/database";
 
 /**
- * "Obaveštenja" - the settings sub-screen that holds everything push: this
+ * Notifications - the settings sub-screen that holds everything push: this
  * device's permission, the active sessions, the per-entity family opt-ins and
  * the morning/evening digests. One screen because the last two share a single
  * `notification_preferences` row and save together.
@@ -320,7 +320,7 @@ function FamilyCreateRow({ id, label, checked, onChange, disabled }: FamilyCreat
 function DigestsCard() {
   const { prefs, isLoading, save, saving } = useNotificationPreferences();
   // Local form state so toggling and typing time values feels instant
-  // - committed on "Sačuvaj". Resync whenever the upstream `prefs`
+  // - committed on save. Resync whenever the upstream `prefs`
   // change (initial load, post-save refetch, or a save from another tab).
   const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
   useEffect(() => setForm(prefs), [prefs]);

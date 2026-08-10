@@ -1,9 +1,9 @@
 -- Optional free-text description on lists and on every list item.
 --
 -- Motivation: the bare `name` field forces users to cram context into the
--- title. A short note like "samo bio mleko" on an item, or "stvari za
--- vikend kod babe" on a whole list, lives better as a separate field.
--- We accept Markdown — the UI renders it in the item / list popups while
+-- title. A short note on an item, or a description of the whole list, lives
+-- better as a separate field.
+-- We accept Markdown - the UI renders it in the item / list popups while
 -- the row stays terse with a one-line preview + ellipsis.
 --
 -- NULL means "no description" (which is the default for every existing

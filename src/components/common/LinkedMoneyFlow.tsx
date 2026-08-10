@@ -40,7 +40,7 @@ export type LinkedMoneyFlowProps = {
  * they were after saving.
  *
  * `stage` mirrors `request.kind` but can diverge: the expense form's
- * "Skeniraj račun" shortcut hops to the scanner within the same request
+ * The scan-receipt shortcut hops to the scanner within the same request
  * (the link carries over).
  */
 export function LinkedMoneyFlow({ request, onClose }: LinkedMoneyFlowProps) {

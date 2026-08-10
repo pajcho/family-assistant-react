@@ -1,25 +1,26 @@
--- Kategorija plaćanja se do sada kopirala u auto-trošak SAMO u trenutku
--- "Označi kao plaćeno" (budget_expense_from_payment čita pay.category_id).
--- Ko je kategoriju dodao NAKON što je rata/račun već plaćen, zatekao je na
--- /budget "Bez kategorije" - a auto-troškovi su u UI read-only, pa se to nije
--- moglo ispraviti ni ručno. Isto važi za naknadno povezivanje sa aktivnošću
--- ili događajem.
+-- Until now a payment's category was copied into its auto-expense ONLY at the
+-- moment it was marked as paid (budget_expense_from_payment reads
+-- pay.category_id). Anyone who added the category AFTER the instalment or bill
+-- was already paid found an uncategorized row on /budget - and auto-expenses
+-- are read-only in the UI, so it could not be corrected by hand either. The
+-- same held for linking to an activity or an event after the fact.
 --
--- Popravka u dva dela:
---   1. AFTER UPDATE triger na payments: kad se promeni category_id ili veza
---      (activity_id / event_id), prepiši ih u SVE auto-troškove tog plaćanja
---      (source='payment'). Kategorija i veza su klasifikacija serije - žive na
---      plaćanju, a troškovi su njegova projekcija; za razliku od name/amount
---      koji su namerno zamrznuti snapshot po rati (vidi payment_history.name).
---   2. Backfill: postojeći auto-troškovi se jednokratno poravnaju sa živim
---      plaćanjem.
+-- The fix, in two parts:
+--   1. An AFTER UPDATE trigger on payments: when category_id or the link
+--      (activity_id / event_id) changes, write them into ALL of that payment's
+--      auto-expenses (source='payment'). The category and the link classify the
+--      series - they live on the payment, and the expenses are its projection;
+--      unlike name/amount, which are a deliberately frozen per-instalment
+--      snapshot (see payment_history.name).
+--   2. Backfill: existing auto-expenses are aligned with the live payment once.
 --
--- Troškovi čiji je payment obrisan (payment_id IS NULL preko ON DELETE SET
--- NULL) ostaju netaknuti - istorijski trag se ne prepravlja.
+-- Expenses whose payment was deleted (payment_id IS NULL through ON DELETE SET
+-- NULL) are left untouched - a historical trace is not rewritten.
 --
--- SECURITY DEFINER + prazan search_path iz istog razloga kao
--- budget_expense_from_payment: red u ledgeru se ažurira nezavisno od RLS-a
--- člana koji menja plaćanje, a family scope nosi samo payment red.
+-- SECURITY DEFINER + an empty search_path for the same reason as
+-- budget_expense_from_payment: the ledger row is updated independently of the
+-- RLS of the member changing the payment, and only the payment row carries the
+-- family scope.
 
 CREATE OR REPLACE FUNCTION public.budget_expense_sync_payment()
 RETURNS TRIGGER
@@ -49,9 +50,9 @@ CREATE TRIGGER trg_budget_expense_sync_payment
   )
   EXECUTE FUNCTION public.budget_expense_sync_payment();
 
--- Backfill: poravnaj postojeće auto-troškove sa živim plaćanjem. Uslov u
--- WHERE preskače već usklađene redove, pa update (i broadcast triger po redu)
--- pogađa samo ono što je stvarno razišlo.
+-- Backfill: align existing auto-expenses with the live payment. The WHERE
+-- condition skips rows that already agree, so the update (and the per-row
+-- broadcast trigger) only touches what actually drifted.
 UPDATE expenses e
 SET
   category_id = p.category_id,

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { applyKidInstallIdentityToDom, kidInstallIdentity } from "@/lib/kidInstallIdentity";
 
 /**
- * Dečiji režim - the HOME-SCREEN identity (icon + name) of the installed app,
+ * Kid mode - the HOME-SCREEN identity (icon + name) of the installed app,
  * for as long as the kid shell is on screen.
  *
  * The swap itself lives in `@/lib/kidInstallIdentity`, because the same code
@@ -19,7 +19,7 @@ import { applyKidInstallIdentityToDom, kidInstallIdentity } from "@/lib/kidInsta
  * already installed, so that mistake would be permanent.
  *
  * Mounted once, by the `kid` layout route, and deliberately NOT enabled on
- * `/kid/pregled` - the same exception the bootstrap makes (`isKidInstallPath`).
+ * `/kid/preview` - the same exception the bootstrap makes (`isKidInstallPath`).
  */
 export function useKidInstallIdentity(enabled: boolean): void {
   useEffect(() => {

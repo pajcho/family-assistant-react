@@ -22,8 +22,8 @@ import { formatDate } from "@/utils/date";
  */
 
 /**
- * "za N dana" pluralization, carried over verbatim: 0 → "danas",
- * 1 → "sutra", everything else → `za N dana` (no dan/dana branching).
+ * Countdown pluralization, carried over verbatim: 0 -> "danas",
+ * 1 -> "sutra", everything else -> `za N dana` (no dan/dana branching).
  */
 function daysLabel(days: number): string {
   if (days === 0) return "danas";

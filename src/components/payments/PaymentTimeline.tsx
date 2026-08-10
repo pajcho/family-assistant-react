@@ -12,12 +12,12 @@ import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
 
 /**
- * The /payments list, rendered as a "Uskoro"-style timeline: a "Prekoračeno"
+ * The /payments list, rendered as an agenda-style timeline: an overdue
  * section for overdue unpaid bills up top, then everything else grouped under a
  * shared day header (reuses `AgendaDateHeader`). Rows are compact and tappable -
  * every action lives in the detail popup the tap opens, so no row carries inline
  * buttons. Resolved / paused / upcoming occurrences render dimmed in place and
- * are hidden by the "Sakrij plaćena" toggle upstream.
+ * are hidden by the hide-paid toggle upstream.
  *
  * `flat` (search mode) drops the grouping and the overdue split - results span
  * every month, newest first, so day headers would only add noise.
@@ -81,7 +81,7 @@ function chipFor(
   // live payment row
   if (item.is_paid) return { label: "Plaćeno", tone: "pos" };
   if (item.is_paused) return { label: "Pauzirano", tone: "neutral" };
-  // Suppressed inside the "Prekoračeno" section - the header already says it.
+  // Suppressed inside the overdue section - the header already says it.
   if (!inOverdue && isOverdue(item.due_date)) return { label: "Prekoračeno", tone: "neg" };
   return null;
 }

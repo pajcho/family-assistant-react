@@ -23,8 +23,8 @@ export function PersonFilterChips({ selected, onToggle }: PersonFilterChipsProps
   if (members.length === 0) return null;
 
   // `display: contents` - the chips join the PARENT's flex-wrap flow, so any
-  // sibling chip rendered next to this component ("Sakrij plaćena" /
-  // "Sakrij završene") wraps inline with the member chips instead of after
+  // sibling chip rendered next to this component (the hide-paid / hide-done
+  // toggles) wraps inline with the member chips instead of after
   // the whole block.
   return (
     <div className="contents">

@@ -58,7 +58,7 @@ export function SchoolDayCard({
   const summary = schoolDaySummary(dayBlocks, dayNow);
   const dateLabel = format(addDays(monday, selectedDay), "d. MMMM", { locale: srLocale });
   // A raspust is the reason there are no classes, so it replaces the summary
-  // rather than sitting next to a bare "nema časova" that explains nothing.
+  // rather than sitting next to a bare no-classes line that explains nothing.
   const subtitle = breakLabel ? `${dateLabel} · ${breakLabel}` : `${dateLabel} · ${summary.label}`;
 
   return (

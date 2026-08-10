@@ -4,8 +4,8 @@ import { cn } from "@/lib/cn";
 
 /**
  * Tiny status pill (prototype `.pill`) - the uppercase-ish badge that rides
- * inside a card title or its right-hand column ("kasni 3 dana", "Dan 1/3",
- * "Google", "za 5 dana").
+ * inside a card title or its right-hand column (an overdue count, a day
+ * counter, "Google", a countdown).
  *
  * Tones map onto the money/type semantics layer, NOT onto the user's accent,
  * so a payment stays amber and a birthday stays green whichever accent colour

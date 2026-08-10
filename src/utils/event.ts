@@ -30,7 +30,7 @@ export function eventSpanDays(event: EventSpan): number {
   return daysBetween(parseDate(event.date), parseDate(eventLastDay(event))) + 1;
 }
 
-/** "3 dana" / "21 dan" - paucal-correct span length for labels. */
+/** Paucal-correct span length for labels (Serbian day agreement). */
 export function eventDurationLabel(event: EventSpan): string {
   const days = eventSpanDays(event);
   return `${days} ${serbianPlural(days, { one: "dan", few: "dana", many: "dana" })}`;

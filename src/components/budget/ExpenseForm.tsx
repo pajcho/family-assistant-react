@@ -164,7 +164,7 @@ export type ExpenseFormProps = {
   saving?: boolean;
   onSubmit: (payload: ExpenseFormPayload) => void;
   onCancel: () => void;
-  /** When adding, offers a "Skeniraj račun" shortcut into the receipt scanner. */
+  /** When adding, offers a scan-receipt shortcut into the receipt scanner. */
   onScanReceipt?: () => void;
   /**
    * When editing a manual expense, offers the same shortcut with the opposite
@@ -176,7 +176,7 @@ export type ExpenseFormProps = {
   onOpenView: (view: ExpenseFormViewKind) => void;
   /**
    * When editing, opens the delete confirm (the dialog pushes a "delete"
-   * sub-view). Renders the bottom-left "Obriši" in the desktop footer; absent
+   * sub-view). Renders the bottom-left delete button in the desktop footer; absent
    * while adding.
    */
   onRequestDelete?: () => void;
@@ -188,8 +188,8 @@ export type ExpenseFormProps = {
  * where to start), then a tappable grid of category chips, then "Dodaj".
  *
  * Mobile (<sm) - the "Brzi unos" layout: Iznos, Kategorija grid and Datum
- * (danas + Juče/Prekjuče chips) stay inline; Za koga, Beleška and Poveži sa
- * move behind a "Više detalja" row into a sub-view. The Odustani/Dodaj bar
+ * (today plus yesterday/day-before chips) stay inline; the person, note and link fields
+ * move behind a more-details row into a sub-view. The dismiss/add bar
  * is pinned by the dialog below the scroll area.
  *
  * Desktop (sm+) - the classic fully-expanded layout, unchanged.

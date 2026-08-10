@@ -15,12 +15,12 @@ describe("kidPreviewExit", () => {
   it("carries the family tab, not just the settings route", () => {
     expect(kidPreviewExit("kid-1")).toEqual({
       to: "/settings",
-      search: { tab: "family", clan: "kid-1" },
+      search: { tab: "family", member: "kid-1" },
     });
   });
 
   it("carries the child back, so the master-detail reopens on them", () => {
-    expect(kidPreviewExit("kid-1").search.clan).toBe("kid-1");
+    expect(kidPreviewExit("kid-1").search.member).toBe("kid-1");
   });
 
   it("omits the child when there is not one to go back to", () => {

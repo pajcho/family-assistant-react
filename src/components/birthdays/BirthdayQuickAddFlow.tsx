@@ -11,7 +11,7 @@ export type BirthdayQuickAddFlowProps = {
 };
 
 /**
- * "Dodaj → Rođendan" from surfaces that don't own the birthdays mutations (the
+ * Add -> birthday from surfaces that don't own the birthdays mutations (the
  * global "+" in the bottom bar). Add only, owns its mutation and error, never
  * navigates - see `EventQuickAddFlow` for the shared shape.
  */

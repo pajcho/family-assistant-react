@@ -70,7 +70,7 @@ async function wipeExisting() {
     for (const p of profs ?? []) {
       await db.auth.admin.deleteUser(p.id).catch(() => {});
     }
-    console.log("Obrisana stara demo porodica", f.id);
+    console.log("Deleted the old demo family", f.id);
   }
 }
 
@@ -84,7 +84,7 @@ async function main() {
     .single();
   if (famErr || !family) throw famErr ?? new Error("no family");
   const fid = family.id as string;
-  console.log("Porodica:", fid);
+  console.log("Family:", fid);
 
   // ---- people ---------------------------------------------------------------
   const people: Record<string, string> = {};
@@ -124,7 +124,7 @@ async function main() {
     if (error || !data) throw error ?? new Error("no kid");
     people[kid.first] = data.id as string;
   }
-  console.log("Članovi:", Object.keys(people).join(", "));
+  console.log("Members:", Object.keys(people).join(", "));
 
   // ---- expense categories ---------------------------------------------------
   const cats: Record<string, string> = {};
@@ -660,8 +660,8 @@ async function main() {
   }
   await db.from("school_timetable_entries").insert(rows);
 
-  console.log("\n=== Demo porodica spremna ===");
-  console.log("Prijava:", LOGINS[0].email, "/", LOGINS[0].password);
+  console.log("\n=== The demo family is ready ===");
+  console.log("Login:", LOGINS[0].email, "/", LOGINS[0].password);
   console.log("Family ID:", fid);
 }
 

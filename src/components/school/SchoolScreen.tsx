@@ -38,7 +38,7 @@ import { nextBreak, nextWeekStart, weekOutlook } from "@/utils/schoolOverview";
 import { computeBellGrid, timeBandForWeek } from "@/utils/schoolTimetable";
 
 /**
- * "Škola" - the timetable, the A/B smena, the bell schedule and the raspusti,
+ * School - the timetable, the A/B shifts, the bell schedule and the breaks,
  * on a screen of their own.
  *
  * All of this used to hide behind a gear button in the Aktivnosti header, which
@@ -110,7 +110,7 @@ export function SchoolScreen() {
     [members, anchorsByPersonId],
   );
   // Falling back to the first student keeps the page working when the selected
-  // child stops being one (the "Učenik" toggle flipped in another session).
+  // child stops being one (the student toggle flipped in another session).
   const selected = students.find((s) => s.id === selectedPersonId) ?? students[0] ?? null;
   const anchor = selected ? anchorsByPersonId.get(selected.id) : undefined;
 

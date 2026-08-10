@@ -1,11 +1,11 @@
 /**
- * Dečiji režim - the INSTALL IDENTITY of the app: what a home-screen install
+ * Kid mode - the INSTALL IDENTITY of the app: what a home-screen install
  * from `/kid/*` is called, what its icon is, and which web app manifest it
  * belongs to.
  *
  * The kid shell and the grown-up app are one deployment behind one `index.html`,
  * so out of the box a child installing from `/kid/*` would get the parent app's
- * blue "Porodični Asistent" tile - and, worse, the parent app's `start_url`, so
+ * blue grown-up tile - and, worse, the parent app's `start_url`, so
  * the installed tile would open the grown-up app.
  *
  * Three consumers share the code in this file, which is the reason it exists:
@@ -67,7 +67,7 @@ export function kidInstallIdentity(base: string): KidInstallIdentity {
 
 /**
  * Is this pathname one a child could install the kid app from? Every `/kid/*`
- * route is, except `/kid/pregled` - that is a grown-up looking at a child's app
+ * route is, except `/kid/preview` - that is a grown-up looking at a child's app
  * from their own session, and what they would install is still their own app.
  *
  * Self-contained on purpose, with the two path segments spelled out rather than
@@ -78,7 +78,7 @@ export function kidInstallIdentity(base: string): KidInstallIdentity {
 export function isKidInstallPath(pathname: string, base: string): boolean {
   const root = `${base}kid`;
   const inShell = pathname === root || pathname.startsWith(`${root}/`);
-  return inShell && !pathname.startsWith(`${root}/pregled`);
+  return inShell && !pathname.startsWith(`${root}/preview`);
 }
 
 /**

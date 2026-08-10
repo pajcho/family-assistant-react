@@ -1,5 +1,5 @@
 // QR decoding, shared by the two scanners in the app: fiscal receipts in the
-// grown-up app, and "poveži uređaj" in the kid shell. zxing-wasm is imported
+// grown-up app, and device linking in the kid shell. zxing-wasm is imported
 // dynamically so it only ships in the lazy chunk that opens a scanner, never in
 // the main bundle - which is also why this module must stay free of any import
 // that would drag it into that bundle.

@@ -70,9 +70,9 @@ import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@
  * THE payment detail popup - one look everywhere (agenda, /payments list,
  * linked-money rows). Detalji on top (hero, amount, state badges, info rows),
  * every action below as a visible row (the BlockActionDialog pattern):
- * Izmeni, Istorija, Pomeri, Otkaži, Pauziraj, Obriši and - always last, as
- * the emphasized row - the occurrence's one state action ("Označi kao
- * plaćeno" / "Vrati" / "Nastavi ponavljanje").
+ * edit, history, reschedule, cancel, pause, delete and - always last, as
+ * the emphasized row - the occurrence's one state action (mark paid / undo /
+ * resume the recurrence).
  *
  * Self-contained: owns the mutations and a sheet-stack of sub-views (see
  * `useSheetStack`) - reschedule, cancel, confirm-amount, delete, history and

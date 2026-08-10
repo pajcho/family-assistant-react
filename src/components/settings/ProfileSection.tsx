@@ -15,7 +15,7 @@ import { readFunctionsError } from "@/utils/functionsError";
 import { getDisplayName } from "@/utils/identity";
 
 /**
- * "Lični podaci" - the settings sub-screen behind the profile card at the top
+ * Personal details - the settings sub-screen behind the profile card at the top
  * of the hub: name, email, and the password form. Lifted out of the old
  * `/settings` tab layout unchanged apart from the tokens.
  */

@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
  *
  *   - `filter` - data exists but not under the current month/search/filter.
  *     A quiet plain card: one sentence plus an optional escape-hatch link
- *     ("Očisti filtere").
+ *     (clear the filters).
  *
  *   - `overlay` - a floating card over an empty calendar grid (the grid stays
  *     faintly visible behind it, so the screen still reads as a calendar).
@@ -24,7 +24,7 @@ import { cn } from "@/lib/cn";
  *     border, solid background (iOS backdrop-filter is a known hazard here).
  *
  * Tones follow the app-wide per-type accent convention (see navSections
- * "Više" tiles): event=blue, payment=amber, birthday=emerald,
+ * menu tiles): event=blue, payment=amber, birthday=emerald,
  * list/activity=purple, expense=rose.
  */
 

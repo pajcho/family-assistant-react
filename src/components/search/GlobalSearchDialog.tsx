@@ -31,8 +31,8 @@ import { cn } from "@/lib/cn";
  * button. A debounced term fans out to the family-scoped `ilike` queries in
  * `useGlobalSearch`; hits are grouped by type with the agenda's icons/colors.
  * A "Stranice" group matches page names (diacritic-insensitive, so
- * "rodjendani" finds Rođendani, and forgiving of the pre-redesign names, so
- * "uskoro" finds Kalendar) and navigates; its pages are derived from the nav's
+ * "rodjendani" finds the birthdays page, and forgiving of the pre-redesign
+ * names, so "uskoro" finds the calendar) and navigates; its pages are derived from the nav's
  * own section list, see {@link SEARCH_PAGES}. Entity hits (activity,
  * event, payment, birthday) open their EDIT dialog in place via
  * LinkedEntityEditor - no page change; only lists/list items (they ARE pages)
@@ -133,7 +133,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   // Page matches - instant, diacritic-insensitive, same min length, and they
   // still answer to the pre-redesign names. Keyed by section key, since
-  // Porodica and Podešavanja share a path.
+  // Family and settings share a path.
   const pageResults = useMemo<SearchResult[]>(() => {
     const q = normalizeTerm(debouncedTerm.trim());
     if (q.length < MIN_SEARCH_CHARS) return [];
@@ -203,7 +203,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
       case "external":
         // Mirrored Google events are read-only and have no page of their own -
         // they live in the agenda, which is Kalendar's default view.
-        void navigate({ to: "/kalendar" });
+        void navigate({ to: "/calendar" });
         break;
     }
   };

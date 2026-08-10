@@ -27,12 +27,12 @@ export function pluralSr(n: number, one: string, few: string, many: string): str
   return serbianPlural(n, { one, few, many });
 }
 
-/** "stavka / stavke / stavki" for a count (1 stavka, 2 stavke, 5 stavki). */
+/** Line-item agreement: "stavka / stavke / stavki" for a count. */
 export function stavkeLabel(count: number): string {
   return serbianPlural(count, { one: "stavka", few: "stavke", many: "stavki" });
 }
 
-/** "placanje / placanja / placanja" for a count (1 placanje, 2 placanja, 5 placanja). */
+/** Payment agreement: "placanje / placanja / placanja" for a count. */
 export function placanjaLabel(count: number): string {
   return serbianPlural(count, { one: "plaćanje", few: "plaćanja", many: "plaćanja" });
 }

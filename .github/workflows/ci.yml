@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   check:
-    name: Lint, testovi, build
+    name: Lint, tests, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -47,11 +47,11 @@ jobs:
         # `-f github` turns every finding into an inline annotation on the diff.
         run: pnpm exec oxlint --deny-warnings -f github
 
-      - name: Duge crtice
+      - name: Long dashes
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm run check:dashes
 
-      - name: Testovi (vitest)
+      - name: Tests (vitest)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         # Vitest adds its own github-actions reporter when GITHUB_ACTIONS is
         # set, so failures land as annotations without any extra flag.

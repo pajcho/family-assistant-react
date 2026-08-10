@@ -15,12 +15,13 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { currentMonthYYYYMM } from "@/utils/date";
 
 /**
- * "Novac" - the redesign's single money destination. Budžet and Plaćanja used
- * to be two pages with two toolbars; they are now three views of one screen:
+ * Money - the redesign's single money destination. The budget and payments
+ * pages used to be two screens with two toolbars; they are now three views of
+ * one screen:
  *
- *   Pregled   - the monthly cycle, categories, fixed vs variable, trend
- *   Troškovi  - the day-by-day expense ledger with its source facets
- *   Plaćanja  - the payment list, all statuses
+ *   overview  - the monthly cycle, categories, fixed vs variable, trend
+ *   expenses  - the day-by-day expense ledger with its source facets
+ *   payments  - the payment list, all statuses
  *
  * The hub owns everything the three views share, so switching tabs never
  * resets your place: the month (one pager for all three), the search field,
@@ -28,35 +29,35 @@ import { currentMonthYYYYMM } from "@/utils/date";
  * filters and dialogs.
  */
 
-export type NovacTab = "pregled" | "troskovi" | "placanja";
+export type MoneyTab = "overview" | "expenses" | "payments";
 
 /** Same settle time as the global search palette. */
 const SEARCH_DEBOUNCE_MS = 250;
 
 const TABS = [
-  { value: "pregled" as const, label: "Pregled" },
-  { value: "troskovi" as const, label: "Troškovi" },
-  { value: "placanja" as const, label: "Plaćanja" },
+  { value: "overview" as const, label: "Pregled" },
+  { value: "expenses" as const, label: "Troškovi" },
+  { value: "payments" as const, label: "Plaćanja" },
 ];
 
-export function NovacScreen({
+export function MoneyScreen({
   tab,
   onTabChange,
 }: {
-  tab: NovacTab;
-  onTabChange: (next: NovacTab) => void;
+  tab: MoneyTab;
+  onTabChange: (next: MoneyTab) => void;
 }) {
-  // One month for all three views. "all" (Sva plaćanja) only exists on the
-  // Plaćanja tab; the budget views fall back to the current month, and the
+  // One month for all three views. The all-time option only exists on the
+  // payments tab; the budget views fall back to the current month, and the
   // pager itself snaps back the moment you leave that tab.
   const [month, setMonth] = useState<string>(() => currentMonthYYYYMM());
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
-  // Troškovi searches over the network (`useExpenseSearch`), so it may only see
-  // settled input - a raw term meant one query per keystroke. The field itself
-  // stays on `searchTerm` and is unaffected; Plaćanja filters its already-loaded
-  // list in a memo, so it keeps the instant term too.
+  // The expense view searches over the network (`useExpenseSearch`), so it may
+  // only see settled input - a raw term meant one query per keystroke. The
+  // field itself stays on `searchTerm` and is unaffected; the payment view
+  // filters its already-loaded list in a memo, so it keeps the instant term.
   const debouncedTerm = useDebouncedValue(searchTerm, SEARCH_DEBOUNCE_MS);
   // An empty box fires no query, so there is nothing to wait for: clearing the
   // field (or closing the search) drops the hits in the same commit instead of
@@ -68,18 +69,18 @@ export function NovacScreen({
   // animation can play; the dialog releases the camera whenever `open` is false.
   const [scanMounted, setScanMounted] = useState(false);
   // Set while the scanner is attaching its receipt to an expense that already
-  // exists (Troškovi → izmeni → "Skeniraj račun") instead of creating one. Not
-  // cleared on close - `openScan` resets it, so the sheet doesn't flip out of
-  // attach mode mid-exit-animation.
+  // exists (expense → edit → scan receipt) instead of creating one. Not cleared
+  // on close - `openScan` resets it, so the sheet doesn't flip out of attach
+  // mode mid-exit-animation.
   const [attachTarget, setAttachTarget] = useState<Expense | null>(null);
   // Where the active view portals its "Dodaj" (see the header below).
   const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
 
-  const isPayments = tab === "placanja";
+  const isPayments = tab === "payments";
   const budgetMonth = month === ALL_MONTHS ? currentMonthYYYYMM() : month;
 
-  // Leaving Plaćanja with the all-time view on would leave the pager showing
-  // "Sva plaćanja" over a single month's budget - snap back instead.
+  // Leaving the payments view with the all-time option on would leave the pager
+  // showing every month over a single month's budget - snap back instead.
   useEffect(() => {
     if (!isPayments && month === ALL_MONTHS) setMonth(currentMonthYYYYMM());
   }, [isPayments, month]);
@@ -107,17 +108,17 @@ export function NovacScreen({
       return;
     }
     setSearchOpen(true);
-    // Pregled has nothing to search - the query is over expenses, so land the
-    // user where the hits will show up.
-    if (tab === "pregled") onTabChange("troskovi");
+    // The overview has nothing to search - the query is over expenses, so land
+    // the user where the hits will show up.
+    if (tab === "overview") onTabChange("expenses");
     // The field mounts in the same commit; focus it once it exists.
     requestAnimationFrame(() => searchInput.current?.focus());
   };
 
-  // Pregled is a summary, not a list: going back to it while a query is open
-  // would leave hits standing in for the cycle card. Drop the search instead.
-  const handleTabChange = (next: NovacTab) => {
-    if (next === "pregled" && searchOpen) closeSearch();
+  // The overview is a summary, not a list: going back to it while a query is
+  // open would leave hits standing in for the cycle card. Drop the search.
+  const handleTabChange = (next: MoneyTab) => {
+    if (next === "overview" && searchOpen) closeSearch();
     onTabChange(next);
   };
 
@@ -171,17 +172,17 @@ export function NovacScreen({
   );
 
   return (
-    // ONE column width for all three views. It used to widen for Pregled and
-    // narrow for the two lists, which moved the tab strip and the month pager
-    // sideways on every tab change - the header is the fixed part of the
+    // ONE column width for all three views. It used to widen for the overview
+    // and narrow for the two lists, which moved the tab strip and the month
+    // pager sideways on every tab change - the header is the fixed part of the
     // screen and must not jump. `max-w-3xl` is the app's standard reading
-    // column, so Novac now lines up with Danas, Liste and the rest.
+    // column, so Money now lines up with Today, Lists and the rest.
     <AppScreen header={header} bodyClassName="pb-6" contentClassName="mx-auto w-full max-w-3xl">
       {isPayments ? (
         <PaymentsPage month={month} searchTerm={searchTerm} addSlot={addSlot} />
       ) : (
         <BudgetPage
-          view={tab === "troskovi" ? "troskovi" : "pregled"}
+          view={tab === "expenses" ? "expenses" : "overview"}
           month={budgetMonth}
           onMonthChange={setMonth}
           searchTerm={expenseSearchTerm}

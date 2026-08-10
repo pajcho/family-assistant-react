@@ -49,7 +49,7 @@ function setThemeColorMeta(color: string): void {
 
 /**
  * Put the kid theme on `<html>`, or take it off again (`null`). Exported so a
- * screen that renders before the session exists (prijava / veza) can paint the
+ * screen that renders before the session exists (login / device link) can paint the
  * remembered theme immediately, without waiting for a query.
  */
 export function applyKidThemeToDom(theme: KidTheme | null): void {

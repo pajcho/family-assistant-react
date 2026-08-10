@@ -14,7 +14,7 @@ import { pluralSr } from "@/utils/plural";
  */
 export { pluralSr };
 
-/** "3 uređaja" / "1 uređaj" - used in the status row and the drill-in. */
+/** The device count, declined - used in the status row and the drill-in. */
 export function deviceCountLabel(count: number): string {
   return `${count} ${pluralSr(count, "uređaj", "uređaja", "uređaja")}`;
 }

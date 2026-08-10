@@ -17,7 +17,7 @@ import { UNCATEGORIZED, toggleInSet } from "@/utils/categoryFilter";
 import { serbianPlural } from "@/utils/plural";
 
 /**
- * The category facet shared by Troškovi and Plaćanja.
+ * The category facet shared by the expenses and payments views.
  *
  * Sources and members are chips in the filter row because there are three of
  * them and two of them; categories are ten-plus and family-defined, so the same
@@ -48,7 +48,7 @@ export function CategoryFilterChip({
   const onlyCategory = onlyKey ? categories.find((c) => c.id === onlyKey) : undefined;
 
   // One selection names itself (and carries its colour); several collapse to a
-  // count, because "Hrana, Računi, Prevoz" outgrows the chip immediately.
+  // count, because a list of category names outgrows the chip immediately.
   const label =
     count === 0
       ? "Kategorija"

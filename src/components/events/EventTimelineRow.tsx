@@ -55,7 +55,7 @@ export function EventTimelineRow({
         ? { label: "U toku", tone: "pos" }
         : null;
 
-  // Multi-day rows swap the right-hand time for the span length ("3 dana"),
+  // Multi-day rows swap the right-hand time for the span length,
   // so the schedule moves into the meta line: the full dated time range when
   // timed (it carries its own short dates), otherwise the date range.
   const timeRange = formatEventTimeRange(event);

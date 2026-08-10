@@ -103,7 +103,7 @@ export function KidCard({
   children: ReactNode;
   onClick?: () => void;
   ariaLabel?: string;
-  /** Paints the border with the theme gradient - the "Škola danas" card. */
+  /** Paints the border with the theme gradient - the school-today card. */
   gradientBorder?: boolean;
   /** The current class in the ladder: accent border on a tinted surface. */
   highlighted?: boolean;

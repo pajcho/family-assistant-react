@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS google_connections (
   scopes TEXT,
   -- Flipped true when a token refresh fails with invalid_grant — e.g. the 7-day
   -- refresh-token expiry that applies while the OAuth app is in Google "Testing"
-  -- mode. The UI surfaces a "Poveži ponovo" prompt while this is true.
+  -- mode. The UI surfaces a reconnect prompt while this is true.
   needs_reauth BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

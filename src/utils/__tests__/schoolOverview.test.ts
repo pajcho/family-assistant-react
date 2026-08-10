@@ -11,7 +11,7 @@ import {
 } from "../schoolOverview";
 
 // Same defaults the migration seeds: 45' classes, 5' small / 20' big breaks,
-// morning 08:00, afternoon 14:00, pred-čas 13:00.
+// morning 08:00, afternoon 14:00, early band 13:00.
 const BELL: BellSchedule = {
   family_id: "fam",
   period_minutes: 45,

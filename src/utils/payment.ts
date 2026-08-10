@@ -7,11 +7,11 @@ import { addMonthAnchored, addWeek, dayOfMonth, formatDate, monthBounds } from "
  * the period + interval combination.
  *
  *   one-time              → "Jednokratno"
- *   limited               → "Ograničeno"
+ *   limited               -> "Ograničeno"
  *   weekly, interval=1    → "Nedeljno"
- *   weekly, interval=2..4 → "Svake 2 nedelje" / "Svake 3 nedelje" / …
- *   monthly, interval=1   → "Mesečno"
- *   monthly, interval=2-4 → "Svaka 2 meseca" / "Svaka 3 meseca" / "Svaka 4 meseca"
+ *   weekly, interval=2..4 -> "Svake 2 nedelje" / "Svake 3 nedelje" / ...
+ *   monthly, interval=1   -> "Mesečno"
+ *   monthly, interval=2-4 -> "Svaka 2 meseca" / "Svaka 3 meseca" / "Svaka 4 meseca"
  *   monthly, interval=5+  → "Svakih 6 meseci" / "Svakih 12 meseci" / …
  *
  * The 2-4 vs 5+ split for months follows Serbian paucal grammar: `dva/tri/četiri
@@ -164,7 +164,7 @@ export function isPaymentOccurrenceCanceled(
  * The live occurrence keys on `payment.due_date`, which advances as instalments
  * are paid/canceled, so an unpaid payment whose anchor already slipped into the
  * past is overdue. Reschedules move the effective date (a payment pushed to the
- * future is no longer overdue). Drives the dashboard "Prekoračeno" section -
+ * future is no longer overdue). Drives the dashboard's overdue section -
  * past events/activities are NOT overdue, they simply happened.
  */
 export function isPaymentOverdue(
@@ -182,7 +182,7 @@ export function isPaymentOverdue(
  * series' live one. The live occurrence keys on `payment.due_date` - the next
  * unpaid instalment, which advances as occurrences are paid/canceled - and stays
  * fully actionable in the agenda; every later occurrence renders read-only
- * ("Nadolazeće"). Mirrors the payments page, where only the live `due_date` row
+ * (upcoming). Mirrors the payments page, where only the live `due_date` row
  * carries actions and the rest are synthetic "upcoming" rows.
  *
  * Deliberately occurrence-based, NOT date-based: the live occurrence is editable

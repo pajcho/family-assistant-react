@@ -2,7 +2,7 @@ import { KidAuthScreen } from "@/components/kid/KidAuthScreen";
 import type { KidAccessRevokedReason } from "@/types/kid";
 
 /**
- * "Tvoja aplikacija je na pauzi" - what a child sees the moment their access
+ * The paused-app screen - what a child sees the moment their access
  * ends, instead of being dumped on the login screen with no explanation.
  *
  * A child who is suddenly signed out has done nothing wrong, and at that age

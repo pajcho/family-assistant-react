@@ -185,7 +185,7 @@ GRANT EXECUTE ON FUNCTION save_receipt_expense(JSONB, JSONB, JSONB, INT[]) TO au
 --
 --    Preconditions (client greys the affordance out, RPC still verifies):
 --      - the expense is a receipt expense with a linked receipts row
---        (stragglers first converge through "Osveži stavke"),
+--        (stragglers first converge through a refresh of the items),
 --      - its claimed lines sum EXACTLY to its amount (otherwise carving by
 --        lines would break the ledger - e.g. a partially-parsed receipt),
 --      - at least one line moves AND at least one stays.

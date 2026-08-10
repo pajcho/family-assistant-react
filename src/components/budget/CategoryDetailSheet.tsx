@@ -52,7 +52,7 @@ export type CategoryDetailSheetProps = {
   /**
    * Close the overlay without tearing the drill-down down - for the moment the
    * expense form above it owns the screen. Dismissing that form brings this
-   * sheet back exactly as it was, now including the trošak just added.
+   * sheet back exactly as it was, now including the expense just added.
    */
   hidden?: boolean;
 };

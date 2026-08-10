@@ -160,7 +160,7 @@ merge and still work together" before anyone merges anything.
   four backend branches `008`, `012`, `013`, `014`.
 - **The at-risk override rows do not exist locally.** Queried the running local
   DB: `payment_overrides` total = **0**, so plan 010 cannot orphan anything
-  there. One monthly payment sits on a drift-prone day (`Muzička škola`,
+  there. One monthly payment sits on a drift-prone day (a music-school bill,
   due 2026-07-29) and zero monthly payments sit on day 28, i.e. nothing has
   drifted yet in local data. **Production still needs the same query before
   migration `20260809110000` is deployed** - local data proves nothing about it.
@@ -215,7 +215,7 @@ await selection.
   reauth and accepts kid-session JWTs; `email_confirm: true` skips
   confirmation and the old address is not notified. A kid session can
   desync `auth.users.email` from `kid_access.login_email`, permanently breaking
-  the parent's "Ukloni uređaj" control. Password change DOES reauth
+  the parent's device-removal control. Password change DOES reauth
   (`PasswordCard.tsx:67-71`), so the asymmetry looks unintentional.
 - **SEC-04 (MED).** `notify_on_list_create` trigger has no `WHEN` clause on
   `scope`, so creating a PERSONAL list pushes its title to every family
@@ -382,6 +382,6 @@ Recorded so nobody re-audits them:
   from README) was an explicit past decision (PR #98); REDESIGN_PLAN.md has
   73/74 boxes checked. Left to the maintainer; only note is to read the one
   unchecked REDESIGN box before ever archiving.
-- **`_app.uskoro/payments/budget/profile` redirect-stub routes**: deliberate
+- **`_app.payments/budget/profile` redirect-stub routes**: deliberate
   deep-link/bookmark targets, documented in their docblocks. Not dead. (But
   internal code still POINTING at them is batch B's search fix.)

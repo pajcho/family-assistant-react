@@ -102,7 +102,7 @@ export function ListMaster({ variant }: ListMasterProps) {
 
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  // Starter-chip prefill ("+ Šoping" on the empty state).
+  // Starter-chip prefill (the chips on the empty state).
   const [addInitialName, setAddInitialName] = useState<string | null>(null);
 
   const openAdd = () => {

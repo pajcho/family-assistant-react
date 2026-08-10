@@ -9,7 +9,7 @@ import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
 
 /**
- * Bodies for the "Istorija plaćanja" and "Poništi" sub-views that the payment
+ * Bodies for the payment-history and undo sub-views that the payment
  * detail sheets (PaymentDetailDialog, PaymentOccurrenceDialog) render on their
  * sheet stack - history is a pushed view inside the SAME sheet, not a second
  * dialog (the old PaymentHistoryPopup), and the undo confirm is one more
@@ -19,13 +19,13 @@ import { cn } from "@/lib/cn";
 export type PaymentHistoryListProps = {
   /** The payment whose history we're inspecting; null while closed. */
   payment: Payment | null;
-  /** "Poništi" on the latest entry - the parent pushes its undo view. */
+  /** The undo action on the latest entry - the parent pushes its undo view. */
   onRequestUndo: () => void;
 };
 
 /**
  * Every paid instance of a recurring payment (latest first), with an inline
- * "Poništi" link on the most recent entry.
+ * undo link on the most recent entry.
  */
 export function PaymentHistoryList({ payment, onRequestUndo }: PaymentHistoryListProps) {
   // This component only exists while the history sub-view is mounted, so the

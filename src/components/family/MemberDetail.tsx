@@ -213,7 +213,7 @@ export function MemberDetail({
           onChange={(next) => {
             if (next) {
               // Mark as student: a default alternating-morning anchor anchored to
-              // this week. The fine-grained rota (alternation, pred-čas, fixed
+              // this week. The fine-grained rota (alternation, the early afternoon band, fixed
               // band) stays editable on the Activities page.
               upsertAnchor.mutate({
                 person_id: member.id,

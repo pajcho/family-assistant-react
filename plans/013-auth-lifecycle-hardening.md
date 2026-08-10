@@ -38,7 +38,7 @@ Two verified defects in the account-lifecycle surface:
    `kid_access.login_email` points at. Both `kid-access` and `kid-auth` locate
    the child's auth user through that email and abort when the ids disagree
    (`kid-access/index.ts:426-432`, `kid-auth/index.ts:405-413`), so afterwards
-   the parent's "Ukloni uređaj" fails closed forever and the child's own logins
+   the parent's device-removal control fails closed forever and the child's own logins
    break - the revocation control a parent depends on stops working.
 
 2. **"Ugasi nalog" leaves a working kid credential (SEC-07).**
@@ -116,7 +116,7 @@ signature verification), SEC-08 (frozen `family_id`) - separate plans. The
 ## Git workflow
 
 - Branch: `git checkout -b advisor/013-auth-lifecycle-hardening main`
-- Two commits (one per defect). Serbian imperative. Trailer:
+- Two commits (one per defect). English imperative. Trailer:
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - No push, no PR, no deploy.
 
@@ -126,7 +126,7 @@ signature verification), SEC-08 (frozen `family_id`) - separate plans. The
 
 Read `kid-access/index.ts:184` to learn the exact claim the kid session carries,
 then in `update-user-email` reject such callers with 403 and a Serbian message
-(e.g. `"Dečiji nalog ne može da menja e-mail."`). Place the check immediately
+(the Serbian copy for "a kid account cannot change its email"). Place the check immediately
 after the caller id is read, before any `listUsers` or update work.
 
 **Verify**: `pnpm check` exit 0. In your report, quote the claim key you found

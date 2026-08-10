@@ -25,7 +25,7 @@ import { DAY_LABELS_SHORT, getWeekStart } from "@/utils/activity";
  * timetable belongs to the grown-ups, so an empty day never reads as the
  * child's fault.
  *
- * A component rather than a route body so `/kid/raspored` and the preview
+ * A component rather than a route body so `/kid/schedule` and the preview
  * render the SAME screen. `useKidSchoolWeek` already filters to one person in
  * code, so it tells a previewing parent the truth unchanged.
  */
@@ -62,7 +62,7 @@ export function KidScheduleView() {
    * The raspust label when EVERY school day this week is off, else null.
    *
    * A whole-week break changes the screen rather than just one day of it: the
-   * shift ("ove nedelje si po podne") is about when classes are, and there are
+   * shift (which half of the day classes are in this week) is about when classes are, and there are
    * none - so it is noise at best and confusing at worst. The day pills go too,
    * since five pills leading to five identical "Raspust!" screens is five taps
    * to the same answer.

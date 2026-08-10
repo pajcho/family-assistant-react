@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * contract: the exact payload split (p_receipt / p_expense / p_items with the
  * line's `idx`), and that BOTH duplicate signals - the RPC's own 'duplicate'
  * status and a raced raw 23505 - surface as DuplicateReceiptError, which the
- * scan dialog's "Račun je već dodat" arm keys on.
+ * scan dialog's already-added arm keys on.
  */
 
 const mocks = vi.hoisted(() => ({

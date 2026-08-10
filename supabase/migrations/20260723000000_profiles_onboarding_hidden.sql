@@ -1,6 +1,6 @@
--- "Prvi koraci" onboarding kartica na Danas: per-korisnik "Sakrij".
--- NULL = kartica sme da se prikaze (dok koraci nisu kompletirani);
--- postavlja se na now() kad korisnik tapne "Sakrij". Zivi na profilu da bi
--- vazio na svim uredjajima (PWA na telefonu + desktop).
--- RLS: postojeca politika "Users can update own profile" pokriva upis.
+-- The first-steps onboarding card on the today screen: a per-user dismissal.
+-- NULL = the card may be shown (until the steps are complete); it is set to
+-- now() when the user taps dismiss. It lives on the profile so it holds on
+-- every device (the PWA on a phone + desktop).
+-- RLS: the existing policy "Users can update own profile" covers the write.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_hidden_at TIMESTAMPTZ;

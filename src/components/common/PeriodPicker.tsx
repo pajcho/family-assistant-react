@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
  * `PeriodPickerShell` is just the pill (arrows + a center slot).
  * `MonthPicker` composes it into a full month control: arrows step a month,
  * the center label opens a month/year grid (fast jump years back) with an
- * optional "all time" entry and an "Ovaj mesec" shortcut (inside the popup,
+ * optional "all time" entry and a this-month shortcut (inside the popup,
  * so the control's width never changes and toolbar rows can't reflow).
  *
  * On desktop the grid is a popover anchored to the label; on phones it opens

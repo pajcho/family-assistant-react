@@ -43,8 +43,8 @@ const MIN_SEARCH_CHARS = 2;
 
 function EventsPage() {
   // Filters - the same control set as /payments: a month picker (default
-  // "Svi događaji" = no bound, with the "Ovaj mesec" shortcut visible), a
-  // text search, person chips and a "Sakrij završene" toggle chip. The list
+  // no bound = every event, with the this-month shortcut visible), a
+  // text search, person chips and a hide-done toggle chip. The list
   // is fetched unbounded and filtered client-side.
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [hideCompleted, setHideCompleted] = useState(true);
@@ -58,8 +58,8 @@ function EventsPage() {
   // Detail popup - a row tap opens it; every action lives inside.
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
-  // Dialog state - reschedule / cancel / delete žive kao sub-view-ovi UNUTAR
-  // detail popupa (sheet stack); stranica drži samo formu za dodavanje/izmenu.
+  // Dialog state - reschedule / cancel / delete live as sub-views INSIDE the
+  // detail popup (sheet stack); the page owns only the add/edit form.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -73,7 +73,7 @@ function EventsPage() {
   const updateEvent = useUpdateEvent();
 
   const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
-  // Month + "Sakrij završene" + the person facet. Person semantics mirror the
+  // Month + the hide-done toggle + the person facet. Person semantics mirror the
   // dashboard's `matchesAgendaFilter`: empty selection shows everything; with
   // members selected only events assigned to at least one of them pass
   // (unassigned events hide while the filter is active).

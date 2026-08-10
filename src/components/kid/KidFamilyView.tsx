@@ -18,7 +18,7 @@ import { useToday } from "@/hooks/useToday";
  * `useKidBirthdayEntries` narrows it to the ticked rows in code - which is what
  * keeps the count identical for a child and for a parent previewing them.
  *
- * A component rather than a route body so `/kid/porodica` and the preview
+ * A component rather than a route body so `/kid/family` and the preview
  * render the SAME screen.
  */
 export function KidFamilyView() {

@@ -1,429 +1,435 @@
-# REDESIGN_PLAN.md - Porodicni asistent 2.0 ("Sljiva")
+# REDESIGN_PLAN.md - Family Assistant 2.0 ("plum")
 
-Status: ODOBRENO za implementaciju (2026-08-04). Ovaj dokument je izvor istine za obim posla i pracenje.
-Vizuelni izvor istine: interaktivni prototip https://claude.ai/code/artifact/ddbb3b67-f7e9-4db3-9c1b-48d6241628c4
-(svi ekrani, sheetovi, forme, biraci datuma/vremena i dokumentacija dizajn jezika su tamo klikabilni).
+Status: APPROVED for implementation (2026-08-04). This document is the source of truth for the scope and for tracking.
+Visual source of truth: the interactive prototype https://claude.ai/code/artifact/ddbb3b67-f7e9-4db3-9c1b-48d6241628c4
+(every screen, sheet, form, date/time picker and the design-language documentation is clickable there).
 
-## Nacin rada
+> Historical note (2026-08-10): the Serbian route paths this document records
+> (`/kalendar`, `/novac`, `/skola`, `/uskoro`, the `/kid/*` subroutes) were later
+> renamed to English (`/calendar`, `/money`, `/school`, ...) with no redirects
+> left behind, and the search param values with them (`view=nedelja|mesec` ->
+> `week|month`, `tab=pregled|troskovi|placanja` -> `overview|expenses|payments`).
+> The paths below are kept as written at the time. See AGENTS.md for the rule.
 
-- SVE lenduje u JEDNOM PR-u na main (squash-merge preko pajcho naloga, kao i do sada).
-- Radi se na integracionoj grani `redesign/v2`. Trake (lanes) ispod se rade u odvojenim worktree-ovima
-  i merguju u `redesign/v2` cim su gotove; na kraju jedan PR `redesign/v2 -> main`.
-- Pracenje: checkbox-ovi u ovom fajlu se stikliraju tokom rada (fajl je deo grane), a PR opis
-  na kraju preslikava ovu listu.
-- Prototip je izvor istine za vizuelno; svako svesno odstupanje se upisuje u sekciju "Odstupanja" na dnu.
+## How this is run
 
-## Sta se NE menja (tvrda granica)
+- EVERYTHING lands in ONE PR onto main (squash-merge through the pajcho account, as before).
+- Work happens on the integration branch `redesign/v2`. The lanes below are done in separate worktrees
+  and merged into `redesign/v2` as soon as they are finished; at the end, one PR `redesign/v2 -> main`.
+- Tracking: the checkboxes in this file are ticked as work progresses (the file is part of the branch), and the PR
+  description mirrors this list at the end.
+- The prototype is the visual source of truth; every deliberate deviation is recorded in the "Deviations" section at the bottom.
 
-- Baza, RLS, migracije, edge funkcije, realtime kanal, push/digest, claim model racuna, kursna logika.
-- Poslovna pravila: Uskoro pocinje od danas, Prekoraceno izdvojeno, rodjendani izuzeti iz filtera po clanu,
-  statusi placanja i redosled akcija u detalj-sheetovima (tacne liste su u prototipu i u
-  memoriji projekta - inventar od 2026-08-04).
-- Konvencije: valute kao kod (RSD, EUR), bez dugackih crtica (scripts/check-dashes.sh), dugmad
-  Odustani/Otkazi/Zatvori/Nazad, pozdravi bez imena, SheetStack obrazac.
-- Jedini izuzetak od "bez migracija": OPCIONO `profiles.accent` (vidi Lane G) - sme da se odlozi
-  (prvo localStorage), odluka pri implementaciji.
+## What does NOT change (a hard boundary)
 
-## Kljucne odluke (vec donete, ne otvarati ponovo)
+- The database, RLS, migrations, edge functions, the realtime channel, push/digest, the receipt claim model, the exchange-rate logic.
+- Business rules: upcoming starts today, overdue is separated out, birthdays are exempt from the member filter,
+  the payment statuses and the order of actions in the detail sheets (the exact lists are in the prototype and in
+  the project memory - the inventory of 2026-08-04).
+- Conventions: currencies as codes (RSD, EUR), no long dashes (scripts/check-dashes.sh), the buttons
+  Odustani/Otkaži/Zatvori/Nazad, greetings without a name, the SheetStack pattern.
+- The only exception to "no migrations": OPTIONALLY `profiles.accent` (see lane G) - it may be deferred
+  (localStorage first), the decision is taken during implementation.
 
-1. Donja traka: Danas · Kalendar · [+] · Novac · Meni. Danas i Meni fiksni, slotovi 2 i 4 personalizovani
-   (default Kalendar i Novac), MAX_FREE_SLOTS 3 -> 2. Legacy nav_slots vrednosti se mapiraju u kodu:
-   uskoro->kalendar, payments->novac, budget->novac (bez DB migracije).
-2. Kalendar objedinjuje Uskoro: segmenti Agenda (stara Uskoro lista) / Nedelja / Mesec (Mesec je NOVO).
-3. Novac objedinjuje Budzet i Placanja: segmenti Pregled / Troskovi / Placanja.
-4. Danas = jedna vremenska osa (spaja staru listu i dnevni kalendar); ViewToggle na Danas se gasi.
-5. Rute: nove /kalendar i /novac; stare /uskoro, /payments, /budget ostaju kao redirecti
-   (deep-linkovi iz push notifikacija moraju da rade).
-6. Dizajn jezik zadrzava ime "Sljiva" (neutrale sa toplim podtonom), ali DEFAULT AKCENAT JE PLAVA
-   (postojeca brend boja - PWA ikonica, login i splash ostaju plavi, nista se tu ne menja).
-   Akcenat je JEDAN token per korisnik: Plava (default) / Sljiva / Kedar (zelena) / Cigla (braon).
-   8 postojecih boja clanova dobija vocna imena (samo naming/UI, vrednosti iste).
-7. Biraci: datum = sheet (precice po kontekstu polja + mreza sa tackicama zauzetosti + drill
-   godina->mesec->dan; za datum rodjenja krece od godine + direktan upis). Vreme = sat mreza + minuti
-   :00/:15/:30/:45 + cipovi trajanja koji racunaju kraj; dugi pritisak = native input fallback.
-   Na desktopu isti sadrzaj kao popover uz polje.
-8. Serif akcenat samo za pozdrav i ime meseca (sistemski serif stack, 0 KB).
+## Key decisions (already taken, not to be reopened)
 
-## Trake (lanes), zavisnosti i procene
+1. The bottom bar: today - calendar - [+] - money - menu. Today and menu are fixed, slots 2 and 4 are personalized
+   (calendar and money by default), MAX_FREE_SLOTS 3 -> 2. Legacy nav_slots values are mapped in code:
+   uskoro->calendar, payments->money, budget->money (no DB migration).
+2. The calendar absorbs the old upcoming page: segments agenda (the old upcoming list) / week / month (month is NEW).
+3. Money absorbs the budget and payments pages: segments overview / expenses / payments.
+4. Today = one timeline (merging the old list and the day calendar); the view toggle on today goes away.
+5. Routes: the new /kalendar and /novac; the old /uskoro, /payments, /budget stay as redirects
+   (deep links from push notifications have to keep working).
+6. The design language keeps the name "plum" (warm-undertone neutrals), but THE DEFAULT ACCENT IS BLUE
+   (the existing brand colour - the PWA icon, the login screen and the splash stay blue, nothing changes there).
+   The accent is ONE token per user: blue (default) / purple / green / brown.
+   The 8 existing member colours get fruit names (naming/UI only, the values are unchanged).
+7. Pickers: date = a sheet (shortcuts by field context + a grid with busy dots + a year->month->day drill;
+   for a date of birth it starts at the year and allows direct entry). Time = an hour grid + minutes
+   :00/:15/:30/:45 + duration chips that compute the end; long press = the native input fallback.
+   On desktop the same content, as a popover next to the field.
+8. The serif accent is used only for the greeting and the month name (a system serif stack, 0 KB).
 
-Redosled: A prva (blokira sve). Zatim B, C, D, E paralelno. F i G paralelno cim ima slobodnih ruku.
-H (desktop) posle vecine B-E. I (integracija/QA) poslednja, zajednicka.
-Procene su za fokusiran rad jedne sesije/agenta po traci.
+## Lanes, dependencies and estimates
 
-### Lane A - Temelj: tokeni + shell + navigacija (1 dan) [blokira sve]
+Order: A first (it blocks everything). Then B, C, D, E in parallel. F and G in parallel as soon as there are free hands.
+H (desktop) after most of B-E. I (integration/QA) last, shared.
+The estimates are for focused work by one session/agent per lane.
 
-- [x] Tailwind v4 @theme: kompletna Sljiva paleta (svetla+tamna), radiusi, senke, soft/tint sloj,
-      CSS var nivo za akcenat (--accent, --accent-soft, --accent-deep)
-- [x] Mapa vocnih imena za PROFILE_COLOR_PALETTE (malina, borovnica, kivi, kajsija, sljiva, dunja,
-      lavanda, tresnja) - UI naming, iste hex vrednosti
-- [x] App shell: fiksni okvir (100dvh, unutrasnji skrol po ekranu), safe-area, uklanjanje
-      window-scroll + sticky hakova (resava poznati iOS problem); tastatura i dalje krije donju traku
-- [x] Rute: /kalendar (search param view=agenda|nedelja|mesec), /novac (tab=pregled|troskovi|placanja);
-      redirecti /uskoro, /payments, /budget; scroll restoration i preload kao do sada
-- [x] navSections.ts: novi kljucevi/ikone/redosled; sectionForPathname; recents rade sa novim rutama
-- [x] MobileBottomNav v2: 4 taba + centralno [+] dugme; normalizeNavSlots mapping legacy vrednosti,
-      MAX_FREE_SLOTS=2; "Uredi traku" logika za 2 slota
-- [x] Meni sheet v2: Nedavno + mreza svih sekcija + Uredi traku (po prototipu)
-- [x] AddSheet sa [+]: Skeniraj racun hero + Trosak/Placanje/Dogadjaj/Aktivnost/Rodjendan/Lista;
-      FAB se uklanja; "Dodaj" dugmad po stranicama ostaju na desktopu
-- [x] Login ekran restyle (brend Sljiva, decji rezim link ostaje samo kao placeholder AKO postoji;
-      inace bez njega - kid mode NIJE deo ovog PR-a)
+### Lane A - Foundation: tokens + shell + navigation (1 day) [blocks everything]
 
-### Lane B - Danas (1 dan) [posle A]
+- [x] Tailwind v4 @theme: the complete plum palette (light+dark), radii, shadows, the soft/tint layer,
+      a CSS-var level for the accent (--accent, --accent-soft, --accent-deep)
+- [x] A map of fruit names for PROFILE_COLOR_PALETTE (raspberry, blueberry, kiwi, apricot, plum, quince,
+      lavender, cherry) - UI naming, the same hex values
+- [x] The app shell: a fixed frame (100dvh, an inner scroll per screen), safe-area, removing the
+      window scroll + sticky hacks (this fixes the known iOS problem); the keyboard still hides the bottom bar
+- [x] Routes: /kalendar (search param view=agenda|nedelja|mesec), /novac (tab=pregled|troskovi|placanja);
+      redirects for /uskoro, /payments, /budget; scroll restoration and preload as before
+- [x] navSections.ts: new keys/icons/order; sectionForPathname; recents work with the new routes
+- [x] MobileBottomNav v2: 4 tabs + a central [+] button; normalizeNavSlots mapping the legacy values,
+      MAX_FREE_SLOTS=2; the edit-the-bar logic for 2 slots
+- [x] Menu sheet v2: recents + a grid of every section + edit the bar (per the prototype)
+- [x] An add sheet behind [+]: scan-a-receipt hero + expense/payment/event/activity/birthday/list;
+      the FAB goes away; the per-page add buttons stay on desktop
+- [x] Login screen restyle (the plum brand; the kid-mode link stays only as a placeholder IF one exists;
+      otherwise without it - kid mode is NOT part of this PR)
 
-- [x] Timeline komponenta: vremenska sipka levo, "Sada · HH:mm" linija, celodnevni/span cipovi gore,
-      sekcija "Placanja danas", prosli deo dana prigusen
-- [x] WeekStrip v2 (vitka, tackice opterecenja, soft selekcija) + tap vodi na taj dan u Kalendar agendi
-- [x] Person filter: avf prstenovi 26px + Svi cip (postojeca filter logika/semantika ostaje)
-- [x] Prekoraceno baner (vodi u Novac > Placanja)
-- [x] FirstStepsCard + prazna stanja restyle (postojeci copy zadrzan)
-- [x] Gasenje starog ViewToggle na Danas; AgendaDayCalendar se povlaci (logika slotovanja se
-      reciklira u timeline)
+### Lane B - Today (1 day) [after A]
 
-### Lane C - Kalendar (1.5 dan) [posle A]
+- [x] The timeline component: the time rail on the left, a "now" line, all-day/span chips at the top,
+      a payments-due-today section, the past part of the day dimmed
+- [x] WeekStrip v2 (slim, load dots, a soft selection) + a tap takes you to that day in the calendar agenda
+- [x] The person filter: 26px avatar rings + an "all" chip (the existing filter logic/semantics stay)
+- [x] The overdue banner (leads into money > payments)
+- [x] FirstStepsCard + an empty-state restyle (the existing copy is kept)
+- [x] Turning off the old view toggle on today; AgendaDayCalendar is retired (its slotting logic is
+      recycled into the timeline)
 
-- [x] Kontejner sa segmentima + filter cipovi (tip + clanovi) zajednicki za sva tri prikaza
-- [x] Agenda: restyle AgendaUpcomingList (grupe po danu, prazni dani, infinite scroll do 365,
-      Prekoraceno na vrhu, visednevni "Dan i/n") - logika netaknuta
-- [x] Nedelja: restyle AgendaWeekCalendar + integracija skolskih blokova (toggle "Prikazi skolu",
-      iz postojece WeekGrid/smene logike)
-- [x] Mesec (NOVO): mreza sa tackicama po tipu, span trake visednevnih, tap na dan otvara pregled dana
-      ispod; lazy-load chunk; desktopske celije sa chipovima ostaju za traku H
-- [x] /uskoro redirect + `?day=` predaja sa Danas nedeljne trake (traka B salje)
+### Lane C - Calendar (1.5 days) [after A]
 
-### Lane D - Novac (1 dan) [posle A]
+- [x] A container with segments + filter chips (type + members) shared by all three views
+- [x] Agenda: restyle AgendaUpcomingList (day groups, empty days, infinite scroll up to 365,
+      overdue at the top, multi-day "day i/n") - the logic untouched
+- [x] Week: restyle AgendaWeekCalendar + integrate the school blocks (a show-school toggle,
+      from the existing WeekGrid/shift logic)
+- [x] Month (NEW): a grid with per-type dots, span bars for multi-day items, tapping a day opens the day below;
+      a lazy-loaded chunk; the desktop cells with chips are left for lane H
+- [x] The /uskoro redirect + the `?day=` hand-off from the today week strip (lane B sends it)
 
-- [x] Hub sa segmentima + mesec pager + QR dugme u zaglavlju
-- [x] Pregled: postojece budzet komponente restyle (cycle karta sa Prihodi/Potroseno/Preostalo,
-      projekcija, nudge za potvrdu prihoda, Po kategorijama + Uredi, Fiksno vs varijabilno,
-      Top prodavnice, Trend) - logika netaknuta; sheetovi Prihodi/Kategorije/CategoryDetail restyle
-- [x] Troskovi: BudgetTimeline kao tab + filteri izvora (Rucno/Racun/Iz placanja) + clanovi + pretraga
-      (ukljucujuci stavke racuna, kao sada); cipovi "racun · N stavki" / "deo racuna" / "iz placanja"
-- [x] Placanja: postojeci PaymentsPage sadrzaj kao tab (summary karta, grupe Prekoraceno/Danas/...,
-      svi statusi, "Prikazi jos", sakrivena placena linija)
-- [x] Skener + ReceiptPreview + chain + Podeli racun: restyle u nove tokene (tok i logika netaknuti)
+### Lane D - Money (1 day) [after A]
 
-### Lane E - Deljeni inputi + sve forme (2 dana) [posle A; E1 pre E2]
+- [x] The hub with segments + a month pager + a QR button in the header
+- [x] Overview: restyle the existing budget components (the cycle card with income/spent/left,
+      the projection, the nudge to confirm income, by-category + edit, fixed vs variable,
+      top shops, the trend) - the logic untouched; restyle the income/categories/CategoryDetail sheets
+- [x] Expenses: BudgetTimeline as a tab + source filters (manual/receipt/from-payment) + members + search
+      (including receipt line items, as today); the chips for a receipt with N items / a receipt part / from a payment
+- [x] Payments: the existing PaymentsPage content as a tab (the summary card, the overdue/today/... groups,
+      every status, show-more, the hidden-paid line)
+- [x] The scanner + ReceiptPreview + the chain + receipt splitting: restyled into the new tokens (the flow and logic untouched)
 
-- [x] E1: DateField + DatePickerSheet (precice po modu polja: past/future/dob; mreza sa tackicama
-      zauzetosti iz agende; drill godina->mesec->dan; direktan upis za DOB; tap bira i zatvara)
-- [x] E1: TimeField + TimePickerSheet (sat mreza 7-22, minuti 4 cipa, dugi pritisak native fallback) + DurationChips (30/45/60/90/120 racunaju kraj)
-- [x] E1: desktop varijante kao popover (isti sadrzaj, anchor uz polje, tastatura radi)
-- [x] E2: migracija formi na nove tokene + nove inpute: Trosak (+ skener ulaz), Placanje (tip,
-      ponavljanje, promenljiv iznos, podsetnici), Dogadjaj (Vise dana + trajanje cipovi), Aktivnost
-      (termini editor sa A/B), Rodjendan (DOB tok), Lista, Prihod/Kategorija forme
-- [x] E2: DetailSheet restyle za sve entitete - REDOSLED AKCIJA IDENTICAN sadasnjem (placanje:
-      Oznaci kao placeno -> Izmeni -> Istorija -> Pomeri -> Otkazi -> Pauziraj -> Obrisi; itd.)
-- [x] E2: CurrencyToggle + ExchangeRateRow restyle (NBS red, zamrznut kurs - logika ista)
+### Lane E - Shared inputs + every form (2 days) [after A; E1 before E2]
 
-### Lane F - Sekundarni ekrani (1 dan) [posle A, moze paralelno sa E2]
+- [x] E1: DateField + DatePickerSheet (shortcuts by field mode: past/future/dob; a grid with busy dots
+      from the agenda; a year->month->day drill; direct entry for a DOB; a tap picks and closes)
+- [x] E1: TimeField + TimePickerSheet (an hour grid 7-22, 4 minute chips, a long-press native fallback) + DurationChips (30/45/60/90/120 compute the end)
+- [x] E1: desktop variants as popovers (the same content, anchored to the field, the keyboard works)
+- [x] E2: migrate the forms onto the new tokens and the new inputs: expense (+ the scanner entry), payment (type,
+      recurrence, variable amount, reminders), event (multi-day + duration chips), activity
+      (the sessions editor with A/B), birthday (the DOB flow), list, income/category forms
+- [x] E2: DetailSheet restyle for every entity - THE ACTION ORDER IS IDENTICAL to the current one (payment:
+      mark as paid -> edit -> history -> reschedule -> cancel -> pause -> delete; and so on)
+- [x] E2: CurrencyToggle + ExchangeRateRow restyle (the NBS row, a frozen rate - the logic unchanged)
 
-- [x] Liste: index + detail restyle; smart sort, swipe gestovi, dnd, export, auto-brisanje - sve ostaje
-- [x] Aktivnosti: WeekGrid restyle + skola + Opcije sheet (smene, rasporedi, satnica zvona) + lista svih
-- [x] Dogadjaji: filter bar (mesec, pretraga, zavrseni) + grupe restyle
-- [x] Rodjendani: mesecne grupe, Proslava badge, "za N dana"
-- [x] Globalna pretraga: restyle dijaloga (iste grupe i ponasanje, Cmd+K)
+### Lane F - Secondary screens (1 day) [after A, may run alongside E2]
 
-### Lane G - Podesavanja + nalog (1 dan) [posle A]
+- [x] Lists: restyle the index + detail; smart sort, swipe gestures, dnd, export, auto-delete - all kept
+- [x] Activities: WeekGrid restyle + school + the options sheet (shifts, timetables, bell times) + the full list
+- [x] Events: the filter bar (month, search, done) + group restyle
+- [x] Birthdays: monthly groups, the party badge, the countdown
+- [x] Global search: dialog restyle (the same groups and behaviour, Cmd+K)
 
-- [x] Spajanje /profile u /settings hub sa grupama (profil karta gore; Porodica, Novac-valute,
-      Obavestenja, Kalendar, Aplikacija, Odjava) - stari tabovi kao sekcije/pod-ekrani
-- [x] Izgled: tema Svetla/Tamna/Auto + "Boja aplikacije" (default Plava; opcije Sljiva/Kedar/Cigla;
-      akcenat token; prvo localStorage, OPCIONO profiles.accent migracija - odluciti tada;
-      login/ikonica uvek plavi)
-- [x] Google kalendar pod-ekran: per-kalendar select (Ne uvozi/Samo ja/Porodica), reauth baner,
-      ImportPrefs (putovanja/rodjendani/markeri), povezivanje naloga
-- [x] Porodica: clanovi sa vocnim bojama, uloge (Administrator/Ucenik), nalozi, Ukloni; naziv porodice
-- [x] Obavestenja/digest/sesije/valute kartice restyle
-- [~] Traka navigacije red (vodi na Uredi traku u Meniju) - red postoji i prikazuje trenutne
-  slotove, ali je informativan: "Uredi traku" je lokalno stanje u AppNav-u i nema ulaz iz rute
-  (vidi Odstupanja)
+### Lane G - Settings + account (1 day) [after A]
 
-### Lane H - Desktop (1.5 dan) [posle vecine B-E; prvi task ODMAH moze]
+- [x] Fold /profile into the /settings hub with groups (the profile card at the top; family, money-currencies,
+      notifications, calendar, app, sign out) - the old tabs become sections/sub-screens
+- [x] Appearance: theme light/dark/auto + the app colour (blue by default; purple/green/brown as options;
+      the accent token; localStorage first, OPTIONALLY a profiles.accent migration - decide then;
+      the login screen and the icon are always blue)
+- [x] The Google Calendar sub-screen: a per-calendar select (do not import / only me / family), the reauth banner,
+      ImportPrefs (travel/birthdays/markers), connecting the account
+- [x] Family: members with fruit colours, roles (admin/student), logins, remove; the family name
+- [x] Restyle the notifications/digest/sessions/currencies cards
+- [~] The navigation-bar row (leads to edit-the-bar in the menu) - the row exists and shows the current
+  slots, but it is informational: edit-the-bar is local state inside AppNav and has no entry point from a route
+  (see Deviations)
 
-- [x] H0 PRVO: brz staticki mock desktop Danas + Kalendar (prosiriti postojeci artifact prototip)
-      i kratka potvrda korisnika pre gradnje - ODOBRENO 2026-08-04
+### Lane H - Desktop (1.5 days) [after most of B-E; the first task can start IMMEDIATELY]
+
+- [x] H0 FIRST: a quick static desktop mock of today + calendar (extending the existing artifact prototype)
+      and a short confirmation from the user before building - APPROVED 2026-08-04
       (artifact: https://claude.ai/code/artifact/25b00c0d-3d0e-4c18-bfad-903267137cf4)
-- [x] Sidebar >=lg (~240px): logo, veliko "+ Dodaj", svih 9 sekcija sa ikonama, dole profil mini +
-      tema; gasi se top inline nav; <lg ostaje donja traka (postojeci lg breakpoint se zadrzava)
-- [x] Danas desktop: 2 kolone - timeline levo (max ~640px), desno sticky: mini-mesec (klik vodi u
-      Kalendar), Prekoraceno karta, kratka "Sledeci dani" lista
-- [x] Kalendar desktop: Mesec sa event chipovima u celijama, Nedelja puna visina, Agenda centrirana;
-      toolbar sa segmentima i filterima
-- [x] Novac desktop: Pregled kao 2-kolonski grid kartica; Troskovi/Placanja liste max ~720px
-- [x] Liste: postojeci resizable split ostaje, samo restyle
-- [x] Sheetovi -> centrirani dijalozi >=sm (postojeci ResponsiveDialog obrazac), biraci kao popover
-- [x] Hover/focus stanja, Esc, Cmd+K; (opciono, sme da ispadne: precice strelicama u kalendaru)
+- [x] Sidebar >=lg (~240px): the logo, a large add button, all 9 sections with icons, a mini profile +
+      the theme at the bottom; the top inline nav goes away; below lg the bottom bar stays (the existing lg breakpoint is kept)
+- [x] Today on desktop: 2 columns - the timeline on the left (max ~640px), sticky on the right: a mini month (clicking leads into
+      the calendar), the overdue card, a short next-days list
+- [x] Calendar on desktop: month with event chips in the cells, week at full height, agenda centred;
+      a toolbar with the segments and the filters
+- [x] Money on desktop: the overview as a 2-column card grid; the expenses/payments lists max ~720px
+- [x] Lists: the existing resizable split stays, restyle only
+- [x] Sheets -> centred dialogs >=sm (the existing ResponsiveDialog pattern), pickers as popovers
+- [x] Hover/focus states, Esc, Cmd+K; (optional, may be dropped: arrow-key shortcuts in the calendar)
 
-### Lane I - Integracija + QA (1 dan, poslednja, zajednicka)
+### Lane I - Integration + QA (1 day, last, shared)
 
-- [x] Dark mode prolaz kroz SVE ekrane i sheetove (tokeni, kontrast)
-- [x] Prazna stanja svuda (postojeci copy iz empty-states speca)
-- [x] PWA: manifest theme_color -> neutralna pozadina (svetla), ikonica NEPROMENJENA; update toast radi
-- [~] iOS standalone QA: kod je proveren (nema window-scroll nigde, safe-area na traci/zaglavlju/
-  loginu, tastatura demontira donju traku, trake su neprozirne bez backdrop-filtera), ali
-  pravi prolaz na iPhone-u u standalone rezimu ostaje na korisniku - to se ne moze odglumiti
-- [x] Redirecti + push deep-linkovi + Nedavno + pretraga navigacija
-- [x] Testovi: picker utili (addMin, genGrid, prestupne), normalizeNavSlots legacy mapping,
-      timeline slotovanje; CI (check + dash-check + test + build) zeleno
-- [x] Bundle provera (Mesec lazy), Lighthouse brzi pregled
-- [ ] PR opis sa checklistom + screenshotovi po ekranu (svetla/tamna, mobil/desktop) - CEKA korisnikovu lokalnu potvrdu; PR se ne otvara pre toga
+- [x] A dark-mode pass through EVERY screen and sheet (tokens, contrast)
+- [x] Empty states everywhere (the existing copy from the empty-states spec)
+- [x] PWA: manifest theme_color -> a neutral background (light), the icon UNCHANGED; the update toast works
+- [~] iOS standalone QA: the code was checked (no window scroll anywhere, safe-area on the bar/header/
+  login, the keyboard unmounts the bottom bar, the bars are opaque without a backdrop-filter), but
+  a real pass on an iPhone in standalone mode is left to the user - that cannot be faked
+- [x] Redirects + push deep links + recents + search navigation
+- [x] Tests: the picker utils (addMin, genGrid, leap years), the normalizeNavSlots legacy mapping,
+      timeline slotting; CI (check + dash-check + test + build) green
+- [x] A bundle check (month lazy), a quick Lighthouse pass
+- [ ] A PR description with the checklist + screenshots per screen (light/dark, mobile/desktop) - WAITING on the user's local confirmation; the PR is not opened before that
 
-### Lane J - Vremenske trake (dodato 2026-08-05, po odobrenom predlogu)
+### Lane J - Time strips (added 2026-08-05, per the approved proposal)
 
-Predlog: https://claude.ai/code/artifact/d8b011aa-b20f-4ffd-bd24-5acdbdea21a3
-(odobren uz izmenu: Novac dobija Mesec-stil zaglavlja umesto predlozene trake cipova).
+Proposal: https://claude.ai/code/artifact/d8b011aa-b20f-4ffd-bd24-5acdbdea21a3
+(approved with one change: money gets a month-style header instead of the proposed chip strip).
 
-- [x] Deljene komponente: `common/MonthGridPopover` (mreza meseci izvucena iz MonthPager-a,
-      godina + 12 meseci + "Ovaj mesec" + opcioni red "Sva placanja") i `common/NowPill`
-      ("vrati na sada" pilula - renderuje se samo dok si odlutao od "sada")
-- [x] Novac: MonthPager v2 - serifno ime meseca + godina levo (klik otvara mrezu), NowPill
-      kad nije tekuci mesec (i u "Sva placanja"), IconButton sm strelice desno; API ka
-      NovacScreen nepromenjen
-- [x] Kalendar > Mesec: naslov postaje dugme (ista mreza meseci) + NowPill povratka
-- [x] WeekStrip v3: orphan `dashboard/WeekStrip.tsx` prerabljen - v2 celije (inicijal + broj + do 3 tackice opterecenja), header linija (mesec label sa mini-kalendar popoverom +
-      NowPill + opcione pointer-fine strelice); swipe motor netaknut (translateX karusel,
-      tacno 1 nedelja po prevlacenju, axis-lock, flick, trackpad wheel, iOS workaround)
-- [x] Kalendar > Agenda: traka se VRACA - portal u fiksni header (slot u CalendarScreen,
-      NovacScreen "Dodaj" obrazac), scroll-spy na app-scroll kontejneru, tap skroluje listu,
-      mini-kalendar skok preko growHorizon mehanike, NowPill "Danas"; prosli dani tekuce
-      nedelje utisani i neaktivni (pravilo "Uskoro pocinje od danas")
-- [x] Kalendar > Nedelja: ista traka kao minimapa i pager - swipe menja nedelju (nosi isti
-      dan u nedelji), tap doskroluje mrezu do kolone (mobil), horizontalni scroll-spy prati
-      kolonu u kadru, NowPill "Ova sedmica", strelice samo pointer-fine; stari `< opseg >`
-      red i uslovni cip "Ova sedmica" uklonjeni
-- [x] Provere: check + test (374) + build zeleno; rucni prolaz na dev serveru (mobil/desktop,
-      svetla/tamna tema, zeleni akcenat demo naloga)
+- [x] Shared components: `common/MonthGridPopover` (the month grid extracted from MonthPager,
+      a year + 12 months + a this-month shortcut + an optional all-payments row) and `common/NowPill`
+      (a back-to-now pill - rendered only while you have drifted away from "now")
+- [x] Money: MonthPager v2 - a serif month name + the year on the left (clicking opens the grid), the NowPill
+      when it is not the current month (and in the all-payments view), sm IconButton arrows on the right; the API towards
+      the money screen is unchanged
+- [x] Calendar > month: the title becomes a button (the same month grid) + a NowPill to get back
+- [x] WeekStrip v3: the orphaned `dashboard/WeekStrip.tsx` reworked - v2 cells (an initial + a count + up to 3 load dots), a header line (a month label with a mini-calendar popover +
+      the NowPill + optional pointer-fine arrows); the swipe engine untouched (a translateX carousel,
+      exactly 1 week per drag, axis lock, flick, trackpad wheel, the iOS workaround)
+- [x] Calendar > agenda: the strip COMES BACK - portalled into the fixed header (a slot in CalendarScreen,
+      the money-screen add-button pattern), scroll-spy on the app-scroll container, a tap scrolls the list,
+      the mini-calendar jump goes through the growHorizon mechanics, a NowPill back to today; past days of the current
+      week are muted and inactive (the rule that upcoming starts today)
+- [x] Calendar > week: the same strip as a minimap and a pager - a swipe changes the week (carrying the same
+      weekday), a tap scrolls the grid to the column (mobile), horizontal scroll-spy follows the
+      column in view, a NowPill back to this week, arrows on pointer-fine only; the old `< range >`
+      row and the conditional this-week chip removed
+- [x] Checks: check + test (374) + build green; a manual pass on the dev server (mobile/desktop,
+      light/dark theme, the demo account's green accent)
 
-### Lane K - Mobilni prolaz: hrom kalendara, mesecni karusel, modali (2026-08-06)
+### Lane K - A mobile pass: calendar chrome, the month carousel, modals (2026-08-06)
 
-Prolaz po korisnickim zamerkama posle trake J, sve na mobilnom (desktop nepromenjen).
+A pass over the user's complaints after lane J, all on mobile (desktop unchanged).
 
-- [x] Kalendar (sve tri): ispod `lg` u fiksnom headeru ostaje SAMO naslov; Segmented i filter
-      cipovi idu u telo i skroluju sa sadrzajem, a nedeljna traka je jedina lepljiva - u
-      sticky kutiji u telu (`CalendarScreen`), cija se visina meri (ResizeObserver) i salje
-      agendi kao `stickyOffset` (`--agenda-sticky-top`), pa dnevni headeri i skok-na-dan
-      racunaju offset i parkiraju ISPOD trake
-- [x] Kalendar > Nedelja na mobilnom: mreza pune visine, vertikalu skroluje stranica
-      (`pageScroll`); `overscroll-x-contain` (NE `overscroll-contain` - potonje guta
-      vertikalno prevlacenje preko mreze); BEZ auto-scrolla na "sada" (odvlacio je tabove sa
-      ekrana cim se otvori prikaz), umesto toga se fokusirani dan CENTRIRA vodoravno
-- [x] Kalendar > Mesec: bez auto-selekcije 1. u mesecu - danas je jedini dan koji sistem sam
-      bira; selekcija je trajna preko promene meseca (peek lista kesira redove van prozora
-      upita dok korisnik ne tapne drugi dan); lepljiv je red izabranog dana
-- [x] Kalendar > Mesec: vertikalni swipe = pravi translateY karusel (prev/next mreze kao
-      `inert` stranice, commit tek posle animacije + layoutEffect reset na `monthAnchor`);
-      deljena granicna nedelja se NE duplira (susedna stranica je ispusta, distanca klizanja
-      kraca za red, dimovanje se preokrene na commit)
-- [x] `calendar/WeekTimeGridShell` - JEDNA rama nedeljne mreze za Kalendar > Nedelja i
-      /activities `WeekGrid`: kolone 56px + 7x260px (<sm) / 1fr (sm+), lepljivo zaglavlje dana
-      sa lepljivim uglom (fix: na Aktivnostima je red dana isao PREKO satnice), lepljiva
-      satnica, "sada" linija/bedz, opcioni "Ceo dan" red. Sirine i lepljivost se od sada
-      menjaju samo tu
-- [x] Novac: naslov meseca smanjen na isti stil kao na Kalendaru (13.5px semibold + chevron),
-      umesto serifnog 27px - dva mesecna ekrana citaju se kao jedna kontrola
-- [x] Date pickeri na mobilnom su MODAL (bottom sheet), popover ostaje samo na desktopu:
-      `MonthGridPopover` (Kalendar > Mesec, Novac), `WeekStrip` mini-kalendar (full-width
-      mreza u sheetu), `PeriodPicker/MonthPicker` (Dogadjaji, Rodjendani)
-- [x] Isti obrazac i za menije akcija: "Akcije liste" na `lists/$listId` je na mobilnom sheet
-      sa `DetailActionRow` redovima (destruktivna poslednja), na desktopu ostaje dropdown
-- [x] Sheet visina: `ResponsiveDialogContent` vise NEMA stalan `min-h-[60vh]` - sheet je tacno
-      koliko sadrzaj trazi (kapa `max-h-[90vh]`), a pod od 60vh se ukljucuje samo dok je
-      tastatura otvorena (`useIsKeyboardOpen`), jer je to jedini razlog zbog kog je i postojao
-      (iOS pojas izmedju kratkog sheeta i tastature). Nema per-sheet propa za visinu
-- [x] Globalni "+": "Skeniraj racun" vise nije akcentom ispunjen heroj nego ista plocica kao
-      ostale, samo pune sirine; plocice dobile app-ov focus prsten (podrazumevani prsten
-      pregledaca je amber = boja upozorenja)
-- [x] Provere: check + test (374) + build zeleno; rucni prolaz na dev serveru (mobil 375px i
-      desktop, sve tri kalendar strane, Novac, Aktivnosti, Liste, pickeri)
+- [x] Calendar (all three): below `lg` the fixed header keeps ONLY the title; the segmented control and the filter
+      chips move into the body and scroll with the content, and the week strip is the only sticky thing -
+      in a sticky box in the body (`CalendarScreen`), whose height is measured (ResizeObserver) and passed to
+      the agenda as `stickyOffset` (`--agenda-sticky-top`), so the day headers and the jump-to-day
+      account for the offset and park BELOW the strip
+- [x] Calendar > week on mobile: a full-height grid, the page scrolls vertically
+      (`pageScroll`); `overscroll-x-contain` (NOT `overscroll-contain` - the latter swallows a
+      vertical drag across the grid); NO auto-scroll to "now" (it dragged the tabs off
+      screen the moment the view opened), the focused day is CENTRED horizontally instead
+- [x] Calendar > month: no auto-selection of the 1st of the month - today is the only day the system picks
+      on its own; the selection persists across a month change (the peek list caches rows outside the query
+      window until the user taps another day); the selected-day row is sticky
+- [x] Calendar > month: a vertical swipe = a real translateY carousel (the prev/next grids as
+      `inert` pages, the commit only after the animation + a layoutEffect reset onto `monthAnchor`);
+      the shared boundary week is NOT duplicated (the neighbouring page drops it, the slide distance is
+      one row shorter, the dimming inverts on commit)
+- [x] `calendar/WeekTimeGridShell` - ONE frame for the week grid, shared by calendar > week and
+      /activities `WeekGrid`: columns 56px + 7x260px (<sm) / 1fr (sm+), a sticky day header
+      with a sticky corner (a fix: on activities the day row ran OVER the hour gutter), a sticky
+      hour gutter, the now line/badge, an optional all-day row. Widths and stickiness now
+      change only there
+- [x] Money: the month title shrunk to the same style as on the calendar (13.5px semibold + a chevron),
+      instead of the 27px serif - the two month screens now read as one control
+- [x] Date pickers on mobile are MODAL (a bottom sheet), the popover stays on desktop only:
+      `MonthGridPopover` (calendar > month, money), the `WeekStrip` mini calendar (a full-width
+      grid in a sheet), `PeriodPicker/MonthPicker` (events, birthdays)
+- [x] The same pattern for action menus: the list actions on `lists/$listId` are a sheet on mobile
+      with `DetailActionRow` rows (the destructive one last), and stay a dropdown on desktop
+- [x] Sheet height: `ResponsiveDialogContent` no longer carries a permanent `min-h-[60vh]` - a sheet is exactly
+      as tall as its content asks (capped at `max-h-[90vh]`), and the 60vh floor is only enabled while the
+      keyboard is open (`useIsKeyboardOpen`), because that is the only reason it ever existed
+      (the iOS band between a short sheet and the keyboard). There is no per-sheet height prop
+- [x] The global "+": scan-a-receipt is no longer an accent-filled hero but the same tile as the
+      others, only full width; the tiles got the app's focus ring (the browser default ring is amber = the warning colour)
+- [x] Checks: check + test (374) + build green; a manual pass on the dev server (mobile 375px and
+      desktop, all three calendar views, money, activities, lists, the pickers)
 
-## Paralelizacija (predlog za agente/worktree-ove)
+## Parallelization (a proposal for agents/worktrees)
 
-- Agent 1: A, zatim B, zatim pomaze I
-- Agent 2: E1 pa E2 (posle A)
-- Agent 3: C pa F (posle A)
-- Agent 4: D pa G (posle A)
-- H: Agent 1 ili 3 posle svojih traka (H0 mock sme i pre, cim korisnik potvrdi)
-- Ukupno ~10-11 lane-dana; sa 3-4 paralelna toka realno 3-4 dana rada.
-- Svaki lane = poseban worktree + grana `redesign/v2-<lane>`, merge u `redesign/v2` cim je zelen
-  (build + testovi); konflikti se resavaju u integracionoj grani, ne u lane granama.
+- Agent 1: A, then B, then helps with I
+- Agent 2: E1 then E2 (after A)
+- Agent 3: C then F (after A)
+- Agent 4: D then G (after A)
+- H: agent 1 or 3 after their own lanes (the H0 mock may go earlier, as soon as the user confirms)
+- ~10-11 lane-days in total; with 3-4 parallel streams, realistically 3-4 days of work.
+- Every lane = its own worktree + a branch `redesign/v2-<lane>`, merged into `redesign/v2` as soon as it is green
+  (build + tests); conflicts are resolved in the integration branch, not in the lane branches.
 
-## Definition of Done (za PR)
+## Definition of Done (for the PR)
 
-- pnpm check (ukljucujuci check-dashes) + test + build zeleno na CI
-- Svi stari linkovi rade: /uskoro, /payments, /budget, push URL-ovi, Nedavno, pretraga
-- Svaki ekran proveren u svetloj i tamnoj temi, mobil (iOS PWA standalone) i desktop
-- Vizuelno odgovara prototipu; odstupanja popisana u PR opisu
-- Bez promena u bazi/edge funkcijama (osim eventualno profiles.accent, uz eksplicitnu odluku)
-- Prod deploy: frontend ide automatski na merge (Pages); NEMA rucnog backend deploja
+- pnpm check (including check-dashes) + test + build green on CI
+- Every old link works: /uskoro, /payments, /budget, the push URLs, recents, search
+- Every screen checked in the light and dark theme, mobile (iOS PWA standalone) and desktop
+- Visually matches the prototype; deviations listed in the PR description
+- No changes in the database/edge functions (except possibly profiles.accent, with an explicit decision)
+- Production deploy: the frontend goes automatically on merge (Pages); NO manual backend deploy
 
-## Kickoff za novu sesiju
+## Kickoff for a new session
 
-U novoj sesiji reci: "Kreni implementaciju redizajna po REDESIGN_PLAN.md" - sesija treba da:
+In a new session say: "Start the redesign implementation per REDESIGN_PLAN.md" - the session should:
 
-1. procita ovaj fajl + memoriju projekta + otvori prototip artifact kao vizuelnu referencu,
-2. napravi granu `redesign/v2` i krene od Lane A,
-3. stiklira checkbox-ove ovde kako taskovi prolaze,
-4. za paralelizaciju podigne worktree agente po semi iznad (uz dogovor koliko paralele korisnik zeli),
-5. H0 (desktop mock) posalje korisniku na potvrdu pre Lane H gradnje.
+1. read this file + the project memory + open the prototype artifact as a visual reference,
+2. create the `redesign/v2` branch and start from lane A,
+3. tick the checkboxes here as tasks land,
+4. spin up worktree agents for parallelization per the scheme above (agreeing with the user on how much parallelism they want),
+5. send H0 (the desktop mock) to the user for confirmation before building lane H.
 
-## Sta je provereno u integracionom prolazu (2026-08-04)
+## What was verified in the integration pass (2026-08-04)
 
-- Rute i redirecti uzivo: `/uskoro` -> `/kalendar?view=agenda`, `/payments` ->
+- Routes and redirects live: `/uskoro` -> `/kalendar?view=agenda`, `/payments` ->
   `/novac?tab=placanja`, `/budget` -> `/novac?tab=pregled`, `/profile` -> `/settings`.
-  Push deep-linkovi iz edge funkcija (`/payments`, `/uskoro`, `/events`, `/activities`,
-  `/lists/:id`, `/`) svi padaju na te rute - edge funkcije nisu dirane.
-- Nedavno (Meni sheet), Uredi traku 2/2, globalna pretraga i ⌘K, Esc zatvara dijaloge.
-- Akcenat: prebacivanje na Braon/Zelena/Plava preboji celu aplikaciju i upise se u
-  `profiles.accent` (lokalna baza).
-- Detalj-sheet placanja: redosled akcija nepromenjen (Oznaci kao placeno -> Izmeni ->
-  Istorija -> Pomeri -> Otkazi -> Obrisi).
-- Svetla i tamna tema: Danas, Kalendar (Agenda/Nedelja/Mesec), Novac (sva tri taba),
-  Podesavanja, Liste, Dogadjaji, Rodjendani, Aktivnosti, forma troska sa novim biracem.
-- Desktop (>=lg): sidebar, Danas 2 kolone, Mesec sa cipovima, Novac Pregled 2 kolone,
-  Liste split (izmereno: 320 + 8 + 712 = puna sirina).
-- Bundle: Mesec je zaseban lazy chunk (5,2 kB), skener 21 kB + wasm odvojeno,
-  glavni chunk 254 kB (82 kB gzip) - u rangu pre redizajna.
-- Lighthouse (produkcijski build, login ekran, mobilni): 100 pristupacnost /
-  100 najbolje prakse / 100 SEO. Prvi prolaz je nasao da nedostaje `<main>` orijentir
-  (izgubljen pri prepisivanju okvira) - popravljeno.
-- Ograda: Lighthouse i dalje moze samo login (ostali ekrani traze sesiju).
+  The push deep links from the edge functions (`/payments`, `/uskoro`, `/events`, `/activities`,
+  `/lists/:id`, `/`) all land on those routes - the edge functions were not touched.
+- Recents (the menu sheet), edit-the-bar 2/2, global search and ⌘K, Esc closes dialogs.
+- The accent: switching to brown/green/blue repaints the whole app and is written into
+  `profiles.accent` (the local database).
+- The payment detail sheet: the action order is unchanged (mark as paid -> edit ->
+  history -> reschedule -> cancel -> delete).
+- Light and dark theme: today, calendar (agenda/week/month), money (all three tabs),
+  settings, lists, events, birthdays, activities, the expense form with the new picker.
+- Desktop (>=lg): the sidebar, today in 2 columns, month with chips, money overview in 2 columns,
+  the lists split (measured: 320 + 8 + 712 = the full width).
+- Bundle: month is its own lazy chunk (5.2 kB), the scanner 21 kB + the wasm separately,
+  the main chunk 254 kB (82 kB gzip) - in the same range as before the redesign.
+- Lighthouse (a production build, the login screen, mobile): 100 accessibility /
+  100 best practices / 100 SEO. The first pass found a missing `<main>` landmark
+  (lost while rewriting the frame) - fixed.
+- A caveat: Lighthouse can still only reach the login screen (every other screen needs a session).
 
-## Prolaz praznih ekrana za nove korisnike (2026-08-05)
+## The empty-screen pass for new users (2026-08-05)
 
-Prodjeni SVI ekrani kao svez nalog (lokalno: novi.korisnik@example.com / novi1234,
-porodica "Novakovi", bez podataka), mobil + desktop. Ispravke iz prolaza:
+EVERY screen was walked through as a fresh account (locally: novi.korisnik@example.com / novi1234,
+the family "Novakovi", no data), mobile + desktop. Fixes from that pass:
 
-- MonthCalendar: weekCount formula je SVAKOM mesecu dodavala suvisnu (praznu)
-  sedmu nedelju - +1 je pripadao broju dana, ne kolicniku.
-- Filter clanova se krije kad porodica ima jednog clana (nema po kome da se
-  filtrira): Danas, Kalendar, Novac > Troskovi/Placanja, Aktivnosti.
-- "Google" cip u Kalendar filterima se pojavljuje tek kad porodica stvarno ima
-  preslikane Google dogadjaje (novi hook useHasExternalEvents; cip ostaje dok
-  je selektovan da se moze iskljuciti).
-- Novac > Troskovi: pravi starter empty state ("Jos nema troskova" + Dodaj
-  trosak) umesto jedne recenice; odvojeni slucajevi prazan mesec ("Dodaj
-  trosak" link) i prazni filteri ("Ocisti filtere"). Empty logika preseljena
-  iz BudgetTimeline u BudgetPage.
-- Aktivnosti: "Prikazi skolu" cip tek kad skolski raspored postoji (ista
-  kapija kao Kalendar > Nedelja); ceo filter red se krije kad je prazan.
-- Prikaz imena bez postavljenog imena: naslov vise ne ponavlja email (kartica
-  u Podesavanjima, Licni podaci pregled, sidebar mini profil -> "Bez imena" /
-  "Profil", email ostaje u podnaslovu).
-- Prvi koraci: "Dopuni svoj profil" vodi pravo u /settings?tab=profile (ne na hub).
+- MonthCalendar: the weekCount formula added a redundant (empty) seventh week to EVERY
+  month - the +1 belonged to the day count, not to the quotient.
+- The member filter is hidden when a family has a single member (there is nobody to
+  filter by): today, calendar, money > expenses/payments, activities.
+- The Google chip in the calendar filters appears only once the family really has
+  mirrored Google events (a new useHasExternalEvents hook; the chip stays while it
+  is selected so it can be turned off).
+- Money > expenses: a real starter empty state (no expenses yet + an add-expense action)
+  instead of a single sentence; the empty-month case (an add-expense link) and the
+  empty-filters case (clear the filters) are separated. The empty logic moved out of
+  BudgetTimeline into BudgetPage.
+- Activities: the show-school chip only once a school timetable exists (the same gate
+  as calendar > week); the whole filter row is hidden when it is empty.
+- Displaying a name when none is set: the title no longer repeats the email (the settings
+  card, the personal-details overview, the sidebar mini profile -> a no-name placeholder,
+  with the email staying in the subtitle).
+- First steps: "complete your profile" leads straight into /settings?tab=profile (not to the hub).
 
-Svesno NIJE menjano: prazna dnevna zaglavlja u Kalendar > Agenda ispod starter
-kartice (dokumentovana odluka - agenda se cita kao kontinuiran kalendar).
+Deliberately NOT changed: the empty day headers in calendar > agenda below the starter
+card (a documented decision - the agenda reads as a continuous calendar).
 
-## Odluke donete tokom rada
+## Decisions taken during the work
 
-- Akcenat se cuva u bazi: migracija `20260804090000_profiles_accent.sql` (kolona
-  `profiles.accent` + CHECK), localStorage je samo ogledalo za prvi paint.
-- SVI kljucevi koji zavrsavaju u bazi su na ENGLESKOM (kasnija lokalizacija):
-  akcenti `blue|purple|green|brown` (labele Plava/Ljubicasta/Zelena/Braon),
-  nav sekcije `today|calendar|money|lists|activities|events|birthdays|family|settings`.
-  Stare vrednosti se mapiraju u kodu (`LEGACY_KEY_MAP`), bez migracije podataka.
-- Imena akcenata su prosta imena boja umesto "Sljiva/Kedar/Cigla" (ime dizajn
-  jezika i dalje je "Sljiva", ali korisnik bira Plavu/Ljubicastu/Zelenu/Braon).
+- The accent is stored in the database: the migration `20260804090000_profiles_accent.sql` (the
+  `profiles.accent` column + a CHECK), localStorage is only a mirror for the first paint.
+- EVERY key that ends up in the database is in ENGLISH (for a later localization):
+  the accents `blue|purple|green|brown` (labelled Plava/Ljubičasta/Zelena/Braon),
+  the nav sections `today|calendar|money|lists|activities|events|birthdays|family|settings`.
+  The old values are mapped in code (`LEGACY_KEY_MAP`), with no data migration.
+- The accent names are plain colour names rather than themed ones (the design language is still
+  called "plum", but the user picks blue/purple/green/brown).
 
-## Odstupanja od prototipa (popunjava se tokom rada)
+## Deviations from the prototype (filled in as work progresses)
 
-Traka J (vremenske trake, 2026-08-05):
+Lane J (time strips, 2026-08-05):
 
-- Prototip redizajna za Novac prikazuje centriran `< Mesec >` pager; zamenjen je Mesec-stilom
-  zaglavlja (serifno ime kao okidac mreze + strelice + NowPill) na korisnikov zahtev. Vizuelni
-  izvor za trake je poseban artifact (link u traci J), i on za Novac vazi u varijanti
-  "Mesec-stil", ne "traka cipova".
-- Ranija odluka "Kalendar > Agenda NEMA nedeljnu traku" (beleska trake C ispod) je PONISTENA
-  ovim predlogom: Agenda ponovo ima swipe traku, a "mesecni skok" zivi na labelu meseca u njoj.
+- The redesign prototype shows a centred `< month >` pager for money; it was replaced with the month-style
+  header (a serif name as the grid trigger + arrows + the NowPill) at the user's request. The visual
+  source for the strips is a separate artifact (the link in lane J), and for money it holds in the
+  month-style variant, not the chip-strip one.
+- The earlier decision "calendar > agenda has NO week strip" (the lane C note below) is OVERRIDDEN
+  by this proposal: the agenda has the swipe strip again, and the month jump lives on the month label inside it.
 
-- Lane E: biraci se otvaraju kao sheet na mobilnom, ali kroz postojeci
-  ResponsiveDialog (vaul), ne kao pod-prikaz forme - forma ostaje na svom
-  mestu i vraca se netaknuta. Na desktopu je popover uz polje, kao u planu.
-- Lane E: uz mrezu sati 7-22 stoji i cip "Ostali sati" plus polje "Tacno vreme",
-  jer dugi pritisak na native picker ne radi svuda (Safari nema showPicker).
-- Lane E: cipovi trajanja se ne nude za visednevne dogadjaje - kraj tada pripada
-  drugom danu, pa bi racunanje "pocetak + N" bilo pogresno.
+- Lane E: the pickers open as a sheet on mobile, but through the existing
+  ResponsiveDialog (vaul), not as a sub-view of the form - the form stays where it
+  is and comes back untouched. On desktop it is a popover next to the field, as planned.
+- Lane E: next to the 7-22 hour grid there is also an other-hours chip plus an exact-time field,
+  because a long press on the native picker does not work everywhere (Safari has no showPicker).
+- Lane E: the duration chips are not offered for multi-day events - the end then belongs to
+  another day, so computing "start + N" would be wrong.
 
-- Token `--accent*` je uzet za korisnikov akcenat, pa je shadcn-ov neutralni
-  `accent` (hover pozadina) prebacen na `muted` u `components/ui/*`. Vizuelno
-  identicno, samo preimenovanje.
-- Prototipska paleta ima plum akcenat; podrazumevani akcenat u aplikaciji je
-  PLAVA (odluka 6), a plum je opcija "Ljubicasta".
-  Traka B (Danas) i H (desktop):
+- The `--accent*` token was taken for the user's accent, so shadcn's neutral
+  `accent` (the hover background) was moved to `muted` in `components/ui/*`. Visually
+  identical, a rename only.
+- The prototype palette has a plum accent; the default accent in the app is
+  BLUE (decision 6), and plum is the purple option.
+  Lane B (today) and H (desktop):
 
-- Danas timeline: prototip prikazuje pocetak i u levoj koloni I u kartici desno;
-  kod nas kartica desno nosi samo "do HH:MM" (ponavljanje je bilo suvisno na telefonu).
-- Danas ucitava agendu za CELU tekucu nedelju (jedan useAgenda) da bi traka
-  imala tackice opterecenja; timeline uzima samo danasnji presek. Na desktopu
-  se opseg siri do kraja meseca, jer desna kolona ima mini-mesec i "Sledeci dani".
-- Desktop: pretraga postoji i u sidebaru (red "Pretrazi ⌘K"), ne samo u zaglavlju
-  ekrana - sidebar je jedina povrsina prisutna na svakom ekranu.
+- The today timeline: the prototype shows the start time both in the left column AND in the card on the right;
+  here the card on the right carries only the end time (repeating it was redundant on a phone).
+- Today loads the agenda for the WHOLE current week (one useAgenda) so the strip
+  can have load dots; the timeline takes only today's slice. On desktop the range
+  widens to the end of the month, because the right column has a mini month and a next-days list.
+- Desktop: search exists in the sidebar too (a search row with ⌘K), not only in the screen
+  header - the sidebar is the only surface present on every screen.
 
-Traka D (Novac):
+Lane D (money):
 
-- Pretraga u zaglavlju Novca je toggle (lupa -> polje ispod naslova), a ne poseban
-  sheet kao u prototipu. Otvaranje pretrage sa Pregleda prebacuje na Troskove
-  (tamo su rezultati), a povratak na Pregled gasi pretragu.
-- Mesec pager je nova komponenta (`money/MonthPager`) umesto deljenog
-  `MonthPicker`-a; u zaglavlju su strelice tiho hrom, a labela otvara mrezu
-  meseci sa "Ovaj mesec" i (samo na Placanjima) "Sva placanja".
-- Filteri na Troskovima/Placanjima su cip-red (Svi / izvori / Placena) umesto
-  FilterBar + FilterSheet; sheet je ostao samo za izbor clanova.
-- Dan-zaglavlja u Troskovima vise ne koriste `AgendaDateHeader` (to je agenda
-  obrazac, traka B) nego `.gh` grupu sa brojacem; relativni tokeni su
-  Danas/Juce (knjiga troskova gleda unazad), plus Sutra za retke buduce unose.
-- Dvokolonski `xl` raspored Budzeta je uklonjen - Troskovi su sada zaseban tab.
-  Desktop raspored je posao trake H.
-- "Dodaj" dugmad (BudgetAddMenu, Dodaj placanje) prikazuju se samo od `lg`
-  navise; na dodiru je ulaz centralno [+] iz trake.
-- `PaymentsPage` vise ne drzi mesec/pretragu (dolaze iz huba); prop
-  `onMonthChange` nije bio potreban pa ga nema.
+- Search in the money header is a toggle (a magnifier -> a field below the title), not a separate
+  sheet as in the prototype. Opening search from the overview switches to expenses
+  (that is where the results are), and going back to the overview closes the search.
+- The month pager is a new component (`money/MonthPager`) instead of the shared
+  `MonthPicker`; in the header the arrows are quiet chrome, and the label opens the month
+  grid with a this-month shortcut and (on payments only) an all-payments row.
+- The filters on expenses/payments are a chip row (all / sources / paid) instead of
+  FilterBar + FilterSheet; the sheet is kept only for picking members.
+- The day headers in expenses no longer use `AgendaDateHeader` (that is an agenda
+  pattern, lane B) but a `.gh` group with a counter; the relative tokens are
+  today/yesterday (an expense ledger looks backwards), plus tomorrow for the rare future entry.
+- The two-column `xl` budget layout was removed - expenses are their own tab now.
+  The desktop layout was lane H's job.
+- The add buttons (BudgetAddMenu, add-payment) are shown only from `lg`
+  upwards; on touch the entry point is the central [+] in the bar.
+- `PaymentsPage` no longer holds the month/search (they come from the hub); the
+  `onMonthChange` prop was not needed, so it is gone.
 
-Traka G (Podesavanja):
+Lane G (settings):
 
-- Grupa "Obavestenja" je jedan red (push + pregledi dana + sesije) umesto
-  cetiri iz prototipa: sve cetiri kartice dele isti `notification_preferences`
-  red i cuvaju se zajedno, pa bi cetiri ulaza vodila na isti pod-ekran.
-- "Valute" su izvucene iz Porodice u svoj pod-ekran (`?tab=currencies`), kako
-  nalaze grupa "Porodica / Novac-valute"; `CurrenciesCard` se vise ne renderuje
-  unutar `FamilyTab`.
-- Red "Donja traka" je informativan (prikazuje trenutna dva slota) uz fusnotu
-  gde se menja. "Uredi traku" zivi kao lokalno stanje u `AppNav`-u i nema
-  ulaz iz rute; ako traka A/I doda npr. search param ili globalni event,
-  red je spreman da postane dugme.
-- `/profile` je sada redirect na `/settings` (nista vise ne linkuje na njega).
-- `?tab=` prihvata i `currencies`/`valute`; nepoznata vrednost vodi na hub
-  (ranije na Profil).
+- The notifications group is one row (push + daily digests + sessions) instead of the
+  four in the prototype: all four cards share the same `notification_preferences`
+  row and are saved together, so four entry points would lead to the same sub-screen.
+- Currencies were pulled out of family into their own sub-screen (`?tab=currencies`), as
+  the family / money-currencies grouping requires; `CurrenciesCard` is no longer rendered
+  inside `FamilyTab`.
+- The bottom-bar row is informational (it shows the current two slots) with a footnote
+  saying where it is changed. Edit-the-bar lives as local state in `AppNav` and has no
+  entry point from a route; if lane A/I adds e.g. a search param or a global event,
+  the row is ready to become a button.
+- `/profile` is now a redirect to `/settings` (nothing links to it any more).
+- `?tab=` also accepted `currencies`/`valute`; an unknown value leads to the hub
+  (it used to lead to the profile tab).
 
-Traka C (Kalendar) i F (sekundarni ekrani):
+Lane C (calendar) and F (secondary screens):
 
-- Traka C: Kalendar > Agenda NEMA nedeljnu traku (prototip je ne prikazuje na tom
-  ekranu). Ostaje na Danas i predaje dan preko `?day=`; mesecni skok iz stare
-  WeekStrip biraca zamenjuje prikaz Mesec.
-- Traka C: neutralno stanje filter cipova. Ranije su, dok filter nije aktivan,
-  SVI cipovi bili upaljeni; sada je upaljen samo "Sve" (kao u prototipu), a
-  cipovi tipova/clanova svetle tek kad se stvarno izaberu. Sama logika
-  filtriranja je nepromenjena (prazan skup = bez filtera). Isto vazi za cipove
-  clanova na Aktivnostima ("Svi"); PersonFilterChips unutar FilterSheet-a
-  (placanja/dogadjaji/rodjendani) i dalje koristi staru konvenciju.
-- Traka C: ikon-dugmad su vizuelno 40px (prototip 38px) sa providnim ::after
-  okvirom do 44px, zbog minimalne dodirne mete.
-- Traka F: detalj liste na mobilnom je sada zaseban AppScreen; desktop
-  master-detail split je netaknut.
+- Lane C: calendar > agenda has NO week strip (the prototype does not show one on that
+  screen). It stays on today and hands the day over through `?day=`; the month jump from the old
+  WeekStrip picker is replaced by the month view.
+- Lane C: the neutral state of the filter chips. Previously, while no filter was active,
+  EVERY chip was lit; now only the all chip is lit (as in the prototype), and the
+  type/member chips light up only when they are really selected. The filtering logic
+  itself is unchanged (an empty set = no filter). The same holds for the member chips
+  on activities; PersonFilterChips inside FilterSheet
+  (payments/events/birthdays) still uses the old convention.
+- Lane C: the icon buttons are visually 40px (the prototype has 38px) with a transparent ::after
+  frame out to 44px, for the minimum touch target.
+- Lane F: the list detail on mobile is now its own AppScreen; the desktop
+  master-detail split is untouched.
 
-Integracija (traka I):
+Integration (lane I):
 
-- Nedeljni prikaz je PROBAN bez vodoravnog skrola (sedam kolona od ~46px staje
-  na telefon, kao u prototipu) pa VRACEN na 140px kolone + vodoravni skrol
-  (2026-08-05, na zahtev korisnika): na 46px je svaki blok neprepoznatljiva
-  traka i labele su morale da se sakriju ispod `sm`, a nedelja koja se ne cita
-  ne vredi ni da se vidi cela. Uz to: mreza sada skroluje u OBA smera unutar
-  svog okvira (`AppScreen fillBody`), pa su zaglavlje dana i satnica levo
-  stvarno lepljivi, i otvara se na danasnjem danu i tekucem satu.
-- DOPUNA (traka K, 2026-08-06): kolone su prosirene sa 140px na 260px - iste kao
-  na /activities, jer su dve strane sada na istoj rami (`WeekTimeGridShell`).
-  Dvoosni skrol vazi jos samo na desktopu; na mobilnom mreza ide pune visine a
-  vertikalu nosi stranica, pa zaglavlje dana tamo ne moze da bude lepljivo -
-  ulogu "gde sam u nedelji" preuzima lepljiva nedeljna traka iznad. Otvaranje na
-  tekucem satu je uklonjeno (vidi traku K), ostaje centriranje danasnjeg dana.
+- The week view was TRIED without horizontal scrolling (seven ~46px columns fit
+  on a phone, as in the prototype) and then REVERTED to 140px columns + horizontal scrolling
+  (2026-08-05, at the user's request): at 46px every block is an unreadable
+  bar and the labels had to be hidden below `sm`, and a week you cannot read
+  is not worth seeing whole. On top of that: the grid now scrolls in BOTH directions inside
+  its own frame (`AppScreen fillBody`), so the day header and the hour gutter on the left are
+  really sticky, and it opens on today and the current hour.
+- ADDENDUM (lane K, 2026-08-06): the columns were widened from 140px to 260px - the same as
+  on /activities, because the two screens now share a frame (`WeekTimeGridShell`).
+  The two-axis scroll now holds on desktop only; on mobile the grid runs at full height and
+  the page carries the vertical axis, so the day header cannot be sticky there -
+  the sticky week strip above takes over the "where am I in the week" role. Opening at
+  the current hour was removed (see lane K); centring today remains.

@@ -44,9 +44,9 @@ import { getDisplayName } from "@/utils/identity";
 /**
  * THE birthday detail popup - the same component on the /birthdays page and
  * the Danas/Uskoro agenda. The shared detail-sheet layout: detalji on top
- * (hero, "za N dana" + next-age badges, info rows incl. the celebration row),
+ * (hero, countdown + next-age badges, info rows incl. the celebration row),
  * every action below as a visible row - Izmeni, Organizuj proslavu (until one
- * exists), Dodaj plaćanje za poklon, Obriši - and the linked gift payments at
+ * exists), add a gift payment, delete - and the linked gift payments at
  * the bottom, each row opening its own detail.
  *
  * The celebration is fully self-contained here: "Organizuj proslavu" opens

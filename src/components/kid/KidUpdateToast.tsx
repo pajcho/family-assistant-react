@@ -3,7 +3,7 @@
  *
  * The grown-up app says this with a plain sonner toast (see `usePwaUpdate`).
  * That toast is styled by the main app's tokens and worded for a parent
- * ("Osveži aplikaciju da preuzmeš najnovije izmene"), so inside a child's
+ * (a refresh-the-app prompt), so inside a child's
  * screen it arrives as a grey rectangle from another app, in language aimed
  * over their head. This is the same event in the shell's own clothes.
  *

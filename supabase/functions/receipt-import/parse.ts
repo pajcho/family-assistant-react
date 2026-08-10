@@ -78,7 +78,7 @@ export interface ParsedReceipt {
   warnings: string[];
   /** True when the page had no journal yet (offline issuer, not synced to
    *  PURS) and the data came from the print-block fallback - the client offers
-   *  "Osveži stavke" for these. */
+   *  a refresh of the items for these. */
   journalPending: boolean;
 }
 

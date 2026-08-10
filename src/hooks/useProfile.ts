@@ -56,7 +56,7 @@ export function useProfile() {
   const queryClient = useQueryClient();
 
   /**
-   * Dečiji režim: a kid's auth user is synthetic and has NO row in `profiles`
+   * Kid mode: a kid's auth user is synthetic and has NO row in `profiles`
    * (that is the whole security model - see `types/kid.ts`). The link to the
    * child's real profile lives in `kid_access` and is mirrored into the JWT
    * claims, so resolve through those. Without this, `familyId` is null for a

@@ -58,8 +58,8 @@ import {
  * THE event detail popup - the same component (and the same action set) on
  * the /events page and the Danas/Uskoro agenda. The shared detail-sheet
  * layout: detalji on top (hero, state badges, info rows), every action below
- * as a visible row - Izmeni, Pomeri, Otkaži (or the emphasized "Vrati" when
- * canceled), Dodaj plaćanje ili trošak, Obriši - and the linked payments +
+ * as a visible row - edit, reschedule, cancel (or the emphasized restore when
+ * canceled), add payment or expense, delete - and the linked payments +
  * expenses at the bottom, each row opening its own detail.
  *
  * Reschedule, cancel-with-reason, the delete confirm and the money chooser

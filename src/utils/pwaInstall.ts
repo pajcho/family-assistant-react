@@ -8,7 +8,7 @@
  * a scanned link in the browser, always). Anything a child linked in Safari is
  * therefore simply not there after they install the app - which is why the kid
  * shell has to be able to link a device from INSIDE the installed app, and why
- * `/kid/veza` tells an iOS visitor to install first.
+ * `/kid/link` tells an iOS visitor to install first.
  */
 
 /** iPhone / iPad / iPod, and not one of the in-app webviews. */
@@ -35,7 +35,7 @@ export function isStandalonePwa(): boolean {
 
 /**
  * True when this is an iOS browser tab that COULD be installed - the one case
- * where "Dodaj na početni ekran" is both possible and not yet done. iOS never
+ * where "add to home screen" is both possible and not yet done. iOS never
  * fires `beforeinstallprompt`, so an explanation is all any prompt can be.
  */
 export function canInstallOnIos(): boolean {

@@ -140,7 +140,7 @@ export function KidSchoolFooter() {
 }
 
 // ---------------------------------------------------------------------------
-// "Škola danas" - the first card on the Danas screen
+// School today - the first card on the kid's today screen
 // ---------------------------------------------------------------------------
 
 export function KidSchoolTodayCard({
