@@ -117,4 +117,10 @@ display the forbidden characters in order to explain what they are.
   steps, plus `pnpm test` and `pnpm build`; there `pnpm build` remains the
   authoritative build + typecheck, because `vite build` generates the route tree
   itself. Run `pnpm check` and `pnpm test` locally before opening a PR anyway.
+- The job `name:` in `.github/workflows/ci.yml` IS the required status check
+  context of the `Protect main` ruleset (today `Lint, tests, build`). Rename the
+  job and that check never reports, so every PR sits at
+  `mergeStateStatus: BLOCKED` under a green CI - as happened in PR #132. Update
+  the ruleset in the same change:
+  `gh api -X PUT repos/pajcho/family-assistant-react/rulesets/19621451`.
 - Never commit straight to `main` - always a branch, then a PR (squash-merge).
