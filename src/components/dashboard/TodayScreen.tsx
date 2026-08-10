@@ -125,7 +125,7 @@ export function TodayScreen() {
           the title block sizes itself there, so the screens stay pixel-identical
           instead of each rolling its own header. */}
       <ScreenHeaderRow
-        subtitle={greetingFor(todayDate)}
+        subtitle={greetingFor()}
         title={dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
         actions={
           <>

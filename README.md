@@ -10,19 +10,21 @@ Sve na srpskom, sa push podsetnicima i realtime sinhronizacijom među članovima
 **▶ Aplikacija: [pajcho.github.io/family-assistant-react](https://pajcho.github.io/family-assistant-react/)**
 (privatna instanca - potreban je nalog u okviru porodice)
 
-|                     Danas                      |                  Dnevni kalendar                  |                     Uskoro                     |
-| :--------------------------------------------: | :-----------------------------------------------: | :--------------------------------------------: |
-|      ![Danas](docs/screenshots/danas.png)      | ![Dnevni kalendar](docs/screenshots/kalendar.png) |     ![Uskoro](docs/screenshots/uskoro.png)     |
-|             **Aktivnosti i škola**             |                   **Plaćanja**                    |                   **Budžet**                   |
-| ![Aktivnosti](docs/screenshots/aktivnosti.png) |    ![Plaćanja](docs/screenshots/placanja.png)     |     ![Budžet](docs/screenshots/budzet.png)     |
-|                   **Liste**                    |               **Globalna pretraga**               |                 **Tamna tema**                 |
-|      ![Liste](docs/screenshots/liste.png)      |    ![Pretraga](docs/screenshots/pretraga.png)     | ![Tamna tema](docs/screenshots/tamna-tema.png) |
+|                      Danas                       |                        Nedelja                         |                        Mesec                        |
+| :----------------------------------------------: | :----------------------------------------------------: | :-------------------------------------------------: |
+|       ![Danas](docs/screenshots/danas.png)       |   ![Nedelja](docs/screenshots/kalendar-nedelja.png)    |    ![Mesec](docs/screenshots/kalendar-mesec.png)    |
+|                    **Budžet**                    |                      **Plaćanja**                      |                      **Liste**                      |
+|      ![Budžet](docs/screenshots/budzet.png)      |       ![Plaćanja](docs/screenshots/placanja.png)       |        ![Liste](docs/screenshots/liste.png)         |
+|                    **Škola**                     |                        **Meni**                        |                **Globalna pretraga**                |
+|       ![Škola](docs/screenshots/skola.png)       |           ![Meni](docs/screenshots/meni.png)           | ![Globalna pretraga](docs/screenshots/pretraga.png) |
+|                 **Dečiji režim**                 |                  **Dečiji raspored**                   |                   **Tamna tema**                    |
+| ![Dečiji režim](docs/screenshots/dete-danas.png) | ![Dečiji raspored](docs/screenshots/dete-raspored.png) |   ![Tamna tema](docs/screenshots/tamna-tema.png)    |
 
 ## Mogućnosti
 
-- 📅 **Jedinstvena agenda (Danas / Uskoro)** - aktivnosti, događaji, plaćanja, rođendani i
-  Google eventi u jednom toku. Prikaz kao lista ili kalendar, filteri po tipu i po članu,
-  a sve što je propušteno stoji na vrhu u sekciji „Prekoračeno".
+- 📅 **Jedinstvena agenda (Danas / Kalendar)** - aktivnosti, događaji, plaćanja, rođendani i
+  Google eventi u jednom toku. Kalendar se gleda kao agenda, nedelja ili mesec, sa filterima
+  po tipu i po članu, a sve što je propušteno stoji na vrhu u sekciji „Prekoračeno".
 - 🎒 **Aktivnosti i školski raspored** - ponavljajući termini (nedeljno, A/B nedelje, na N nedelja),
   učesnici po članu, plus školske smene sa automatskim preokretanjem, raspored časova (varijanta A/B)
   i zvona koja same računaju vreme svakog časa.
@@ -42,6 +44,10 @@ Sve na srpskom, sa push podsetnicima i realtime sinhronizacijom među članovima
   Idempotentno preko `notification_log`, mrtve pretplate se same brišu.
 - 📆 **Google kalendar** - jednosmerno preslikavanje (read-only) sa privatnošću po kalendaru:
   ne deli se, deli se samo termin bez detalja, ili se deli ceo događaj.
+- 🧒 **Dečiji režim** - dete dobija svoju, potpuno read-only aplikaciju: šta ima danas, šta
+  dolazi uskoro i školski raspored, u temi koju samo izabere. Telefon se povezuje QR kodom ili
+  osmoznakovnim pozivom pa se prijavljuje PIN-om; nema email-a ni lozinke, a roditelj u svakom
+  trenutku vidi povezane uređaje i može da ih opozove.
 - 🔍 **Globalna pretraga** (⌘K) kroz aktivnosti, događaje, plaćanja, liste i rođendane.
 - 📱 **PWA** - instalira se na telefon, radi u standalone režimu, ima tamnu temu i
   toast kad stigne nova verzija.
