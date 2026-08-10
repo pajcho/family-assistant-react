@@ -71,7 +71,7 @@ export function classesWord(n: number): string {
   return pluralSr(n, "čas", "časa", "časova");
 }
 
-export function attemptsWord(n: number): string {
+function attemptsWord(n: number): string {
   return pluralSr(n, "pokušaj", "pokušaja", "pokušaja");
 }
 
@@ -149,12 +149,6 @@ export function kidDayHeading(dateISO: string, todayISO: string): KidDayHeading 
   if (days === 1) return { title: `Sutra · ${weekday} ${short}`, chip: null };
   const title = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} · ${short}`;
   return { title, chip: days >= 3 ? countdownLabel(days) : null };
-}
-
-/** "8:00 - 12:20", or just the start when there is no end. */
-export function formatTimeRange(start: string | null, end: string | null): string {
-  if (!start) return "";
-  return end ? `${start} - ${end}` : start;
 }
 
 /** Lockout wording: "za 14 minuta", "za 40 sekundi". */

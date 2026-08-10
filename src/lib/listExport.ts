@@ -203,6 +203,3 @@ export function exportListAsCsv(list: ListWithItems): void {
   const filename = `${slugify(list.name)}-${todayForFilename()}.csv`;
   downloadBlob(buildCsv(list), filename, "text/csv");
 }
-
-// Exposed for unit tests - pure transforms with no DOM side effects.
-export const __testables = { buildMarkdown, buildCsv, slugify, csvField };

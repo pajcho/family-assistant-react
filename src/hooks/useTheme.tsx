@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 /**
  * Theme state shared via React Context. Mirrors the original Nuxt composable
@@ -108,9 +108,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setModeState(next);
   }, []);
 
-  return (
-    <ThemeContext.Provider value={{ mode, isDark, setMode }}>{children}</ThemeContext.Provider>
+  const value: ThemeContextValue = useMemo(
+    () => ({ mode, isDark, setMode }),
+    [mode, isDark, setMode],
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {

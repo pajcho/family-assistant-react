@@ -152,6 +152,15 @@ export interface Payment {
    *  RSD. Occurrences and history stay RSD - only the definition carries this. */
   exchange_rate: number | null;
   due_date: string;
+  /**
+   * Day of the month (1-31) the series is anchored to - the day the user
+   * originally picked. Every monthly step re-derives its day from this anchor
+   * (capped to the target month's length) instead of from the previous, already
+   * capped result, so a bill due on the 31st does not permanently become the
+   * 28th after its first February. `null` (or absent) falls back to the day of
+   * `due_date`, which is what pre-anchor rows and hand-built fixtures get.
+   */
+  due_anchor_day?: number | null;
   is_recurring: boolean;
   recurrence_period: RecurrencePeriod | null;
   /**
@@ -351,24 +360,6 @@ export interface Expense {
   receipt_checked_at: string | null;
   created_at: string;
   updated_at: string;
-}
-
-/**
- * LEGACY receipt line (pre-receipts model) - superseded by {@link ReceiptItem}.
- * The table is frozen: kept only so already-deployed PWA clients keep working
- * until their service worker updates; new code never reads or writes it.
- * Dropping it is a later cleanup migration.
- */
-export interface ExpenseItem {
-  id: string;
-  expense_id: string;
-  family_id: string;
-  name: string;
-  quantity: number | null;
-  unit_price: number | null;
-  total: number;
-  sort_order: number;
-  created_at: string;
 }
 
 /**
@@ -799,15 +790,6 @@ export type NotificationKind =
   | "payment_reminder"
   | "activity_reminder"
   | "external_reminder";
-
-export interface NotificationLogRow {
-  id: string;
-  user_id: string;
-  kind: NotificationKind;
-  /** Date (YYYY-MM-DD) for digests, item UUID for reminders */
-  ref_id: string;
-  sent_at: string;
-}
 
 /**
  * Token-free view of a member's Google Calendar connection

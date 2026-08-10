@@ -10,13 +10,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 
-import { Button } from "@/components/ui/button";
-import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import {
   DetailActionList,
   DetailActionRow,
   DetailBadgeRow,
+  DetailDeleteBody,
+  DetailDeleteFooter,
   DetailHero,
   DetailInfoRows,
   DetailInfoText,
@@ -214,10 +215,7 @@ export function BirthdayDetailDialog({
                 ) : null}
 
                 {view === "delete" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Da li ste sigurni da želite da obrišete „{birthday.name}"? Ova radnja se ne može
-                    opozvati.
-                  </p>
+                  <DetailDeleteBody name={birthday.name} />
                 ) : (
                   <>
                     <DetailBadgeRow
@@ -317,20 +315,13 @@ export function BirthdayDetailDialog({
             ) : null}
 
             {view === "delete" ? (
-              <ResponsiveDialogFooter>
-                <Button variant="outline" onClick={pop} disabled={saving}>
-                  Nazad
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    void handleDelete();
-                  }}
-                  disabled={saving}
-                >
-                  Obriši
-                </Button>
-              </ResponsiveDialogFooter>
+              <DetailDeleteFooter
+                deleting={saving}
+                onBack={pop}
+                onConfirm={() => {
+                  void handleDelete();
+                }}
+              />
             ) : null}
           </ResponsiveDialogContent>
         )}

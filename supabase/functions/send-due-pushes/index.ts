@@ -138,8 +138,7 @@ interface DispatchContext {
  * somewhere north of 10.000 users.
  */
 async function loadDispatchContext(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   now: Date,
 ): Promise<DispatchContext> {
   const utcToday = utcDateOf(now);
@@ -273,8 +272,7 @@ function claimKey(userId: string, kind: string, refId: string): string {
 }
 
 async function claimAndSend(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   claims: PlannedClaim[],
 ): Promise<unknown[]> {
   if (claims.length === 0) return [];
@@ -369,8 +367,8 @@ async function claimAndSend(
         );
         sent++;
       } catch (e) {
-        // deno-lint-ignore no-explicit-any
-        const status = (e as any)?.statusCode as number | undefined;
+        // web-push rejects with an error carrying the push service's HTTP status.
+        const status = (e as { statusCode?: number } | null)?.statusCode;
         if (status === 404 || status === 410) {
           deadSubIds.add(sub.id);
           dead++;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
@@ -32,6 +33,9 @@ export function EventQuickAddFlow({ open, onOpenChange }: EventQuickAddFlowProps
     try {
       await createEvent.mutateAsync(payload);
       onOpenChange(false);
+      // The flow never navigates, so without this the sheet just vanishes and
+      // nothing on screen says the event exists (same reason as the trošak).
+      toast.success("Događaj je dodat.");
     } catch (err) {
       setFormError(
         err instanceof Error && err.message ? err.message : "Greška pri kreiranju događaja",

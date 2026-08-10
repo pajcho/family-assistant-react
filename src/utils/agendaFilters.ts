@@ -25,12 +25,6 @@ export interface AgendaFilter {
   personIds: ReadonlySet<string>;
 }
 
-/** The neutral filter - everything passes. */
-export const EMPTY_AGENDA_FILTER: AgendaFilter = {
-  kinds: new Set<AgendaKind>(),
-  personIds: new Set<string>(),
-};
-
 /** People an item is "about", for the person filter. Birthdays have none. */
 export function agendaItemPersonIds(item: AgendaItem): string[] {
   switch (item.kind) {

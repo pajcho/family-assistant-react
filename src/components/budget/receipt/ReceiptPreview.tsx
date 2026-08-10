@@ -15,6 +15,7 @@ import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerS
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { Amount } from "@/components/common/Amount";
+import { formatDate } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
 import {
   ReceiptItemsSelect,
@@ -87,14 +88,6 @@ export type ReceiptPreviewProps = {
   onSave: () => void;
 };
 
-/** "2026-01-13T…" (or a bare date) → "13.01.2026." */
-function formatReceiptDate(issuedAt: string): string {
-  const d = issuedAt.slice(0, 10);
-  const [y, m, day] = d.split("-");
-  if (!y || !m || !day) return d;
-  return `${day}.${m}.${y}.`;
-}
-
 export function ReceiptPreview({
   receipt,
   lines,
@@ -140,7 +133,8 @@ export function ReceiptPreview({
         {receipt.merchant ? (
           <span className="font-semibold text-foreground">{receipt.merchant}</span>
         ) : null}
-        <span>· {formatReceiptDate(receipt.issuedAt)}</span>
+        {/* `formatDate` parses the receipt's full ISO timestamp itself. */}
+        <span>· {formatDate(receipt.issuedAt)}</span>
       </div>
       {showReceiptTotal ? (
         <div className="mt-1 text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { BirthdayFormDialog } from "@/components/birthdays/BirthdayFormDialog";
 import type { BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
@@ -28,6 +29,9 @@ export function BirthdayQuickAddFlow({ open, onOpenChange }: BirthdayQuickAddFlo
     try {
       await createBirthday.mutateAsync(payload);
       onOpenChange(false);
+      // See `EventQuickAddFlow`: the flow stays put, so the toast is the only
+      // confirmation the save happened.
+      toast.success("Rođendan je dodat.");
     } catch (err) {
       setFormError(
         err instanceof Error && err.message ? err.message : "Greška pri kreiranju rođendana",

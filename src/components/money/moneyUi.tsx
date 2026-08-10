@@ -24,40 +24,6 @@ const TONE_TILE: Record<MoneyTone, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-/**
- * The rounded icon square in front of a row ("sq" in the prototype). 42px is
- * the card default; `sm` (34px) is for the denser settings/breakdown rows and
- * `lg` (50px) heads a detail sheet.
- */
-export function IconTile({
-  icon: Icon,
-  tone = "accent",
-  size = "md",
-  className,
-}: {
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  tone?: MoneyTone;
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center",
-        size === "sm"
-          ? "size-[34px] rounded-[11px]"
-          : size === "lg"
-            ? "size-[50px] rounded-[17px]"
-            : "size-[42px] rounded-[14px]",
-        TONE_TILE[tone],
-        className,
-      )}
-    >
-      <Icon className={size === "sm" ? "size-[17px]" : size === "lg" ? "size-6" : "size-5"} />
-    </span>
-  );
-}
-
 /** Status pill ("kasni 3 dana", "deo računa", "Administrator"). */
 export function StatusPill({
   tone = "accent",

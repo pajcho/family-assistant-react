@@ -88,17 +88,10 @@ function shortDayLabel(iso: string): string {
 }
 
 /** "4. avgust 2026." - the field's own value. */
-export function formatDateFieldValue(iso: string | null | undefined): string {
+function formatDateFieldValue(iso: string | null | undefined): string {
   const parts = partsFromIso(iso ?? null);
   if (!parts) return "";
   return `${parts.day}. ${MONTH_NAMES_SR[parts.month]} ${parts.year}.`;
-}
-
-/** "4.8.2026." - the compact form for tight rows (start/end pairs). */
-export function formatDateFieldValueShort(iso: string | null | undefined): string {
-  const parts = partsFromIso(iso ?? null);
-  if (!parts) return "";
-  return `${parts.day}.${parts.month + 1}.${parts.year}.`;
 }
 
 function defaultChips(mode: DateFieldMode, todayIso: string): DateFieldQuickChip[] {

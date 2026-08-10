@@ -26,7 +26,7 @@ import { kidDayHeading } from "@/components/kid/kidCopy";
  * is to be big, legible and obviously tappable.
  */
 
-export function KidAgendaCard({
+function KidAgendaCard({
   item,
   todayISO,
   onOpen,

@@ -47,6 +47,7 @@ import {
 } from "@/hooks/useExpenses";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense, ReceiptItem } from "@/types/database";
+import { formatDate } from "@/utils/date";
 import { serbianPlural, stavkeLabel } from "@/utils/plural";
 import { getDisplayName } from "@/utils/identity";
 import { Amount } from "@/components/common/Amount";
@@ -87,12 +88,6 @@ export type ReceiptExpenseDialogProps = {
 // "link" sits one level under "details" (Detalji → Poveži sa), the same
 // nesting the manual expense form uses.
 type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link";
-
-function formatDate(spentOn: string): string {
-  const [y, m, d] = spentOn.split("-");
-  if (!y || !m || !d) return spentOn;
-  return `${d}.${m}.${y}.`;
-}
 
 /** Read-only "N stavki" list, shared by the inline (desktop) + sub-view (mobile). */
 function ItemsList({

@@ -121,7 +121,7 @@ export function FilterBar({
  * takes the accent while any non-default filter is applied. Shared by every
  * list page so the affordance reads identically everywhere.
  */
-export function FilterTriggerButton({
+function FilterTriggerButton({
   count = 0,
   className,
   ...props

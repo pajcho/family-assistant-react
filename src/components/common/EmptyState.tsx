@@ -24,18 +24,17 @@ import { cn } from "@/lib/cn";
  *     border, solid background (iOS backdrop-filter is a known hazard here).
  *
  * Tones follow the app-wide per-type accent convention (see navSections
- * "Više" tiles): event=blue, payment=amber, birthday=emerald, list=purple,
- * activity=violet, expense=rose.
+ * "Više" tiles): event=blue, payment=amber, birthday=emerald,
+ * list/activity=purple, expense=rose.
  */
 
-export type EmptyStateTone = "blue" | "amber" | "emerald" | "purple" | "violet" | "rose" | "gray";
+export type EmptyStateTone = "blue" | "amber" | "emerald" | "purple" | "rose" | "gray";
 
 const TONE_CLASSES: Record<EmptyStateTone, { tile: string; icon: string }> = {
   blue: { tile: "bg-info-soft", icon: "text-info" },
   amber: { tile: "bg-warn-soft", icon: "text-warn" },
   emerald: { tile: "bg-pos-soft", icon: "text-pos" },
   purple: { tile: "bg-accent-soft", icon: "text-accent-deep" },
-  violet: { tile: "bg-accent-soft", icon: "text-accent-deep" },
   rose: { tile: "bg-neg-soft", icon: "text-neg" },
   gray: { tile: "bg-muted", icon: "text-muted-foreground" },
 };

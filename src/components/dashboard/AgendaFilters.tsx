@@ -1,11 +1,9 @@
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
+import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import { useHasExternalEvents } from "@/hooks/useExternalEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
-import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
-import { fallbackColorForProfile } from "@/utils/activity";
 import { AGENDA_KINDS, type AgendaFilter, type AgendaKind } from "@/utils/agendaFilters";
-import { getDisplayName } from "@/utils/identity";
 
 /**
  * Shared agenda filter row - item type + family member - applied identically to
@@ -45,11 +43,9 @@ export function AgendaFilters({
 }: AgendaFiltersProps) {
   const { members } = useFamilyMembers();
   const hasExternalEvents = useHasExternalEvents();
-  const memberEmoji = useMemberEmoji();
 
   // Only what is actually selected is lit - "Sve" holds the neutral state.
   const kindActive = (kind: AgendaKind) => filter.kinds.has(kind);
-  const personActive = (id: string) => filter.personIds.has(id);
 
   // "Google" is only a real facet once the family actually mirrors a calendar;
   // until then the chip filters on a source that cannot produce items. It stays
@@ -58,8 +54,9 @@ export function AgendaFilters({
     (kind) => kind !== "external" || hasExternalEvents || kindActive(kind),
   );
   // Same reasoning for a one-member (brand-new) family: there is nobody to
-  // narrow to, so the member half of the row says nothing.
-  const memberChips = members.length > 1 ? members : [];
+  // narrow to, so the member half of the row says nothing - `MemberFilterChips`
+  // drops itself, and the divider in front of it has to go with it.
+  const hasMemberChips = members.length > 1;
 
   return (
     <FilterChipRow ariaLabel="Filteri">
@@ -76,24 +73,10 @@ export function AgendaFilters({
           {AGENDA_KIND_META[kind].label}
         </FilterChip>
       ))}
-      {memberChips.length > 0 ? (
+      {hasMemberChips ? (
         <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border" />
       ) : null}
-      {memberChips.map((member) => (
-        <FilterChip
-          key={member.id}
-          active={personActive(member.id)}
-          onToggle={() => togglePerson(member.id)}
-          color={member.color ?? fallbackColorForProfile(member.id)}
-          emoji={memberEmoji(member)}
-        >
-          {getDisplayName({
-            firstName: member.first_name,
-            lastName: member.last_name,
-            email: null,
-          }) || "Bez imena"}
-        </FilterChip>
-      ))}
+      <MemberFilterChips selected={filter.personIds} onToggle={togglePerson} />
     </FilterChipRow>
   );
 }

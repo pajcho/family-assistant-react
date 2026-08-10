@@ -199,11 +199,6 @@ export function parseTypedDate(input: string, pivotYear = new Date().getFullYear
   return isoFromParts(year, month, day);
 }
 
-/** ISO string comparison works lexicographically - spelled out for intent. */
-export function isoBefore(a: string, b: string): boolean {
-  return a < b;
-}
-
 /** Clamp an ISO date into an optional [min, max] window. */
 export function clampIso(iso: string, min?: string | null, max?: string | null): string {
   if (min && iso < min) return min;

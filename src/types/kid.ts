@@ -229,11 +229,6 @@ export interface KidAuthResponse {
   deviceToken?: string;
 }
 
-/** What `check` answers with when the device is still good. */
-export interface KidCheckResponse {
-  ok: true;
-}
-
 /**
  * The two `check` verdicts the kid shell acts on, and the ONLY reasons it ever
  * signs a child out by itself. Anything else (offline, 500, unparsable) is

@@ -157,7 +157,7 @@ export function initialPaymentFormState(
 }
 
 /** "Mesečno · svaka 2 meseca · promenljiv iznos · pauzirano" - the Tip row summary. */
-export function recurrenceSummary(form: PaymentFormState): string {
+function recurrenceSummary(form: PaymentFormState): string {
   const parts: string[] = [
     RECURRENCE_OPTIONS.find((o) => o.value === form.recurrence_period)?.label ?? "",
   ];
