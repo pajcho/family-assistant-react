@@ -33,6 +33,7 @@ anywhere (see AGENTS.md) - ASCII `-` only.
 | 012  | Backend hardening: atomic PIN, missing triggers, personal-list push          | P1       | M      | none (from main)   | DONE (branch `advisor/012-backend-hardening`, 3 commits, reviewed 2026-08-09; race proven fixed with overlapping transactions; NOT merged, NOT deployed)                                      |
 | 013  | Auth lifecycle: email-change reauth + kid gate, disable tears down kid creds | P1       | M      | none (from main)   | DONE (branch `advisor/013-auth-lifecycle-hardening`, 2 commits, reviewed 2026-08-09; reauth reasoned-correct but NEVER executed against a live GoTrue - see caveat; NOT merged, NOT deployed) |
 | 014  | Batch gcal-sync writes (PERF-05)                                             | P2       | M      | none (from main)   | DONE (branch `advisor/014-gcal-sync-batching`, reviewed 2026-08-09; 175 -> 3 statements at N=100, row-set equality vs a legacy reference asserted; NOT merged, NOT deployed)                  |
+| 015  | Tasks and reminders (one `tasks` entity, plus kid chores)                    | P1       | XL     | none (from main)   | IN PROGRESS (branch `feat/tasks-and-reminders`, one PR; feature work, not from the audit)                                                                                                     |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale).
