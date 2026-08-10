@@ -1,6 +1,6 @@
 # 015 - Tasks and reminders (one `tasks` entity, plus kid chores)
 
-**Status:** IN PROGRESS
+**Status:** DONE (all stages landed; PR open, not merged)
 **Priority:** P1 (feature)
 **Effort:** XL
 **Depends on:** nothing (branches from `main`)
