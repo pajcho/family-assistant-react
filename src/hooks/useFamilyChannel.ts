@@ -30,8 +30,13 @@ type QueryKeyFor = (familyId: string) => readonly unknown[];
 const familyKey =
   (root: string): QueryKeyFor =>
   (familyId) => [root, familyId];
+/** For queries keyed by something other than the family - a payment, a receipt,
+ *  an expense - the root alone is the right prefix to invalidate. */
+const rootKey =
+  (root: string): QueryKeyFor =>
+  () => [root];
 /** payment_history is keyed by payment id as well as by family + month. */
-const paymentHistoryKey: QueryKeyFor = () => ["payment_history"];
+const paymentHistoryKey: QueryKeyFor = rootKey("payment_history");
 
 /**
  * Table name (as sent by the trigger) to the query keys it invalidates.
@@ -54,6 +59,9 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   expenses: [familyKey("expenses")],
   external_calendar_events: [familyKey("external_calendar_events")],
   external_event_local: [familyKey("external_event_local")],
+  // The family row is fetched as part of the profile query (useProfile), which
+  // is what `useRenameFamily` and the currency settings invalidate too.
+  families: [rootKey("profile")],
   income_entries: [familyKey("income_entries")],
   incomes: [familyKey("incomes")],
   list_items: [familyKey("lists")],
@@ -62,6 +70,15 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   payment_overrides: [familyKey("payment_overrides")],
   payment_participants: [familyKey("payment_participants")],
   payments: [familyKey("payments"), paymentHistoryKey],
+  // Renaming a member (or changing their emoji / color) redraws every screen
+  // that paints participants, and `useProfile` caches the caller's own row.
+  profiles: [familyKey("family-members"), rootKey("profile")],
+  // Claiming a receipt line writes only here, so without this entry another
+  // member's open receipt keeps stale line ownership until they reload - and
+  // then loses the PT409 race they never saw coming. Keyed by expense id.
+  receipt_items: [rootKey("receipt_items")],
+  // Keyed by receipt id; the split also moves what each expense is worth.
+  receipts: [rootKey("receipt-context"), familyKey("expenses")],
   school_break_members: [familyKey("school_break_members")],
   school_breaks: [familyKey("school_breaks")],
   school_shift_anchors: [familyKey("school_shift_anchors")],

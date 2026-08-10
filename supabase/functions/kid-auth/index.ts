@@ -37,13 +37,10 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-import { normalizeInviteCode, randomToken, sha256Hex, verifyPin } from "../_shared/kidCrypto.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { normalizeInviteCode, randomToken, sha256Hex } from "../_shared/kidCrypto.ts";
+// The PIN gate lives in its own file so it can be unit-tested (gate.test.ts);
+// the response helpers travel with it because it answers in Responses.
+import { type AccessRow, corsHeaders, fail, gateOnPin, json } from "./gate.ts";
 
 /** Mirrors `KidAuthRequest` in src/types/kid.ts - restated because Deno can't
  *  import across the frontend boundary. Keep the two in sync. */
@@ -54,25 +51,9 @@ interface Body {
   pin?: string;
 }
 
-/** Mirrors KID_MAX_PIN_ATTEMPTS in src/types/kid.ts. */
-const MAX_PIN_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
-
 /** The kid_access columns every path below needs. */
 const ACCESS_COLUMNS =
   "profile_id, family_id, auth_user_id, login_email, pin_hash, is_enabled, theme, failed_attempts, locked_until";
-
-interface AccessRow {
-  profile_id: string;
-  family_id: string;
-  auth_user_id: string | null;
-  login_email: string;
-  pin_hash: string;
-  is_enabled: boolean;
-  theme: string;
-  failed_attempts: number;
-  locked_until: string | null;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -327,60 +308,6 @@ async function loadAccess(admin: SupabaseClient, profileId: string): Promise<Acc
 }
 
 /**
- * Lockout + PIN check in one gate. Returns a Response to send back when the
- * caller must be stopped, or null when the PIN was correct (in which case the
- * failure counter and any lockout have already been cleared).
- *
- * Wrong PIN increments `failed_attempts`; the 5th sets `locked_until` and
- * resets the counter, so the next window starts clean rather than locking on
- * every further attempt.
- */
-async function gateOnPin(
-  admin: SupabaseClient,
-  access: AccessRow,
-  pin: string,
-): Promise<Response | null> {
-  const lockedFor = remainingLockSeconds(access.locked_until);
-  if (lockedFor > 0) {
-    return fail(lockedMessage(lockedFor), "locked", 429, { retryAfterSeconds: lockedFor });
-  }
-
-  if (await verifyPin(pin, access.pin_hash)) {
-    // Only write when there is something to clear - the happy path is by far
-    // the most common one and usually has nothing to reset.
-    if (access.failed_attempts !== 0 || access.locked_until) {
-      await admin
-        .from("kid_access")
-        .update({ failed_attempts: 0, locked_until: null })
-        .eq("profile_id", access.profile_id);
-    }
-    return null;
-  }
-
-  const attempts = (access.failed_attempts ?? 0) + 1;
-  if (attempts >= MAX_PIN_ATTEMPTS) {
-    const lockSeconds = LOCKOUT_MINUTES * 60;
-    await admin
-      .from("kid_access")
-      .update({
-        failed_attempts: 0,
-        locked_until: new Date(Date.now() + lockSeconds * 1000).toISOString(),
-      })
-      .eq("profile_id", access.profile_id);
-    return fail(lockedMessage(lockSeconds), "locked", 429, { retryAfterSeconds: lockSeconds });
-  }
-
-  await admin
-    .from("kid_access")
-    .update({ failed_attempts: attempts })
-    .eq("profile_id", access.profile_id);
-  const left = MAX_PIN_ATTEMPTS - attempts;
-  return fail(`Pogrešan PIN. ${attemptsLeftPhrase(left)}`, "invalid_pin", 401, {
-    attemptsLeft: left,
-  });
-}
-
-/**
  * The single-use `hashed_token` the client redeems with
  * `verifyOtp({ token_hash, type: "magiclink" })`, or null if GoTrue would not
  * issue one for the expected user.
@@ -448,23 +375,6 @@ async function sessionResponse(
 // helpers
 // ---------------------------------------------------------------------------
 
-/** Seconds left on a lockout, or 0 when there is none (or it has passed). */
-function remainingLockSeconds(lockedUntil: string | null): number {
-  if (!lockedUntil) return 0;
-  const left = Math.ceil((new Date(lockedUntil).getTime() - Date.now()) / 1000);
-  return left > 0 ? left : 0;
-}
-
-function lockedMessage(seconds: number): string {
-  // Rounded up, so "za 1 minut" never means "actually 50 more seconds".
-  const minutes = Math.max(1, Math.ceil(seconds / 60));
-  return `Previše pokušaja. Probaj ponovo za ${minutes} ${minutes === 1 ? "minut" : "minuta"}.`;
-}
-
-function attemptsLeftPhrase(left: number): string {
-  return left === 1 ? "Imaš još 1 pokušaj." : `Imaš još ${left} pokušaja.`;
-}
-
 /**
  * A hint a child recognises on the parent's device list ("iPhone", "Tablet"),
  * not device fingerprinting - it is never used for any decision. Falls back to
@@ -479,21 +389,4 @@ function labelFromUserAgent(ua: string | null): string {
   if (/Windows/i.test(ua)) return "Windows";
   if (/Linux/i.test(ua)) return "Linux";
   return "Uređaj";
-}
-
-/** Error body shaped like `KidAuthErrorBody` in src/types/kid.ts. */
-function fail(
-  error: string,
-  code: string,
-  status = 404,
-  extra: Record<string, number> = {},
-): Response {
-  return json({ error, code, ...extra }, status);
-}
-
-function json(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }

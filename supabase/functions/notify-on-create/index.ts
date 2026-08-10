@@ -104,6 +104,23 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+  // A personal list is one whose whole point is that the rest of the family
+  // cannot see it (RLS restricts `scope = 'personal'` to its owner), so its
+  // title must not land on everyone's lock screen. The trigger already filters
+  // on `WHEN (NEW.scope = 'family')`; this is the second lock on the same door,
+  // for anything that reaches this endpoint by another route. Fail CLOSED - a
+  // row we cannot read is a row we do not announce.
+  if (body.entityType === "list") {
+    const { data: list, error } = await supabase
+      .from("lists")
+      .select("scope")
+      .eq("id", body.entityId)
+      .maybeSingle();
+    if (error || (list as { scope?: string } | null)?.scope !== "family") {
+      return Response.json({ ok: true, processed: 0, reason: "not a family list" });
+    }
+  }
+
   // Resolve actor name (for the push body). The actor row may not exist
   // if the insert came from a service-role connection - fall back to a
   // neutral phrasing in that case.
