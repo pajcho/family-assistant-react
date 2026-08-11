@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import {
   ArrowUpIcon,
@@ -28,6 +28,7 @@ import {
   type TaskDraft,
 } from "@/components/tasks/taskDraft";
 import { useCreateTask } from "@/hooks/useTasks";
+import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import { srLocale } from "@/utils/date";
@@ -85,6 +86,16 @@ export function TaskComposer({
 
   const [draft, setDraft] = useState<TaskDraft>(() => emptyTaskDraft(initialDraft));
   const [picker, setPicker] = useState<ComposerPicker | null>(null);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Drives one thing only: whether the bar still holds itself at the bottom of
+  // the page. See the class list below.
+  const keyboardOpen = useIsKeyboardOpen();
+
+  // Just the state. Handing the field back is `onCloseAutoFocus`'s job down in
+  // ComposerPickerSheets - doing it here too raced with the dialog's own focus
+  // restore and the field lost either way.
+  const closePicker = () => setPicker(null);
 
   const typed = draft.name.trim().length > 0;
   const assigneeSummary = useTaskAssigneeSummary(draft);
@@ -119,27 +130,34 @@ export function TaskComposer({
             // holds it there on a long one. Opaque (no backdrop-filter): a
             // translucent sticky bar is one of the two things iOS refuses to
             // repaint reliably while scrolling.
-            "sticky bottom-0 mt-auto -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
+            //
+            // While the keyboard is up, `mt-auto` comes OFF: the viewport is a
+            // third shorter, and holding the bar at the bottom of it left a band
+            // of empty page between the last task and the composer. Without it
+            // the composer follows the last row, and sticky still catches it on a
+            // list long enough to scroll.
+            cn(
+              "sticky bottom-0 -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0",
+              !keyboardOpen && "mt-auto",
+            )
           : "mt-3",
       )}
     >
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input
+          ref={inputRef}
           value={draft.name}
           onChange={(e) => setDraft((s) => ({ ...s, name: e.target.value }))}
           placeholder={placeholder}
           aria-label={placeholder}
           className="h-10 flex-1"
-          // On long lists the composer sits at the bottom of a tall scroll area;
-          // iOS Safari does not always lift it above the keyboard on its own.
-          // Wait for the keyboard animation (~300ms) so visualViewport reflects
-          // the new area, then scroll the field into the middle of what is left.
-          onFocus={(e) => {
-            const input = e.currentTarget;
-            setTimeout(() => {
-              input.scrollIntoView({ block: "center", behavior: "smooth" });
-            }, 300);
-          }}
+          // No scrollIntoView here on purpose. It used to drag the whole page up
+          // to rescue a field the keyboard covered; `interactive-widget=
+          // resizes-content` (index.html) now shrinks the layout viewport
+          // instead, so the bar arrives above the keyboard on its own and the
+          // tasks stay where the reader left them.
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
         />
         <button
           type="submit"
@@ -151,7 +169,11 @@ export function TaskComposer({
         </button>
       </form>
 
-      {typed ? (
+      {/* On FOCUS, not on the first keystroke. Waiting for a character meant the
+          row appeared one beat after the keyboard and shoved the field up again -
+          two shifts for one intention. `picker` keeps the row up while a sheet is
+          open, when the field is necessarily blurred. */}
+      {focused || typed || picker !== null ? (
         <div
           role="group"
           aria-label="Detalji zadatka"
@@ -219,7 +241,8 @@ export function TaskComposer({
 
       <ComposerPickerSheets
         picker={picker}
-        onClose={() => setPicker(null)}
+        onClose={closePicker}
+        refocusInput={() => inputRef.current?.focus()}
         draft={draft}
         setDraft={setDraft}
       />
@@ -240,11 +263,14 @@ function ComposerPickerSheets({
   onClose,
   draft,
   setDraft,
+  refocusInput,
 }: {
   picker: ComposerPicker | null;
   onClose: () => void;
   draft: TaskDraft;
   setDraft: Dispatch<SetStateAction<TaskDraft>>;
+  /** Hands the field back when the sheet closes - see `onCloseAutoFocus`. */
+  refocusInput: () => void;
 }) {
   const stack = useSheetStack<ComposerPicker>(picker !== null, onClose, picker ?? "date");
 
@@ -252,7 +278,18 @@ function ComposerPickerSheets({
     <SheetStackViews
       stack={stack}
       render={(view, level) => (
-        <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogContent
+          className="sm:max-w-md"
+          // A dialog restores focus to whatever opened it, which here is a chip -
+          // so the keyboard stayed down and the composer collapsed the moment you
+          // finished picking a date. Take the restore over: focus goes back to
+          // the field, inside the same gesture that dismissed the sheet, which is
+          // the only timing from which iOS will bring the keyboard back up.
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            refocusInput();
+          }}
+        >
           <SheetStackHeader
             title={PICKER_TITLE[view]}
             onBack={() => stack.dismiss(level)}
@@ -288,6 +325,13 @@ function QuickChip({
     <button
       type="button"
       onClick={onClick}
+      // Do NOT take focus off the field. A chip is a modifier on what you are
+      // typing, not a destination: without this, every tap blurred the input,
+      // iOS tore the keyboard down, and the page jumped by a third of the
+      // screen - then jumped back when you carried on typing. preventDefault on
+      // mousedown is what suppresses the focus change (iOS synthesises mousedown
+      // for a tap), and the click still fires, so the chip still toggles.
+      onMouseDown={(event) => event.preventDefault()}
       aria-pressed={active}
       className={cn(
         "relative flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5",
