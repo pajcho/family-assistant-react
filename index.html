@@ -2,7 +2,25 @@
 <html lang="sr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      `interactive-widget=resizes-content` makes the software keyboard shrink the
+      LAYOUT viewport, not just the visual one. Without it the app frame stays a
+      full 100dvh while the keyboard covers the bottom third, so anything pinned
+      to the bottom of a scroll area sits behind the keyboard - and cannot be
+      rescued by scrollIntoView, because a `sticky bottom-0` element is pinned to
+      the scrollport's bottom edge and scrolling the container does not move it.
+      Measured on a 390x844 phone: the task composer's field landed at y=742 and
+      its quick chips at y=796, while an iOS QWERTY with the predictive bar
+      occludes everything below y=508.
+
+      `src/hooks/useIsKeyboardOpen.ts` was already written for this flag being
+      here - it documents that signal 1 (visualViewport vs innerHeight) stops
+      firing with it, which is why it ORs in the focused-field signal.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Porodični kalendar, plaćanja i podsetnici" />
