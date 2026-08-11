@@ -130,6 +130,29 @@ type ContentProps = ComponentProps<typeof DialogContent> &
     stickyFooter?: React.ReactNode;
   };
 
+/**
+ * `useIsKeyboardOpen`, latched ON for as long as this sheet is mounted.
+ *
+ * The raw signal cannot drive the drawer's height. A sheet whose dismissal hands
+ * focus back to a field behind it (the task composer does exactly that, so iOS
+ * reopens the keyboard) flips the signal WHILE the drawer is playing its exit
+ * animation. Vaul sees the height change mid-exit, the animation never finishes,
+ * and the drawer sticks half-open - it looks like the sheet "just shrank" and
+ * takes a second dismissal to go away.
+ *
+ * Latching also removes a jump nobody asked for: a sheet used to resize the
+ * moment its keyboard went down. Once the floor is needed it stays for this
+ * sheet's lifetime, and the next sheet starts from a clean latch.
+ */
+function useKeyboardFloorLatch(): boolean {
+  const keyboardOpen = useIsKeyboardOpen();
+  const [latched, setLatched] = useState(false);
+  useEffect(() => {
+    if (keyboardOpen) setLatched(true);
+  }, [keyboardOpen]);
+  return latched;
+}
+
 function ResponsiveDialogContent({
   className,
   children,
@@ -138,7 +161,7 @@ function ResponsiveDialogContent({
   ...props
 }: ContentProps) {
   const { isDesktop } = useResponsiveDialogContext("ResponsiveDialogContent");
-  const keyboardOpen = useIsKeyboardOpen();
+  const keyboardOpen = useKeyboardFloorLatch();
 
   if (isDesktop) {
     return (

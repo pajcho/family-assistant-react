@@ -28,7 +28,7 @@ import {
   type TaskDraft,
 } from "@/components/tasks/taskDraft";
 import { useCreateTask } from "@/hooks/useTasks";
-import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import { srLocale } from "@/utils/date";
@@ -88,10 +88,7 @@ export function TaskComposer({
   const [picker, setPicker] = useState<ComposerPicker | null>(null);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Drives one thing only: whether the bar still holds itself at the bottom of
-  // the page. See the class list below.
-  const keyboardOpen = useIsKeyboardOpen();
-
+  const keyboardInset = useKeyboardInset();
   // Just the state. Handing the field back is `onCloseAutoFocus`'s job down in
   // ComposerPickerSheets - doing it here too raced with the dialog's own focus
   // restore and the field lost either way.
@@ -131,17 +128,21 @@ export function TaskComposer({
             // translucent sticky bar is one of the two things iOS refuses to
             // repaint reliably while scrolling.
             //
-            // While the keyboard is up, `mt-auto` comes OFF: the viewport is a
-            // third shorter, and holding the bar at the bottom of it left a band
-            // of empty page between the last task and the composer. Without it
-            // the composer follows the last row, and sticky still catches it on a
-            // list long enough to scroll.
+            // `bottom` is driven by the measured keyboard inset, not left at 0.
+            // Safari does not shrink the layout viewport for the keyboard (see
+            // useKeyboardInset), so `bottom: 0` pins this bar to a page edge that
+            // is itself behind the keyboard, and iOS then pans the page to chase
+            // the focused field - which is what left a band of empty page on one
+            // side of the composer or the other. Pinned `inset` px up instead, the
+            // bar sits ON the keyboard, the tasks keep flowing right up to it, and
+            // nothing has to be panned at all.
             cn(
-              "sticky bottom-0 -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0",
-              !keyboardOpen && "mt-auto",
+              "sticky -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0",
+              "mt-auto",
             )
           : "mt-3",
       )}
+      style={variant === "pinned" ? { bottom: keyboardInset } : undefined}
     >
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input

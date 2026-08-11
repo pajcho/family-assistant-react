@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 import { IconButton } from "@/components/common/IconButton";
 import { AppScreen } from "@/components/layout/AppScreen";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 /**
  * The frame a single list (real or smart) renders in, in both of its contexts.
@@ -21,6 +22,8 @@ export function TaskScreenShell({
   header: ReactNode;
   children: ReactNode;
 }) {
+  const keyboardInset = useKeyboardInset();
+
   if (isWide) {
     return (
       <div className="animate-fade-in">
@@ -40,6 +43,12 @@ export function TaskScreenShell({
       // this branch is not taken at all.
       bodyClassName="pb-0"
       contentClassName="mx-auto flex min-h-full w-full max-w-3xl flex-col"
+      // The keyboard covers the bottom of the scrollport on iOS without the
+      // layout viewport ever shrinking (see useKeyboardInset). The composer lifts
+      // itself clear of it with `bottom: inset`; this reserves the same strip at
+      // the end of the scroll area, so the last task can be scrolled out from
+      // under the bar rather than being stuck beneath it for good.
+      bodyStyle={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
     >
       {children}
     </AppScreen>
