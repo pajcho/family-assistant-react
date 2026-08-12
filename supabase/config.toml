@@ -76,3 +76,8 @@ verify_jwt = false
 # upstream fetches.
 [functions.exchange-rate]
 verify_jwt = true
+
+# notify-outbox is fired by pg_cron through pg_net, not by a user session -
+# same X-Cron-Secret pattern as send-due-pushes.
+[functions.notify-outbox]
+verify_jwt = false

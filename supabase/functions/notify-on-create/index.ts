@@ -1,10 +1,15 @@
 // supabase/functions/notify-on-create/index.ts
 //
-// Triggered by AFTER INSERT on lists / events / payments / birthdays / tasks
-// via pg_net (see migrations 20260520250000_notify_on_create.sql and
-// 20260811020000_notify_task_create.sql). Fans out an instant push notification
-// to every family member who has the matching opt-in enabled, except the actor
-// who created the row.
+// Triggered by AFTER INSERT on lists / events / payments / birthdays via pg_net
+// (see migration 20260520250000_notify_on_create.sql). Fans out an instant push
+// notification to every family member who has the matching opt-in enabled,
+// except the actor who created the row.
+//
+// TASKS NO LONGER ARRIVE HERE. They are queued instead and sent in batches by
+// `notify-outbox` (20260812000000_task_notify_outbox.sql), because they are the
+// one kind people create ten of in a row, and because a task's assignees are
+// written after its row - too late for any AFTER INSERT trigger to read. The
+// `task` branches below stay as a closed door for anything that still posts one.
 //
 // Auth: matches the send-due-pushes pattern. `verify_jwt = false` in
 // config.toml (we set that alongside this function) so pg_net can call
