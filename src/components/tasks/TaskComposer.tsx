@@ -3,6 +3,7 @@ import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import {
   ArrowUpIcon,
   ArrowPathIcon,
+  ArrowsPointingOutIcon,
   BellIcon,
   CalendarDaysIcon,
   UserIcon,
@@ -17,31 +18,35 @@ import {
   TaskRecurrenceSheetBody,
   TaskReminderSheetBody,
   TaskWhoSheetBody,
+  useSelfAssignWhenPrivate,
   useTaskAssigneeSummary,
 } from "@/components/tasks/TaskFields";
+import { TaskQuickAddFlow } from "@/components/tasks/TaskQuickAddFlow";
 import {
   emptyTaskDraft,
+  privateDraftDefaults,
   taskDateSummary,
   taskDraftToCreateInput,
   taskRecurrenceSummary,
   taskReminderSummary,
   type TaskDraft,
 } from "@/components/tasks/taskDraft";
+import { useProfile } from "@/hooks/useProfile";
 import { useCreateTask } from "@/hooks/useTasks";
-import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import { srLocale } from "@/utils/date";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
+import type { ListScope } from "@/types/database";
 
 /**
  * The one field a new task starts as, and the row of shortcuts that appears the
- * moment you type into it.
+ * moment you touch it.
  *
- * It replaces the add-input that used to sit ABOVE the rows, at the far end of
- * the screen from the thumb, and it stays a single field until there is
- * something to schedule: below `lg` it is pinned to the bottom of the page, at
- * `lg` and up it follows the last row, which is where the pointer already is.
+ * It sits in the flow, straight after the last row, on every screen size - the
+ * end of the list is where a new item belongs. Nothing pins it, nothing lifts
+ * it, and nothing measures the keyboard: the browser scrolls a focused field
+ * into view by itself, and letting it do that is the whole design.
  *
  * The quick row splits the seven affordances by cost. Danas / Sutra / the next
  * weekday set `due_date` in place - one tap, no overlay, because "tomorrow" is
@@ -54,15 +59,32 @@ import { shiftIsoByDays } from "@/utils/pickerGrid";
 export type TaskComposerProps = {
   /** Where the task lands. Null = a standalone task, which the Inbox catches. */
   listId: string | null;
+  /**
+   * Visibility of that list, so the "Samo ja" switch inside "Za koga" can say
+   * what the list already decided. Irrelevant (and ignored) when `listId` is
+   * null, where the task answers for itself.
+   */
+  listScope?: ListScope | null;
   /** Pre-set fields for a screen that already implies them (a dated smart list). */
   initialDraft?: Partial<TaskDraft>;
   placeholder?: string;
-  /**
-   * Bottom-pinned (phones) or inline after the last row (`lg` and up). One
-   * component, one breakpoint class - see decision 11 of the plan.
-   */
-  variant?: "pinned" | "inline";
 };
+
+/**
+ * The draft this composer rests on. Outside a list that is private-by-default
+ * (see `privateDraftDefaults`); the screen's own pre-sets win over it, since a
+ * screen that says "these are mine" or "this is for today" means it.
+ */
+function composerDraft(
+  listId: string | null,
+  viewerId: string | null,
+  initialDraft?: Partial<TaskDraft>,
+): TaskDraft {
+  return emptyTaskDraft({
+    ...(listId === null ? privateDraftDefaults(viewerId) : undefined),
+    ...initialDraft,
+  });
+}
 
 /** Which picker is open. `null` = just the field and its chips. */
 type ComposerPicker = "date" | "who" | "recurrence" | "reminder";
@@ -76,26 +98,67 @@ const PICKER_TITLE: Record<ComposerPicker, string> = {
 
 export function TaskComposer({
   listId,
+  listScope = null,
   initialDraft,
   placeholder = "Dodaj zadatak…",
-  variant = "pinned",
 }: TaskComposerProps) {
   const today = useToday().str;
   const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const createTask = useCreateTask();
+  const viewerId = useProfile().profile?.id ?? null;
 
-  const [draft, setDraft] = useState<TaskDraft>(() => emptyTaskDraft(initialDraft));
+  const [draft, setDraft] = useState<TaskDraft>(() =>
+    composerDraft(listId, viewerId, initialDraft),
+  );
+  // This mounts with its screen, so on a cold start straight to /tasks/inbox the
+  // profile query is still in flight and the private default has no id to point
+  // at yet. See the hook.
+  useSelfAssignWhenPrivate(setDraft);
   const [picker, setPicker] = useState<ComposerPicker | null>(null);
   const [focused, setFocused] = useState(false);
+  // The full form, opened by the expand button. Mounted on first use only: it
+  // loads the list of lists, and a screen whose composer is never touched has no
+  // business asking for them. `handover` is the draft it was opened with, held
+  // separately because by then this composer has already let go of it.
+  const [fullFormOpen, setFullFormOpen] = useState(false);
+  const [fullFormMounted, setFullFormMounted] = useState(false);
+  const [handover, setHandover] = useState<TaskDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const keyboardInset = useKeyboardInset();
-  // Just the state. Handing the field back is `onCloseAutoFocus`'s job down in
-  // ComposerPickerSheets - doing it here too raced with the dialog's own focus
-  // restore and the field lost either way.
+  // Just the state. Where the focus lands afterwards is `onCloseAutoFocus`'s
+  // call down in ComposerPickerSheets - doing it here too raced with the
+  // dialog's own focus restore and the field lost either way.
   const closePicker = () => setPicker(null);
 
   const typed = draft.name.trim().length > 0;
   const assigneeSummary = useTaskAssigneeSummary(draft);
+
+  // "The chips are out". It outlives the focus on purpose: a draft with
+  // anything in it - a name, or just a date picked from a sheet - keeps its
+  // schedule row, so a task carries its read-backs until it is sent. Reading
+  // the whole draft rather than only the text is what stops a date you just
+  // chose from disappearing along with the chips when its sheet closes.
+  const expanded = focused || typed || draftHasDetail(draft) || picker !== null || fullFormOpen;
+
+  // The four chips that open a sheet LEAVE the field, so they give up its focus
+  // and the keyboard goes down before the sheet arrives. The three day chips
+  // deliberately do not (see QuickChip): they modify what you are typing, and
+  // tearing the keyboard down to set "Sutra" would be absurd.
+  const openPicker = (next: ComposerPicker) => {
+    inputRef.current?.blur();
+    setPicker(next);
+  };
+
+  // A HANDOVER, not a copy: the draft moves into the full form and this line is
+  // cleared on the spot. The task exists in one place at a time, so backing out
+  // of the form leaves an empty composer rather than a stale duplicate of what
+  // you just abandoned - and saving from in there needs no tidying up here.
+  const openFullForm = () => {
+    inputRef.current?.blur();
+    setHandover(draft);
+    setDraft(composerDraft(listId, viewerId, initialDraft));
+    setFullFormMounted(true);
+    setFullFormOpen(true);
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -103,7 +166,7 @@ export function TaskComposer({
     createTask.mutate(taskDraftToCreateInput(draft, listId));
     // Back to the resting state after every add: a composer that silently keeps
     // last time's recurrence is how somebody ends up with a daily "Mleko".
-    setDraft(emptyTaskDraft(initialDraft));
+    setDraft(composerDraft(listId, viewerId, initialDraft));
   };
 
   const nextWeekdayIso = nextWeekdayFrom(today);
@@ -116,33 +179,17 @@ export function TaskComposer({
   const dateIsBeyondChips =
     draft.dueDate !== null && (!quickDates.has(draft.dueDate) || draft.dueTime !== null);
 
-  return (
+  // Input and chips inside ONE frame, so it reads as a single thing being
+  // filled in rather than a field with a toolbar that happens to sit under it.
+  // The frame only exists while it has both halves to hold together: collapsed,
+  // the field's own border is the outline; expanded, the field goes borderless
+  // and the frame takes over.
+  const unit = (
     <div
       className={cn(
-        variant === "pinned"
-          ? // Bleeds to the page edges so the bar reads as chrome rather than a
-            // card, and sits flush with the bottom of the scroll area. `mt-auto`
-            // is what holds it there on a SHORT list (the screen shell makes the
-            // column at least a scrollport tall for exactly this); sticky is what
-            // holds it there on a long one. Opaque (no backdrop-filter): a
-            // translucent sticky bar is one of the two things iOS refuses to
-            // repaint reliably while scrolling.
-            //
-            // `bottom` is driven by the measured keyboard inset, not left at 0.
-            // Safari does not shrink the layout viewport for the keyboard (see
-            // useKeyboardInset), so `bottom: 0` pins this bar to a page edge that
-            // is itself behind the keyboard, and iOS then pans the page to chase
-            // the focused field - which is what left a band of empty page on one
-            // side of the composer or the other. Pinned `inset` px up instead, the
-            // bar sits ON the keyboard, the tasks keep flowing right up to it, and
-            // nothing has to be panned at all.
-            cn(
-              "sticky -mx-4 border-t border-border bg-background px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] lg:static lg:mx-0 lg:mt-3 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0",
-              "mt-auto",
-            )
-          : "mt-3",
+        "rounded-2xl transition-[padding,background-color] duration-150",
+        expanded && "border border-border bg-card p-1.5 shadow-card",
       )}
-      style={variant === "pinned" ? { bottom: keyboardInset } : undefined}
     >
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input
@@ -151,19 +198,45 @@ export function TaskComposer({
           onChange={(e) => setDraft((s) => ({ ...s, name: e.target.value }))}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="h-10 flex-1"
-          // No scrollIntoView here on purpose. It used to drag the whole page up
-          // to rescue a field the keyboard covered; `interactive-widget=
-          // resizes-content` (index.html) now shrinks the layout viewport
-          // instead, so the bar arrives above the keyboard on its own and the
-          // tasks stay where the reader left them.
+          // Enter adds the task and leaves the field focused, so several items
+          // can be typed in one go - that is implicit form submission doing the
+          // work, and it only happens while the submit button is enabled. The
+          // hint is here because without it iOS labels the key with a plain
+          // return arrow, which reads as "new line", not "add".
+          enterKeyHint="send"
+          className={cn(
+            "h-10 flex-1",
+            expanded && "border-transparent bg-transparent shadow-none focus-visible:ring-0",
+          )}
+          // Nothing here asks the page to move. The browser scrolls a focused
+          // field into view on its own, and every attempt to help it along -
+          // scrollIntoView, a measured keyboard inset, a lifted overlay - has
+          // been worse than letting it happen.
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
+        {/* The way out of a one-line composer: everything typed so far moves
+            into the full form, where the fields are laid out instead of hidden
+            behind four sub-views. Only while the composer is in use - at rest it
+            would be a second "add" button next to the "+" in the nav. */}
+        {expanded ? (
+          <button
+            type="button"
+            aria-label="Otvori punu formu"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={openFullForm}
+            className="grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <ArrowsPointingOutIcon className="size-[18px]" strokeWidth={2} />
+          </button>
+        ) : null}
         <button
           type="submit"
           disabled={!typed}
           aria-label="Dodaj zadatak"
+          // Same reason as the chips: adding one task must not tear the keyboard
+          // down, because the next one is usually right behind it.
+          onMouseDown={(event) => event.preventDefault()}
           className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground transition-transform active:scale-[0.94] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:active:scale-100"
         >
           <ArrowUpIcon className="size-[18px]" strokeWidth={2.4} />
@@ -172,13 +245,13 @@ export function TaskComposer({
 
       {/* On FOCUS, not on the first keystroke. Waiting for a character meant the
           row appeared one beat after the keyboard and shoved the field up again -
-          two shifts for one intention. `picker` keeps the row up while a sheet is
-          open, when the field is necessarily blurred. */}
-      {focused || typed || picker !== null ? (
+          two shifts for one intention. `typed` is what keeps it out once the
+          keyboard is gone, and `picker` while a sheet has the focus. */}
+      {expanded ? (
         <div
           role="group"
           aria-label="Detalji zadatka"
-          className="scrollbar-hide fade-scroll-x mt-2 flex min-h-11 items-center gap-1.5 overflow-x-auto"
+          className="scrollbar-hide fade-scroll-x mt-1.5 flex min-h-11 items-center gap-1.5 overflow-x-auto px-0.5"
         >
           <QuickChip
             active={draft.dueDate === today}
@@ -209,15 +282,18 @@ export function TaskComposer({
             icon={<CalendarDaysIcon className="size-3.5" aria-hidden="true" />}
             active={dateIsBeyondChips}
             summary={dateIsBeyondChips ? taskDateSummary(draft, today, tomorrow) : null}
-            onClick={() => setPicker("date")}
+            onClick={() => openPicker("date")}
           >
             Datum
           </QuickChip>
           <QuickChip
             icon={<UserIcon className="size-3.5" aria-hidden="true" />}
-            active={draft.assigneeIds.length > 0}
+            // Private counts as set even before the self-assignment lands - the
+            // chip already reads "Samo ja", and reading it in the resting style
+            // would say the opposite of what it says.
+            active={draft.onlyMe || draft.assigneeIds.length > 0}
             summary={assigneeSummary}
-            onClick={() => setPicker("who")}
+            onClick={() => openPicker("who")}
           >
             Za koga
           </QuickChip>
@@ -225,7 +301,7 @@ export function TaskComposer({
             icon={<ArrowPathIcon className="size-3.5" aria-hidden="true" />}
             active={draft.recurrencePeriod !== "one-time"}
             summary={taskRecurrenceSummary(draft)}
-            onClick={() => setPicker("recurrence")}
+            onClick={() => openPicker("recurrence")}
           >
             Ponavljanje
           </QuickChip>
@@ -233,21 +309,54 @@ export function TaskComposer({
             icon={<BellIcon className="size-3.5" aria-hidden="true" />}
             active={draft.remindDaysBefore !== null || draft.remindMinutesBefore !== null}
             summary={taskReminderSummary(draft)}
-            onClick={() => setPicker("reminder")}
+            onClick={() => openPicker("reminder")}
           >
             Podsetnik
           </QuickChip>
         </div>
       ) : null}
+    </div>
+  );
 
+  return (
+    <div className="mt-3">
+      {unit}
       <ComposerPickerSheets
         picker={picker}
         onClose={closePicker}
         refocusInput={() => inputRef.current?.focus()}
         draft={draft}
         setDraft={setDraft}
+        listScope={listScope}
       />
+      {fullFormMounted ? (
+        <TaskQuickAddFlow
+          open={fullFormOpen}
+          onOpenChange={setFullFormOpen}
+          initialDraft={handover ?? undefined}
+          initialListId={listId}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * Whether anything has been set on the draft besides its name - which is what
+ * keeps the chip row open (and its read-backs visible) after a picker closes on
+ * a task that has not been typed yet.
+ */
+function draftHasDetail(draft: TaskDraft): boolean {
+  return (
+    draft.dueDate !== null ||
+    draft.dueTime !== null ||
+    // While "Samo ja" is on, the self-assignment came WITH it rather than from
+    // a choice, so it is the resting state of a listless composer and must not
+    // hold the chip row open the way a hand-picked assignee does.
+    (!draft.onlyMe && draft.assigneeIds.length > 0) ||
+    draft.recurrencePeriod !== "one-time" ||
+    draft.remindDaysBefore !== null ||
+    draft.remindMinutesBefore !== null
   );
 }
 
@@ -265,6 +374,7 @@ function ComposerPickerSheets({
   draft,
   setDraft,
   refocusInput,
+  listScope,
 }: {
   picker: ComposerPicker | null;
   onClose: () => void;
@@ -272,6 +382,7 @@ function ComposerPickerSheets({
   setDraft: Dispatch<SetStateAction<TaskDraft>>;
   /** Hands the field back when the sheet closes - see `onCloseAutoFocus`. */
   refocusInput: () => void;
+  listScope: ListScope | null;
 }) {
   const stack = useSheetStack<ComposerPicker>(picker !== null, onClose, picker ?? "date");
 
@@ -281,11 +392,9 @@ function ComposerPickerSheets({
       render={(view, level) => (
         <ResponsiveDialogContent
           className="sm:max-w-md"
-          // A dialog restores focus to whatever opened it, which here is a chip -
-          // so the keyboard stayed down and the composer collapsed the moment you
-          // finished picking a date. Take the restore over: focus goes back to
-          // the field, inside the same gesture that dismissed the sheet, which is
-          // the only timing from which iOS will bring the keyboard back up.
+          // A dialog restores focus to whatever opened it, which here is a chip.
+          // Hand it to the field instead: answering "which date" leaves you back
+          // in the composer, on the same line you were writing.
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             refocusInput();
@@ -297,7 +406,9 @@ function ComposerPickerSheets({
             backAriaLabel="Nazad na unos"
           />
           {view === "date" ? <TaskDateSheetBody draft={draft} setDraft={setDraft} /> : null}
-          {view === "who" ? <TaskWhoSheetBody draft={draft} setDraft={setDraft} /> : null}
+          {view === "who" ? (
+            <TaskWhoSheetBody draft={draft} setDraft={setDraft} listScope={listScope} />
+          ) : null}
           {view === "recurrence" ? (
             <TaskRecurrenceSheetBody draft={draft} setDraft={setDraft} />
           ) : null}

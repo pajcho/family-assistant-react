@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  completionSlotFor,
+  assigneeProgress,
+  taskTickSlot,
   matchesPersonFilter,
   nextTaskInstance,
   taskAgendaItem,
@@ -147,24 +148,99 @@ describe("nextTaskInstance", () => {
   });
 });
 
-describe("completionSlotFor", () => {
-  it("is the whole occurrence for a shared task, whoever is looking", () => {
-    expect(completionSlotFor(task(), ["p1", "p2"], "p3")).toBeNull();
+/**
+ * Who may tick a task off. The whole rule is "you cannot finish work that is
+ * not yours", and the interesting arm is the last one: a chore split between
+ * two people, seen by a third, has no single slot their tap could mean.
+ */
+describe("taskTickSlot", () => {
+  it("lets anybody finish a task nobody was given", () => {
+    expect(taskTickSlot(task(), [], "p3")).toEqual({
+      personId: null,
+      canTick: true,
+      aggregate: false,
+    });
+  });
+
+  it("is the whole occurrence for a shared task, and its own people may tick", () => {
+    const shared = task();
+    expect(taskTickSlot(shared, ["p1", "p2"], "p2")).toEqual({
+      personId: null,
+      canTick: true,
+      aggregate: false,
+    });
+  });
+
+  it("lets anybody tick a shared chore that belongs to exactly one person", () => {
+    // A child's chore ticked off by the parent standing next to them. There is
+    // one answer and no ambiguity about whose it is.
+    expect(taskTickSlot(task(), ["kid-1"], "parent-1").canTick).toBe(true);
+  });
+
+  it("keeps a bystander out of a shared chore split between several", () => {
+    const shared = task();
+    expect(taskTickSlot(shared, ["p1", "p2"], "p3").canTick).toBe(false);
+    expect(taskTickSlot(shared, ["p1", "p2"], null).canTick).toBe(false);
   });
 
   it("is the viewer's own copy when the viewer is an assignee", () => {
-    const shared = task({ completion_mode: "per_assignee" });
-    expect(completionSlotFor(shared, ["p1", "p2"], "p2")).toBe("p2");
+    const chore = task({ completion_mode: "per_assignee" });
+    expect(taskTickSlot(chore, ["p1", "p2"], "p2")).toEqual({
+      personId: "p2",
+      canTick: true,
+      aggregate: false,
+    });
   });
 
-  it("is the one assignee's copy when a parent ticks a child's only chore", () => {
+  it("gives a non-assignee no slot at all, however many people are on it", () => {
     const chore = task({ completion_mode: "per_assignee" });
-    expect(completionSlotFor(chore, ["kid-1"], "parent-1")).toBe("kid-1");
+    // Including the one-assignee case: "svako svoje" means the person themselves,
+    // so the on-behalf shortcut that shared tasks get does not apply here.
+    expect(taskTickSlot(chore, ["kid-1"], "parent-1")).toEqual({
+      personId: null,
+      canTick: false,
+      aggregate: true,
+    });
+    expect(taskTickSlot(chore, ["kid-1", "kid-2"], "parent-1")).toEqual({
+      personId: null,
+      canTick: false,
+      aggregate: true,
+    });
+  });
+});
+
+describe("assigneeProgress", () => {
+  const chore = task({
+    due_date: TODAY,
+    recurrence_period: "daily",
+    completion_mode: "per_assignee",
   });
 
-  it("falls back to the viewer, matching useToggleTask's default", () => {
-    const chore = task({ completion_mode: "per_assignee" });
-    expect(completionSlotFor(chore, ["kid-1", "kid-2"], "parent-1")).toBe("parent-1");
+  it("counts how many of them have ticked their own copy", () => {
+    const byKey = new Map([
+      [
+        taskOccurrenceKey(chore.id, TODAY),
+        [occurrence({ occurrence_date: TODAY, person_id: "kid-1", status: "done" })],
+      ],
+    ]);
+    expect(assigneeProgress(chore, ["kid-1", "kid-2"], TODAY, byKey)).toEqual({
+      done: 1,
+      total: 2,
+    });
+  });
+
+  it("is complete only when every one of them is in", () => {
+    const byKey = new Map([
+      [
+        taskOccurrenceKey(chore.id, TODAY),
+        [
+          occurrence({ occurrence_date: TODAY, person_id: "kid-1", status: "done" }),
+          occurrence({ occurrence_date: TODAY, person_id: "kid-2", status: "done" }),
+        ],
+      ],
+    ]);
+    const progress = assigneeProgress(chore, ["kid-1", "kid-2"], TODAY, byKey);
+    expect(progress.done).toBe(progress.total);
   });
 });
 

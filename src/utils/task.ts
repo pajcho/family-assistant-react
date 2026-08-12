@@ -488,6 +488,44 @@ export function isTaskDoneOn(
   return rows.some((row) => row.person_id == null && row.status === "done");
 }
 
+/** Who ticked an instance off, and when. */
+export type TaskCompletionStamp = {
+  /** ISO timestamp of the tick. Null on rows written before it was recorded. */
+  at: string | null;
+  /** `profiles.id`, never an auth uid - a child ticking their chore is a person. */
+  personId: string | null;
+};
+
+/**
+ * The same lookup {@link isTaskDoneOn} does, returning WHO and WHEN instead of a
+ * boolean - null when the instance is not done.
+ *
+ * Anyone in the family can tick anything, so "završeno" on its own says nothing
+ * about who decided that; this is what lets the detail sheet name them. Both
+ * homes stamp it (`useUpdateTask` for the row, the occurrence writers for a
+ * repeat), but rows ticked before the stamp existed carry nulls - hence a stamp
+ * that can be present with nothing in it.
+ */
+export function taskCompletionOn(
+  task: TaskCompletionFields & Pick<Task, "completed_at" | "completed_by_person_id">,
+  date: string,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  personId?: string | null,
+): TaskCompletionStamp | null {
+  if (!isRecurringTask(task)) {
+    if (!task.is_completed) return null;
+    return { at: task.completed_at, personId: task.completed_by_person_id };
+  }
+  const rows = occurrencesByKey.get(taskOccurrenceKey(task.id, date));
+  if (!rows || rows.length === 0) return null;
+  const done =
+    task.completion_mode === "per_assignee" && personId
+      ? rows.find((row) => row.person_id === personId && row.status === "done")
+      : rows.find((row) => row.person_id == null && row.status === "done");
+  if (!done) return null;
+  return { at: done.completed_at, personId: done.completed_by_person_id };
+}
+
 /* ------------------------------------------------------------------------- */
 /* Overdue and missed                                                         */
 /* ------------------------------------------------------------------------- */

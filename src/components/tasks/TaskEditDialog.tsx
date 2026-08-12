@@ -1,11 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MarkdownText } from "@/components/common/MarkdownText";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -13,150 +11,141 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { TaskAllFields } from "@/components/tasks/TaskFields";
+import { taskDraftToUpdateInput, taskToDraft } from "@/components/tasks/taskDraft";
+import { useTaskAssignees } from "@/hooks/useTaskAssignees";
+import type { UpdateTaskInput } from "@/hooks/useTasks";
 import type { Task } from "@/types/database";
 
-export type TaskEditPayload = {
-  name: string;
-  /** null when the textarea is empty after trimming whitespace. */
-  description: string | null;
+export type TaskEditPayload = UpdateTaskInput;
+
+/**
+ * Editing a task, in full: the name and note, plus every dimension the composer
+ * hides behind its chips - rok and time, za koga, ponavljanje, podsetnik.
+ *
+ * It used to be the name/note pair only, on the theory that a shopping list
+ * must not grow six fields to fix a typo in "Mleko". The theory was wrong in
+ * the other direction: a task that HAS a date and a repeat rule had nowhere to
+ * change them, so the only way to fix a wrong weekday was to delete the chore
+ * and type it again.
+ *
+ * There is no Obriši here. Deleting is not a variation of editing - it lives on
+ * the detail sheet's action list (and on a row's swipe), where a recurring task
+ * gets asked the question this form cannot ask: this occurrence, or the series?
+ */
+
+/* ------------------------------------------------------------------------- */
+/* The form                                                                   */
+/* ------------------------------------------------------------------------- */
+
+export type TaskEditFormProps = {
+  task: Task;
+  /**
+   * Id for the `<form>`, so a Sačuvaj button OUTSIDE it (a sheet footer, a
+   * sticky bar) can submit through the `form` attribute.
+   */
+  formId: string;
+  onSubmit: (payload: TaskEditPayload) => void;
 };
+
+/**
+ * The fields alone, without any chrome - one host wraps it in a dialog, another
+ * pushes it onto a sheet stack, and both put their own buttons underneath.
+ */
+export function TaskEditForm({ task, formId, onSubmit }: TaskEditFormProps) {
+  const { byTask } = useTaskAssignees();
+  // Seeded once per mounted task. Every host remounts this on a new subject
+  // (the dialog is unmounted between opens, the sheet re-keys its stack), so no
+  // sync effect has to chase the row.
+  const [draft, setDraft] = useState(() => taskToDraft(task, byTask.get(task.id) ?? []));
+  const [description, setDescription] = useState<string>(task.description ?? "");
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft.name.trim()) return;
+    const note = description.trim();
+    onSubmit(taskDraftToUpdateInput(draft, note === "" ? null : note, task.list_id));
+  };
+
+  return (
+    <form id={formId} className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <Label htmlFor={`${formId}-name`}>Naziv *</Label>
+        {/* No autoFocus - it would pop the iOS keyboard before the sheet has
+            finished sliding in. */}
+        <Input
+          id={`${formId}-name`}
+          value={draft.name}
+          onChange={(e) => setDraft((s) => ({ ...s, name: e.target.value }))}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`${formId}-description`}>Opis (opciono)</Label>
+        <Textarea
+          id={`${formId}-description`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Dodatne informacije, Markdown podržan…"
+          rows={3}
+        />
+      </div>
+
+      {/* A listed task's own `scope` mirrors its list's - the trigger keeps them
+          equal - so it doubles as the list's scope here, no extra query. */}
+      <TaskAllFields
+        draft={draft}
+        setDraft={setDraft}
+        listScope={task.list_id ? task.scope : null}
+      />
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------------- */
+/* The standalone dialog                                                      */
+/* ------------------------------------------------------------------------- */
 
 export type TaskEditDialogProps = {
   /** When non-null, the dialog is open and renders this task's editor. */
   item: Task | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (item: Task, payload: TaskEditPayload) => void;
-  onDelete: (item: Task) => void;
   saving?: boolean;
 };
 
 /**
- * Rename / describe one task from inside its list - the quick editor a row's
- * text opens. It deliberately stays the NAME + NOTE pair it has always been:
- * dates, assignees, recurrence and reminders are the composer's and
- * `TaskDetailSheet`'s business, and a shopping list must not grow six fields to
- * fix a typo in "Mleko".
- *
- * Layout
- *   • Title field (`name`, required)
- *   • Description textarea (`description`, optional Markdown)
- *   • Live preview underneath the textarea when description is non-empty
- *   • Footer: Delete (left, destructive) + Odustani / Sačuvaj (right)
- *
- * Wired with `ResponsiveDialog` so it renders as a centered modal on
- * desktop and as a bottom drawer on phones - same pattern as
- * `ListFormDialog`. The dialog is unmounted between opens so the form
- * state resets cleanly whenever the user picks a different task.
+ * The editor as its own modal - what a row's text opens inside a list, where
+ * there is no detail sheet to stack it onto.
  */
 export function TaskEditDialog({
   item,
   onOpenChange,
   onSubmit,
-  onDelete,
   saving = false,
 }: TaskEditDialogProps) {
   return (
     <ResponsiveDialog open={item !== null} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent
+        stickyFooter={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Odustani
+            </Button>
+            <Button type="submit" form="task-edit" disabled={saving}>
+              Sačuvaj
+            </Button>
+          </div>
+        }
+      >
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Izmeni zadatak</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         {item ? (
-          <TaskEditDialogBody
-            item={item}
-            onSubmit={(payload) => onSubmit(item, payload)}
-            onCancel={() => onOpenChange(false)}
-            onDelete={() => onDelete(item)}
-            saving={saving}
-          />
+          <TaskEditForm task={item} formId="task-edit" onSubmit={(p) => onSubmit(item, p)} />
         ) : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
-  );
-}
-
-type BodyProps = {
-  item: Task;
-  onSubmit: (payload: TaskEditPayload) => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  saving: boolean;
-};
-
-function TaskEditDialogBody({ item, onSubmit, onCancel, onDelete, saving }: BodyProps) {
-  // Local form state initialised from the item. The parent rerenders the
-  // dialog with a fresh `item` between opens, which remounts this body
-  // (the parent's conditional `item ? <TaskEditDialogBody> : null` is the
-  // remount boundary), so we don't need a manual sync effect.
-  const [name, setName] = useState<string>(item.name);
-  const [description, setDescription] = useState<string>(item.description ?? "");
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
-    const trimmedDescription = description.trim();
-    onSubmit({
-      name: trimmedName,
-      description: trimmedDescription === "" ? null : trimmedDescription,
-    });
-  };
-
-  const previewContent = description.trim();
-
-  return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <Label htmlFor="task-name">Naziv *</Label>
-        {/* No autoFocus - same reasoning as the list form: avoids the iOS
-            keyboard popping up before the drawer has finished sliding in. */}
-        <Input id="task-name" value={name} onChange={(e) => setName(e.target.value)} required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="task-description">Opis (opciono)</Label>
-        <Textarea
-          id="task-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Dodatne informacije, Markdown podržan…"
-          rows={4}
-        />
-        {previewContent ? (
-          <div className="rounded-md border border-border bg-muted p-3/40">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Pregled
-            </p>
-            <MarkdownText content={previewContent} />
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Možete koristiti Markdown (npr. <code className="font-mono">**podebljano**</code>,
-            <code className="font-mono"> - tačke</code>, linkovi).
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onDelete}
-          disabled={saving}
-          className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
-        >
-          <TrashIcon className="h-4 w-4" />
-          Obriši
-        </Button>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
-            Odustani
-          </Button>
-          <Button type="submit" disabled={saving || !name.trim()}>
-            Sačuvaj
-          </Button>
-        </div>
-      </div>
-    </form>
   );
 }

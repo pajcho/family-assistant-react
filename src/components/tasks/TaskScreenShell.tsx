@@ -3,7 +3,6 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 import { IconButton } from "@/components/common/IconButton";
 import { AppScreen } from "@/components/layout/AppScreen";
-import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 /**
  * The frame a single list (real or smart) renders in, in both of its contexts.
@@ -12,6 +11,10 @@ import { useKeyboardInset } from "@/hooks/useKeyboardInset";
  * own scrolling body. At `lg` it renders inside the right panel of the
  * master-detail split, which already scrolls, so it stays plain flow and the
  * sidebar is the way back - no back button.
+ *
+ * The composer is an ordinary child at the end of the list on both, and the
+ * shell does nothing special for it: no pinned slot, no overlay layer, no room
+ * reserved for a keyboard. A field in the flow is the browser's job to reveal.
  */
 export function TaskScreenShell({
   isWide,
@@ -22,8 +25,6 @@ export function TaskScreenShell({
   header: ReactNode;
   children: ReactNode;
 }) {
-  const keyboardInset = useKeyboardInset();
-
   if (isWide) {
     return (
       <div className="animate-fade-in">
@@ -32,27 +33,7 @@ export function TaskScreenShell({
       </div>
     );
   }
-  return (
-    <AppScreen
-      header={header}
-      // The composer is the last child and pins itself to the bottom with
-      // `mt-auto`, which needs a column that is at least as tall as the
-      // scrollport - otherwise a short list leaves it floating mid-screen. And
-      // `pb-0` so the pinned bar sits flush against the bottom bar instead of
-      // hovering above a strip of page padding. Both are below-lg only: at lg
-      // this branch is not taken at all.
-      bodyClassName="pb-0"
-      contentClassName="mx-auto flex min-h-full w-full max-w-3xl flex-col"
-      // The keyboard covers the bottom of the scrollport on iOS without the
-      // layout viewport ever shrinking (see useKeyboardInset). The composer lifts
-      // itself clear of it with `bottom: inset`; this reserves the same strip at
-      // the end of the scroll area, so the last task can be scrolled out from
-      // under the bar rather than being stuck beneath it for good.
-      bodyStyle={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
-    >
-      {children}
-    </AppScreen>
-  );
+  return <AppScreen header={header}>{children}</AppScreen>;
 }
 
 /**

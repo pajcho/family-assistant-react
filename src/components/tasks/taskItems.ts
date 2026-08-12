@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 
 import { taskAgendaItem, type TaskAgendaItem } from "@/components/tasks/taskItemModel";
-import type { SmartListKey } from "@/components/tasks/smartLists";
-import { useProfile } from "@/hooks/useProfile";
+import { completedEntries } from "@/components/tasks/completedTasks";
+import { COMPLETED_WINDOW_DAYS, type SmartListKey } from "@/components/tasks/smartLists";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import type { Task } from "@/types/database";
 import { expandTaskOccurrences, isRecurringTask, isTaskOverdue } from "@/utils/task";
+import { shiftIsoByDays } from "@/utils/pickerGrid";
 
 /**
  * The query side of the /tasks row model: the same cached rows the agenda reads
@@ -24,37 +25,45 @@ import { expandTaskOccurrences, isRecurringTask, isTaskOverdue } from "@/utils/t
  */
 
 /**
- * How many TASKS each smart list holds - the sidebar's and the index's counts.
+ * How much each cross-list view holds - the sidebar's rows and the index's tiles.
  *
- * Deliberately tasks and not occurrences: a chore that repeats daily is one thing
- * you own, not ninety, and the list rows beside these count tasks too. Cheap by
- * construction - no recurrence expansion at all, just three predicates over rows
- * already in the cache.
+ * The three forward-looking ones count TASKS, not occurrences: a chore that
+ * repeats daily is one thing you own, not ninety, and the list rows beside these
+ * count tasks too. Cheap by construction - no recurrence expansion at all, just
+ * three predicates over rows already in the cache.
+ *
+ * Završeno is the exception and counts EVENTS, because that is what its screen
+ * shows: five ticks of the same daily chore are five things that happened.
  */
 export function useSmartListCounts(): Record<SmartListKey, number> {
   const tasksQuery = useTasksList();
-  const { byTask } = useTaskAssignees();
-  const { profile } = useProfile();
+  const { occurrences } = useTaskOccurrenceRows();
   const today = useToday().str;
-  const viewerId = profile?.id ?? null;
+  const since = shiftIsoByDays(today, -COMPLETED_WINDOW_DAYS) ?? today;
 
   const tasks = tasksQuery.data;
+
+  // Through the same function the Završeno screen renders, so the tile and the
+  // screen can never disagree. Counting one-offs here and letting the screen add
+  // repeating occurrences is exactly how a badge starts lying.
+  const done = useMemo(
+    () => completedEntries(tasks ?? [], occurrences, since).length,
+    [tasks, occurrences, since],
+  );
 
   return useMemo(() => {
     let late = 0;
     let scheduled = 0;
-    let mine = 0;
     let inbox = 0;
     for (const task of tasks ?? []) {
       const recurring = isRecurringTask(task);
       const open = recurring || !task.is_completed;
       if (isTaskOverdue(task, today)) late += 1;
       if (open && task.due_date) scheduled += 1;
-      if (open && viewerId && (byTask.get(task.id) ?? []).includes(viewerId)) mine += 1;
       if (open && task.list_id === null) inbox += 1;
     }
-    return { late, scheduled, mine, inbox };
-  }, [tasks, byTask, viewerId, today]);
+    return { late, scheduled, inbox, done };
+  }, [tasks, today, done]);
 }
 
 export interface UseTaskAgendaItemsOptions {
@@ -71,6 +80,13 @@ export interface UseTaskAgendaItemsResult {
   items: TaskAgendaItem[];
   /** Unfinished tasks with no `due_date` at all - the someday pile. */
   undated: Task[];
+  /**
+   * The same pile, already ticked. Kept separate rather than dropped: a task
+   * with no list and no date used to leave the screen on a tick and never
+   * appear anywhere again, which is what "Završeno" and the Inbox's own done
+   * section exist to fix.
+   */
+  undatedDone: Task[];
   isLoading: boolean;
 }
 
@@ -98,12 +114,14 @@ export function useTaskAgendaItems({
 
   const tasks = tasksQuery.data;
 
-  const { items, undated } = useMemo(() => {
+  const { items, undated, undatedDone } = useMemo(() => {
     const out: TaskAgendaItem[] = [];
     const someday: Task[] = [];
+    const somedayDone: Task[] = [];
     for (const task of tasks ?? []) {
       if (!task.due_date) {
-        if (!task.is_completed) someday.push(task);
+        if (task.is_completed) somedayDone.push(task);
+        else someday.push(task);
         continue;
       }
       const assigneeIds = byTask.get(task.id) ?? [];
@@ -113,8 +131,10 @@ export function useTaskAgendaItems({
       }
     }
     out.sort((a, b) => a.date.localeCompare(b.date) || a.sortKey - b.sortKey);
-    return { items: out, undated: someday };
+    // Most recently ticked first - the done pile is read newest-down.
+    somedayDone.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
+    return { items: out, undated: someday, undatedDone: somedayDone };
   }, [tasks, byTask, byKey, from, to, today]);
 
-  return { items, undated, isLoading: tasksQuery.isLoading };
+  return { items, undated, undatedDone, isLoading: tasksQuery.isLoading };
 }

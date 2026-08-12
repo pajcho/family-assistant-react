@@ -45,6 +45,18 @@ export type TaskListRowProps = {
   duePill?: { label: string; late: boolean } | null;
   /** Whose chore it is - the member badges after the meta line. */
   assigneeIds?: string[];
+  /**
+   * False when this viewer was not given the task and so may not finish it -
+   * see `taskTickSlot`. The circle stays, greyed, so the row still reads as
+   * a task rather than as a note.
+   */
+  canTick?: boolean;
+  /**
+   * "1/3" for a chore everybody owes their own tick on. The circle can only ever
+   * answer for one person, so the count is what says whether the thing as a
+   * whole is finished.
+   */
+  progress?: { done: number; total: number } | null;
   /** Trailing clock for a timed task ("09:00"). */
   timeLabel?: string | null;
   /**
@@ -90,6 +102,8 @@ export function TaskListRow({
   meta,
   duePill,
   assigneeIds,
+  canTick = true,
+  progress = null,
   timeLabel,
   dragHandle,
 }: TaskListRowProps) {
@@ -97,6 +111,9 @@ export function TaskListRow({
   // single trimmed line for the row preview. Empty after stripping ⇒ no
   // preview row, which keeps the gap between checkbox + label tight.
   const descriptionPreview = previewLine(item.description);
+  // `done` is ONE person's answer (the circle); the strike and the dimming belong
+  // to the whole chore, which for a per-person one is the count.
+  const allDone = progress ? progress.done === progress.total : done;
   const secondLine = [meta, descriptionPreview].filter(Boolean).join(" · ");
   const hasBadges = (assigneeIds?.length ?? 0) > 0;
 
@@ -105,7 +122,13 @@ export function TaskListRow({
       {/* The SAME circle the agenda row and the kid card use. A square checkbox
           here and a circle there would be two controls for one concept, on rows
           that hold the very same task. */}
-      <TaskCheckCircle done={done} name={item.name} onToggle={() => onToggle(item)} dense />
+      <TaskCheckCircle
+        done={done}
+        name={item.name}
+        onToggle={() => onToggle(item)}
+        disabled={!canTick}
+        dense
+      />
       {/* Hit-target scoping: the wrapper owns the flex-1 stretch (with inert
           right padding) while the button shrinks to text width so only the
           visible label area is a tap target. `items-stretch` lets the button
@@ -130,12 +153,12 @@ export function TaskListRow({
           }}
           className={cn(
             "flex max-w-full min-w-0 cursor-pointer flex-col justify-center rounded-sm py-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:py-1.5",
-            done ? "text-muted-foreground" : "text-foreground",
+            allDone ? "text-muted-foreground" : "text-foreground",
           )}
           aria-label={`Otvori detalje za „${item.name}"`}
         >
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className={cn("min-w-0 truncate", done && "line-through")}>
+            <span className={cn("min-w-0 truncate", allDone && "line-through")}>
               <Linkify
                 text={item.name}
                 linkClassName={cn(
@@ -144,6 +167,11 @@ export function TaskListRow({
                 )}
               />
             </span>
+            {progress ? (
+              <Pill tone={progress.done === progress.total ? "pos" : "muted"}>
+                {progress.done}/{progress.total}
+              </Pill>
+            ) : null}
             {duePill ? <Pill tone={duePill.late ? "neg" : "muted"}>{duePill.label}</Pill> : null}
           </span>
           {secondLine || hasBadges ? (

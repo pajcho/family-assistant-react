@@ -19,8 +19,12 @@ vi.mock("@/hooks/useTaskOccurrences", () => ({
   useTaskOccurrences: () => ({ byKey: new Map(), skipOccurrence: {}, moveOccurrence: {} }),
 }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: () => ({ profile: null, familyId: null }) }));
+vi.mock("@/hooks/useFamilyMembers", () => ({ useFamilyMembers: () => ({ byId: new Map() }) }));
 vi.mock("@/components/common/MemberBadges", () => ({ MemberBadges: () => null }));
 vi.mock("@/components/common/DateField", () => ({ DateField: () => null }));
+// The editor the sheet stacks as a sub-view reaches Supabase through the
+// assignee picker; stubbing the module cuts that whole chain in one line.
+vi.mock("@/components/tasks/TaskEditDialog", () => ({ TaskEditForm: () => null }));
 
 import { taskDeleteCopy } from "@/components/tasks/TaskDetailSheet";
 

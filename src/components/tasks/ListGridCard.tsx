@@ -68,15 +68,21 @@ export function ListGridCard({ list, today }: ListGridCardProps) {
   );
 }
 
-/** The dashed "make another one" tile - the last cell of the same grid. */
-export function NewListGridCard({ onClick }: { onClick: () => void }) {
+/**
+ * The dashed "make another one" row, under the whole grid.
+ *
+ * It used to be the grid's last CELL, which stopped working the moment the grid
+ * grew scope groups: sitting inside "Lične" it read as "add a personal list".
+ * One row under everything belongs to no group, and gets a wider target for it.
+ */
+export function NewListRow({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[74px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card text-[12.5px] font-semibold text-accent-deep transition-transform active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:active:scale-100"
+      className="mt-1.5 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card text-[12.5px] font-semibold text-accent-deep transition-transform active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:active:scale-100"
     >
-      <PlusIcon className="size-5" />
+      <PlusIcon className="size-4" />
       Nova lista
     </button>
   );

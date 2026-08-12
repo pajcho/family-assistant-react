@@ -2,7 +2,12 @@ import type { AgendaItem } from "@/hooks/useAgenda";
 import type { Task, TaskOccurrence } from "@/types/database";
 import { normalizeTime } from "@/utils/activity";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
-import { expandTaskOccurrences, isMissedOccurrence, isRecurringTask } from "@/utils/task";
+import {
+  expandTaskOccurrences,
+  isMissedOccurrence,
+  isRecurringTask,
+  isTaskDoneOn,
+} from "@/utils/task";
 import type { TaskOccurrenceInstance } from "@/utils/task";
 
 /**
@@ -75,25 +80,71 @@ export function taskAgendaItem(
 }
 
 /**
- * Which occurrence slot ONE circle owns for a task, mirroring `TaskRow`'s rule
- * so a chore reads the same on Danas and inside its list.
+ * Who may tick a task off, and which occurrence slot that tick reads and writes.
  *
- * `completion_mode: 'shared'` has one answer for the whole occurrence, so the
- * slot is the whole-occurrence row (`null`). `'per_assignee'` has as many answers
- * as the task has assignees, so a single circle picks: the viewer's own copy when
- * the viewer is an assignee, otherwise the ONE assignee's when there is only one
- * (a child's chore ticked off by a parent), otherwise the viewer's - which is
- * also `useToggleTask`'s default, so the read and the write always agree.
+ * One rule, three shapes, and the whole of it is "you cannot finish work that is
+ * not yours":
+ *
+ *   - **Nobody assigned** - a family task belongs to the household, so anybody
+ *     may tick it and there is one answer for everyone.
+ *   - **`shared` with ONE assignee** - one answer, and anybody may write it: this
+ *     is a child's chore ticked off by the parent standing next to them, which is
+ *     the everyday case and the reason the rule is not simply "assignees only".
+ *     `completed_by_person_id` still records who actually tapped.
+ *   - **`shared` with several** - one answer, but only the people it was given to
+ *     may write it: whoever gets there first closes it for the rest, and a
+ *     bystander has no business deciding that for them.
+ *   - **`per_assignee`** - one answer per person. An assignee ticks their own
+ *     copy; anybody else gets no circle at all, whatever the head count, because
+ *     there is no single slot their tap could honestly mean. Those surfaces show
+ *     progress instead.
+ *
+ * The last arm used to fall back to the viewer's own slot, which let a parent's
+ * tap on a chore given to two children write a third, meaningless row - and make
+ * the row read as finished while neither child had done it.
  */
-export function completionSlotFor(
+export interface TaskTickSlot {
+  /** The slot to read and to write. Null = the occurrence as a whole. */
+  personId: string | null;
+  /** Whether this viewer may tick at all. */
+  canTick: boolean;
+  /**
+   * True when one circle cannot stand for the answer - a `per_assignee` chore
+   * seen by somebody who is not on it. Surfaces read `assigneeProgress` instead.
+   */
+  aggregate: boolean;
+}
+
+export function taskTickSlot(
   task: Task,
   assigneeIds: readonly string[],
   viewerId: string | null,
-): string | null {
-  if (task.completion_mode !== "per_assignee") return null;
-  if (viewerId && assigneeIds.includes(viewerId)) return viewerId;
-  if (assigneeIds.length === 1) return assigneeIds[0];
-  return viewerId;
+): TaskTickSlot {
+  if (assigneeIds.length === 0) return { personId: null, canTick: true, aggregate: false };
+
+  const isAssignee = viewerId !== null && assigneeIds.includes(viewerId);
+  if (task.completion_mode !== "per_assignee") {
+    return { personId: null, canTick: isAssignee || assigneeIds.length === 1, aggregate: false };
+  }
+  if (isAssignee) return { personId: viewerId, canTick: true, aggregate: false };
+  return { personId: null, canTick: false, aggregate: true };
+}
+
+/**
+ * How many of a `per_assignee` chore's people have ticked their own copy - the
+ * "1/2" a circle is replaced by for somebody who is not on it.
+ */
+export function assigneeProgress(
+  task: Task,
+  assigneeIds: readonly string[],
+  occurrenceDate: string,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+): { done: number; total: number } {
+  let done = 0;
+  for (const personId of assigneeIds) {
+    if (isTaskDoneOn(task, occurrenceDate, occurrencesByKey, personId)) done += 1;
+  }
+  return { done, total: assigneeIds.length };
 }
 
 /**

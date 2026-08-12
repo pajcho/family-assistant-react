@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { previewLine } from "@/components/common/MarkdownText";
 import { SMART_LISTS } from "@/components/tasks/smartLists";
+import { useStableListOrder } from "@/components/tasks/listOrder";
 import { useSmartListCounts } from "@/components/tasks/taskItems";
 import { useCreateListFlow } from "@/components/tasks/useCreateListFlow";
 import { useListsWithTasks } from "@/hooks/useTasks";
@@ -31,19 +32,20 @@ import type { ListWithTasks } from "@/types/database";
  * on each row, which is all it was ever telling you. Nobody filters lists by who
  * can see them; the row for "Lične obaveze" simply says so.
  */
+/** Stable empty array - keeps the order hook's input identity quiet while loading. */
+const EMPTY_LISTS: ListWithTasks[] = [];
+
 export function TaskSidebar() {
   const listsQuery = useListsWithTasks();
   const counts = useSmartListCounts();
   const { openAdd, dialog } = useCreateListFlow();
   const [search, setSearch] = useState("");
 
-  const lists = useMemo<ListWithTasks[]>(
-    // Newest-first by creation. The shared query is `updated_at` desc (the
-    // dashboard wants recently-used on top); the sidebar keeps creation order so
-    // rows do not reshuffle under the pointer every time a task is ticked.
-    () => [...(listsQuery.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [listsQuery.data],
-  );
+  // Same order as the mobile grid - what this person uses first - but FROZEN
+  // while the sidebar stays mounted. It sits beside the pane you work in, so a
+  // live re-sort would slide the row out from under the pointer the moment you
+  // clicked it or ticked something inside it. See `listOrder`.
+  const lists = useStableListOrder<ListWithTasks>(listsQuery.data ?? EMPTY_LISTS);
 
   // Searches the tasks too, not only the list names - that is what the field
   // promises, and "where did I put that" is the question it exists for. Lists are
@@ -58,6 +60,23 @@ export function TaskSidebar() {
       return haystack.includes(query);
     });
   }, [lists, search]);
+
+  // Two drawers, not one pile. The sidebar has no room for a scope chip row and
+  // does not need one - it shows everything at once, so grouping alone gives
+  // "mine" and "ours" their own places without asking for a tap. An empty group
+  // renders nothing at all, heading included.
+  const groups = useMemo(
+    () =>
+      [
+        { key: "family", label: "Porodične", items: filtered.filter((l) => l.scope === "family") },
+        {
+          key: "personal",
+          label: "Lične",
+          items: filtered.filter((l) => l.scope === "personal"),
+        },
+      ].filter((group) => group.items.length > 0),
+    [filtered],
+  );
 
   const isLoading = listsQuery.isLoading;
 
@@ -127,18 +146,28 @@ export function TaskSidebar() {
           )}
         </div>
 
-        <SidebarGroupLabel>Liste</SidebarGroupLabel>
         {isLoading ? (
-          <SidebarSkeleton />
+          <>
+            <SidebarGroupLabel>Liste</SidebarGroupLabel>
+            <SidebarSkeleton />
+          </>
         ) : (
           <div className="space-y-0.5">
-            {filtered.map((list) => (
-              <SidebarListRow key={list.id} list={list} />
+            {groups.map((group) => (
+              <div key={group.key} className="space-y-0.5">
+                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                {group.items.map((list) => (
+                  <SidebarListRow key={list.id} list={list} />
+                ))}
+              </div>
             ))}
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-muted-foreground">
-                {lists.length === 0 ? "Još nemaš nijednu listu." : "Nema rezultata."}
-              </p>
+              <>
+                <SidebarGroupLabel>Liste</SidebarGroupLabel>
+                <p className="px-3 py-4 text-sm text-muted-foreground">
+                  {lists.length === 0 ? "Još nemaš nijednu listu." : "Nema rezultata."}
+                </p>
+              </>
             ) : null}
             <button
               type="button"

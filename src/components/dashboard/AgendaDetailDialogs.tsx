@@ -50,16 +50,12 @@ export function useAgendaDetails({
   onEditEvent,
   onEditPayment,
   onEditBirthday,
-  onEditTask,
 }: {
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
-  /**
-   * Optional: the task form lives on the /tasks screens, so a host that has no
-   * form to open simply leaves the sheet's "Izmeni" row out.
-   */
-  onEditTask?: (task: Task) => void;
+  // No task equivalent: `TaskDetailSheet` carries its own editor as a sub-view,
+  // so every host gets "Izmeni zadatak" without having a form of its own.
 }): { onSelect: (item: AgendaItem) => void; dialogs: ReactNode } {
   const { byId: peopleById } = useFamilyMembers();
   const { byEvent } = useEventParticipants();
@@ -180,7 +176,6 @@ export function useAgendaDetails({
         effectiveDate={selectedTask?.effectiveDate ?? null}
         assigneeIds={selectedTask?.assigneeIds ?? []}
         missed={selectedTask?.missed ?? false}
-        onEdit={onEditTask}
       />
     </>
   );

@@ -120,6 +120,19 @@ describe("TaskRow markup", () => {
     expect(rowButton()).not.toContainElement(circle);
   });
 
+  it("positions the circle, which is what keeps the app frame from scrolling", () => {
+    // The checkbox is `sr-only`, i.e. `position: absolute`. Without a positioned
+    // ancestor its containing block became the app's screen area, ABOVE the
+    // scroll container - so the input escaped that container's clipping, sat
+    // hundreds of pixels below the fold in the FRAME's coordinate space, made
+    // the frame scrollable, and focusing one on a tap scrolled the whole app up
+    // (measured: 280px, bottom bar stranded mid-screen). jsdom has no Tailwind
+    // stylesheet to compute from, so the class itself is what gets pinned.
+    renderRow(taskItem());
+    const label = screen.getByLabelText('Označi „Izbaci smeće" kao završeno').closest("label");
+    expect(label?.className).toContain("relative");
+  });
+
   it("names both targets separately - what the tap does, and what it opens", () => {
     renderRow(taskItem());
     expect(screen.getByLabelText('Označi „Izbaci smeće" kao završeno')).toBeInTheDocument();
@@ -176,12 +189,42 @@ describe("TaskRow per-assignee completion", () => {
     completion_mode: "per_assignee",
   };
 
-  it("acts on the single assignee's slot when the viewer is not one of them", () => {
-    // A child's chore ticked off by the parent looking at Danas - the everyday
-    // case, and the reason the row does not just use the viewer's own slot.
-    renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1"] }));
-    screen.getByRole("checkbox").click();
-    expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ personId: "kid-1" }));
+  it("gives somebody the chore was not given to a dead circle and the count", () => {
+    // Each assignee owes their own tick, so a third person's tap has no honest
+    // meaning - the row counts the answers instead of pretending to be one.
+    renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1", "kid-2"] }));
+    const box = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(box.disabled).toBe(true);
+    expect(screen.getByText("0/2")).toBeVisible();
+    box.click();
+    expect(toggleMutate).not.toHaveBeenCalled();
+  });
+
+  it("counts the whole chore while an assignee ticks only their own part", () => {
+    // The reported bug: Milan is one of three, ticks his part, and the row read
+    // as finished for everybody with nothing saying otherwise.
+    occurrences = [
+      {
+        id: "o1",
+        task_id: perAssignee.id,
+        family_id: "f1",
+        occurrence_date: "2026-08-10",
+        person_id: "parent-1",
+        status: "done",
+        moved_to_date: null,
+        completed_at: "2026-08-10T09:00:00Z",
+        completed_by_person_id: "parent-1",
+        note: null,
+        created_at: "2026-08-10T09:00:00Z",
+        updated_at: "2026-08-10T09:00:00Z",
+      },
+    ];
+    renderRow(taskItem({ task: perAssignee, assigneeIds: ["parent-1", "kid-1", "kid-2"] }));
+    // His own circle is filled, so he can take it back...
+    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+    // ...but the chore is not finished, and neither the title nor the count says it is.
+    expect(screen.getByText("1/3")).toBeVisible();
+    expect(screen.getByText("Izbaci smeće")).not.toHaveClass("line-through");
   });
 
   it("acts on the viewer's own slot when the viewer is an assignee", () => {
@@ -190,9 +233,30 @@ describe("TaskRow per-assignee completion", () => {
     expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ personId: "parent-1" }));
   });
 
-  it("reads that slot's own row rather than the whole-occurrence flag", () => {
-    // `item.isDone` is false (there is no whole-occurrence row at all) but the
-    // child's copy exists, so the circle must read as done.
+  it("reads the viewer's own row rather than the whole-occurrence flag", () => {
+    // `item.isDone` is false (there is no whole-occurrence row at all) but this
+    // viewer's copy exists, so the circle must read as done.
+    occurrences = [
+      {
+        id: "o1",
+        task_id: perAssignee.id,
+        family_id: "f1",
+        occurrence_date: "2026-08-10",
+        person_id: "parent-1",
+        status: "done",
+        moved_to_date: null,
+        completed_at: "2026-08-10T09:00:00Z",
+        completed_by_person_id: "parent-1",
+        note: null,
+        created_at: "2026-08-10T09:00:00Z",
+        updated_at: "2026-08-10T09:00:00Z",
+      },
+    ];
+    renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1", "parent-1"], isDone: false }));
+    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("counts the answers for a bystander, done only when everybody is in", () => {
     occurrences = [
       {
         id: "o1",
@@ -203,14 +267,33 @@ describe("TaskRow per-assignee completion", () => {
         status: "done",
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
-        completed_by_person_id: "parent-1",
+        completed_by_person_id: "kid-1",
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
       },
     ];
-    renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1"], isDone: false }));
-    expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+    renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1", "kid-2"] }));
+    expect(screen.getByText("1/2")).toBeVisible();
+    expect(screen.getByText("Izbaci smeće")).not.toHaveClass("line-through");
+  });
+
+  it("still lets a parent tick a child's own shared chore", () => {
+    const shared: Task = { ...baseTask, completion_mode: "shared" };
+    renderRow(taskItem({ task: shared, assigneeIds: ["kid-1"] }));
+    const box = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(box.disabled).toBe(false);
+    box.click();
+    expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ personId: null }));
+  });
+
+  it("will not let a bystander finish a shared chore split between several", () => {
+    const shared: Task = { ...baseTask, completion_mode: "shared" };
+    renderRow(taskItem({ task: shared, assigneeIds: ["kid-1", "kid-2"] }));
+    const box = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(box.disabled).toBe(true);
+    box.click();
+    expect(toggleMutate).not.toHaveBeenCalled();
   });
 });
 

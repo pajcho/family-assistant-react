@@ -26,7 +26,7 @@ import {
   type TaskListRowProps,
 } from "@/components/tasks/TaskListRow";
 import { SwipeableTaskRow } from "@/components/tasks/SwipeableTaskRow";
-import { completionSlotFor, nextTaskInstance } from "@/components/tasks/taskItemModel";
+import { assigneeProgress, nextTaskInstance, taskTickSlot } from "@/components/tasks/taskItemModel";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
 import { useDeleteTask, useReorderTasks, useToggleTask, useUpdateTask } from "@/hooks/useTasks";
@@ -56,9 +56,15 @@ type ResolvedTask = {
   /** Where that instance sits - a moved occurrence differs from its series date. */
   effectiveDate: string | null;
   done: boolean;
+  /** Whether the TASK is finished - everybody's answer, for strike and grouping. */
+  rowDone: boolean;
   assigneeIds: string[];
   /** Whose copy of the occurrence this row's checkbox owns. */
   personId: string | null;
+  /** False for somebody the task was not given to - see `taskTickSlot`. */
+  canTick: boolean;
+  /** "1/2" for a `per_assignee` chore this viewer is not on; null otherwise. */
+  progress: { done: number; total: number } | null;
 };
 
 export type TaskListBodyProps = {
@@ -138,7 +144,18 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
         const instance = nextTaskInstance(task, today, byKey);
         const occurrenceDate = instance?.occurrenceDate ?? null;
         const assigneeIds = byTask.get(task.id) ?? [];
-        const personId = completionSlotFor(task, assigneeIds, viewerId);
+        const slot = taskTickSlot(task, assigneeIds, viewerId);
+        const seriesDate = occurrenceDate ?? today;
+        // A chore everybody owes their own tick on has two answers: the circle
+        // carries one person's, the "1/3" pill carries the whole thing's. Without
+        // the second one, finishing your own part strikes the row for everybody.
+        const progress =
+          task.completion_mode === "per_assignee" && assigneeIds.length > 1
+            ? assigneeProgress(task, assigneeIds, seriesDate, byKey)
+            : null;
+        const own = slot.aggregate
+          ? progress !== null && progress.done === progress.total
+          : isTaskDoneOn(task, seriesDate, byKey, slot.personId);
         return {
           task,
           occurrenceDate,
@@ -146,15 +163,23 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
           // The SERIES date, and the same person slot the tick will write to -
           // reading the shared row while writing the viewer's is how a checkbox
           // stops sticking for a `per_assignee` chore.
-          done: isTaskDoneOn(task, occurrenceDate ?? today, byKey, personId),
+          done: own,
+          // Strike + the completed section follow the WHOLE chore, never one
+          // person's part of it.
+          rowDone: progress ? progress.done === progress.total : own,
           assigneeIds,
-          personId,
+          personId: slot.personId,
+          canTick: slot.canTick,
+          progress,
         };
       }),
     [list.tasks, today, byKey, byTask, viewerId],
   );
 
   const handleToggle = (row: ResolvedTask) => {
+    // Belt and braces: the circle is already disabled for somebody the task was
+    // not given to, and the swipe gesture routes here too.
+    if (!row.canTick) return;
     const nextDone = !row.done;
     const existing = hideTimersRef.current.get(row.task.id);
     if (existing !== undefined) {
@@ -198,8 +223,10 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
     });
   };
 
-  const active = resolved.filter((row) => !row.done || pendingHideIds.has(row.task.id));
-  const completed = resolved.filter((row) => row.done && !pendingHideIds.has(row.task.id));
+  // Grouped on the WHOLE chore: a task three people owe stays in the active half
+  // until the last of them is in, however many parts are already ticked.
+  const active = resolved.filter((row) => !row.rowDone || pendingHideIds.has(row.task.id));
+  const completed = resolved.filter((row) => row.rowDone && !pendingHideIds.has(row.task.id));
 
   // Feedback vs history: what you ticked today is worth seeing, what you ticked
   // last month is an archive. One disclosure, two counts.
@@ -218,6 +245,8 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
   // grouping the rows stay bare - except the late ones, where "Kasni" names no
   // day and how late it is IS the point.
   const rowProps = (row: ResolvedTask): TaskListRowProps => ({
+    canTick: row.canTick,
+    progress: row.progress,
     item: row.task,
     done: row.done,
     onToggle: () => handleToggle(row),
@@ -270,14 +299,6 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
   const handleDialogSubmit = (task: Task, payload: TaskEditPayload) => {
     updateTask.mutate({ id: task.id, payload });
     setEditingTask(null);
-  };
-
-  // From within the dialog: route through the same confirm flow swipe-left and
-  // the desktop trash button use. The popup closes first so the confirm can take
-  // focus over the same spot.
-  const handleDialogDelete = (task: Task) => {
-    setEditingTask(null);
-    setPendingDelete(task);
   };
 
   return (
@@ -374,7 +395,6 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
           if (!open) setEditingTask(null);
         }}
         onSubmit={handleDialogSubmit}
-        onDelete={handleDialogDelete}
       />
     </>
   );

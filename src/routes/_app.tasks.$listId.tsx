@@ -38,7 +38,7 @@ import { TaskScreenHeader, TaskScreenShell } from "@/components/tasks/TaskScreen
 import { useIsWide } from "@/hooks/useIsWide";
 import { useSmartSort } from "@/hooks/useSmartSort";
 import { useToday } from "@/hooks/useToday";
-import { writeLastOpenedListId } from "@/lib/lastOpenedList";
+import { pushRecentListId } from "@/lib/recentLists";
 import type { ListFormMode, ListFormPayload } from "@/components/tasks/ListForm";
 import {
   useClearCompletedTasks,
@@ -77,16 +77,21 @@ function ListDetailPage() {
   const listsQuery = useListsWithTasks();
   const list = (listsQuery.data ?? []).find((l) => l.id === listId) ?? null;
 
-  // Remember the open list so a later bare `/tasks` visit (on desktop) re-opens
-  // it instead of always falling back to the first. Writing on mobile too is
-  // harmless - only the desktop index resolver reads it back.
+  // "I used this list" - one of exactly two places that record it. It puts the
+  // list on top of the mobile grid next visit, and re-opens it on a later bare
+  // `/tasks` on desktop instead of falling back to the first.
   const foundId = list?.id;
   useEffect(() => {
-    if (foundId) writeLastOpenedListId(foundId);
+    if (foundId) pushRecentListId(foundId);
   }, [foundId]);
 
+  // Back to the LISTS half of the overview, not its default Zadaci half: a list
+  // is where you came from, whichever way you got in, and landing on the dated
+  // tab means finding the segment and tapping it before you can open the next
+  // list. Below `lg` only - the segment does not exist on desktop, where the
+  // sidebar is the way back and this button is not rendered at all.
   const goBack = () => {
-    void navigate({ to: "/tasks" });
+    void navigate({ to: "/tasks", search: { tab: "lists" } });
   };
 
   // Loading / not-found render minimal chrome. The back button only exists on
@@ -220,8 +225,9 @@ function ListDetailLoaded({
       await deleteList.mutateAsync(list.id);
       setDeleteOpen(false);
       // Leave the now-broken URL. On desktop /tasks re-resolves to the next
-      // available list; on mobile it returns to the overview.
-      void navigate({ to: "/tasks" });
+      // available list; on mobile it returns to the overview, on the lists half
+      // - deleting a list is list management, so that is where you were.
+      void navigate({ to: "/tasks", search: { tab: "lists" } });
     } catch {
       // Toast surfaced by the hook's onError; stay on page so the user can retry.
     }
@@ -274,7 +280,7 @@ function ListDetailLoaded({
           learned in week one. */}
       <TaskComposer
         listId={list.id}
-        variant={showBack ? "pinned" : "inline"}
+        listScope={list.scope}
         placeholder={`Dodaj u „${list.name}"…`}
       />
 

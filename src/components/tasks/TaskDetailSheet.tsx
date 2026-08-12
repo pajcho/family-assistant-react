@@ -31,7 +31,10 @@ import {
 } from "@/components/common/DetailSheet";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { TaskEditForm, type TaskEditPayload } from "@/components/tasks/TaskEditDialog";
+import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
+import { assigneeProgress, taskTickSlot } from "@/components/tasks/taskItemModel";
 import { useTaskOccurrences } from "@/hooks/useTaskOccurrences";
 import {
   useDeleteTask,
@@ -42,13 +45,16 @@ import {
 } from "@/hooks/useTasks";
 import type { Task } from "@/types/database";
 import { normalizeTime } from "@/utils/activity";
-import { formatDate } from "@/utils/date";
+import { formatDate, formatDateTime } from "@/utils/date";
+import { getDisplayName } from "@/utils/identity";
 import {
   isRecurringTask,
   isTaskDoneOn,
   isTaskOverdue,
+  taskCompletionOn,
   taskOccurrenceKey,
   taskRecurrenceLabel,
+  type TaskCompletionStamp,
 } from "@/utils/task";
 import { useToday } from "@/hooks/useToday";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
@@ -89,14 +95,9 @@ export type TaskDetailSheetProps = {
   assigneeIds?: string[];
   /** A past recurring instance nobody resolved, straight off the agenda item. */
   missed?: boolean;
-  /**
-   * Hands the full form back to the host. Omitted → the sheet leaves "Izmeni"
-   * out rather than opening a form it cannot own.
-   */
-  onEdit?: (task: Task) => void;
 };
 
-type View = "detail" | "date" | "delete";
+type View = "detail" | "date" | "edit" | "delete";
 
 /**
  * The delete question, in the shape `paymentCancelCopy` established: a pure
@@ -143,6 +144,26 @@ export function taskDeleteCopy(
   };
 }
 
+/**
+ * "Ana · 11.08.2026 18:42" - who ticked it off and when, dropping whichever half
+ * the row does not carry (a task ticked before the stamp existed has neither).
+ */
+function completionLabel(
+  stamp: TaskCompletionStamp,
+  peopleById: Map<string, { first_name: string | null; last_name: string | null }>,
+): string {
+  const person = stamp.personId ? peopleById.get(stamp.personId) : undefined;
+  const name = person
+    ? getDisplayName({
+        firstName: person.first_name,
+        lastName: person.last_name,
+        email: null,
+      })
+    : "";
+  const when = stamp.at ? formatDateTime(stamp.at) : "";
+  return [name, when].filter(Boolean).join(" · ") || "-";
+}
+
 /** The reminder offset in words - the labels the task form's presets carry. */
 function reminderLabel(task: Task): string | null {
   if (task.remind_minutes_before != null) {
@@ -168,7 +189,6 @@ export function TaskDetailSheet({
   effectiveDate,
   assigneeIds = [],
   missed = false,
-  onEdit,
 }: TaskDetailSheetProps) {
   const stack = useSheetStack<View>(open, onOpenChange, "detail");
   const { push, pop, reset } = stack;
@@ -176,6 +196,7 @@ export function TaskDetailSheet({
 
   const today = useToday().str;
   const { profile } = useProfile();
+  const { byId: peopleById } = useFamilyMembers();
   const tasksQuery = useTasksList();
   const { data: lists } = useListsWithTasks();
   const { byKey, skipOccurrence, moveOccurrence } = useTaskOccurrences();
@@ -199,23 +220,28 @@ export function TaskDetailSheet({
   const seriesDate = occurrenceDate ?? task?.due_date ?? null;
   const shownDate = effectiveDate ?? seriesDate;
   const recurring = !!task && isRecurringTask(task);
-  const perAssignee = task?.completion_mode === "per_assignee";
-  // Whose copy this sheet acts on. Same rule as the row's circle: the viewer's
-  // own, unless the chore has exactly one assignee and the viewer is not it.
-  const slotPersonId = !perAssignee
-    ? null
-    : profile?.id && assigneeIds.includes(profile.id)
-      ? profile.id
-      : assigneeIds.length === 1
-        ? assigneeIds[0]
-        : (profile?.id ?? null);
+  // Whose copy this sheet acts on, and whether this viewer may act at all -
+  // the same rule as every row's circle, from `taskTickSlot`.
+  const slot = task
+    ? taskTickSlot(task, assigneeIds, profile?.id ?? null)
+    : { personId: null, canTick: false, aggregate: false };
+  const slotPersonId = slot.personId;
   // A dateless task (a plain list item opened from /tasks) still has exactly one
   // completion, and `isTaskDoneOn` / `useToggleTask` both ignore the date for a
   // non-recurring row - so today stands in and the tick keeps working. A
   // recurring task always has a `due_date`, its series anchor, so this only ever
   // falls back for the shape that does not read it.
   const toggleDate = seriesDate ?? today;
-  const done = !!task && isTaskDoneOn(task, toggleDate, byKey, slotPersonId);
+  // For a chore split between people this viewer is not one of, the sheet reads
+  // the whole thing: finished only when every one of them has finished.
+  const progress =
+    task && slot.aggregate ? assigneeProgress(task, assigneeIds, toggleDate, byKey) : null;
+  const done = progress
+    ? progress.done === progress.total
+    : !!task && isTaskDoneOn(task, toggleDate, byKey, slotPersonId);
+  // Anyone in the family can tick anything off, so a done task owes the others
+  // an answer to "by whom, and when".
+  const completion = task ? taskCompletionOn(task, toggleDate, byKey, slotPersonId) : null;
   const override =
     task && seriesDate
       ? byKey.get(taskOccurrenceKey(task.id, seriesDate))?.find((row) => row.person_id == null)
@@ -239,7 +265,7 @@ export function TaskDetailSheet({
   const deleteCopy = task ? taskDeleteCopy(task, seriesDate) : null;
 
   const handleToggle = () => {
-    if (!task) return;
+    if (!task || !slot.canTick) return;
     // Deliberately does NOT close: the tick is optimistic, the primary row's
     // label flips to "Vrati u aktivne" under the thumb, and an accidental tap is
     // undone with a second one instead of by re-opening the sheet.
@@ -285,10 +311,17 @@ export function TaskDetailSheet({
     }
   };
 
-  const handleEdit = () => {
-    if (!task || !onEdit) return;
-    onOpenChange(false);
-    onEdit(task);
+  const handleEditSubmit = async (payload: TaskEditPayload) => {
+    if (!task) return;
+    try {
+      await updateTask.mutateAsync({ id: task.id, payload });
+      // Back to the detail, not out of the flow: the sheet re-reads the row from
+      // the cache, so the change is right there under the title you edited it
+      // from.
+      pop();
+    } catch {
+      // Error toast surfaced by the hook; the form stays open with the input.
+    }
   };
 
   const listName = task?.list_id
@@ -312,17 +345,22 @@ export function TaskDetailSheet({
     if (movedFrom) {
       statusBadges.push({ label: `Pomereno sa ${formatDate(movedFrom)}`, tone: "accent" });
     }
-    if (perAssignee) {
-      statusBadges.push({ label: "Svako svoje", tone: "info" });
+    if (task.completion_mode === "per_assignee") {
+      statusBadges.push({
+        label: progress ? `Svako svoje · ${progress.done}/${progress.total}` : "Svako svoje",
+        tone: "info",
+      });
     }
   }
 
   const titleFor = (view: View) =>
     view === "date"
       ? "Izaberi datum"
-      : view === "delete"
-        ? (deleteCopy?.title ?? "Obriši zadatak")
-        : "Detalji zadatka";
+      : view === "edit"
+        ? "Izmeni zadatak"
+        : view === "delete"
+          ? (deleteCopy?.title ?? "Obriši zadatak")
+          : "Detalji zadatka";
 
   return (
     <SheetStackViews
@@ -357,6 +395,14 @@ export function TaskDetailSheet({
                   value={newDate}
                   onChange={setNewDate}
                   placeholder="Izaberi datum"
+                />
+              ) : view === "edit" ? (
+                <TaskEditForm
+                  task={task}
+                  formId="task-detail-edit"
+                  onSubmit={(payload) => {
+                    void handleEditSubmit(payload);
+                  }}
                 />
               ) : view === "delete" ? (
                 deleteCopy?.occurrence ? (
@@ -421,21 +467,33 @@ export function TaskDetailSheet({
                     {task.description ? (
                       <DetailInfoText label="Opis" value={task.description} />
                     ) : null}
+                    {completion ? (
+                      <DetailInfoText
+                        label="Završio"
+                        icon={CheckCircleIcon}
+                        value={completionLabel(completion, peopleById)}
+                      />
+                    ) : null}
                   </DetailInfoRows>
 
                   <DetailActionList>
+                    {/* Only the people a task was given to may finish it. For
+                        somebody else the row stays, greyed and saying why -
+                        hiding it would read as "this cannot be done at all". */}
                     <DetailActionRow
                       icon={done ? ArrowUturnLeftIcon : CheckIcon}
                       label={done ? "Vrati u aktivne" : "Označi kao završeno"}
                       description={
-                        done
-                          ? "Ponovo je na spisku"
-                          : recurring
-                            ? "Samo ovo ponavljanje"
-                            : "Beleži da je obavljeno"
+                        !slot.canTick
+                          ? "Ovo mogu da završe samo oni kojima je dodeljeno"
+                          : done
+                            ? "Ponovo je na spisku"
+                            : recurring
+                              ? "Samo ovo ponavljanje"
+                              : "Beleži da je obavljeno"
                       }
                       onClick={handleToggle}
-                      disabled={saving}
+                      disabled={saving || !slot.canTick}
                       tone="primary"
                     />
                     {canSnooze && tomorrow ? (
@@ -471,15 +529,14 @@ export function TaskDetailSheet({
                         disabled={saving}
                       />
                     ) : null}
-                    {onEdit ? (
-                      <DetailActionRow
-                        icon={PencilSquareIcon}
-                        label="Izmeni zadatak"
-                        description="Naziv, rok, ponavljanje, za koga, podsetnik…"
-                        onClick={handleEdit}
-                        disabled={saving}
-                      />
-                    ) : null}
+                    <DetailActionRow
+                      icon={PencilSquareIcon}
+                      label="Izmeni zadatak"
+                      description="Naziv, rok, ponavljanje, za koga, podsetnik…"
+                      onClick={() => push("edit")}
+                      disabled={saving}
+                      chevron
+                    />
                     <DetailActionRow
                       icon={TrashIcon}
                       label="Obriši zadatak"
@@ -507,6 +564,17 @@ export function TaskDetailSheet({
                 }}
                 disabled={saving || !newDate || newDate === shownDate}
               >
+                Sačuvaj
+              </Button>
+            </ResponsiveDialogFooter>
+          ) : view === "edit" ? (
+            <ResponsiveDialogFooter>
+              <Button variant="outline" onClick={pop} disabled={saving}>
+                Odustani
+              </Button>
+              {/* Submits the form above through its id, so the button can live
+                  outside the scroll area the fields sit in. */}
+              <Button type="submit" form="task-detail-edit" disabled={saving}>
                 Sačuvaj
               </Button>
             </ResponsiveDialogFooter>

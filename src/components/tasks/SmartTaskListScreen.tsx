@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
 import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { SectionHeading } from "@/components/common/SectionHeading";
+import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
@@ -24,19 +26,21 @@ import {
   type TaskAgendaItem,
 } from "@/components/tasks/taskItemModel";
 import { useTaskAgendaItems } from "@/components/tasks/taskItems";
-import { useTaskEditFlow } from "@/components/tasks/useTaskEditFlow";
+import { useTickedHereLinger } from "@/components/tasks/useTickedHereLinger";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useOverdueTasks } from "@/hooks/useOverdueTasks";
-import { useProfile } from "@/hooks/useProfile";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
+import { useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
+import { cn } from "@/lib/cn";
 import { formatDate } from "@/utils/date";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
 
 /**
- * ONE screen for all four cross-list views - Kasni, Zakazano, Meni dodeljeno and
- * Inbox. Header, person rail, day groups and composer are identical to a real
+ * ONE screen for three of the four cross-list views - Kasni, Zakazano and Inbox
+ * (Završeno groups by a different date entirely and has its own screen).
+ * Header, person rail, day groups and composer are identical to a real
  * list; only the source of the rows differs, which is the whole reason a smart
  * list is worth having rather than four bespoke screens.
  *
@@ -50,6 +54,16 @@ import { shiftIsoByDays } from "@/utils/pickerGrid";
  * where it lives.
  */
 
+/**
+ * How many of a group's rows are still to do - what its heading counts. A row
+ * ticked during this visit stays on screen so the tap can be undone, and
+ * counting it would leave the heading disagreeing with every other number about
+ * the same thing.
+ */
+function openCount(items: readonly TaskAgendaItem[]): number {
+  return items.filter((item) => !item.isDone).length;
+}
+
 export type SmartTaskListScreenProps = {
   source: SmartListKey;
 };
@@ -57,22 +71,25 @@ export type SmartTaskListScreenProps = {
 export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
   const definition = smartListDefinition(source);
   const today = useToday().str;
+  const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const windowEnd = shiftIsoByDays(today, SCHEDULED_WINDOW_DAYS) ?? today;
   const isWide = useIsWide();
   const navigate = useNavigate();
 
-  const viewerId = useProfile().profile?.id ?? null;
   const { byTask } = useTaskAssignees();
   const overdue = useOverdueTasks();
   const agenda = useTaskAgendaItems({ from: today, to: windowEnd, today });
+  const tasksQuery = useTasksList();
 
   const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [openTask, setOpenTask] = useState<TaskAgendaItem | null>(null);
-  const taskEdit = useTaskEditFlow();
 
-  // "Meni dodeljeno" IS a person filter, so it does not also carry a rail that
-  // would offer to narrow it to somebody else.
-  const showPersonRail = source !== "mine";
+  // Same cached query the agenda hook reads, so this costs no extra fetch. The
+  // linger needs the LIVE row for a task that has left the selection.
+  const tasksById = useMemo(
+    () => new Map((tasksQuery.data ?? []).map((task) => [task.id, task])),
+    [tasksQuery.data],
+  );
 
   const undatedItems = useMemo(
     () =>
@@ -84,51 +101,90 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
 
   const selection = useMemo(() => {
     const keep = (item: TaskAgendaItem) => {
-      if (source === "mine") return viewerId !== null && item.assigneeIds.includes(viewerId);
       if (source === "inbox") return item.task.list_id === null;
       return true;
     };
-    const inRail = (item: TaskAgendaItem) =>
-      showPersonRail ? matchesPersonFilter(item, personIds) : true;
-    const pass = (item: TaskAgendaItem) => keep(item) && inRail(item);
+    const pass = (item: TaskAgendaItem) => keep(item) && matchesPersonFilter(item, personIds);
 
     // Kasni is ONLY the overdue block; Zakazano leads with it and then walks the
-    // window; the two person-shaped views add the someday pile on top, because a
-    // task with no date is still assigned to you and still in your inbox.
+    // window; the Inbox adds the someday pile, because a task with no date is
+    // still in your inbox.
     const late = overdue.items.filter(isTaskAgendaItem).filter(pass);
     const dated = source === "late" ? [] : agenda.items.filter(pass);
-    const undated = source === "mine" || source === "inbox" ? undatedItems.filter(pass) : [];
+    const undated = source === "inbox" ? undatedItems.filter(pass) : [];
     return { late, dated, undated };
-  }, [source, viewerId, showPersonRail, personIds, overdue.items, agenda.items, undatedItems]);
+  }, [source, personIds, overdue.items, agenda.items, undatedItems]);
+
+  // Rows ticked during THIS visit keep their place instead of vanishing under
+  // the thumb - see `useTickedHereLinger`. They are folded back into the group
+  // they came from, so "Kasni" still reads as Kasni with one line struck out.
+  const lingering = useTickedHereLinger(
+    [...selection.late, ...selection.dated, ...selection.undated],
+    tasksById,
+    agenda.isLoading || overdue.isLoading,
+  );
 
   const groups = useMemo(() => {
-    const out: Array<{ key: string; label: string; late: boolean; items: TaskAgendaItem[] }> = [];
-    if (selection.late.length > 0) {
-      out.push({ key: "late", label: "Kasni", late: true, items: selection.late });
+    const out: Array<{
+      key: string;
+      label: string;
+      /** Set for a real calendar day, which prints as "14. avgust - Petak". */
+      day: string | null;
+      late: boolean;
+      items: TaskAgendaItem[];
+    }> = [];
+    const late = [...selection.late, ...lingering.filter((item) => item.date < today)];
+    const dated = [
+      ...selection.dated,
+      ...lingering.filter((item) => item.task.due_date !== null && item.date >= today),
+    ].sort((a, b) => a.date.localeCompare(b.date) || a.sortKey - b.sortKey);
+    const undatedWithLingering =
+      source === "inbox"
+        ? [...selection.undated, ...lingering.filter((item) => item.task.due_date === null)]
+        : selection.undated;
+
+    if (late.length > 0) {
+      out.push({ key: "late", label: "Kasni", day: null, late: true, items: late });
     }
     const byDay = new Map<string, TaskAgendaItem[]>();
-    for (const item of selection.dated) {
+    for (const item of dated) {
       const bucket = byDay.get(item.date);
       if (bucket) bucket.push(item);
       else byDay.set(item.date, [item]);
     }
-    const tomorrow = shiftIsoByDays(today, 1) ?? today;
     for (const day of [...byDay.keys()].sort()) {
+      out.push({ key: day, label: "", day, late: false, items: byDay.get(day) ?? [] });
+    }
+    if (undatedWithLingering.length > 0) {
       out.push({
-        key: day,
-        label: day === today ? "Danas" : day === tomorrow ? "Sutra" : formatDate(day),
+        key: "undated",
+        label: "Bez datuma",
+        day: null,
         late: false,
-        items: byDay.get(day) ?? [],
+        items: undatedWithLingering,
       });
     }
-    if (selection.undated.length > 0) {
-      out.push({ key: "undated", label: "Bez datuma", late: false, items: selection.undated });
-    }
     return out;
-  }, [selection, today]);
+  }, [selection, lingering, source, today]);
+
+  // The Inbox's own archive: listless, dateless and already ticked before this
+  // visit. Collapsed, because it is a place to look something up, not a place to
+  // work - and it is the only path to a task that has no list AND no date, which
+  // is what used to disappear on a tick with nowhere left to find it.
+  const inboxDone = useMemo(() => {
+    if (source !== "inbox") return [];
+    const lingeringIds = new Set(lingering.map((item) => item.task.id));
+    return agenda.undatedDone
+      .filter((task) => task.list_id === null && !lingeringIds.has(task.id))
+      .map((task) =>
+        taskAgendaItem(task, undatedTaskInstance(task, today), byTask.get(task.id) ?? [], today),
+      )
+      .filter((item) => matchesPersonFilter(item, personIds));
+  }, [source, agenda.undatedDone, lingering, byTask, personIds, today]);
 
   const isLoading = overdue.isLoading || agenda.isLoading;
-  const total = selection.late.length + selection.dated.length + selection.undated.length;
+  const total =
+    selection.late.length + selection.dated.length + selection.undated.length + inboxDone.length;
 
   const header = (
     <TaskScreenHeader
@@ -139,24 +195,22 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
         void navigate({ to: "/tasks" });
       }}
       toolbar={
-        showPersonRail ? (
-          <FilterChipRow ariaLabel="Osoba">
-            <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
-              Svi
-            </FilterChip>
-            <MemberFilterChips
-              selected={personIds}
-              onToggle={(personId) =>
-                setPersonIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(personId)) next.delete(personId);
-                  else next.add(personId);
-                  return next;
-                })
-              }
-            />
-          </FilterChipRow>
-        ) : undefined
+        <FilterChipRow ariaLabel="Osoba">
+          <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
+            Svi
+          </FilterChip>
+          <MemberFilterChips
+            selected={personIds}
+            onToggle={(personId) =>
+              setPersonIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(personId)) next.delete(personId);
+                else next.add(personId);
+                return next;
+              })
+            }
+          />
+        </FilterChipRow>
       }
     />
   );
@@ -179,9 +233,22 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
       {!isLoading
         ? groups.map((group) => (
             <section key={group.key} className="mb-4">
-              <SectionHeading count={group.items.length} tone={group.late ? "neg" : "default"}>
-                {group.label}
-              </SectionHeading>
+              {/* Outstanding rows, not drawn rows - see `openCount`. */}
+              {group.day ? (
+                <AgendaDateHeader
+                  day={group.day}
+                  today={today}
+                  tomorrow={tomorrow}
+                  count={openCount(group.items)}
+                />
+              ) : (
+                <SectionHeading
+                  count={openCount(group.items)}
+                  tone={group.late ? "neg" : "default"}
+                >
+                  {group.label}
+                </SectionHeading>
+              )}
               <div className="mt-1.5 space-y-1.5">
                 {group.items.map((item) => (
                   <TaskRow
@@ -196,14 +263,17 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
           ))
         : null}
 
+      {!isLoading && inboxDone.length > 0 ? (
+        <CompletedDisclosure items={inboxDone} onOpen={setOpenTask} />
+      ) : null}
+
       {/* Kasni is the only view without a composer: adding a task there would
-          immediately make it not-late, which is a confusing thing for a screen to
-          do to what you just typed. */}
+          immediately make it not-late, which is a confusing thing for a screen
+          to do to what you just typed. */}
       {source !== "late" ? (
         <TaskComposer
           listId={null}
-          variant={isWide ? "inline" : "pinned"}
-          initialDraft={composerDefaults(source, today, viewerId)}
+          initialDraft={composerDefaults(source, today)}
           placeholder="Dodaj zadatak…"
         />
       ) : null}
@@ -218,9 +288,7 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
         effectiveDate={detailSheetDates(openTask).effectiveDate}
         assigneeIds={openTask?.assigneeIds}
         missed={openTask?.missed}
-        onEdit={taskEdit.edit}
       />
-      {taskEdit.dialog}
     </TaskScreenShell>
   );
 }
@@ -228,13 +296,46 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
 /**
  * What a new task inherits from the view it was typed in, so a row cannot land
  * somewhere it would not show. Zakazano is about dates, so it pre-fills today;
- * "Meni dodeljeno" pre-assigns the viewer; the Inbox is the one that pre-fills
- * nothing, which is exactly what it is for.
+ * the Inbox is the one that pre-fills nothing, which is exactly what it is for.
  */
-function composerDefaults(source: SmartListKey, today: string, viewerId: string | null) {
+function composerDefaults(source: SmartListKey, today: string) {
   if (source === "scheduled") return { dueDate: today };
-  if (source === "mine") return { assigneeIds: viewerId ? [viewerId] : [] };
   return undefined;
+}
+
+/** The Inbox's collapsed archive. Shut by default - it is lookup, not work. */
+function CompletedDisclosure({
+  items,
+  onOpen,
+}: {
+  items: TaskAgendaItem[];
+  onOpen: (item: TaskAgendaItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <section className="mb-4">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 rounded-lg px-0.5 py-2 text-left text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <ChevronRightIcon
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          aria-hidden="true"
+        />
+        Završeno ({items.length})
+      </button>
+      {open ? (
+        <div className="mt-1.5 space-y-1.5">
+          {items.map((item) => (
+            <TaskRow key={agendaItemKey(item)} item={item} onClick={() => onOpen(item)} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function SmartListEmptyState({
@@ -276,19 +377,11 @@ function SmartListEmptyState({
     <EmptyState
       icon={definition.icon}
       tone="purple"
-      title={
-        source === "scheduled"
-          ? "Nijedan zadatak nema datum"
-          : source === "mine"
-            ? "Ništa nije dodeljeno tebi"
-            : "Inbox je prazan"
-      }
+      title={source === "scheduled" ? "Nijedan zadatak nema datum" : "Inbox je prazan"}
       description={
         source === "scheduled"
           ? "Zadatak sa datumom stiže i na Danas i u Kalendar. Dodaj ga u polju ispod."
-          : source === "mine"
-            ? 'Zadatak postaje tvoj kada ti ga neko dodeli - ili kada ga sam dodaš sa „Za koga".'
-            : "Ovde stižu zadaci koje dodaš bez liste. Dodaj ih u polju ispod, pa ih kasnije razvrstaj."
+          : "Ovde stižu zadaci koje dodaš bez liste. Dodaj ih u polju ispod, pa ih kasnije razvrstaj."
       }
     />
   );

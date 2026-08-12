@@ -87,6 +87,12 @@ export type UpdateTaskInput = {
   is_completed?: boolean;
   /** Moving a task between lists (or to the Inbox) re-derives its scope. */
   list_id?: string | null;
+  /**
+   * Only meaningful for a LISTLESS task - the "Samo ja" switch. A task inside a
+   * list has this overwritten by `enforce_task_defaults()` on every update, so
+   * the editors omit it there rather than send a value the row will not keep.
+   */
+  scope?: TaskScope;
   due_date?: string | null;
   due_time?: string | null;
   recurrence_period?: TaskRecurrencePeriod | null;

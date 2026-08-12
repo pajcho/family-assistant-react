@@ -1,32 +1,38 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { ClipboardDocumentCheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import {
+  ClipboardDocumentCheckIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterChip, FilterChipRow } from "@/components/common/FilterChips";
 import { IconButton } from "@/components/common/IconButton";
 import { MemberFilterChips } from "@/components/common/MemberFilterChips";
 import { SectionHeading } from "@/components/common/SectionHeading";
+import { AgendaDateHeader } from "@/components/dashboard/AgendaDateHeader";
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
+import { Segmented, type SegmentedOption } from "@/components/common/Segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ListGridCard, NewListGridCard } from "@/components/tasks/ListGridCard";
-import { SMART_LISTS } from "@/components/tasks/smartLists";
+import { ListGridCard, NewListRow } from "@/components/tasks/ListGridCard";
+import { useListOrder } from "@/components/tasks/listOrder";
+import { useTickedHereLinger } from "@/components/tasks/useTickedHereLinger";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import { TaskRow } from "@/components/tasks/TaskRow";
-import { TaskStatStrip, type TaskStatKey } from "@/components/tasks/TaskStatStrip";
+import { TaskQuickAddFlow } from "@/components/tasks/TaskQuickAddFlow";
+import { TaskStatStrip } from "@/components/tasks/TaskStatStrip";
 import {
   detailSheetDates,
   isTaskAgendaItem,
   matchesPersonFilter,
   type TaskAgendaItem,
 } from "@/components/tasks/taskItemModel";
-import { useTaskAgendaItems } from "@/components/tasks/taskItems";
+import { useSmartListCounts, useTaskAgendaItems } from "@/components/tasks/taskItems";
 import { useCreateListFlow } from "@/components/tasks/useCreateListFlow";
-import { useTaskEditFlow } from "@/components/tasks/useTaskEditFlow";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useOverdueTasks } from "@/hooks/useOverdueTasks";
 import { useSearchDialog } from "@/hooks/useSearchDialog";
-import { useListsWithTasks } from "@/hooks/useTasks";
+import { useListsWithTasks, useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/utils/date";
@@ -39,9 +45,14 @@ import type { ListWithTasks } from "@/types/database";
  * It is the old index inverted. The lists used to BE the screen: five names and
  * their counts, nothing actionable until you picked one, and no way to find out
  * that the boiler service call was six days late without opening the list it sat
- * in. Now the late and today's work is on the surface and tickable in place, and
- * the lists are a compact grid underneath - which is where you go to add or
- * reorganise, not to find out what is going on.
+ * in. So the late and today's work came to the surface, tickable in place.
+ *
+ * That inversion then buried the lists: with 10+ of them the grid started a full
+ * screenful down, under three dated sections, in creation order. The two halves
+ * are now two SEGMENTS instead of one column - the dated work still leads,
+ * because a push about something late must not land on a grid of lists, but
+ * "Liste" is one tap rather than two swipes, and each half carries its own
+ * filter row.
  *
  * Two independent queries feed it, and that is deliberate: the lists grid renders
  * from the `lists` cache the moment it is warm while the dated sections fill in
@@ -52,28 +63,64 @@ import type { ListWithTasks } from "@/types/database";
 /** Rows per section before "Prikaži još" - about a screenful on a phone. */
 const SECTION_LIMIT = 5;
 
-export function TasksIndexScreen() {
+/** How many of a section's rows are still to do - what its heading counts. */
+function openCount(items: readonly TaskAgendaItem[]): number {
+  return items.filter((item) => !item.isDone).length;
+}
+
+/** Stable empty array - keeps `useListOrder`'s input identity quiet while loading. */
+const EMPTY_LISTS: ListWithTasks[] = [];
+
+export type TasksTab = "tasks" | "lists";
+
+/** Which lists the grid shows. Transient, like every other filter on the app. */
+type ScopeFilter = "all" | "family" | "personal";
+
+const TAB_OPTIONS: ReadonlyArray<SegmentedOption<TasksTab>> = [
+  { value: "tasks", label: "Zadaci" },
+  { value: "lists", label: "Liste" },
+];
+
+export type TasksIndexScreenProps = {
+  tab: TasksTab;
+  onTabChange: (next: TasksTab) => void;
+};
+
+export function TasksIndexScreen({ tab, onTabChange }: TasksIndexScreenProps) {
   const today = useToday().str;
   const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const weekEnd = shiftIsoByDays(today, 6) ?? today;
 
   const { openSearch } = useSearchDialog();
   const { openAdd, openAddWithName, dialog } = useCreateListFlow();
-  const taskEdit = useTaskEditFlow();
 
   const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [scope, setScope] = useState<TaskStatKey | null>(null);
+  const [listScope, setListScope] = useState<ScopeFilter>("all");
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [openTask, setOpenTask] = useState<TaskAgendaItem | null>(null);
 
   const listsQuery = useListsWithTasks();
-  const lists = useMemo<ListWithTasks[]>(
-    () => [...(listsQuery.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [listsQuery.data],
-  );
+  // Ordered by what this person uses, not by when the list was made - see
+  // `listOrder`. Recomputed per render on purpose: you leave this screen to
+  // touch a list, so the reshuffle always happens off-screen.
+  const lists = useListOrder<ListWithTasks>(listsQuery.data ?? EMPTY_LISTS);
+  const familyLists = lists.filter((list) => list.scope === "family");
+  const personalLists = lists.filter((list) => list.scope === "personal");
+  const shownLists =
+    listScope === "family" ? familyLists : listScope === "personal" ? personalLists : lists;
 
   const overdue = useOverdueTasks();
   const week = useTaskAgendaItems({ from: today, to: weekEnd, today });
+  const counts = useSmartListCounts();
+  const tasksQuery = useTasksList();
+
+  // Same cached query the two hooks above read - no extra fetch. The linger
+  // needs the LIVE row for a task that has left the sections.
+  const tasksById = useMemo(
+    () => new Map((tasksQuery.data ?? []).map((task) => [task.id, task])),
+    [tasksQuery.data],
+  );
 
   // An empty person set means "everybody", the same convention the dashboard and
   // the activities chips use. It narrows the dated sections; the lists grid is
@@ -95,10 +142,25 @@ export function TasksIndexScreen() {
     [weekItems, tomorrow],
   );
 
+  // A row ticked here keeps its place, struck through, until you navigate away -
+  // see `useTickedHereLinger`. Without it a tap in "Kasni" made the row vanish
+  // mid-gesture with nothing left to tap if the tap was a mistake.
+  const lingering = useTickedHereLinger(
+    [...lateItems, ...weekItems],
+    tasksById,
+    overdue.isLoading || week.isLoading,
+  );
+
   const sections = useMemo(
     () =>
-      buildSections({ scope, today, tomorrow, lateItems, todayItems, tomorrowItems, weekItems }),
-    [scope, today, tomorrow, lateItems, todayItems, tomorrowItems, weekItems],
+      buildSections({
+        today,
+        tomorrow,
+        lateItems: [...lateItems, ...lingering.filter((item) => item.date < today)],
+        todayItems: [...todayItems, ...lingering.filter((item) => item.date === today)],
+        tomorrowItems: [...tomorrowItems, ...lingering.filter((item) => item.date === tomorrow)],
+      }),
+    [today, tomorrow, lateItems, todayItems, tomorrowItems, lingering],
   );
 
   const toggleExpanded = (key: string) => {
@@ -114,31 +176,53 @@ export function TasksIndexScreen() {
   const hasAnything = lists.length > 0 || week.items.length > 0 || overdue.items.length > 0;
   const showFirstRun = !listsQuery.isLoading && !datedLoading && !hasAnything;
 
+  // The header holds the title and the segment, and nothing else. Each half's
+  // filter row lives INSIDE its own tab, down in the scroll area: sticky chrome
+  // on this app is fragile (window scroll + a sticky header on iOS), and a third
+  // pinned row would cost a tenth of the screen on every phone. The filters are
+  // set-and-forget anyway - scrolling past them is not a loss.
   const header = (
     <div className="flex flex-col gap-2.5">
       <ScreenHeaderRow
         title="Zadaci"
         actions={
-          <IconButton icon={MagnifyingGlassIcon} aria-label="Pretraži" onClick={openSearch} />
+          <>
+            <IconButton icon={MagnifyingGlassIcon} aria-label="Pretraži" onClick={openSearch} />
+            {/* The screen about tasks had no way to make one: the only entry was
+                the "+" in the bottom bar, which is a different control in a
+                different place and says nothing about where you are. It follows
+                the tab, because "add" means a different thing on each half. */}
+            <IconButton
+              icon={PlusIcon}
+              aria-label={tab === "lists" ? "Dodaj listu" : "Dodaj zadatak"}
+              onClick={tab === "lists" ? openAdd : () => setAddTaskOpen(true)}
+            />
+          </>
         }
       />
-      <FilterChipRow ariaLabel="Osoba">
-        <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
-          Svi
-        </FilterChip>
-        <MemberFilterChips
-          selected={personIds}
-          onToggle={(personId) =>
-            setPersonIds((prev) => {
-              const next = new Set(prev);
-              if (next.has(personId)) next.delete(personId);
-              else next.add(personId);
-              return next;
-            })
-          }
-        />
-      </FilterChipRow>
+      {showFirstRun ? null : (
+        <Segmented options={TAB_OPTIONS} value={tab} onChange={onTabChange} ariaLabel="Prikaz" />
+      )}
     </div>
+  );
+
+  const personRow = (
+    <FilterChipRow ariaLabel="Osoba" className="mb-2.5">
+      <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
+        Svi
+      </FilterChip>
+      <MemberFilterChips
+        selected={personIds}
+        onToggle={(personId) =>
+          setPersonIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(personId)) next.delete(personId);
+            else next.add(personId);
+            return next;
+          })
+        }
+      />
+    </FilterChipRow>
   );
 
   return (
@@ -157,15 +241,24 @@ export function TasksIndexScreen() {
             onClick: () => openAddWithName(name),
           }))}
         />
+      ) : tab === "lists" ? (
+        <ListsTab
+          lists={shownLists}
+          familyLists={familyLists}
+          personalLists={personalLists}
+          grouped={listScope === "all"}
+          scope={listScope}
+          onScopeChange={setListScope}
+          loading={listsQuery.isLoading && lists.length === 0}
+          today={today}
+          onAdd={openAdd}
+          onAddWithName={openAddWithName}
+        />
       ) : (
         <>
-          <TaskStatStrip
-            late={lateItems.length}
-            today={todayItems.filter((item) => !item.isDone).length}
-            week={weekItems.filter((item) => !item.isDone).length}
-            active={scope}
-            onSelect={setScope}
-          />
+          {personRow}
+
+          <TaskStatStrip counts={counts} />
 
           {datedLoading ? <DatedSkeleton /> : null}
 
@@ -184,12 +277,25 @@ export function TasksIndexScreen() {
                 const hidden = section.items.length - shown.length;
                 return (
                   <section key={section.key} className="mt-4">
-                    <SectionHeading
-                      count={section.items.length}
-                      tone={section.late ? "neg" : "default"}
-                    >
-                      {section.label}
-                    </SectionHeading>
+                    {/* Counts what is still OUTSTANDING, not what is drawn: a
+                        row ticked during this visit stays on screen for undo,
+                        and counting it would put this number one above the tile
+                        that says the same thing at the top of the screen. */}
+                    {section.day ? (
+                      <AgendaDateHeader
+                        day={section.day}
+                        today={today}
+                        tomorrow={tomorrow}
+                        count={openCount(section.items)}
+                      />
+                    ) : (
+                      <SectionHeading
+                        count={openCount(section.items)}
+                        tone={section.late ? "neg" : "default"}
+                      >
+                        {section.label}
+                      </SectionHeading>
+                    )}
                     <div className="mt-1.5 space-y-1.5">
                       {shown.map((item) => (
                         <TaskRow
@@ -214,52 +320,15 @@ export function TasksIndexScreen() {
               })
             : null}
 
-          <section className="mt-5">
-            <SectionHeading count={lists.length > 0 ? lists.length : undefined}>
-              Liste
-            </SectionHeading>
-            {listsQuery.isLoading && lists.length === 0 ? (
-              <ListsGridSkeleton />
-            ) : (
-              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                {lists.map((list) => (
-                  <ListGridCard key={list.id} list={list} today={today} />
-                ))}
-                <NewListGridCard onClick={openAdd} />
-              </div>
-            )}
-          </section>
-
-          {/* The four cross-list cuts. On desktop they lead the sidebar; here they
-              sit under the grid, because the stat strip above already answers
-              "what is late" and these are the ways IN to the rest - above all the
-              Inbox, which is otherwise the one place a task can hide. */}
-          <section className="mt-5">
-            <SectionHeading>Pregled</SectionHeading>
-            <FilterChipRow ariaLabel="Pregledi zadataka" className="mt-0.5">
-              {SMART_LISTS.filter((entry) => !entry.hideWhenEmpty || overdue.items.length > 0).map(
-                (entry) => (
-                  <Link
-                    key={entry.key}
-                    to={entry.to}
-                    className={cn(
-                      "flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5",
-                      "text-[12.5px] font-semibold whitespace-nowrap transition-colors hover:bg-muted",
-                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                      entry.key === "late" ? "text-neg" : "text-muted-foreground",
-                    )}
-                  >
-                    <entry.icon className="size-3.5 shrink-0" aria-hidden="true" />
-                    {entry.label}
-                  </Link>
-                ),
-              )}
-            </FilterChipRow>
-          </section>
+          {/* No "Pregled" row down here any more: the tile strip at the top IS
+              the four cuts now, and repeating them as chips said the same thing
+              twice with different words. */}
         </>
       )}
 
       {dialog}
+
+      <TaskQuickAddFlow open={addTaskOpen} onOpenChange={setAddTaskOpen} />
 
       <TaskDetailSheet
         open={openTask !== null}
@@ -271,79 +340,159 @@ export function TasksIndexScreen() {
         effectiveDate={detailSheetDates(openTask).effectiveDate}
         assigneeIds={openTask?.assigneeIds}
         missed={openTask?.missed}
-        onEdit={taskEdit.edit}
       />
-      {taskEdit.dialog}
     </AppScreen>
   );
 }
 
+/**
+ * The "Liste" half: the scope chips, then the grid.
+ *
+ * Under "Sve" the grid renders as two labelled groups rather than one run of
+ * tiles, so the commonest case needs no tap at all - "mine" and "ours" are two
+ * different drawers and 10+ lists in one pile is what made this hard to read.
+ * Picking a scope drops the headings: the chip already says what you are
+ * looking at, and repeating it would be saying the same thing twice.
+ */
+function ListsTab({
+  lists,
+  familyLists,
+  personalLists,
+  grouped,
+  scope,
+  onScopeChange,
+  loading,
+  today,
+  onAdd,
+  onAddWithName,
+}: {
+  lists: ListWithTasks[];
+  familyLists: ListWithTasks[];
+  personalLists: ListWithTasks[];
+  grouped: boolean;
+  scope: ScopeFilter;
+  onScopeChange: (next: ScopeFilter) => void;
+  loading: boolean;
+  today: string;
+  onAdd: () => void;
+  onAddWithName: (name: string) => void;
+}) {
+  const groups = grouped
+    ? [
+        { key: "family", label: "Porodične", items: familyLists },
+        { key: "personal", label: "Lične", items: personalLists },
+      ].filter((group) => group.items.length > 0)
+    : [{ key: scope, label: null, items: lists }];
+
+  return (
+    <>
+      <FilterChipRow ariaLabel="Vrsta liste">
+        {SCOPE_FILTERS.map((entry) => (
+          <FilterChip
+            key={entry.value}
+            active={scope === entry.value}
+            onToggle={() => onScopeChange(entry.value)}
+          >
+            {entry.label}
+          </FilterChip>
+        ))}
+      </FilterChipRow>
+
+      {loading ? <ListsGridSkeleton /> : null}
+
+      {!loading && lists.length === 0 ? (
+        <EmptyState
+          icon={ClipboardDocumentCheckIcon}
+          tone="purple"
+          title={scope === "all" ? "Još nemaš nijednu listu" : "Ovde nema nijedne liste"}
+          description={
+            scope === "personal"
+              ? "Lična lista je samo tvoja - niko drugi u porodici je ne vidi."
+              : scope === "family"
+                ? "Porodičnu listu vide svi, i svako može da doda stavku."
+                : 'Napravi prvu - npr. „Šoping" koju vidi cela porodica ili „Obaveze" samo za tebe.'
+          }
+          action={{ label: "Dodaj listu", onClick: onAdd }}
+          examples={
+            scope === "all"
+              ? ["Šoping", "Kućne obaveze", "Obaveze"].map((name) => ({
+                  label: name,
+                  onClick: () => onAddWithName(name),
+                }))
+              : undefined
+          }
+        />
+      ) : null}
+
+      {!loading && lists.length > 0
+        ? groups.map((group) => (
+            <section key={group.key} className="mt-2 first:mt-1">
+              {group.label ? (
+                <SectionHeading count={group.items.length}>{group.label}</SectionHeading>
+              ) : null}
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                {group.items.map((list) => (
+                  <ListGridCard key={list.id} list={list} today={today} />
+                ))}
+              </div>
+            </section>
+          ))
+        : null}
+
+      {/* Its own full-width row, in every state. As the last cell of the grid it
+          read as belonging to whichever group happened to render last. */}
+      {!loading && lists.length > 0 ? <NewListRow onClick={onAdd} /> : null}
+    </>
+  );
+}
+
+const SCOPE_FILTERS: ReadonlyArray<{ value: ScopeFilter; label: string }> = [
+  { value: "all", label: "Sve" },
+  { value: "family", label: "Porodične" },
+  { value: "personal", label: "Lične" },
+];
+
 type DatedSection = {
   key: string;
   label: string;
+  /** Set for a real calendar day, which prints as "12. avgust - Danas - Sreda". */
+  day: string | null;
   late: boolean;
   items: TaskAgendaItem[];
 };
 
 /**
- * Which sections the dated block shows. The default is the three a person acts
- * on - late, today, tomorrow - and a stat tile narrows to its own slice, with
- * Nedelja opening the whole week day by day.
+ * Which sections the dated block shows: what is late, then today, then tomorrow.
+ *
+ * It used to take a `scope` from the stat tiles, which also offered a whole-week
+ * day-by-day view. The tiles became navigation to the four cross-list cuts, so
+ * the week view moved to where it always belonged - "Zakazano", which is exactly
+ * that, only over ninety days instead of seven.
  */
 function buildSections({
-  scope,
   today,
   tomorrow,
   lateItems,
   todayItems,
   tomorrowItems,
-  weekItems,
 }: {
-  scope: TaskStatKey | null;
   today: string;
   tomorrow: string;
   lateItems: TaskAgendaItem[];
   todayItems: TaskAgendaItem[];
   tomorrowItems: TaskAgendaItem[];
-  weekItems: TaskAgendaItem[];
 }): DatedSection[] {
-  const late: DatedSection[] =
-    lateItems.length > 0 ? [{ key: "late", label: "Kasni", late: true, items: lateItems }] : [];
-
-  if (scope === "late") return late;
-  if (scope === "today") {
-    return todayItems.length > 0
-      ? [{ key: "today", label: "Danas", late: false, items: todayItems }]
-      : [];
-  }
-
-  if (scope === "week") {
-    const byDay = new Map<string, TaskAgendaItem[]>();
-    for (const item of weekItems) {
-      const bucket = byDay.get(item.date);
-      if (bucket) bucket.push(item);
-      else byDay.set(item.date, [item]);
-    }
-    return [
-      ...late,
-      ...[...byDay.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([day, items]) => ({
-          key: day,
-          label: day === today ? "Danas" : day === tomorrow ? "Sutra" : formatDate(day),
-          late: false,
-          items,
-        })),
-    ];
-  }
-
   return [
-    ...late,
+    // Kasni spans many days, so it keeps a plain label and each row carries its
+    // own date; the other two ARE a day and print as one.
+    ...(lateItems.length > 0
+      ? [{ key: "late", label: "Kasni", day: null, late: true, items: lateItems }]
+      : []),
     ...(todayItems.length > 0
-      ? [{ key: "today", label: "Danas", late: false, items: todayItems }]
+      ? [{ key: "today", label: "", day: today, late: false, items: todayItems }]
       : []),
     ...(tomorrowItems.length > 0
-      ? [{ key: "tomorrow", label: "Sutra", late: false, items: tomorrowItems }]
+      ? [{ key: "tomorrow", label: "", day: tomorrow, late: false, items: tomorrowItems }]
       : []),
   ];
 }

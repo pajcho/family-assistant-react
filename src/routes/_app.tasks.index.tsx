@@ -1,15 +1,25 @@
 import type { ReactNode } from "react";
-import { Link, Navigate, createFileRoute } from "@tanstack/react-router";
+import { Link, Navigate, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ClipboardDocumentCheckIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
-import { TasksIndexScreen } from "@/components/tasks/TasksIndexScreen";
+import { TasksIndexScreen, type TasksTab } from "@/components/tasks/TasksIndexScreen";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useListsWithTasks } from "@/hooks/useTasks";
-import { readLastOpenedListId } from "@/lib/lastOpenedList";
+import { orderLists } from "@/components/tasks/listOrder";
+import { readLastOpenedListId, readRecentListIds } from "@/lib/recentLists";
 import type { ListWithTasks } from "@/types/database";
 
 export const Route = createFileRoute("/_app/tasks/")({
+  // `?tab=lists` opens the overview on its lists half. A search param rather
+  // than component state so it is linkable (the Meni can point straight at the
+  // lists) and survives back/forward. Same shape as `/money?tab=` and
+  // `/calendar?view=`: a FRESH result object, never a spread of the raw search,
+  // or omitting `tab` would leak an unvalidated value through.
+  validateSearch: (search: Record<string, unknown>): { tab?: TasksTab } => {
+    const tab = search.tab;
+    return tab === "lists" || tab === "tasks" ? { tab } : {};
+  },
   component: TasksIndex,
 });
 
@@ -31,9 +41,22 @@ export const Route = createFileRoute("/_app/tasks/")({
 function TasksIndex() {
   const isWide = useIsWide();
   const listsQuery = useListsWithTasks();
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate();
 
   if (!isWide) {
-    return <TasksIndexScreen />;
+    return (
+      <TasksIndexScreen
+        tab={tab ?? "tasks"}
+        onTabChange={(next) => {
+          void navigate({
+            to: "/tasks",
+            search: (prev) => ({ ...prev, tab: next === "tasks" ? undefined : next }),
+            replace: true,
+          });
+        }}
+      />
+    );
   }
 
   // Wait for data before resolving so we never redirect to a stale id.
@@ -72,15 +95,14 @@ function TasksIndex() {
 
 /**
  * Pick the list to open on a bare `/tasks` desktop visit: the last-opened list if
- * it still exists, otherwise the first list in the sidebar's display order
- * (newest-created first, matching `TaskSidebar`).
+ * it still exists, otherwise the first in the sidebar's display order, so the
+ * pane and the sidebar always agree on what "first" means.
  */
 function resolveInitialList(lists: ListWithTasks[]): string | null {
   if (lists.length === 0) return null;
   const lastId = readLastOpenedListId();
   if (lastId && lists.some((l) => l.id === lastId)) return lastId;
-  const [first] = [...lists].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  return first?.id ?? null;
+  return orderLists(lists, readRecentListIds())[0]?.id ?? null;
 }
 
 function DetailPlaceholder({ children }: { children: ReactNode }) {

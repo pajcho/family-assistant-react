@@ -1,8 +1,8 @@
 import { format, parseISO } from "date-fns";
 
-import type { CreateTaskInput } from "@/hooks/useTasks";
+import type { CreateTaskInput, UpdateTaskInput } from "@/hooks/useTasks";
 import type { ReminderOption } from "@/components/ui/reminder-select";
-import type { TaskRecurrencePeriod } from "@/types/database";
+import type { Task, TaskCompletionMode, TaskRecurrencePeriod, TaskScope } from "@/types/database";
 import { srLocale } from "@/utils/date";
 import { taskRecurrenceLabel } from "@/utils/task";
 
@@ -24,7 +24,27 @@ export type TaskDraft = {
   dueDate: string | null;
   /** `HH:mm`. Requires `dueDate` - a CHECK constraint says so. */
   dueTime: string | null;
+  /**
+   * "Samo ja" - the task is `scope = 'personal'`, so RLS shows it to its owner
+   * alone. Only a LISTLESS task answers for its own visibility; one inside a
+   * list carries its list's, forced by a trigger, which is why every editor
+   * disables the switch as soon as a list is picked.
+   *
+   * Invariant the editors maintain: while this is true, `assigneeIds` is
+   * exactly the viewer. Assigning anybody else, or dropping yourself, is the
+   * other way out of private.
+   */
+  onlyMe: boolean;
   assigneeIds: string[];
+  /**
+   * Who a tick speaks for on a REPEATING task: `shared` closes the occurrence
+   * for everybody, `per_assignee` gives each assignee their own copy to tick.
+   *
+   * Only ever visible - and only ever sent as anything but `shared` - when the
+   * task repeats AND has two or more people on it, which is the only situation
+   * where the two differ at all. See `taskDraftColumns`.
+   */
+  completionMode: TaskCompletionMode;
   recurrencePeriod: TaskRecurrencePeriod;
   recurrenceInterval: number;
   /** 0 = Monday .. 6 = Sunday. Never a raw JS `getDay()`. */
@@ -39,7 +59,9 @@ export function emptyTaskDraft(overrides?: Partial<TaskDraft>): TaskDraft {
     name: "",
     dueDate: null,
     dueTime: null,
+    onlyMe: false,
     assigneeIds: [],
+    completionMode: "shared",
     recurrencePeriod: "one-time",
     recurrenceInterval: 1,
     recurrenceWeekdays: [],
@@ -51,18 +73,63 @@ export function emptyTaskDraft(overrides?: Partial<TaskDraft>): TaskDraft {
 }
 
 /**
- * The draft as a create payload. Everything the draft says "off" travels as
- * null, so the DB defaults and CHECK constraints all hold:
+ * What a task being created OUTSIDE any list starts as: private to whoever is
+ * typing it, and assigned to them.
+ *
+ * A task in a list inherits a visibility somebody chose deliberately when they
+ * made the list. A listless one has no such answer, and defaulting it to the
+ * whole family means every private note is a broadcast until its author notices
+ * the switch. So the default fails CLOSED - `onlyMe` holds even when the
+ * viewer's profile id has not loaded yet, because `owner_id` is stamped from
+ * `auth.uid()` server-side and the row is still correctly yours without it.
+ */
+export function privateDraftDefaults(viewerId: string | null): Partial<TaskDraft> {
+  return { onlyMe: true, assigneeIds: viewerId ? [viewerId] : [] };
+}
+
+/** A saved task back as a draft - what the editor opens on. */
+export function taskToDraft(task: Task, assigneeIds: string[]): TaskDraft {
+  return {
+    name: task.name,
+    dueDate: task.due_date,
+    // Postgres hands back "HH:MM:SS"; the pickers speak "HH:MM".
+    dueTime: task.due_time ? task.due_time.slice(0, 5) : null,
+    // A listed task's `scope` mirrors its list's (the trigger keeps them equal),
+    // so it says nothing about a per-task choice - only a listless one does.
+    onlyMe: task.list_id === null && task.scope === "personal",
+    assigneeIds,
+    completionMode: task.completion_mode,
+    recurrencePeriod: task.recurrence_period ?? "one-time",
+    recurrenceInterval: task.recurrence_interval,
+    recurrenceWeekdays: task.recurrence_weekdays ?? [],
+    recurrenceUntil: task.recurrence_until,
+    remindMinutesBefore: task.remind_minutes_before,
+    remindDaysBefore: task.remind_days_before,
+  };
+}
+
+/**
+ * The scheduling columns a draft resolves to. Everything the draft says "off"
+ * travels as null, so the DB defaults and CHECK constraints all hold:
  *   - no date means no time and no recurrence to anchor;
  *   - a reminder only survives in the unit its task can actually fire in.
+ *
+ * Shared by create and update so that clearing a date on an EXISTING task tears
+ * down its recurrence and reminder exactly as never setting one would - a
+ * half-cleared row is how a chore ends up repeating off a date it no longer has.
  */
-export function taskDraftToCreateInput(draft: TaskDraft, listId: string | null): CreateTaskInput {
+function taskDraftColumns(draft: TaskDraft) {
   const dueDate = draft.dueDate;
   const dueTime = dueDate ? draft.dueTime : null;
   const recurring = Boolean(dueDate) && draft.recurrencePeriod !== "one-time";
   return {
+    // Per-assignee completion only means anything for a repeating task with
+    // more than one person on it: a one-off is answered by `is_completed`, and
+    // a single assignee's own copy IS the whole occurrence. Anything else
+    // travels as `shared`, so a task that loses its repeat or its second person
+    // cannot keep a mode that no longer applies to it.
+    completion_mode: recurring && draft.assigneeIds.length > 1 ? draft.completionMode : "shared",
     name: draft.name.trim(),
-    list_id: listId,
     due_date: dueDate,
     due_time: dueTime,
     recurrence_period: recurring ? draft.recurrencePeriod : null,
@@ -76,6 +143,35 @@ export function taskDraftToCreateInput(draft: TaskDraft, listId: string | null):
     remind_days_before: dueDate && !dueTime ? draft.remindDaysBefore : null,
     assigneeIds: draft.assigneeIds,
   };
+}
+
+/**
+ * `scope`, but only when the task is listless.
+ *
+ * A task inside a list has its scope FORCED to the list's by
+ * `set_task_defaults()` / `enforce_task_defaults()`, so sending one is at best
+ * ignored - and at worst it is the value the optimistic cache patch shows for a
+ * beat before the round-trip corrects it. Omitting it keeps the client honest.
+ */
+function scopeColumn(draft: TaskDraft, listId: string | null) {
+  return listId === null ? { scope: draft.onlyMe ? "personal" : ("family" as TaskScope) } : {};
+}
+
+export function taskDraftToCreateInput(draft: TaskDraft, listId: string | null): CreateTaskInput {
+  return { ...taskDraftColumns(draft), list_id: listId, ...scopeColumn(draft, listId) };
+}
+
+/**
+ * The draft as an update payload, plus the one field the draft does not carry.
+ * `listId` is the task's CURRENT list - this form cannot move a task between
+ * lists, it only needs to know whether `scope` is the row's own business.
+ */
+export function taskDraftToUpdateInput(
+  draft: TaskDraft,
+  description: string | null,
+  listId: string | null,
+): UpdateTaskInput {
+  return { ...taskDraftColumns(draft), description, ...scopeColumn(draft, listId) };
 }
 
 /* ------------------------------------------------------------------------- */
@@ -154,12 +250,17 @@ export function taskDateSummary(draft: TaskDraft, today: string, tomorrow: strin
 
 export function taskRecurrenceSummary(draft: TaskDraft): string | null {
   if (!draft.dueDate || draft.recurrencePeriod === "one-time") return null;
-  return taskRecurrenceLabel({
+  const label = taskRecurrenceLabel({
     recurrence_period: draft.recurrencePeriod,
     recurrence_interval: draft.recurrenceInterval,
     recurrence_weekdays: draft.recurrenceWeekdays.length > 0 ? draft.recurrenceWeekdays : null,
     recurrence_until: draft.recurrenceUntil,
   });
+  // The mode rides on the recurrence chip, because that is the sheet it is set
+  // in - and because a composer collapsed to its chips would otherwise say
+  // nothing about a decision that changes who has to do the work.
+  const perPerson = draft.completionMode === "per_assignee" && draft.assigneeIds.length > 1;
+  return perPerson && label ? `${label} · svako svoje` : label;
 }
 
 export function taskReminderSummary(draft: TaskDraft): string | null {

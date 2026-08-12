@@ -39,7 +39,16 @@ export function TaskCheckCircle({
   return (
     <label
       className={cn(
-        "group/tick flex shrink-0 items-center self-stretch",
+        // `relative` is load-bearing. The checkbox below is `sr-only`, which
+        // is `position: absolute`; without a positioned ancestor here its
+        // containing block became the app's screen area, ABOVE the scroll
+        // container. The input then escaped that container's clipping and sat
+        // at its static position in the frame's coordinate space - so a list of
+        // twenty rows left inputs hundreds of pixels below the fold, the frame
+        // itself became scrollable, and focusing one on a tap made the browser
+        // scroll the WHOLE APP up to reveal it. With this, the input belongs to
+        // its own row and is clipped and scrolled like everything else.
+        "group/tick relative flex shrink-0 items-center self-stretch",
         dense
           ? "py-3 pl-3 pr-3.5 pointer-fine:py-1.5 pointer-fine:pl-2"
           : "py-3 pl-[13px] pr-[11px]",
