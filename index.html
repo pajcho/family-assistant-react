@@ -3,19 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <!--
-      `interactive-widget=resizes-content` makes the software keyboard shrink the
-      LAYOUT viewport, not just the visual one. Without it the app frame stays a
-      full 100dvh while the keyboard covers the bottom third, so anything pinned
-      to the bottom of a scroll area sits behind the keyboard - and cannot be
-      rescued by scrollIntoView, because a `sticky bottom-0` element is pinned to
-      the scrollport's bottom edge and scrolling the container does not move it.
-      Measured on a 390x844 phone: the task composer's field landed at y=742 and
-      its quick chips at y=796, while an iOS QWERTY with the predictive bar
-      occludes everything below y=508.
+      `interactive-widget=resizes-content` asks the software keyboard to shrink
+      the LAYOUT viewport, not just the visual one, so a focused field near the
+      bottom is simply inside a shorter page. Chromium honours it; Safari does
+      NOT - measured on iOS 26 with the keyboard up, `clientHeight` stayed 714
+      while `visualViewport.height` fell to 377, and Safari scrolled the window
+      to bring the focused field into view instead. Both outcomes are fine:
+      nothing in the app tries to out-guess either one.
 
-      `src/hooks/useIsKeyboardOpen.ts` was already written for this flag being
-      here - it documents that signal 1 (visualViewport vs innerHeight) stops
-      firing with it, which is why it ORs in the focused-field signal.
+      `src/hooks/useIsKeyboardOpen.ts` was written for this flag being here - it
+      documents that signal 1 (visualViewport vs innerHeight) stops firing with
+      it, which is why it ORs in the focused-field signal.
     -->
     <meta
       name="viewport"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { APP_SCROLL_ID, APP_SCROLL_RESTORATION_ID } from "@/lib/appScroll";
@@ -72,13 +72,6 @@ export interface AppScreenProps {
    * and the page's own vertical scroll is not one.
    */
   fillBody?: boolean;
-  /**
-   * Inline styles for the scrolling body. Exists for one job: reserving room at
-   * the bottom for the iOS software keyboard, which covers the scrollport without
-   * the layout viewport ever shrinking (see `useKeyboardInset`). A class cannot
-   * express it because the number is measured at runtime.
-   */
-  bodyStyle?: CSSProperties;
 }
 
 export function AppScreen({
@@ -88,7 +81,6 @@ export function AppScreen({
   headerClassName,
   contentClassName = "mx-auto w-full max-w-3xl",
   fillBody = false,
-  bodyStyle,
 }: AppScreenProps) {
   const gutter = useScrollbarGutter();
 
@@ -121,7 +113,6 @@ export function AppScreen({
           fillBody ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
           bodyClassName,
         )}
-        style={bodyStyle}
       >
         {/* The top gap belongs to the CONTENT, not to the scroll container:
             padding on the container sits above where a `sticky top-0` child
