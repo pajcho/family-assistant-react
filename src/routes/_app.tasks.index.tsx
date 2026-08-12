@@ -4,6 +4,7 @@ import { ClipboardDocumentCheckIcon, PlusIcon } from "@heroicons/react/24/outlin
 
 import { Button } from "@/components/ui/button";
 import { TasksIndexScreen, type TasksTab } from "@/components/tasks/TasksIndexScreen";
+import type { SmartListKey } from "@/components/tasks/smartLists";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useListsWithTasks } from "@/hooks/useTasks";
 import { orderLists } from "@/components/tasks/listOrder";
@@ -16,9 +17,18 @@ export const Route = createFileRoute("/_app/tasks/")({
   // lists) and survives back/forward. Same shape as `/money?tab=` and
   // `/calendar?view=`: a FRESH result object, never a spread of the raw search,
   // or omitting `tab` would leak an unvalidated value through.
-  validateSearch: (search: Record<string, unknown>): { tab?: TasksTab } => {
+  // `?cut=` is the same idea one level in: which of the four cross-list views
+  // the tiles have swapped into the Zadaci half. Absent means the default -
+  // what is late, today and tomorrow.
+  validateSearch: (search: Record<string, unknown>): { tab?: TasksTab; cut?: SmartListKey } => {
     const tab = search.tab;
-    return tab === "lists" || tab === "tasks" ? { tab } : {};
+    const cut = search.cut;
+    return {
+      ...(tab === "lists" || tab === "tasks" ? { tab } : {}),
+      ...(cut === "late" || cut === "scheduled" || cut === "inbox" || cut === "done"
+        ? { cut }
+        : {}),
+    };
   },
   component: TasksIndex,
 });
@@ -41,7 +51,7 @@ export const Route = createFileRoute("/_app/tasks/")({
 function TasksIndex() {
   const isWide = useIsWide();
   const listsQuery = useListsWithTasks();
-  const { tab } = Route.useSearch();
+  const { tab, cut } = Route.useSearch();
   const navigate = useNavigate();
 
   if (!isWide) {
@@ -51,7 +61,27 @@ function TasksIndex() {
         onTabChange={(next) => {
           void navigate({
             to: "/tasks",
-            search: (prev) => ({ ...prev, tab: next === "tasks" ? undefined : next }),
+            // Leaving the Zadaci half drops the cut with it - it belongs to that
+            // half, and coming back to a view you cannot see the tiles for reads
+            // as the screen having remembered the wrong thing.
+            // Built explicitly, never spread from `prev`: the reducer sees the
+            // union of EVERY route's params, so `...prev` drags `/money`'s and
+            // `/calendar`'s `tab` values into this route's type.
+            search: (prev) => ({
+              new: prev.new,
+              tab: next === "tasks" ? undefined : next,
+              cut: next === "tasks" ? prev.cut : undefined,
+            }),
+            replace: true,
+          });
+        }}
+        cut={cut ?? null}
+        onCutChange={(next) => {
+          void navigate({
+            to: "/tasks",
+            // `tab` from the route's OWN validated search, not from `prev`,
+            // which is the union of every route's params.
+            search: (prev) => ({ new: prev.new, tab, cut: next ?? undefined }),
             replace: true,
           });
         }}

@@ -44,10 +44,17 @@ import type { Profile } from "@/types/database";
  * sheet like everywhere else rather than a checkbox that undoes history on a
  * mis-tap.
  */
-export function CompletedTasksScreen() {
-  const definition = smartListDefinition("done");
-  const isWide = useIsWide();
-  const navigate = useNavigate();
+export type CompletedTasksBodyProps = {
+  /** Whose ticks to show. Owned by the host - the rail lives outside this. */
+  personIds: ReadonlySet<string>;
+  onClearFilter: () => void;
+};
+
+/**
+ * The finished rows, with no chrome of its own - see `SmartTaskListBody` for
+ * why the title and the rail belong to the host rather than in here.
+ */
+export function CompletedTasksBody({ personIds, onClearFilter }: CompletedTasksBodyProps) {
   const today = useToday().str;
 
   const tasksQuery = useTasksList();
@@ -55,7 +62,6 @@ export function CompletedTasksScreen() {
   const listsQuery = useListsWithTasks();
   const { byId } = useFamilyMembers();
 
-  const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [openEntry, setOpenEntry] = useState<CompletedEntry | null>(null);
 
   const since = shiftIsoByDays(today, -COMPLETED_WINDOW_DAYS) ?? today;
@@ -86,37 +92,8 @@ export function CompletedTasksScreen() {
   const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const yesterday = shiftIsoByDays(today, -1) ?? today;
 
-  const header = (
-    <TaskScreenHeader
-      title={definition.label}
-      subtitle={definition.subtitle}
-      showBack={!isWide}
-      onBack={() => {
-        void navigate({ to: "/tasks" });
-      }}
-      toolbar={
-        <FilterChipRow ariaLabel="Ko je završio">
-          <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
-            Svi
-          </FilterChip>
-          <MemberFilterChips
-            selected={personIds}
-            onToggle={(personId) =>
-              setPersonIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(personId)) next.delete(personId);
-                else next.add(personId);
-                return next;
-              })
-            }
-          />
-        </FilterChipRow>
-      }
-    />
-  );
-
   return (
-    <TaskScreenShell isWide={isWide} header={header}>
+    <>
       {isLoading ? <AgendaListSkeleton /> : null}
 
       {!isLoading && groups.length === 0 ? (
@@ -129,11 +106,7 @@ export function CompletedTasksScreen() {
               ? `U poslednjih ${COMPLETED_WINDOW_DAYS} dana niko od izabranih nije ništa štiklirao.`
               : `Ovde stoji sve što je štiklirano u poslednjih ${COMPLETED_WINDOW_DAYS} dana - ko je šta uradio i da li je stiglo na vreme.`
           }
-          action={
-            personIds.size > 0
-              ? { label: "Prikaži sve", onClick: () => setPersonIds(new Set()) }
-              : undefined
-          }
+          action={personIds.size > 0 ? { label: "Prikaži sve", onClick: onClearFilter } : undefined}
         />
       ) : null}
 
@@ -173,6 +146,50 @@ export function CompletedTasksScreen() {
         occurrenceDate={openEntry?.occurrenceDate ?? null}
         effectiveDate={openEntry?.occurrenceDate ?? null}
       />
+    </>
+  );
+}
+
+/** The same rows as their own screen - what the `/tasks/done` route renders. */
+export function CompletedTasksScreen() {
+  const definition = smartListDefinition("done");
+  const isWide = useIsWide();
+  const navigate = useNavigate();
+  const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  return (
+    <TaskScreenShell
+      isWide={isWide}
+      header={
+        <TaskScreenHeader
+          title={definition.label}
+          subtitle={definition.subtitle}
+          showBack={!isWide}
+          onBack={() => {
+            void navigate({ to: "/tasks" });
+          }}
+          toolbar={
+            <FilterChipRow ariaLabel="Ko je završio">
+              <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
+                Svi
+              </FilterChip>
+              <MemberFilterChips
+                selected={personIds}
+                onToggle={(personId) =>
+                  setPersonIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(personId)) next.delete(personId);
+                    else next.add(personId);
+                    return next;
+                  })
+                }
+              />
+            </FilterChipRow>
+          }
+        />
+      }
+    >
+      <CompletedTasksBody personIds={personIds} onClearFilter={() => setPersonIds(new Set())} />
     </TaskScreenShell>
   );
 }

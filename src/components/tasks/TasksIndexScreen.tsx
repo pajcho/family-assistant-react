@@ -20,6 +20,8 @@ import { useTickedHereLinger } from "@/components/tasks/useTickedHereLinger";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { TaskQuickAddFlow } from "@/components/tasks/TaskQuickAddFlow";
+import { CompletedTasksBody } from "@/components/tasks/CompletedTasksScreen";
+import { SmartTaskListBody } from "@/components/tasks/SmartTaskListScreen";
 import { TaskStatStrip } from "@/components/tasks/TaskStatStrip";
 import {
   detailSheetDates,
@@ -28,6 +30,7 @@ import {
   type TaskAgendaItem,
 } from "@/components/tasks/taskItemModel";
 import { useSmartListCounts, useTaskAgendaItems } from "@/components/tasks/taskItems";
+import type { SmartListKey } from "@/components/tasks/smartLists";
 import { useCreateListFlow } from "@/components/tasks/useCreateListFlow";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useOverdueTasks } from "@/hooks/useOverdueTasks";
@@ -84,9 +87,12 @@ const TAB_OPTIONS: ReadonlyArray<SegmentedOption<TasksTab>> = [
 export type TasksIndexScreenProps = {
   tab: TasksTab;
   onTabChange: (next: TasksTab) => void;
+  /** Which cross-list cut the tiles have selected, or null for the dated view. */
+  cut: SmartListKey | null;
+  onCutChange: (next: SmartListKey | null) => void;
 };
 
-export function TasksIndexScreen({ tab, onTabChange }: TasksIndexScreenProps) {
+export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIndexScreenProps) {
   const today = useToday().str;
   const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const weekEnd = shiftIsoByDays(today, 6) ?? today;
@@ -258,11 +264,31 @@ export function TasksIndexScreen({ tab, onTabChange }: TasksIndexScreenProps) {
         <>
           {personRow}
 
-          <TaskStatStrip counts={counts} />
+          <TaskStatStrip counts={counts} active={cut} onSelect={onCutChange} />
 
-          {datedLoading ? <DatedSkeleton /> : null}
+          {/* One of the four cuts, in place. The rail above already filters it
+              and the tile above already names it, so the body arrives without a
+              title, a back button or a rail of its own. */}
+          {cut !== null ? (
+            <div className="mt-4">
+              {cut === "done" ? (
+                <CompletedTasksBody
+                  personIds={personIds}
+                  onClearFilter={() => setPersonIds(new Set())}
+                />
+              ) : (
+                <SmartTaskListBody
+                  source={cut}
+                  personIds={personIds}
+                  onClearFilter={() => setPersonIds(new Set())}
+                />
+              )}
+            </div>
+          ) : null}
 
-          {!datedLoading && sections.length === 0 ? (
+          {cut === null && datedLoading ? <DatedSkeleton /> : null}
+
+          {cut === null && !datedLoading && sections.length === 0 ? (
             <p className="mt-4 rounded-xl border border-dashed border-border bg-card px-4 py-5 text-center text-sm font-normal text-muted-foreground">
               {personIds.size > 0
                 ? "Za izabrane osobe nema ničega sa datumom."
@@ -270,7 +296,7 @@ export function TasksIndexScreen({ tab, onTabChange }: TasksIndexScreenProps) {
             </p>
           ) : null}
 
-          {!datedLoading
+          {cut === null && !datedLoading
             ? sections.map((section) => {
                 const isExpanded = expanded.has(section.key);
                 const shown = isExpanded ? section.items : section.items.slice(0, SECTION_LIMIT);

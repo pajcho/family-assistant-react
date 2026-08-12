@@ -64,16 +64,26 @@ function openCount(items: readonly TaskAgendaItem[]): number {
   return items.filter((item) => !item.isDone).length;
 }
 
-export type SmartTaskListScreenProps = {
+export type SmartTaskListBodyProps = {
   source: SmartListKey;
+  /** Whose rows to show. Owned by the host - the rail lives outside this. */
+  personIds: ReadonlySet<string>;
+  /** Lets an empty state offer "prikazi sve" without owning the filter. */
+  onClearFilter: () => void;
 };
 
-export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
-  const definition = smartListDefinition(source);
+/**
+ * The rows of one cross-list view, with no chrome of its own.
+ *
+ * Two hosts: its own route (below, with a title, a back button and a person
+ * rail) and the /tasks overview, where the four tiles switch between these
+ * bodies in place. The overview already has the rail and the title is whichever
+ * tile you tapped, so none of that belongs in here.
+ */
+export function SmartTaskListBody({ source, personIds, onClearFilter }: SmartTaskListBodyProps) {
   const today = useToday().str;
   const tomorrow = shiftIsoByDays(today, 1) ?? today;
   const windowEnd = shiftIsoByDays(today, SCHEDULED_WINDOW_DAYS) ?? today;
-  const isWide = useIsWide();
   const navigate = useNavigate();
 
   const { byTask } = useTaskAssignees();
@@ -81,7 +91,6 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
   const agenda = useTaskAgendaItems({ from: today, to: windowEnd, today });
   const tasksQuery = useTasksList();
 
-  const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [openTask, setOpenTask] = useState<TaskAgendaItem | null>(null);
 
   // Same cached query the agenda hook reads, so this costs no extra fetch. The
@@ -186,44 +195,15 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
   const total =
     selection.late.length + selection.dated.length + selection.undated.length + inboxDone.length;
 
-  const header = (
-    <TaskScreenHeader
-      title={definition.label}
-      subtitle={definition.subtitle}
-      showBack={!isWide}
-      onBack={() => {
-        void navigate({ to: "/tasks" });
-      }}
-      toolbar={
-        <FilterChipRow ariaLabel="Osoba">
-          <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
-            Svi
-          </FilterChip>
-          <MemberFilterChips
-            selected={personIds}
-            onToggle={(personId) =>
-              setPersonIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(personId)) next.delete(personId);
-                else next.add(personId);
-                return next;
-              })
-            }
-          />
-        </FilterChipRow>
-      }
-    />
-  );
-
   return (
-    <TaskScreenShell isWide={isWide} header={header}>
+    <>
       {isLoading ? <AgendaListSkeleton /> : null}
 
       {!isLoading && total === 0 ? (
         <SmartListEmptyState
           source={source}
           filtered={personIds.size > 0}
-          onClearFilter={() => setPersonIds(new Set())}
+          onClearFilter={onClearFilter}
           onGoScheduled={() => {
             void navigate({ to: "/tasks/scheduled" });
           }}
@@ -288,6 +268,58 @@ export function SmartTaskListScreen({ source }: SmartTaskListScreenProps) {
         effectiveDate={detailSheetDates(openTask).effectiveDate}
         assigneeIds={openTask?.assigneeIds}
         missed={openTask?.missed}
+      />
+    </>
+  );
+}
+
+/**
+ * The same rows as their own screen: title, back and person rail around the
+ * body. This is what the `/tasks/late|scheduled|inbox` routes render, and what
+ * the desktop master-detail pane shows.
+ */
+export function SmartTaskListScreen({ source }: { source: SmartListKey }) {
+  const definition = smartListDefinition(source);
+  const isWide = useIsWide();
+  const navigate = useNavigate();
+  const [personIds, setPersonIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  return (
+    <TaskScreenShell
+      isWide={isWide}
+      header={
+        <TaskScreenHeader
+          title={definition.label}
+          subtitle={definition.subtitle}
+          showBack={!isWide}
+          onBack={() => {
+            void navigate({ to: "/tasks" });
+          }}
+          toolbar={
+            <FilterChipRow ariaLabel="Osoba">
+              <FilterChip active={personIds.size === 0} onToggle={() => setPersonIds(new Set())}>
+                Svi
+              </FilterChip>
+              <MemberFilterChips
+                selected={personIds}
+                onToggle={(personId) =>
+                  setPersonIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(personId)) next.delete(personId);
+                    else next.add(personId);
+                    return next;
+                  })
+                }
+              />
+            </FilterChipRow>
+          }
+        />
+      }
+    >
+      <SmartTaskListBody
+        source={source}
+        personIds={personIds}
+        onClearFilter={() => setPersonIds(new Set())}
       />
     </TaskScreenShell>
   );
