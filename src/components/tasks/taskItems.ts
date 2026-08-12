@@ -24,6 +24,9 @@ import { shiftIsoByDays } from "@/utils/pickerGrid";
  * which is what the tests import (this file's chain reaches `lib/supabase`).
  */
 
+/** Stable "everybody" - the sidebar has no person rail and passes nothing. */
+const NO_PERSON_FILTER: ReadonlySet<string> = new Set();
+
 /**
  * How much each cross-list view holds - the sidebar's rows and the index's tiles.
  *
@@ -34,9 +37,19 @@ import { shiftIsoByDays } from "@/utils/pickerGrid";
  *
  * Završeno is the exception and counts EVENTS, because that is what its screen
  * shows: five ticks of the same daily chore are five things that happened.
+ *
+ * `personIds` narrows all four to the people the caller's rail has picked. On
+ * the index the tiles sit directly under that rail and now swap the body below
+ * them, so a tile counting the whole family above rows counting one person is
+ * the number and the list disagreeing in plain sight. Each view applies it the
+ * way its own screen does: the three forward-looking ones on WHO IT IS FOR,
+ * Završeno on WHO TICKED IT.
  */
-export function useSmartListCounts(): Record<SmartListKey, number> {
+export function useSmartListCounts(
+  personIds: ReadonlySet<string> = NO_PERSON_FILTER,
+): Record<SmartListKey, number> {
   const tasksQuery = useTasksList();
+  const { byTask } = useTaskAssignees();
   const { occurrences } = useTaskOccurrenceRows();
   const today = useToday().str;
   const since = shiftIsoByDays(today, -COMPLETED_WINDOW_DAYS) ?? today;
@@ -46,16 +59,23 @@ export function useSmartListCounts(): Record<SmartListKey, number> {
   // Through the same function the Završeno screen renders, so the tile and the
   // screen can never disagree. Counting one-offs here and letting the screen add
   // repeating occurrences is exactly how a badge starts lying.
-  const done = useMemo(
-    () => completedEntries(tasks ?? [], occurrences, since).length,
-    [tasks, occurrences, since],
-  );
+  const done = useMemo(() => {
+    const entries = completedEntries(tasks ?? [], occurrences, since);
+    if (personIds.size === 0) return entries.length;
+    return entries.filter((e) => e.byPersonId !== null && personIds.has(e.byPersonId)).length;
+  }, [tasks, occurrences, since, personIds]);
 
   return useMemo(() => {
     let late = 0;
     let scheduled = 0;
     let inbox = 0;
     for (const task of tasks ?? []) {
+      // Same rule as `matchesPersonFilter`: an empty selection is everybody, and
+      // a task with no assignees belongs to the family, so it drops out the
+      // moment a person is picked.
+      if (personIds.size > 0 && !(byTask.get(task.id) ?? []).some((id) => personIds.has(id))) {
+        continue;
+      }
       const recurring = isRecurringTask(task);
       const open = recurring || !task.is_completed;
       if (isTaskOverdue(task, today)) late += 1;
@@ -63,7 +83,7 @@ export function useSmartListCounts(): Record<SmartListKey, number> {
       if (open && task.list_id === null) inbox += 1;
     }
     return { late, scheduled, inbox, done };
-  }, [tasks, today, done]);
+  }, [tasks, byTask, personIds, today, done]);
 }
 
 export interface UseTaskAgendaItemsOptions {

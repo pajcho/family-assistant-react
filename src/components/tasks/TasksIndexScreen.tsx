@@ -118,7 +118,7 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
 
   const overdue = useOverdueTasks();
   const week = useTaskAgendaItems({ from: today, to: weekEnd, today });
-  const counts = useSmartListCounts();
+  const counts = useSmartListCounts(personIds);
   const tasksQuery = useTasksList();
 
   // Same cached query the two hooks above read - no extra fetch. The linger
