@@ -31,6 +31,7 @@ import {
   taskReminderSummary,
   type TaskDraft,
 } from "@/components/tasks/taskDraft";
+import { useEdgeFade } from "@/hooks/useEdgeFade";
 import { useProfile } from "@/hooks/useProfile";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
@@ -52,8 +53,13 @@ import type { ListScope } from "@/types/database";
  * weekday set `due_date` in place - one tap, no overlay, because "tomorrow" is
  * what most reminders are. The other four open a sheet each: they need a real
  * control, and growing the composer into a form is exactly what a composer must
- * not do. Nothing on the row is required, so an undated item is still
- * type-and-send - which is the only way a shopping list works.
+ * not do. Past their scroll sits the eighth and costliest, which hands the whole
+ * draft over to the full form. Nothing on the row is required, so an undated
+ * item is still type-and-send - which is the only way a shopping list works.
+ *
+ * The row is the ONLY thing focus changes. The field it belongs to keeps its
+ * own border, its own width and its own place on the page from the first tap to
+ * the last.
  */
 
 export type TaskComposerProps = {
@@ -124,6 +130,9 @@ export function TaskComposer({
   const [fullFormMounted, setFullFormMounted] = useState(false);
   const [handover, setHandover] = useState<TaskDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Eight chips never fit a phone's width, and until now the row was cut dead
+  // at the edge with nothing to say more was behind it.
+  const chipScrollRef = useEdgeFade<HTMLDivElement>();
   // Just the state. Where the focus lands afterwards is `onCloseAutoFocus`'s
   // call down in ComposerPickerSheets - doing it here too raced with the
   // dialog's own focus restore and the field lost either way.
@@ -179,18 +188,13 @@ export function TaskComposer({
   const dateIsBeyondChips =
     draft.dueDate !== null && (!quickDates.has(draft.dueDate) || draft.dueTime !== null);
 
-  // Input and chips inside ONE frame, so it reads as a single thing being
-  // filled in rather than a field with a toolbar that happens to sit under it.
-  // The frame only exists while it has both halves to hold together: collapsed,
-  // the field's own border is the outline; expanded, the field goes borderless
-  // and the frame takes over.
+  // The line NEVER changes shape. Touching it only adds the chip row beneath:
+  // no frame closes in around the field, no button appears beside it, nothing
+  // reflows the words already typed. Every earlier version wrapped the pair in
+  // a card on focus, and paying for that outline with two content shifts - the
+  // frame's padding and a button squeezing in - was a bad trade for a border.
   const unit = (
-    <div
-      className={cn(
-        "rounded-2xl transition-[padding,background-color] duration-150",
-        expanded && "border border-border bg-card p-1.5 shadow-card",
-      )}
-    >
+    <div>
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input
           ref={inputRef}
@@ -204,10 +208,7 @@ export function TaskComposer({
           // hint is here because without it iOS labels the key with a plain
           // return arrow, which reads as "new line", not "add".
           enterKeyHint="send"
-          className={cn(
-            "h-10 flex-1",
-            expanded && "border-transparent bg-transparent shadow-none focus-visible:ring-0",
-          )}
+          className="h-10 flex-1"
           // Nothing here asks the page to move. The browser scrolls a focused
           // field into view on its own, and every attempt to help it along -
           // scrollIntoView, a measured keyboard inset, a lifted overlay - has
@@ -215,21 +216,6 @@ export function TaskComposer({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
-        {/* The way out of a one-line composer: everything typed so far moves
-            into the full form, where the fields are laid out instead of hidden
-            behind four sub-views. Only while the composer is in use - at rest it
-            would be a second "add" button next to the "+" in the nav. */}
-        {expanded ? (
-          <button
-            type="button"
-            aria-label="Otvori punu formu"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={openFullForm}
-            className="grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <ArrowsPointingOutIcon className="size-[18px]" strokeWidth={2} />
-          </button>
-        ) : null}
         <button
           type="submit"
           disabled={!typed}
@@ -246,75 +232,124 @@ export function TaskComposer({
       {/* On FOCUS, not on the first keystroke. Waiting for a character meant the
           row appeared one beat after the keyboard and shoved the field up again -
           two shifts for one intention. `typed` is what keeps it out once the
-          keyboard is gone, and `picker` while a sheet has the focus. */}
-      {expanded ? (
-        <div
-          role="group"
-          aria-label="Detalji zadatka"
-          className="scrollbar-hide fade-scroll-x mt-1.5 flex min-h-11 items-center gap-1.5 overflow-x-auto px-0.5"
-        >
-          <QuickChip
-            active={draft.dueDate === today}
-            onClick={() => setDraft((s) => ({ ...s, dueDate: s.dueDate === today ? null : today }))}
+          keyboard is gone, and `picker` while a sheet has the focus.
+
+          It SLIDES DOWN rather than blinking into place, which needs it mounted
+          all along: a `0fr` track is the only way to transition a row whose
+          height is whatever its content turns out to be, and the inner
+          `overflow-hidden` is what lets that track actually reach zero. `inert`
+          while it is shut keeps eight buttons nobody can see out of the tab
+          order and away from screen readers. */}
+      <div
+        inert={!expanded}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={cn(
+              "mt-1.5 flex items-center gap-2",
+              // `translate`, not `transform`: the utility below sets the
+              // standalone property, and naming the wrong one here left the
+              // chips snapping into place while the row itself opened.
+              "transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
+              expanded ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
+            )}
           >
-            Danas
-          </QuickChip>
-          <QuickChip
-            active={draft.dueDate === tomorrow}
-            onClick={() =>
-              setDraft((s) => ({ ...s, dueDate: s.dueDate === tomorrow ? null : tomorrow }))
-            }
-          >
-            Sutra
-          </QuickChip>
-          <QuickChip
-            active={draft.dueDate === nextWeekdayIso}
-            onClick={() =>
-              setDraft((s) => ({
-                ...s,
-                dueDate: s.dueDate === nextWeekdayIso ? null : nextWeekdayIso,
-              }))
-            }
-          >
-            {weekdayChipLabel(nextWeekdayIso)}
-          </QuickChip>
-          <QuickChip
-            icon={<CalendarDaysIcon className="size-3.5" aria-hidden="true" />}
-            active={dateIsBeyondChips}
-            summary={dateIsBeyondChips ? taskDateSummary(draft, today, tomorrow) : null}
-            onClick={() => openPicker("date")}
-          >
-            Datum
-          </QuickChip>
-          <QuickChip
-            icon={<UserIcon className="size-3.5" aria-hidden="true" />}
-            // Private counts as set even before the self-assignment lands - the
-            // chip already reads "Samo ja", and reading it in the resting style
-            // would say the opposite of what it says.
-            active={draft.onlyMe || draft.assigneeIds.length > 0}
-            summary={assigneeSummary}
-            onClick={() => openPicker("who")}
-          >
-            Za koga
-          </QuickChip>
-          <QuickChip
-            icon={<ArrowPathIcon className="size-3.5" aria-hidden="true" />}
-            active={draft.recurrencePeriod !== "one-time"}
-            summary={taskRecurrenceSummary(draft)}
-            onClick={() => openPicker("recurrence")}
-          >
-            Ponavljanje
-          </QuickChip>
-          <QuickChip
-            icon={<BellIcon className="size-3.5" aria-hidden="true" />}
-            active={draft.remindDaysBefore !== null || draft.remindMinutesBefore !== null}
-            summary={taskReminderSummary(draft)}
-            onClick={() => openPicker("reminder")}
-          >
-            Podsetnik
-          </QuickChip>
+            <div
+              ref={chipScrollRef}
+              role="group"
+              aria-label="Detalji zadatka"
+              className="scrollbar-hide fade-scroll-x flex min-h-11 flex-1 items-center gap-1.5 overflow-x-auto px-0.5"
+            >
+              <QuickChip
+                active={draft.dueDate === today}
+                onClick={() =>
+                  setDraft((s) => ({ ...s, dueDate: s.dueDate === today ? null : today }))
+                }
+              >
+                Danas
+              </QuickChip>
+              <QuickChip
+                active={draft.dueDate === tomorrow}
+                onClick={() =>
+                  setDraft((s) => ({ ...s, dueDate: s.dueDate === tomorrow ? null : tomorrow }))
+                }
+              >
+                Sutra
+              </QuickChip>
+              <QuickChip
+                active={draft.dueDate === nextWeekdayIso}
+                onClick={() =>
+                  setDraft((s) => ({
+                    ...s,
+                    dueDate: s.dueDate === nextWeekdayIso ? null : nextWeekdayIso,
+                  }))
+                }
+              >
+                {weekdayChipLabel(nextWeekdayIso)}
+              </QuickChip>
+              <QuickChip
+                icon={<CalendarDaysIcon className="size-3.5" aria-hidden="true" />}
+                active={dateIsBeyondChips}
+                summary={dateIsBeyondChips ? taskDateSummary(draft, today, tomorrow) : null}
+                onClick={() => openPicker("date")}
+              >
+                Datum
+              </QuickChip>
+              <QuickChip
+                icon={<UserIcon className="size-3.5" aria-hidden="true" />}
+                // Private counts as set even before the self-assignment lands - the
+                // chip already reads "Samo ja", and reading it in the resting style
+                // would say the opposite of what it says.
+                active={draft.onlyMe || draft.assigneeIds.length > 0}
+                summary={assigneeSummary}
+                onClick={() => openPicker("who")}
+              >
+                Za koga
+              </QuickChip>
+              <QuickChip
+                icon={<ArrowPathIcon className="size-3.5" aria-hidden="true" />}
+                active={draft.recurrencePeriod !== "one-time"}
+                summary={taskRecurrenceSummary(draft)}
+                onClick={() => openPicker("recurrence")}
+              >
+                Ponavljanje
+              </QuickChip>
+              <QuickChip
+                icon={<BellIcon className="size-3.5" aria-hidden="true" />}
+                active={draft.remindDaysBefore !== null || draft.remindMinutesBefore !== null}
+                summary={taskReminderSummary(draft)}
+                onClick={() => openPicker("reminder")}
+              >
+                Podsetnik
+              </QuickChip>
+            </div>
+            {/* The way out of a one-line composer: everything typed so far moves
+                into the full form, where the fields are laid out instead of
+                hidden behind four sub-views. It sits at the end of this row
+                rather than beside the field - anchored past the scrolling chips
+                as the last, widest option - because the field's own line has to
+                stay exactly as wide as it was before you touched it. */}
+            <button
+              type="button"
+              aria-label="Otvori punu formu"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={openFullForm}
+              className={cn(
+                "relative grid size-8 shrink-0 place-items-center rounded-full border border-border bg-card",
+                "text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                "after:absolute after:-inset-[7px] after:content-['']",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              )}
+            >
+              <ArrowsPointingOutIcon className="size-4" strokeWidth={2} />
+            </button>
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 
