@@ -27,29 +27,30 @@ const isTextEntry = (el: Element | null): boolean => {
 
 /**
  * Returns true while a software keyboard (or any equivalent input
- * accessory) is occupying screen real estate.
+ * accessory) is occupying screen real estate. Sole consumer is the
+ * mobile sheet in responsive-dialog, which latches this to hold a
+ * 60vh floor under the sheet while the keyboard is up (see
+ * useKeyboardFloorLatch there). Nothing else should gate rendering
+ * on it: the bottom nav used to unmount on this signal, and a stuck
+ * reading (stale visualViewport after a PWA resume) left the app
+ * with no navigation until a restart.
  *
  * Two parallel signals are OR'd together because each one fails for
  * different reasons on different browsers:
  *
  *   1. `visualViewport.height` < `window.innerHeight` by more than
- *      `THRESHOLD_PX` (150). Works on iOS Safari, but iOS 17+ with
- *      `interactive-widget=resizes-content` (set in index.html) makes
- *      the two heights match - at which point this signal returns
- *      false even though the keyboard is open.
+ *      `THRESHOLD_PX` (150). Fires on iOS Safari, which ignores the
+ *      `interactive-widget=resizes-content` viewport flag (measured
+ *      on iOS 26, see index.html). Dies wherever the flag IS
+ *      honoured (Chromium): there the layout viewport itself
+ *      shrinks, so the two heights match with the keyboard open.
  *
  *   2. `document.activeElement` is a text-entry control (input,
  *      textarea, or contenteditable). Always-reliable proxy: the
- *      keyboard is visible when a text field has focus. Falls back
- *      gracefully when the user dismisses the keyboard via the
- *      accessory bar while still focused (the page hasn't told us
- *      either way, so the nav stays hidden a beat longer - better
- *      than flickering back on top of the keyboard).
- *
- * The two-signal approach means the nav slides out even on iOS 17+
- * (where signal 1 stops firing because the layout viewport itself
- * resizes) AND on Android Chrome (where signal 2 might lag while
- * focus shifts).
+ *      keyboard is visible when a text field has focus. Overshoots
+ *      when a keyboard is dismissed while focus stays (accessory-bar
+ *      dismiss) - for the sheet floor that just means the floor
+ *      lingers until the next tap.
  */
 export function useIsKeyboardOpen(): boolean {
   const [open, setOpen] = useState(false);
@@ -79,10 +80,10 @@ export function useIsKeyboardOpen(): boolean {
 
   // Safety net for the one case the events above can't cover: a focused
   // input that's REMOVED from the DOM (a closing dialog unmounting its
-  // form) fires no focusout in Chromium/WebKit, so signal 2 would latch on
-  // and the bottom nav would stay gone until the user next touched a field.
-  // Re-check on a slow tick while we believe the keyboard is up; the moment
-  // it reads closed the interval stops, so this costs nothing at rest.
+  // form) fires no focusout in Chromium/WebKit, so signal 2 would keep
+  // reporting a keyboard that is long gone. Re-check on a slow tick while
+  // we believe the keyboard is up; the moment it reads closed the interval
+  // stops, so this costs nothing at rest.
   useEffect(() => {
     if (!open) return;
     const id = window.setInterval(compute, 400);
