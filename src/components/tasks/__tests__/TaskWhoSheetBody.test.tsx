@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { TaskWhoSheetBody } from "@/components/tasks/TaskFields";
+import { TaskWhoSheetBody, useTaskAssigneeSummary } from "@/components/tasks/TaskFields";
 import { emptyTaskDraft, privateDraftDefaults, type TaskDraft } from "@/components/tasks/taskDraft";
 import type { ListScope, Profile } from "@/types/database";
 
@@ -140,5 +140,31 @@ describe("TaskWhoSheetBody", () => {
     expect(
       screen.getByText("Lista je lična, pa zadatak vidiš samo ti - i nema kome da se dodeli."),
     ).toBeVisible();
+  });
+});
+
+describe("useTaskAssigneeSummary", () => {
+  const withAssignees = (count: number): TaskDraft => ({
+    ...emptyTaskDraft(),
+    assigneeIds: Array.from({ length: count }, (_, index) => `person-${index}`),
+  });
+
+  it("names one or two people and counts three or more", () => {
+    const two = renderHook(() =>
+      useTaskAssigneeSummary({ ...emptyTaskDraft(), assigneeIds: ["me-1", "ana-1"] }),
+    );
+    expect(two.result.current).toBe("Nikola, Ana");
+    expect(renderHook(() => useTaskAssigneeSummary(withAssignees(3))).result.current).toBe(
+      "3 osobe",
+    );
+  });
+
+  it("counts a big roster in the genitive, off the last digit", () => {
+    expect(renderHook(() => useTaskAssigneeSummary(withAssignees(5))).result.current).toBe(
+      "5 osoba",
+    );
+    expect(renderHook(() => useTaskAssigneeSummary(withAssignees(21))).result.current).toBe(
+      "21 osoba",
+    );
   });
 });

@@ -185,6 +185,13 @@ describe("batchTitle", () => {
     expect(batchTitle(22)).toBe("22 nova zadatka");
     expect(batchTitle(25)).toBe("25 novih zadataka");
   });
+
+  it("gives a final 1 the singular, except the 11 teen", () => {
+    expect(batchTitle(11)).toBe("11 novih zadataka");
+    expect(batchTitle(21)).toBe("21 novi zadatak");
+    expect(batchTitle(31)).toBe("31 novi zadatak");
+    expect(batchTitle(101)).toBe("101 novi zadatak");
+  });
 });
 
 describe("batchBody", () => {

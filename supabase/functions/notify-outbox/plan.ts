@@ -122,7 +122,7 @@ export function planOutboxPushes(input: PlanInput): PushBatch[] {
   return batches;
 }
 
-/** "Novi zadatak" / "3 nova zadatka" / "7 novih zadataka". */
+/** "Novi zadatak" / "3 nova zadatka" / "7 novih zadataka" / "21 novi zadatak". */
 export function batchTitle(count: number): string {
   if (count === 1) return "Novi zadatak";
   return `${count} ${pluralTasks(count)}`;
@@ -130,12 +130,15 @@ export function batchTitle(count: number): string {
 
 /**
  * Serbian counts the noun off the LAST digit, with the teens as the exception:
- * 2-4 take one form, everything else the other, but 12-14 are "novih" like the
- * rest of the teens.
+ * a final 1 takes the singular, 2-4 the paucal, everything else the genitive
+ * plural - and 11-14 are genitive like the rest of the teens. The same rule as
+ * `serbianPlural` in `src/utils/plural.ts`, re-spelled here because the Deno
+ * runtime cannot import from `src/`.
  */
 function pluralTasks(count: number): string {
   const last = count % 10;
   const lastTwo = count % 100;
+  if (last === 1 && lastTwo !== 11) return "novi zadatak";
   if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return "nova zadatka";
   return "novih zadataka";
 }

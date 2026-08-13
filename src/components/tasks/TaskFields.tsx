@@ -25,6 +25,7 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
 import { DAY_LABELS_SHORT } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
+import { pluralSr } from "@/utils/plural";
 import type { ListScope } from "@/types/database";
 
 /**
@@ -39,7 +40,7 @@ import type { ListScope } from "@/types/database";
  * read-back strings are `taskDraft.ts`.
  */
 
-/** "Samo ja" / "Ana" / "Ana, Marko" / "3 osobe" - the who chip's read-back. */
+/** "Samo ja" / "Ana" / "Ana, Marko" / "3 osobe" / "5 osoba" - the who chip's read-back. */
 export function useTaskAssigneeSummary(draft: TaskDraft): string | null {
   const { byId } = useFamilyMembers();
   // Private beats the name: "Samo ja" is the thing worth reading back from a
@@ -47,7 +48,10 @@ export function useTaskAssigneeSummary(draft: TaskDraft): string | null {
   // nothing about who can SEE it.
   if (draft.onlyMe) return "Samo ja";
   if (draft.assigneeIds.length === 0) return null;
-  if (draft.assigneeIds.length > 2) return `${draft.assigneeIds.length} osobe`;
+  if (draft.assigneeIds.length > 2) {
+    const count = draft.assigneeIds.length;
+    return `${count} ${pluralSr(count, "osoba", "osobe", "osoba")}`;
+  }
   return draft.assigneeIds
     .map((id) => {
       const person = byId.get(id);
