@@ -382,3 +382,16 @@ own), alongside the private-tasks work, at the maintainer's request.
    `defaultListId`, one line, leaving the MRU to drive ordering only.
 7. **Not done: `plans/README.md` execution-order table** lists this as DONE but
    the branch is shared with 015, so there is no separate PR to reference.
+8. **The "Pregled" row and section 6's layout are gone**: the stat tiles at the
+   top of the Zadaci half ARE the four cross-list cuts now (`TaskStatStrip`),
+   swapping their rows into the page in place (`?cut=`) rather than navigating
+   away - repeating them as a chip row said the same thing twice. Section 7's
+   scope chips live inside the Liste tab unchanged; the Zadaci half filters by
+   the person rail instead.
+9. **Section 10's two missing test files were written 2026-08-14**
+   (`TasksIndexScreen.test.tsx`, `TaskQuickAddFlow.test.tsx`), with the
+   assertions adapted to the shipped tab/cut UI: segment switching, `?tab=lists`
+   rendering the grid first, scope groups under "Sve" with headings dropped on a
+   pick, MRU-driven grid order, the cut swapping in place, and the quick-add's
+   three-state `initialListId` contract exercised against the real
+   `recentLists` store.

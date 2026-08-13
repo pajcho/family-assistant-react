@@ -726,7 +726,7 @@ export interface List {
 }
 
 // ---------------------------------------------------------------------------
-// Tasks - the one completable entity (renamed from list_items)
+// Tasks - the one completable entity
 // ---------------------------------------------------------------------------
 
 /** Only consulted for a LISTLESS task; one inside a list carries its list's. */

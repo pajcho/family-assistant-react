@@ -796,9 +796,40 @@ this section wins.
 10. **`scripts/seed-demo.ts` is typechecked** by `tsconfig.node.json`, so it is
     part of `pnpm build`. It now seeds every task shape, and it is what the
     README screenshots are captured against.
-11. **Still outstanding from stage C3:** the `notify_on_task_create` toggle in
+11. **Stage C3's toggle shipped after all:** `notify_on_task_create` lives in
     `components/settings/NotificationsSection.tsx` and
-    `hooks/useNotificationPreferences.ts`.
+    `hooks/useNotificationPreferences.ts` like the other create toggles.
+12. **Task create pushes moved into an outbox**
+    (`20260812000000_task_notify_outbox.sql`, `functions/notify-outbox`),
+    because tasks are the one entity people create ten of in a row. The trigger
+    enqueues, a per-minute pg_cron flush calls the function, and each person
+    gets ONE batched push ("3 nova zadatka") per flush. This also narrowed
+    section 12's fan-out on purpose: an ASSIGNED task's create push goes to its
+    assignees only (minus the actor), an unassigned one to the whole family
+    minus kid logins. `notify-on-create` keeps its `task` branch as a closed
+    door for anything that still posts one.
+13. **The smart-list set is late / scheduled / inbox / done.** "Meni dodeljeno"
+    from section 10 was dropped: every one of these views carries the person
+    rail, so "assigned to me" is one chip anywhere rather than a view of its
+    own, and four cuts is what the mobile tile grid fits. "Završeno" (its own
+    screen, grouped by the day a task was ticked) took the slot.
+14. **The index's stat strip became those four cuts** (see plan 016 section
+    13): the tiles swap the cut's rows into the page in place (`?cut=`) instead
+    of navigating away, and the dated default view is Kasni / Danas / Sutra.
+    Section 10's "Kasni / Danas / Nedelja" counts are superseded on mobile; the
+    `/tasks/<cut>` routes stay for deep links and the desktop sidebar.
+15. **A listless task starts private** ("Samo ja", self-assigned), overriding
+    section 4.1's draft default of family scope in the composer and the
+    quick-add sheet; picking a list hands visibility to the list. The DB column
+    default is untouched.
+16. **The keyboard work under the bottom-pinned composer** (the
+    `interactive-widget` viewport meta, `useIsKeyboardOpen`, the bottom bar
+    staying mounted while the keyboard is up) is unplanned engineering that
+    section 10's composer needed on iOS. One deliberate convention exception
+    came out of it: a sheet's 60vh keyboard floor stays latched for that
+    sheet's LIFETIME (`useKeyboardFloorLatch` in `ui/responsive-dialog.tsx`) -
+    releasing it mid-exit breaks Vaul's dismissal when the composer takes focus
+    back and iOS reopens the keyboard.
 
 ## 14. Definition of done
 

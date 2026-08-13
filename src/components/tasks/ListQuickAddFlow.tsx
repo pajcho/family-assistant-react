@@ -12,12 +12,12 @@ export type ListQuickAddFlowProps = {
 };
 
 /**
- * "Dodaj → Lista" on surfaces that aren't /lists. Same shape as
+ * "Dodaj → Lista" on surfaces that aren't /tasks. Same shape as
  * `ExpenseQuickAddFlow`: owns the mutation and the feedback but never
  * navigates, so the caller's page stays put whether the user saves or backs
- * out. The dashboard used to deep-link into `/lists?new=1` instead, which
- * dropped the user on another page the moment they opened - or closed - the
- * form.
+ * out. The dashboard used to deep-link onto the lists page with `?new=1`
+ * instead, which dropped the user on another page the moment they opened - or
+ * closed - the form.
  *
  * Lists aren't visible on the dashboard, so the success toast carries the way
  * in: one tap opens the freshly made list, and ignoring it keeps you where you
