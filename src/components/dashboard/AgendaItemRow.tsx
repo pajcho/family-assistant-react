@@ -9,10 +9,8 @@ import {
   ItemTile,
   ItemTime,
   ItemTitle,
-  PersonDot,
 } from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
-import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { Pill } from "@/components/common/Pill";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import { TaskRow } from "@/components/tasks/TaskRow";
@@ -32,7 +30,6 @@ import {
 } from "@/utils/activity";
 import { currentAge } from "@/utils/birthday";
 import { isEventEnded } from "@/utils/event";
-import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
 
 /**
@@ -132,15 +129,7 @@ function ActivityRow({
   activity: Activity | undefined;
   onClick: () => void;
 }) {
-  const memberEmoji = useMemberEmoji();
   const color = person?.color ?? fallbackColorForProfile(block.personId);
-  const personName = person
-    ? getDisplayName({
-        firstName: person.first_name,
-        lastName: person.last_name,
-        email: null,
-      }) || "Bez imena"
-    : "-";
   const activityName = activity?.name ?? "Aktivnost";
   const today = format(new Date(), "yyyy-MM-dd");
   const isPast = isActivityBlockPast(block, today);
@@ -152,10 +141,18 @@ function ActivityRow({
         <ItemMain>
           <ItemTitle>
             <span className="min-w-0 truncate">{activityName}</span>
-            <PersonDot color={color} emoji={memberEmoji(person, block.personId)} />
           </ItemTitle>
+          {/* Span, description, then who - the same second line Danas prints,
+              so one activity reads identically on both screens. The member is
+              a badge here rather than a dot plus their name: the initials say
+              it in the space the name used to take, and free the line for the
+              description (which in practice holds WHERE to be). */}
           <ItemMeta>
-            {block.startTime}-{block.endTime} · {personName}
+            <span className="min-w-0 truncate">
+              {block.startTime}-{block.endTime}
+              {activity?.description ? ` · ${activity.description}` : ""}
+            </span>
+            <MemberBadges personIds={[block.personId]} size="xs" />
           </ItemMeta>
         </ItemMain>
         <ItemSide>

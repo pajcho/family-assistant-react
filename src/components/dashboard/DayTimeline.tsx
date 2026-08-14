@@ -13,6 +13,7 @@ import {
 
 import { Amount } from "@/components/common/Amount";
 import { PersonDot } from "@/components/common/ItemCard";
+import { MemberBadges } from "@/components/common/MemberBadges";
 import { useMinuteTick } from "@/components/dashboard/agendaCalendarShared";
 import { TaskRow, type TaskAgendaItem } from "@/components/tasks/TaskRow";
 import { cn } from "@/lib/cn";
@@ -34,9 +35,10 @@ import { nowLineIndex, splitDayTimeline } from "@/utils/dayTimeline";
  *
  * Reading order top to bottom:
  *   1. all-day and multi-day items as chips - they have no place on a clock;
- *   2. the timed items, each on its own row with the time in a left gutter,
- *      with a "Sada · HH:mm" line dropped in at the current time and everything
- *      before it dimmed, so "what is next" is the first thing the eye lands on;
+ *   2. the timed items, each on a full-width row carrying its own start time on
+ *      the right, with a "Sada · HH:mm" line dropped in at the current time and
+ *      everything before it dimmed, so "what is next" is the first thing the
+ *      eye lands on;
  *   3. tasks with no time - "sometime today", so not on the clock, but still
  *      the one band on this screen you are meant to ACT on, which is why it
  *      sits above the money and its rows carry the completion circle;
@@ -107,29 +109,22 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
               entry.past && entry.item.kind !== "task" && "opacity-40",
             )}
           >
-            <div className="w-11 flex-none pt-3 text-right text-[12.5px] font-bold text-muted-foreground tabular-nums">
-              {entry.startTime}
-            </div>
             {entry.item.kind === "task" ? (
-              // A timed task IS its minute and nothing more, so the gutter says
-              // when and the row carries the circle instead of a second clock.
               <div className="min-w-0 flex-1">
-                <TaskRow item={entry.item} onClick={() => onSelect(entry.item)} showTime={false} />
+                <TaskRow item={entry.item} onClick={() => onSelect(entry.item)} />
               </div>
             ) : (
               <TimelineCard
                 item={entry.item}
                 members={byId}
                 onClick={() => onSelect(entry.item)}
-                // The left gutter already anchors the start time, so the card's
-                // right side only carries the end - repeating the start there
-                // (as the prototype does) reads as noise on a phone.
+                // The start time, in the same trailing slot the Kalendar rows
+                // use. It used to live in a 44px gutter to the left of every
+                // card, which bought alignment at the price of the width the
+                // rows actually needed; the full span moved into the second
+                // line, where it sits next to the description.
                 side={
-                  entry.endTime ? (
-                    <span className="text-[12.5px] font-normal text-muted-foreground tabular-nums">
-                      do {entry.endTime}
-                    </span>
-                  ) : null
+                  <span className="text-[14.5px] font-bold tabular-nums">{entry.startTime}</span>
                 }
               />
             )}
@@ -193,14 +188,15 @@ function TypeSquare({ color, tone, icon: Icon }: { color?: string; tone: Tone; i
   return (
     <span
       className={cn(
-        "grid size-[42px] flex-none place-items-center rounded-lg",
+        // Same 26px leading slot as `ItemTile` and the task circle.
+        "grid size-[26px] flex-none place-items-center rounded-sm",
         !color && TONE_SQUARE[tone],
       )}
       style={
         color ? { background: `color-mix(in srgb, ${color} 14%, var(--card))`, color } : undefined
       }
     >
-      <Icon className="size-5" />
+      <Icon className="size-3.5" />
     </span>
   );
 }
@@ -263,6 +259,7 @@ function TimelineCard({
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-1.5 text-[15px] leading-tight font-semibold tracking-tight">
           {content.title}
+          {content.dots}
         </span>
         {content.meta ? (
           <span className="flex flex-wrap items-center gap-1.5 text-[12.5px] leading-snug font-normal text-muted-foreground">
@@ -289,31 +286,36 @@ function memberName(members: Map<string, Profile>, id: string): string {
   );
 }
 
+/**
+ * Title text and the person marks beside it are returned SEPARATELY: the
+ * timeline card lays them out in a gapped flex row, the span chip has to draw
+ * its own gap (and truncate the name alone). Merged into one fragment, the dot
+ * ended up glued to the last letter on the chip - "More u Puli●".
+ */
 function cardContent(
   item: AgendaItem,
   members: Map<string, Profile>,
   /** From `useMemberEmoji` - returns undefined while the viewer is on initials. */
   memberEmoji: (member: Profile | undefined, personId?: string) => string | undefined,
-): { square: ReactNode; title: ReactNode; meta: ReactNode; side?: ReactNode } {
+): { square: ReactNode; title: ReactNode; dots?: ReactNode; meta: ReactNode; side?: ReactNode } {
   switch (item.kind) {
     case "activity": {
       const color = item.person?.color ?? fallbackColorForProfile(item.block.personId);
-      const name = memberName(members, item.block.personId) || "-";
       return {
         square: <TypeSquare color={color} tone="accent" icon={SparklesIcon} />,
-        title: (
-          <>
-            {item.activity?.name ?? "Aktivnost"}
-            <PersonDot
-              color={color}
-              emoji={memberEmoji(item.person ?? undefined, item.block.personId)}
-            />
-          </>
-        ),
+        title: item.activity?.name ?? "Aktivnost",
+        // Span, description, then who - the same second line `AgendaItemRow`
+        // prints on Kalendar. The member rides as an initials badge instead of
+        // a colour dot beside the title plus their name here: it says the same
+        // in less room, and the room goes to the description (in practice,
+        // WHERE to be).
         meta: (
           <>
-            {name}
-            {item.activity?.description ? <> · {item.activity.description}</> : null}
+            <span className="tabular-nums">
+              {item.block.startTime}-{item.block.endTime}
+              {item.activity?.description ? ` · ${item.activity.description}` : ""}
+            </span>
+            <MemberBadges personIds={[item.block.personId]} size="xs" />
           </>
         ),
       };
@@ -322,24 +324,27 @@ function cardContent(
       const names = item.personIds.map((id) => memberName(members, id)).filter(Boolean);
       return {
         square: <TypeSquare tone="accent" icon={CalendarIcon} />,
-        title: (
-          <>
-            {item.event.name}
-            {item.personIds.map((id) => (
-              <PersonDot
-                key={id}
-                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
-                emoji={memberEmoji(members.get(id), id)}
-              />
-            ))}
-          </>
-        ),
+        title: item.event.name,
+        dots: item.personIds.map((id) => (
+          <PersonDot
+            key={id}
+            color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+            emoji={memberEmoji(members.get(id), id)}
+          />
+        )),
         meta: (
           <>
             {item.totalDays > 1 ? (
               <Pill tone="accent">
                 Dan {item.dayIndex}/{item.totalDays}
               </Pill>
+            ) : null}
+            {/* The trailing slot carries the START, so the end has to say
+                itself here or it disappears with the old gutter layout. */}
+            {item.endTime ? (
+              <span className="tabular-nums">
+                {item.startTime ? `${item.startTime}-${item.endTime}` : `do ${item.endTime}`}
+              </span>
             ) : null}
             {item.event.description ?? (names.length > 0 ? names.join(", ") : null)}
           </>
@@ -367,18 +372,14 @@ function cardContent(
       const upcoming = isUpcomingPaymentOccurrence(item);
       return {
         square: <TypeSquare tone="warn" icon={BanknotesIcon} />,
-        title: (
-          <>
-            {item.payment.name}
-            {item.personIds.map((id) => (
-              <PersonDot
-                key={id}
-                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
-                emoji={memberEmoji(members.get(id), id)}
-              />
-            ))}
-          </>
-        ),
+        title: item.payment.name,
+        dots: item.personIds.map((id) => (
+          <PersonDot
+            key={id}
+            color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+            emoji={memberEmoji(members.get(id), id)}
+          />
+        )),
         meta: (
           <>
             {item.payment.is_recurring ? (
@@ -407,18 +408,14 @@ function cardContent(
       const recurrence = taskRecurrenceLabel(item.task);
       return {
         square: <TypeSquare tone="task" icon={CheckCircleIcon} />,
-        title: (
-          <>
-            {item.task.name}
-            {item.assigneeIds.map((id) => (
-              <PersonDot
-                key={id}
-                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
-                emoji={memberEmoji(members.get(id), id)}
-              />
-            ))}
-          </>
-        ),
+        title: item.task.name,
+        dots: item.assigneeIds.map((id) => (
+          <PersonDot
+            key={id}
+            color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+            emoji={memberEmoji(members.get(id), id)}
+          />
+        )),
         meta: recurrence ? (
           <>
             <ArrowPathIcon className="size-3" />
@@ -472,7 +469,10 @@ function SpanChip({
           <CalendarIcon className="size-[15px]" />
         )}
       </span>
-      <span className="min-w-0 flex-1 truncate">{content.title}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="min-w-0 truncate">{content.title}</span>
+        {content.dots}
+      </span>
       <span className="flex-none text-xs font-normal text-muted-foreground">{sub}</span>
     </button>
   );

@@ -63,6 +63,7 @@ import type { Expense, ExpenseCategory, Payment } from "@/types/database";
 import { currentMonthYYYYMM, formatDate } from "@/utils/date";
 import {
   computeMonthlyCycle,
+  expenseLabels,
   isDetachedPaymentExpense,
   monthLabel,
   monthRange,
@@ -453,6 +454,17 @@ export function BudgetPage({
     }
     // Still linked: nothing to show until the payments list has landed.
     setSelectedPayment(payments.find((p) => p.id === expense.payment_id) ?? null);
+  };
+
+  // A row inside the category drill-down opens exactly what the same row opens
+  // in the ledger (see `BudgetTimeline`): receipt -> receipt detail,
+  // payment-sourced -> its payment, manual (and detached) -> the edit form. The
+  // drill-down only HIDES underneath, so dismissing that detail brings the
+  // category back where it was.
+  const openExpenseFromCategory = (expense: Expense) => {
+    if (expense.source === "receipt") setReceiptDetail(expense);
+    else if (expense.source === "payment") openPaymentDetail(expense);
+    else openEdit(expense);
   };
 
   // "Izmeni" in that popup - full payment edit form, right here on Novac.
@@ -1045,7 +1057,10 @@ export function BudgetPage({
         month={month}
         expenses={filteredExpenses}
         onAddExpense={openAddInCategory}
-        hidden={addOpen && addCategoryId !== null}
+        onOpenExpense={openExpenseFromCategory}
+        // Anything opened FROM the drill-down (the add form, an expense's own
+        // detail) takes the screen alone and hands it back on dismissal.
+        hidden={addOpen || !!receiptDetail || !!selectedPayment}
       />
 
       <ExpenseFormDialog
@@ -1187,17 +1202,17 @@ function BudgetSearchResults({
             const isReceipt = e.source === "receipt";
             const isDetached = isDetachedPaymentExpense(e);
             const isManual = e.source === "manual" || isDetached;
-            const primary = isReceipt
-              ? e.merchant || e.note?.trim() || category?.name || "Račun"
-              : e.note?.trim() || category?.name || "Trošak";
+            const { title: primary, titleFrom } = expenseLabels(e, {
+              categoryName: category?.name,
+            });
 
             const inner = (
               <>
                 <span
-                  className="grid size-[42px] shrink-0 place-items-center rounded-[14px]"
+                  className="grid size-[26px] shrink-0 place-items-center rounded-sm"
                   style={{ backgroundColor: `${color}1f`, color }}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
@@ -1221,7 +1236,9 @@ function BudgetSearchResults({
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground">
                     <span>{formatDate(e.spent_on)}</span>
-                    {category ? <span className="truncate">· {category.name}</span> : null}
+                    {category && titleFrom !== "category" ? (
+                      <span className="truncate">· {category.name}</span>
+                    ) : null}
                   </div>
                   {matchedItems.length > 0 ? (
                     <div className="mt-0.5 truncate text-[12px] font-normal text-accent-deep">

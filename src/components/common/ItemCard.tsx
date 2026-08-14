@@ -153,12 +153,17 @@ export function ItemTile({
       aria-hidden="true"
       style={style}
       className={cn(
-        "grid size-[42px] shrink-0 place-items-center rounded-lg",
+        // 26px, the size of the task circle two rows down (`TaskCheckCircle`):
+        // the tile and the circle occupy the same leading slot, so anything
+        // else made lists of mixed rows look ragged down their left edge.
+        // Radius and glyph are scaled with it - 8px of 26 is the 14-of-42 the
+        // tile used to carry.
+        "grid size-[26px] shrink-0 place-items-center rounded-sm",
         !color && TILE_TONE[tone],
         className,
       )}
     >
-      <Icon className="size-5" />
+      <Icon className="size-3.5" />
     </span>
   );
 }

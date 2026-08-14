@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,15 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { DetailActionRow } from "@/components/common/DetailSheet";
+import { FieldGroupLabel } from "@/components/common/FormControls";
+import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useUpdateExpenseCategory } from "@/hooks/useExpenseCategories";
+import { usePaymentLinkTargets } from "@/hooks/usePaymentLinks";
 import type { Expense, ExpenseCategory } from "@/types/database";
 import { formatDate } from "@/utils/date";
-import { monthLabel, monthOf, monthRange, shiftMonth } from "@/utils/budget";
+import { expenseLabels, monthLabel, monthOf, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
 
 /**
@@ -50,16 +53,76 @@ export type CategoryDetailSheetProps = {
    */
   onAddExpense?: (categoryId: string) => void;
   /**
+   * Opens one listed expense in its own detail (the ledger's rule: receipt ->
+   * receipt detail, payment-sourced -> that payment, manual -> the edit form).
+   * Omit it and the list stays a plain read-out.
+   */
+  onOpenExpense?: (expense: Expense) => void;
+  /**
    * Close the overlay without tearing the drill-down down - for the moment the
-   * expense form above it owns the screen. Dismissing that form brings this
-   * sheet back exactly as it was, now including the expense just added.
+   * expense form (or an expense detail opened from the list) above it owns the
+   * screen. Dismissing that one brings this sheet back exactly as it was, now
+   * including the expense just added.
    */
   hidden?: boolean;
 };
 
-function expenseTitle(e: Expense): string {
-  if (e.source === "receipt") return e.merchant || e.note?.trim() || "Račun";
-  return e.note?.trim() || (e.source === "payment" ? "Iz plaćanja" : "Trošak");
+/**
+ * One listed expense. Tappable when the page hands down `onOpen` - the whole
+ * reason someone reads this list is to check (and often fix) a single row, and
+ * before this it was a dead end that sent you back to the ledger to find the
+ * same expense again.
+ *
+ * No `categoryName` goes into the labels here: inside a category drill-down it
+ * would title every row after the category you are already looking at.
+ */
+function ExpenseLine({
+  expense,
+  linkName,
+  onOpen,
+}: {
+  expense: Expense;
+  /** Activity/event this expense is linked to, already resolved by the sheet. */
+  linkName?: string | null;
+  onOpen?: (expense: Expense) => void;
+}) {
+  const { title, detail } = expenseLabels(expense, { linkName });
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-normal text-foreground">{title}</span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="truncate">
+            {formatDate(expense.spent_on)}
+            {detail ? ` · ${detail}` : ""}
+          </span>
+          {expense.person_id ? <MemberBadges personIds={[expense.person_id]} size="xs" /> : null}
+        </span>
+      </span>
+      <span className="shrink-0 text-right font-semibold tabular-nums text-foreground">
+        <Amount value={expense.amount} />
+        <AmountOriginal
+          amount={expense.original_amount}
+          currency={expense.currency}
+          className="block text-[10px] font-normal"
+        />
+      </span>
+    </>
+  );
+
+  if (!onOpen) {
+    return <div className="flex items-center justify-between gap-3 px-3 py-2.5">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(expense)}
+      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      {body}
+      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </button>
+  );
 }
 
 export function CategoryDetailSheet({
@@ -70,6 +133,7 @@ export function CategoryDetailSheet({
   month,
   expenses,
   onAddExpense,
+  onOpenExpense,
   hidden = false,
 }: CategoryDetailSheetProps) {
   const updateCategory = useUpdateExpenseCategory();
@@ -87,6 +151,11 @@ export function CategoryDetailSheet({
       .toSorted((a, b) => b.spent_on.localeCompare(a.spent_on));
   }, [expenses, row]);
   const total = useMemo(() => catExpenses.reduce((sum, e) => sum + e.amount, 0), [catExpenses]);
+
+  // Activity/event names for the listed rows. Activities and birthdays come
+  // from caches this page already holds; the events query only fires when a
+  // listed expense actually points at one.
+  const { targetFor } = usePaymentLinkTargets(catExpenses);
 
   // Six months ending at `month` - the SAME range/key the page's BudgetTrend
   // uses, so this piggybacks on an already-cached query.
@@ -282,27 +351,18 @@ export function CategoryDetailSheet({
             )}
 
             {catExpenses.length > 0 ? (
-              <div className="divide-y divide-border border-t border-border text-sm">
-                {catExpenses.map((e) => (
-                  <div key={e.id} className="flex items-baseline justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <span className="block truncate font-normal text-foreground">
-                        {expenseTitle(e)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(e.spent_on)}
-                      </span>
-                    </div>
-                    <span className="shrink-0 text-right font-semibold tabular-nums text-foreground">
-                      <Amount value={e.amount} />
-                      <AmountOriginal
-                        amount={e.original_amount}
-                        currency={e.currency}
-                        className="block text-[10px] font-normal"
-                      />
-                    </span>
-                  </div>
-                ))}
+              <div>
+                <FieldGroupLabel>Troškovi</FieldGroupLabel>
+                <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card text-sm">
+                  {catExpenses.map((e) => (
+                    <ExpenseLine
+                      key={e.id}
+                      expense={e}
+                      linkName={targetFor(e)?.name}
+                      onOpen={onOpenExpense}
+                    />
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>

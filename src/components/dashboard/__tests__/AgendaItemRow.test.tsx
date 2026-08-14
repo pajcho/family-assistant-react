@@ -36,7 +36,8 @@ vi.mock("@/hooks/useTaskOccurrences", () => ({
 
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
-import type { Birthday, Event, Payment } from "@/types/database";
+import type { Activity, Birthday, Event, Payment } from "@/types/database";
+import type { ResolvedActivityBlock } from "@/utils/activity";
 
 const birthday: Birthday = {
   id: "b1",
@@ -149,6 +150,55 @@ describe("AgendaItemRow time column", () => {
 
   it("annotates a recurring payment with its period", () => {
     expect(renderRow(paymentItem)).toHaveTextContent("mesečno");
+  });
+});
+
+describe("AgendaItemRow activity rows", () => {
+  const block: ResolvedActivityBlock = {
+    scheduleId: "s1",
+    activityId: "a1",
+    personId: "p1",
+    date: "2026-07-28",
+    dayOfWeek: 1,
+    startTime: "16:00",
+    endTime: "17:00",
+    weekPattern: "every",
+    recurrenceIntervalWeeks: 1,
+  };
+  const klavir = {
+    id: "a1",
+    family_id: "f1",
+    name: "Klavir",
+    description: "Muzička škola, sala 3",
+  } as Activity;
+  const activityItem: AgendaItem = {
+    kind: "activity",
+    date: "2026-07-28",
+    sortKey: 0,
+    block,
+    activity: klavir,
+    person: undefined,
+    canceled: false,
+  };
+
+  it("reads span, then description, the same second line Danas prints", () => {
+    // The two screens showing one activity differently is the bug this shape
+    // fixes - keep them writing the same sentence.
+    expect(renderRow(activityItem)).toHaveTextContent("16:00-17:00 · Muzička škola, sala 3");
+  });
+
+  it("keeps the start time in the trailing column", () => {
+    expect(renderRow(activityItem)).toHaveTextContent("16:00");
+  });
+
+  it("says nothing about the description when the activity has none", () => {
+    const bare: AgendaItem = {
+      ...activityItem,
+      activity: { ...klavir, description: null } as Activity,
+    };
+    const row = renderRow(bare);
+    expect(row).toHaveTextContent("16:00-17:00");
+    expect(row.textContent).not.toContain("·");
   });
 });
 

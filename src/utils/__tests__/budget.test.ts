@@ -9,6 +9,7 @@ import type {
 } from "@/types/database";
 import {
   computeMonthlyCycle,
+  expenseLabels,
   isDetachedPaymentExpense,
   monthLabel,
   monthOf,
@@ -181,6 +182,80 @@ describe("isDetachedPaymentExpense", () => {
   it("is false for rows that were never payment-sourced", () => {
     expect(isDetachedPaymentExpense(expense({ source: "manual", payment_id: null }))).toBe(false);
     expect(isDetachedPaymentExpense(expense({ source: "receipt", payment_id: null }))).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------------- */
+/* expenseLabels                                                             */
+/* ------------------------------------------------------------------------- */
+
+describe("expenseLabels", () => {
+  it("leads with the note - the only identifier the expense form offers", () => {
+    // A row carrying both is a SCANNED receipt its owner also labeled; the
+    // label is the deliberate half, the merchant comes off the fiscal QR.
+    const labels = expenseLabels(
+      expense({ source: "receipt", note: "Sveske i pribor", merchant: "Knjižara Delfi" }),
+    );
+    expect(labels).toEqual({
+      title: "Sveske i pribor",
+      titleFrom: "note",
+      detail: "Knjižara Delfi",
+    });
+  });
+
+  it("falls to the merchant, then the linked activity/event", () => {
+    expect(expenseLabels(expense({ source: "receipt", merchant: "Maxi" }))).toEqual({
+      title: "Maxi",
+      titleFrom: "merchant",
+      detail: null,
+    });
+    expect(expenseLabels(expense({ activity_id: "a1" }), { linkName: "Klavir" })).toEqual({
+      title: "Klavir",
+      titleFrom: "link",
+      detail: null,
+    });
+    // Merchant wins over the link, and the link becomes the second line.
+    expect(
+      expenseLabels(expense({ source: "receipt", merchant: "Maxi" }), { linkName: "Klavir" }),
+    ).toEqual({ title: "Maxi", titleFrom: "merchant", detail: "Klavir" });
+  });
+
+  it("uses the category only where the caller passes one", () => {
+    expect(expenseLabels(expense(), { categoryName: "Namirnice" })).toEqual({
+      title: "Namirnice",
+      titleFrom: "category",
+      detail: null,
+    });
+    // The category drill-down passes none: there it would name every row alike.
+    expect(expenseLabels(expense())).toEqual({
+      title: "Trošak",
+      titleFrom: "generic",
+      detail: null,
+    });
+  });
+
+  it("never puts the category on the second line", () => {
+    // Lists that want the category render it themselves - returning it here
+    // would print it twice on the ledger rows.
+    expect(expenseLabels(expense({ note: "Pijaca" }), { categoryName: "Namirnice" }).detail).toBe(
+      null,
+    );
+  });
+
+  it("names payment rows by their frozen note, not a generic word", () => {
+    // Generating an auto row copies the payment's name into `note` at that
+    // moment; the generic label is only for a row that somehow has none.
+    expect(expenseLabels(expense({ source: "payment", note: "Infostan" })).title).toBe("Infostan");
+    expect(expenseLabels(expense({ source: "payment" })).title).toBe("Iz plaćanja");
+    expect(expenseLabels(expense({ source: "receipt" })).title).toBe("Račun");
+  });
+
+  it("ignores whitespace-only fields", () => {
+    expect(expenseLabels(expense({ source: "receipt", note: "   ", merchant: "Lidl" }))).toEqual({
+      title: "Lidl",
+      titleFrom: "merchant",
+      detail: null,
+    });
   });
 });
 
