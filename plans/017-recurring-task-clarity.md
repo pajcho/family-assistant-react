@@ -440,7 +440,26 @@ alone.
     showing an empty ring that invited a tap which re-sent "finish it" and
     changed nothing. The circle now reads `isTaskDoneOn(..., personId)` and the
     tap sends the state being asked for, so it unticks as well as ticks.
-12. **A move onto its own date is not reported as a move.** Moving an occurrence
+12. **The skip confirm says WHERE a kept tick stays** (maintainer, fourth
+    review, asking the right question: "how exactly will Milan's tick be
+    remembered?"). It said "ta kvačica ostaje zabeležena", which is true of the
+    data and misleading about the screen. Traced both halves:
+    - the tick genuinely survives - `useUpsertOccurrenceOverride` upserts only
+      the `person_id IS NULL` row (`onConflict: task_id,occurrence_date,person_id`)
+      and `useRestoreOccurrence` deletes only that one, so restoring the day
+      brings the day back with the tick intact;
+    - but the day drops off EVERY list - `useAgenda`, `taskItems`, `useKidTasks`
+      all `continue` on `isSkipped` - including the list of whoever ticked it.
+    So it now reads "Dan nestaje sa njihovih spiskova ... ostaje zabeleženo u
+    istoriji i vraća se ako vratite ovaj dan." If the `isSkipped` drop is ever
+    made conditional, this sentence has to change with it.
+    Serbian agreement in the same pass: the "all" variant runs its count through
+    `serbianPlural` three times (noun, "otpada/otpadaju", "nestaje/nestaju"),
+    and "ovaj dan" / "ove dane" follows the number of DAYS while
+    "je završio/la" / "su završili" follows the number of PEOPLE - branching
+    both off one count is what produced "vraća se ako vratite ovaj dan" under a
+    two-day skip.
+13. **A move onto its own date is not reported as a move.** Moving an occurrence
     and moving it back leaves a row whose `moved_to_date` equals its
     `occurrence_date`; the history read "15.08.2026 - Pomereno na 15.08.2026".
     Such a row now resolves to "nothing happened", and an entry that says

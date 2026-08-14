@@ -116,7 +116,13 @@ describe("taskSkipCopy", () => {
       ["Milan"],
     );
     expect(one.message).toContain("Milan je već završio/la svoj deo");
-    expect(one.message).toContain("ostaje zabeležena");
+    // Exact about WHERE it survives. The tick really is kept - a skip writes
+    // only the whole-occurrence row - but the day drops off every list including
+    // that person's, so "the tick stays" on its own would read as "they will
+    // still see it, finished".
+    expect(one.message).toContain("ostaje zabeleženo u istoriji");
+    expect(one.message).toContain("vraća se ako vratite ovaj dan");
+    expect(one.message).toContain("nestaje sa njihovih spiskova");
 
     const two = taskSkipCopy(
       repeating,
@@ -125,7 +131,20 @@ describe("taskSkipCopy", () => {
       ["Milan", "Jelena"],
     );
     expect(two.message).toContain("Milan, Jelena su već završili");
-    expect(two.message).toContain("ostaju zabeležene");
+    expect(two.message).toContain("ostaje zabeleženo u istoriji");
+
+    // Who finished follows the number of PEOPLE; what you would restore follows
+    // the number of DAYS. Branching both off one count is how a two-day skip
+    // ended up offering to restore "ovaj dan".
+    const manyDays = taskSkipCopy(
+      repeating,
+      { dates: ["2026-08-12", "2026-08-13"], all: true },
+      ["Milan", "Jelena", "Ana"],
+      ["Milan"],
+    );
+    expect(manyDays.message).toContain("Milan je već završio/la svoj deo");
+    expect(manyDays.message).toContain("vratite ove dane");
+    expect(manyDays.message).not.toContain("vratite ovaj dan");
   });
 
   it("says nothing about completions when there are none", () => {
@@ -140,8 +159,23 @@ describe("taskSkipCopy", () => {
       ["Ana"],
     );
     expect(copy.title).toBe("Preskoči sve zaostalo");
-    expect(copy.message).toContain("3 zaostalih ponavljanja");
     expect(copy.message).toContain("Izbaci smeće");
     expect(copy.confirm).toBe("Preskoči sve");
+  });
+
+  it("agrees the count with the noun AND both verbs", () => {
+    // "2 zaostalih ponavljanja otpada" is not something a person would say, and
+    // the count is dynamic, so all three have to follow it.
+    const dates = (n: number) =>
+      Array.from({ length: n }, (_, i) => `2026-08-${String(i + 1).padStart(2, "0")}`);
+    const message = (n: number) =>
+      taskSkipCopy(repeating, { dates: dates(n), all: true }, []).message;
+
+    expect(message(1)).toContain("1 zaostalo ponavljanje");
+    expect(message(1)).toContain("otpada za celu porodicu i nestaje");
+    expect(message(3)).toContain("3 zaostala ponavljanja");
+    expect(message(3)).toContain("otpadaju za celu porodicu i nestaju");
+    expect(message(5)).toContain("5 zaostalih ponavljanja");
+    expect(message(5)).toContain("otpada za celu porodicu i nestaje");
   });
 });

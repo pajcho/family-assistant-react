@@ -52,7 +52,7 @@ import type { Task } from "@/types/database";
 import { normalizeTime } from "@/utils/activity";
 import { formatDate, formatDateTime } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
-import { ponavljanjaLabel } from "@/utils/plural";
+import { ponavljanjaLabel, serbianPlural } from "@/utils/plural";
 import {
   isFutureOccurrence,
   isRecurringTask,
@@ -142,28 +142,49 @@ export function taskSkipCopy(
       ? `za sve kojima je zadatak dodeljen (${assigneeNames.join(", ")})`
       : "za celu porodicu";
 
-  // Somebody's work is on the line, so the confirm says whose - and says that it
-  // survives, which is the part that makes the choice a fair one to offer. A day
-  // EVERYBODY has finished cannot be skipped at all; the action is not offered
-  // (see `occurrenceDone` in the sheet), so this only ever reads "some of them".
+  // Somebody's work is on the line, so the confirm says whose - and says WHERE it
+  // survives, which is the half that has to be exact. A skip leaves per-person
+  // rows untouched in the database, so the tick is genuinely kept and comes back
+  // intact if the day is restored - but the day itself drops off every list,
+  // including the list of whoever ticked it. Promising that "the tick stays"
+  // without saying that would read as "they will still see it, finished".
+  //
+  // A day EVERYBODY has finished cannot be skipped at all; the action is not
+  // offered (see `occurrenceDone` in the sheet), so this only ever names some.
+  // Two independent agreements: who finished follows the number of PEOPLE, what
+  // you would restore follows the number of DAYS. Branching both off one of them
+  // is how "vraća se ako vratite ovaj dan" ended up under a two-day skip.
+  const whoDone =
+    doneNames.length === 1
+      ? `${doneNames[0]} je već završio/la svoj deo`
+      : `${doneNames.join(", ")} su već završili svoj deo`;
+  const back = target.dates.length === 1 ? "ovaj dan" : "ove dane";
   const kept =
     doneNames.length === 0
       ? ""
-      : doneNames.length === 1
-        ? ` ${doneNames[0]} je već završio/la svoj deo - ta kvačica ostaje zabeležena.`
-        : ` ${doneNames.join(", ")} su već završili svoj deo - te kvačice ostaju zabeležene.`;
+      : ` ${whoDone}: ostaje zabeleženo u istoriji i vraća se ako vratite ${back}.`;
 
   if (target.all) {
+    // Three agreements off one count, because "2 zaostalih ponavljanja otpada"
+    // is not something a person would say.
+    const count = target.dates.length;
+    const noun = serbianPlural(count, {
+      one: "zaostalo ponavljanje",
+      few: "zaostala ponavljanja",
+      many: "zaostalih ponavljanja",
+    });
+    const falls = serbianPlural(count, { one: "otpada", few: "otpadaju", many: "otpada" });
+    const vanish = serbianPlural(count, { one: "nestaje", few: "nestaju", many: "nestaje" });
     return {
       title: "Preskoči sve zaostalo",
-      message: `${target.dates.length} zaostalih ponavljanja zadatka „${task.name}" otpada ${who}. Serija se nastavlja.${kept}`,
+      message: `${count} ${noun} zadatka „${task.name}" ${falls} ${who} i ${vanish} sa njihovih spiskova. Serija se nastavlja.${kept}`,
       confirm: "Preskoči sve",
     };
   }
   const when = target.dates[0] ? formatDate(target.dates[0]) : "";
   return {
     title: "Preskoči ponavljanje",
-    message: `${when} otpada ${who}. Serija se nastavlja, a ovaj dan možete vratiti iz istorije.${kept}`,
+    message: `${when} otpada ${who}. Dan nestaje sa njihovih spiskova, serija se nastavlja, a možete ga vratiti iz istorije.${kept}`,
     confirm: "Preskoči",
   };
 }
