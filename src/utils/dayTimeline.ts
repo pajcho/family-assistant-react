@@ -65,6 +65,12 @@ export function timelineRange(item: AgendaItem): { startTime: string; endTime: s
         item.endTime ?? minutesToClampedTime(timeToMinutes(item.startTime) + DEFAULT_EVENT_MINUTES),
     };
   }
+  if (item.kind === "task" && item.dueTime) {
+    // Start === end on purpose: a reminder is a POINT in the day, not a block
+    // that occupies it. `splitDayTimeline` turns that into `endTime: null`, and
+    // the calendars clamp it to their minimum block height.
+    return { startTime: item.dueTime, endTime: item.dueTime };
+  }
   if (item.kind === "external" && !item.isAllDay && item.event.start_time) {
     const startTime = normalizeTime(item.event.start_time);
     return {

@@ -22,6 +22,8 @@ export function AgendaDateHeader({
   day,
   today,
   tomorrow,
+  yesterday,
+  count,
   muted = false,
   selected = false,
   className,
@@ -29,6 +31,14 @@ export function AgendaDateHeader({
   day: string;
   today: string;
   tomorrow: string;
+  /**
+   * Only the backwards-looking lists pass this (Završeno). Everywhere else the
+   * day before today is just a date, and "Juče" on a to-do list would read as
+   * an instruction rather than a label.
+   */
+  yesterday?: string;
+  /** The bubble on the right - the task lists count their rows, the agenda does not. */
+  count?: number;
   muted?: boolean;
   selected?: boolean;
   className?: string;
@@ -37,10 +47,12 @@ export function AgendaDateHeader({
   const dayMonth = format(date, "d. MMMM", { locale: srLocale });
   const weekdayRaw = format(date, "EEEE", { locale: srLocale });
   const weekday = `${weekdayRaw.charAt(0).toUpperCase()}${weekdayRaw.slice(1)}`;
-  const relative = day === today ? "Danas" : day === tomorrow ? "Sutra" : null;
+  const relative =
+    day === today ? "Danas" : day === tomorrow ? "Sutra" : day === yesterday ? "Juče" : null;
 
   return (
     <SectionHeading
+      count={count}
       muted={muted && !selected}
       className={cn(selected && "text-accent-deep", className)}
     >

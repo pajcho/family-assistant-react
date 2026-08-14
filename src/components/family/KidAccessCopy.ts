@@ -72,6 +72,13 @@ export const KID_PIN_MAX_LENGTH = Math.max(...KID_PIN_LENGTHS);
 /**
  * The privacy model in one sentence, shown where a parent decides whether to
  * turn this on at all.
+ *
+ * It must stay TRUE, which is why chores are named here: a child sees the tasks
+ * assigned to them and may tick those off (through `kid_complete_task`, the only
+ * write a kid session can make against a task). Everything the sentence still
+ * rules out is ruled out by RLS, not by a screen: money and lists have no kid
+ * SELECT policy at all, and a task with no assignee - the whole shopping list -
+ * is invisible to a child for the same reason somebody else's chore is.
  */
 export const KID_PRIVACY_SENTENCE =
-  "Dete vidi samo svoje aktivnosti, događaje, školski raspored i članove porodice - novac, liste, podsetnike i tuđe obaveze ne vidi nikada.";
+  "Dete vidi svoje aktivnosti, događaje, školski raspored, članove porodice i zadatke koje mu dodelite (i može da ih označi kao završene), a novac, liste i tuđe obaveze ne vidi nikada.";

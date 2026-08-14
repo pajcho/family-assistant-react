@@ -523,57 +523,118 @@ async function main() {
     if (error) throw error;
   }
 
-  // ---- lists ----------------------------------------------------------------
-  const lists = [
+  // ---- lists and tasks -------------------------------------------------------
+  // A task carries as much or as little as it needs: no date at all is a plain
+  // list item (the groceries below), a date makes it a reminder that reaches
+  // Danas and Kalendar, and a date plus a repeat plus an assignee makes it a
+  // chore a child sees in their own shell. All three shapes are seeded so the
+  // demo family exercises every surface.
+  type SeedTask = {
+    name: string;
+    done?: boolean;
+    /** Days from today. Negative is overdue on purpose. */
+    dueIn?: number;
+    dueTime?: string;
+    assignee?: string;
+    recurrence?: "daily" | "weekly" | "monthly";
+    /** 0 = Monday .. 6 = Sunday, the app's convention. */
+    weekdays?: number[];
+    remindMinutesBefore?: number;
+  };
+
+  const lists: {
+    name: string;
+    description: string | null;
+    smart_sort_enabled: boolean;
+    items: SeedTask[];
+  }[] = [
     {
       name: "Kupovina",
       description: "Nedeljna velika kupovina",
       smart_sort_enabled: true,
       items: [
-        ["Mleko 2.8%", true],
-        ["Hleb (integralni)", true],
-        ["Jaja 10 kom", false],
-        ["Kafa", false],
-        ["Deterdžent za veš", false],
-        ["Banane", false],
-        ["Piletina 1kg", false],
-        ["Jogurt", true],
-      ] as [string, boolean][],
+        { name: "Mleko 2.8%", done: true },
+        { name: "Hleb (integralni)", done: true },
+        { name: "Jaja 10 kom" },
+        { name: "Kafa" },
+        { name: "Deterdžent za veš" },
+        { name: "Banane" },
+        { name: "Piletina 1kg" },
+        { name: "Jogurt", done: true },
+      ],
     },
     {
       name: "Za školu",
       description: null,
       smart_sort_enabled: false,
       items: [
-        ["Sveske na kvadratiće (5)", true],
-        ["Geometrijski pribor", false],
-        ["Patike za fizičko", false],
-        ["Potpisati dnevnik", false],
-      ] as [string, boolean][],
+        { name: "Sveske na kvadratiće (5)", done: true },
+        { name: "Geometrijski pribor" },
+        { name: "Patike za fizičko" },
+        { name: "Potpisati dnevnik", dueIn: 0, assignee: "Milan" },
+        // A weekday chore for the older child - the shape the kid shell shows.
+        {
+          name: "Spakovati torbu za sutra",
+          dueIn: 0,
+          recurrence: "weekly",
+          weekdays: [0, 1, 2, 3, 4],
+          assignee: "Ana",
+        },
+      ],
     },
     {
       name: "Pakovanje za more",
       description: "Sve što ide u kofer",
       smart_sort_enabled: false,
       items: [
-        ["Pasoši i zdravstvene", false],
-        ["Krema za sunčanje", false],
-        ["Punjači i adapteri", false],
-        ["Lekovi - kutija", false],
-        ["Peškiri za plažu", false],
-      ] as [string, boolean][],
+        { name: "Pasoši i zdravstvene" },
+        { name: "Krema za sunčanje" },
+        { name: "Punjači i adapteri" },
+        { name: "Lekovi - kutija" },
+        { name: "Peškiri za plažu" },
+      ],
     },
     {
       name: "Kuća - popravke",
       description: null,
       smart_sort_enabled: false,
       items: [
-        ["Zameniti sijalicu u hodniku", true],
-        ["Servis bojlera", false],
-        ["Zategnuti slavinu u kupatilu", false],
-      ] as [string, boolean][],
+        { name: "Zameniti sijalicu u hodniku", done: true },
+        // Overdue on purpose: this is the row the redesigned index surfaces
+        // without making anyone open a list.
+        { name: "Servis bojlera - pozvati", dueIn: -6, assignee: "Milan" },
+        { name: "Zategnuti slavinu u kupatilu" },
+      ],
+    },
+    {
+      name: "Kućne obaveze",
+      description: "Šta je čiji posao",
+      smart_sort_enabled: false,
+      items: [
+        {
+          name: "Izneti smeće",
+          dueIn: 0,
+          recurrence: "daily",
+          assignee: "Ana",
+        },
+        {
+          name: "Nahraniti mačku",
+          dueIn: 0,
+          recurrence: "daily",
+          assignee: "Vuk",
+        },
+        {
+          name: "Usisati sobu",
+          dueIn: 1,
+          recurrence: "weekly",
+          weekdays: [5],
+          assignee: "Vuk",
+        },
+        { name: "Zameniti filter u napi", dueIn: 12, recurrence: "monthly" },
+      ],
     },
   ];
+
   for (const [i, l] of lists.entries()) {
     const { data, error } = await db
       .from("lists")
@@ -589,17 +650,98 @@ async function main() {
       .select("id")
       .single();
     if (error || !data) throw error ?? new Error("no list");
-    await db.from("list_items").insert(
-      l.items.map(([name, done], idx) => ({
-        list_id: data.id,
+
+    const { data: inserted, error: itemsError } = await db
+      .from("tasks")
+      .insert(
+        l.items.map((t, idx) => ({
+          list_id: data.id,
+          family_id: fid,
+          owner_id: people["Milan"],
+          name: t.name,
+          is_completed: t.done ?? false,
+          completed_at: t.done ? new Date().toISOString() : null,
+          completed_by_person_id: t.done ? people["Milan"] : null,
+          sort_order: idx,
+          created_by_id: people["Milan"],
+          due_date: t.dueIn === undefined ? null : day(t.dueIn),
+          due_time: t.dueTime ?? null,
+          recurrence_period: t.recurrence ?? null,
+          recurrence_weekdays: t.weekdays ?? null,
+          remind_minutes_before: t.remindMinutesBefore ?? null,
+        })),
+      )
+      .select("id, name");
+    if (itemsError) throw itemsError;
+
+    // Assignees are a join table, same shape as event_participants.
+    const byName = new Map((inserted ?? []).map((r) => [r.name, r.id]));
+    const assignees = l.items
+      .filter((t) => t.assignee && byName.has(t.name))
+      .map((t) => ({
+        task_id: byName.get(t.name) as string,
+        person_id: people[t.assignee as string],
         family_id: fid,
-        name,
-        is_completed: done,
-        completed_at: done ? new Date().toISOString() : null,
-        sort_order: idx,
-        created_by_id: people["Milan"],
-      })),
-    );
+      }));
+    if (assignees.length > 0) {
+      const { error: assigneeError } = await db.from("task_assignees").insert(assignees);
+      if (assigneeError) throw assigneeError;
+    }
+  }
+
+  // A standalone reminder with no list at all - what the Inbox and the global
+  // plus produce, and what proves list_id is genuinely optional.
+  const { error: looseError } = await db.from("tasks").insert([
+    {
+      family_id: fid,
+      owner_id: people["Milan"],
+      scope: "family",
+      name: "Uzeti recept iz apoteke",
+      due_date: day(0),
+      due_time: "09:00",
+      remind_minutes_before: 30,
+      sort_order: 0,
+      created_by_id: people["Milan"],
+    },
+    {
+      family_id: fid,
+      owner_id: people["Milan"],
+      scope: "family",
+      name: "Kupiti poklon za Milicu",
+      due_date: day(1),
+      due_time: "18:00",
+      sort_order: 1,
+      created_by_id: people["Milan"],
+    },
+    {
+      family_id: fid,
+      owner_id: people["Milan"],
+      scope: "personal",
+      name: "Proveriti cenu servisa",
+      sort_order: 2,
+      created_by_id: people["Milan"],
+    },
+  ]);
+  if (looseError) throw looseError;
+
+  // Yesterday's bins really did go out - one resolved occurrence, so the demo
+  // shows history and not only pending work.
+  const { data: dailyChore } = await db
+    .from("tasks")
+    .select("id")
+    .eq("family_id", fid)
+    .eq("name", "Izneti smeće")
+    .maybeSingle();
+  if (dailyChore) {
+    const { error: occError } = await db.from("task_occurrences").insert({
+      task_id: dailyChore.id,
+      family_id: fid,
+      occurrence_date: day(-1),
+      status: "done",
+      completed_at: new Date().toISOString(),
+      completed_by_person_id: people["Ana"],
+    });
+    if (occError) throw occError;
   }
 
   // ---- school: bells, shifts, timetable --------------------------------------

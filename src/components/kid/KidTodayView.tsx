@@ -23,6 +23,7 @@ import {
 } from "@/components/kid/useKidSchoolWeek";
 import { isCanceledAgendaItem, useAgenda } from "@/hooks/useAgenda";
 import { useKidSession } from "@/hooks/useKidSession";
+import { useKidTasks } from "@/hooks/useKidTasks";
 import { useKidTabNavigate } from "@/hooks/useKidPreview";
 import { useToday } from "@/hooks/useToday";
 import { getWeekStart } from "@/utils/activity";
@@ -55,6 +56,9 @@ export function KidTodayView() {
     includeCanceled: true,
   });
   const birthdays = useKidBirthdayVisibility(kidProfileId);
+  // Today's chores: the cards come from the agenda above (so a chore sits in the
+  // day beside the activity before it), the circles on them from here.
+  const tasks = useKidTasks({ from: today.str, to: today.str });
 
   const personIds = useMemo(() => new Set(kidProfileId ? [kidProfileId] : []), [kidProfileId]);
   const mine = useMemo(
@@ -72,7 +76,10 @@ export function KidTodayView() {
 
   // The visibility query joins the loading gate: without it a birthday the
   // child may see would pop in a beat after the rest of the day had settled.
-  const loading = isLoading || school.isLoading || birthdays.isLoading;
+  // `tasks.isLoading` is there for the same reason - `useAgenda` does not wait
+  // for the occurrence rows, so a chore ticked off this morning would render
+  // unticked for a beat and then flip.
+  const loading = isLoading || school.isLoading || birthdays.isLoading || tasks.isLoading;
   // A day whose only row is a cancellation is NOT an empty day - there is
   // something to tell the child - and `mine` being non-empty keeps the empty
   // state away on its own.
@@ -118,7 +125,12 @@ export function KidTodayView() {
             onOpen={() => goToTab("/kid/schedule")}
           />
 
-          <KidAgendaList items={mine} todayISO={today.str} birthdayNotes={birthdays.notes} />
+          <KidAgendaList
+            items={mine}
+            todayISO={today.str}
+            birthdayNotes={birthdays.notes}
+            tasks={tasks}
+          />
 
           <KidDone>{anythingOn ? "To je sve za danas! 🎈" : "Danas nemaš ništa drugo. 🌤️"}</KidDone>
         </>

@@ -18,7 +18,7 @@ function readMatch(): boolean {
  * initialises *synchronously* from `window.matchMedia`. The app is a
  * client-only SPA - there's no SSR to guard against - so an honest first value
  * avoids a one-frame flash between the mobile (single-column) and desktop
- * (split) lists layouts on every load of `/lists`. The `typeof window` guard is
+ * (split) lists layouts on every load of `/tasks`. The `typeof window` guard is
  * kept only so jsdom/Vitest renders where `matchMedia` is absent don't throw.
  */
 export function useIsWide(): boolean {

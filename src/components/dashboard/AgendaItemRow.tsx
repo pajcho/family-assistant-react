@@ -15,6 +15,7 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
 import { Pill } from "@/components/common/Pill";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
+import { TaskRow } from "@/components/tasks/TaskRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import type {
   Activity,
@@ -43,6 +44,10 @@ import { isUpcomingPaymentOccurrence } from "@/utils/payment";
  * glance, the middle column carries title + one meta line, and the trailing
  * column carries the time or the amount. Clicking bubbles up via `onClick` (the
  * screen opens the matching detail dialog).
+ *
+ * Tasks are the one kind that breaks the tile rule: their leading slot is a
+ * completion circle, because ticking one off is what a person came to do. That
+ * row lives in `components/tasks/TaskRow` - only the `<li>` is shared.
  */
 
 export function AgendaItemRow({
@@ -67,6 +72,15 @@ export function AgendaItemRow({
       );
     case "event":
       return <EventRow item={item} onClick={onClick} />;
+    case "task":
+      // The one row whose leading slot is a control, not a glyph tile - so it
+      // owns its own markup (see `TaskRow`) and only the <li> is shared. The
+      // overdue block's `dateLabel` becomes its "rok …" meta.
+      return (
+        <li>
+          <TaskRow item={item} onClick={onClick} dateLabel={dateLabel} />
+        </li>
+      );
     case "payment":
       // A payment occurrence that ISN'T the series' live one (keyed on
       // payment.due_date) is a future repetition - only the

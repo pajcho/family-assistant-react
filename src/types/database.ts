@@ -725,15 +725,62 @@ export interface List {
   updated_at: string;
 }
 
-export interface ListItem {
+// ---------------------------------------------------------------------------
+// Tasks - the one completable entity
+// ---------------------------------------------------------------------------
+
+/** Only consulted for a LISTLESS task; one inside a list carries its list's. */
+export type TaskScope = "personal" | "family";
+
+export type TaskRecurrencePeriod = "one-time" | "daily" | "weekly" | "monthly";
+
+/**
+ * Who a tick speaks for. `shared` - one tick finishes the occurrence for
+ * everybody (one `task_occurrences` row with `person_id` NULL); `per_assignee` -
+ * every assignee ticks their own copy (one row per person).
+ */
+export type TaskCompletionMode = "shared" | "per_assignee";
+
+export type TaskOccurrenceStatus = "done" | "skipped" | "moved";
+
+/**
+ * Every completable thing in the app: a shopping item, a dated reminder and a
+ * recurring chore are the same row with more or fewer dimensions filled in.
+ * A shopping item is `list_id` only, a reminder is a `due_date`, a chore is a
+ * `due_date` plus a recurrence plus an assignee.
+ */
+export interface Task {
   id: string;
-  list_id: string;
+  /** Null for a standalone task - it lands in the Inbox smart list. */
+  list_id: string | null;
   family_id: string;
+  /** Creator, and the access guard for a listless personal task. */
+  owner_id: string | null;
+  scope: TaskScope;
   name: string;
   /** Optional free-text description. Markdown is rendered inside the item popup. */
   description: string | null;
+  /** Truth for non-recurring tasks only. See utils/task.ts::isTaskDoneOn. */
   is_completed: boolean;
   completed_at: string | null;
+  /** References `profiles`, never `auth.users` - a child has no login. */
+  completed_by_person_id: string | null;
+  /** Null = someday, list only. For a recurring task this is the series anchor. */
+  due_date: string | null;
+  /** "HH:MM:SS" from Postgres; normalize with normalizeTime before display. */
+  due_time: string | null;
+  recurrence_period: TaskRecurrencePeriod | null;
+  /** "Every N periods". NOT NULL with a default of 1 in the DB. */
+  recurrence_interval: number;
+  /** 0 = Monday .. 6 = Sunday, matching activity_schedule.day_of_week. */
+  recurrence_weekdays: number[] | null;
+  /** Inclusive last day of the series; null = open-ended. */
+  recurrence_until: string | null;
+  completion_mode: TaskCompletionMode;
+  /** Push this many minutes before `due_time`, for timed tasks. */
+  remind_minutes_before: number | null;
+  /** Push this many days before `due_date`, for all-day tasks. */
+  remind_days_before: number | null;
   sort_order: number;
   created_by_id: string | null;
   updated_by_id: string | null;
@@ -741,9 +788,45 @@ export interface ListItem {
   updated_at: string;
 }
 
-/** A list returned together with its items via the nested `select` query. */
-export interface ListWithItems extends List {
-  list_items: ListItem[];
+/**
+ * Who a task belongs to. Junction table mirroring `EventParticipant`: NO rows
+ * means family-wide and nobody's in particular, not hidden. Drives the person
+ * filter, the member badges and what a child can see.
+ */
+export interface TaskAssignee {
+  task_id: string;
+  person_id: string;
+  family_id: string;
+}
+
+/**
+ * Sparse per-occurrence row for a recurring task - no row is the normal state,
+ * the same convention as `PaymentOverride` / `ActivityOverride`. Unlike those it
+ * is not only a display layer: for a recurring task this IS the completion
+ * record, because `tasks.is_completed` is structurally forbidden from carrying
+ * it (a CHECK constraint enforces the split).
+ */
+export interface TaskOccurrence {
+  id: string;
+  task_id: string;
+  family_id: string;
+  /** The ORIGINAL projected date from the series, even when the row moves it. */
+  occurrence_date: string;
+  /** Null = the occurrence as a whole (`shared`); set = this person's own copy. */
+  person_id: string | null;
+  status: TaskOccurrenceStatus;
+  /** Where a moved occurrence actually shows. Required for status `moved`. */
+  moved_to_date: string | null;
+  completed_at: string | null;
+  completed_by_person_id: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A list returned together with its tasks via the nested `select` query. */
+export interface ListWithTasks extends List {
+  tasks: Task[];
 }
 
 // ---------------------------------------------------------------------------
@@ -768,6 +851,8 @@ export interface NotificationPreferences {
   notify_on_event_create: boolean;
   notify_on_payment_create: boolean;
   notify_on_birthday_create: boolean;
+  /** Only a task with a due date triggers this push - an undated list item never does. */
+  notify_on_task_create: boolean;
   created_at: string;
   updated_at: string;
 }

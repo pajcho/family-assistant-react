@@ -5,6 +5,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  CheckCircleIcon,
   GlobeAltIcon,
   MapPinIcon,
   SparklesIcon,
@@ -13,6 +14,7 @@ import {
 import { Amount } from "@/components/common/Amount";
 import { PersonDot } from "@/components/common/ItemCard";
 import { useMinuteTick } from "@/components/dashboard/agendaCalendarShared";
+import { TaskRow, type TaskAgendaItem } from "@/components/tasks/TaskRow";
 import { cn } from "@/lib/cn";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { agendaItemKey } from "@/hooks/useAgenda";
@@ -23,6 +25,7 @@ import { fallbackColorForProfile } from "@/utils/activity";
 import { currentAge } from "@/utils/birthday";
 import { getDisplayName } from "@/utils/identity";
 import { isUpcomingPaymentOccurrence } from "@/utils/payment";
+import { taskRecurrenceLabel } from "@/utils/task";
 import { nowLineIndex, splitDayTimeline } from "@/utils/dayTimeline";
 
 /**
@@ -34,7 +37,10 @@ import { nowLineIndex, splitDayTimeline } from "@/utils/dayTimeline";
  *   2. the timed items, each on its own row with the time in a left gutter,
  *      with a "Sada · HH:mm" line dropped in at the current time and everything
  *      before it dimmed, so "what is next" is the first thing the eye lands on;
- *   3. payments due today - due today but not tied to an hour, so they'd be
+ *   3. tasks with no time - "sometime today", so not on the clock, but still
+ *      the one band on this screen you are meant to ACT on, which is why it
+ *      sits above the money and its rows carry the completion circle;
+ *   4. payments due today - due today but not tied to an hour, so they'd be
  *      guesswork on the clock and noise in the middle of it.
  *
  * Unlike the old day calendar this is NOT proportional: an hour of empty
@@ -58,6 +64,19 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
     [items, nowMinutes],
   );
 
+  // An untimed task lands in `chips` (it has no range), but a "ceo dan" chip is
+  // the wrong shape for it: a chore has to be tickable, and the circle only fits
+  // on a full row. So it gets a band of its own further down.
+  const { spanChips, untimedTasks } = useMemo(() => {
+    const spans: AgendaItem[] = [];
+    const tasks: TaskAgendaItem[] = [];
+    for (const item of chips) {
+      if (item.kind === "task") tasks.push(item);
+      else spans.push(item);
+    }
+    return { spanChips: spans, untimedTasks: tasks };
+  }, [chips]);
+
   if (chips.length === 0 && timed.length === 0 && payments.length === 0) {
     return <>{emptyState}</>;
   }
@@ -66,7 +85,7 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
 
   return (
     <div>
-      {chips.map((item) => (
+      {spanChips.map((item) => (
         <SpanChip
           key={agendaItemKey(item)}
           item={item}
@@ -78,28 +97,56 @@ export function DayTimeline({ items, onSelect, emptyState }: DayTimelineProps) {
       {timed.map((entry, index) => (
         <div key={agendaItemKey(entry.item)}>
           {index === nextIndex ? <NowLine now={now} /> : null}
-          <div className={cn("mb-2 flex items-stretch gap-2.5", entry.past && "opacity-40")}>
+          <div
+            className={cn(
+              "mb-2 flex items-stretch gap-2.5",
+              // A task is deliberately exempt from the elapsed-row fade: an
+              // appointment at 09:00 really is over by noon, but a reminder is
+              // not, and fading it would retire the one row still asking for
+              // something. Its own done state dims it instead.
+              entry.past && entry.item.kind !== "task" && "opacity-40",
+            )}
+          >
             <div className="w-11 flex-none pt-3 text-right text-[12.5px] font-bold text-muted-foreground tabular-nums">
               {entry.startTime}
             </div>
-            <TimelineCard
-              item={entry.item}
-              members={byId}
-              onClick={() => onSelect(entry.item)}
-              // The left gutter already anchors the start time, so the card's
-              // right side only carries the end - repeating the start there
-              // (as the prototype does) reads as noise on a phone.
-              side={
-                entry.endTime ? (
-                  <span className="text-[12.5px] font-normal text-muted-foreground tabular-nums">
-                    do {entry.endTime}
-                  </span>
-                ) : null
-              }
-            />
+            {entry.item.kind === "task" ? (
+              // A timed task IS its minute and nothing more, so the gutter says
+              // when and the row carries the circle instead of a second clock.
+              <div className="min-w-0 flex-1">
+                <TaskRow item={entry.item} onClick={() => onSelect(entry.item)} showTime={false} />
+              </div>
+            ) : (
+              <TimelineCard
+                item={entry.item}
+                members={byId}
+                onClick={() => onSelect(entry.item)}
+                // The left gutter already anchors the start time, so the card's
+                // right side only carries the end - repeating the start there
+                // (as the prototype does) reads as noise on a phone.
+                side={
+                  entry.endTime ? (
+                    <span className="text-[12.5px] font-normal text-muted-foreground tabular-nums">
+                      do {entry.endTime}
+                    </span>
+                  ) : null
+                }
+              />
+            )}
           </div>
         </div>
       ))}
+
+      {untimedTasks.length > 0 ? (
+        <>
+          <GroupHeader>Zadaci danas</GroupHeader>
+          {untimedTasks.map((item) => (
+            <div key={agendaItemKey(item)} className="mb-2">
+              <TaskRow item={item} onClick={() => onSelect(item)} />
+            </div>
+          ))}
+        </>
+      ) : null}
 
       {payments.length > 0 ? (
         <>
@@ -158,7 +205,7 @@ function TypeSquare({ color, tone, icon: Icon }: { color?: string; tone: Tone; i
   );
 }
 
-type Tone = "accent" | "info" | "warn" | "pos";
+type Tone = "accent" | "info" | "warn" | "pos" | "task";
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
 const TONE_SQUARE: Record<Tone, string> = {
@@ -166,6 +213,7 @@ const TONE_SQUARE: Record<Tone, string> = {
   info: "bg-info-soft text-info",
   warn: "bg-warn-soft text-warn",
   pos: "bg-pos-soft text-pos",
+  task: "bg-task-soft text-task",
 };
 
 /** A person's colour dot, appended to a title. */
@@ -178,6 +226,7 @@ function Pill({ tone, children }: { tone: Tone | "neg"; children: ReactNode }) {
         tone === "info" && "bg-info-soft text-info",
         tone === "warn" && "bg-warn-soft text-warn",
         tone === "pos" && "bg-pos-soft text-pos",
+        tone === "task" && "bg-task-soft text-task",
         tone === "neg" && "bg-neg-soft text-neg",
       )}
     >
@@ -348,6 +397,34 @@ function cardContent(
             <Amount value={item.payment.amount} round />
           </span>
         ),
+      };
+    }
+    case "task": {
+      // Unreachable in practice: every band above routes a task to `TaskRow`,
+      // which is the only shape that can carry the completion circle. Kept so
+      // the switch stays total, and shaped so a future band that forgets still
+      // renders something honest.
+      const recurrence = taskRecurrenceLabel(item.task);
+      return {
+        square: <TypeSquare tone="task" icon={CheckCircleIcon} />,
+        title: (
+          <>
+            {item.task.name}
+            {item.assigneeIds.map((id) => (
+              <PersonDot
+                key={id}
+                color={members.get(id)?.color ?? fallbackColorForProfile(id)}
+                emoji={memberEmoji(members.get(id), id)}
+              />
+            ))}
+          </>
+        ),
+        meta: recurrence ? (
+          <>
+            <ArrowPathIcon className="size-3" />
+            {recurrence}
+          </>
+        ) : null,
       };
     }
     case "birthday": {

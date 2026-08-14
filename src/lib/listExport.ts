@@ -1,7 +1,7 @@
 import { format, parseISO, isValid } from "date-fns";
 
 import { srLocale } from "@/utils/date";
-import type { ListWithItems } from "@/types/database";
+import type { ListWithTasks } from "@/types/database";
 
 /**
  * Client-side export of a single list to Markdown or CSV.
@@ -29,7 +29,7 @@ import type { ListWithItems } from "@/types/database";
  *   easy to scan; completed items carry their finished-at timestamp.
  */
 
-const SCOPE_LABEL: Record<ListWithItems["scope"], string> = {
+const SCOPE_LABEL: Record<ListWithTasks["scope"], string> = {
   family: "Porodica",
   personal: "Lično",
 };
@@ -85,9 +85,9 @@ function indentDescription(description: string): string[] {
     .map((line) => `  ${line}`);
 }
 
-function buildMarkdown(list: ListWithItems): string {
-  const active = list.list_items.filter((i) => !i.is_completed);
-  const completed = list.list_items.filter((i) => i.is_completed);
+function buildMarkdown(list: ListWithTasks): string {
+  const active = list.tasks.filter((i) => !i.is_completed);
+  const completed = list.tasks.filter((i) => i.is_completed);
   const exportedAt = format(new Date(), "dd.MM.yyyy HH:mm", { locale: srLocale });
 
   const lines: string[] = [];
@@ -141,7 +141,7 @@ function csvField(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function buildCsv(list: ListWithItems): string {
+function buildCsv(list: ListWithTasks): string {
   // Per-list metadata header - two-column key/value rows above the
   // items table. CSV doesn't have a "metadata section" standard, but
   // every common viewer (Excel, Numbers, LibreOffice) is happy with a
@@ -160,7 +160,7 @@ function buildCsv(list: ListWithItems): string {
   metaRows.push("");
 
   const header = ["Stavka", "Opis", "Status", "Kreirano", "Završeno"].map(csvField).join(",");
-  const rows = list.list_items.map((item) => {
+  const rows = list.tasks.map((item) => {
     const status = item.is_completed ? "Završena" : "Aktivna";
     return [
       csvField(item.name),
@@ -194,12 +194,12 @@ function downloadBlob(content: string, filename: string, mime: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function exportListAsMarkdown(list: ListWithItems): void {
+export function exportListAsMarkdown(list: ListWithTasks): void {
   const filename = `${slugify(list.name)}-${todayForFilename()}.md`;
   downloadBlob(buildMarkdown(list), filename, "text/markdown");
 }
 
-export function exportListAsCsv(list: ListWithItems): void {
+export function exportListAsCsv(list: ListWithTasks): void {
   const filename = `${slugify(list.name)}-${todayForFilename()}.csv`;
   downloadBlob(buildCsv(list), filename, "text/csv");
 }

@@ -175,9 +175,14 @@ describe("KidAccessSection - turning it on", () => {
   it("explains what the child will and will not see", () => {
     renderSection();
     expect(screen.getByText(/bez email adrese i lozinke/)).toBeInTheDocument();
+    // Chores are the one thing a child can act on rather than only read, so the
+    // sentence has to say so - and still has to rule out everything RLS rules
+    // out. If either half of this ever goes missing, the screen is promising a
+    // parent something the database does not do.
     expect(
-      screen.getByText(/novac, liste, podsetnike i tuđe obaveze ne vidi nikada/),
+      screen.getByText(/zadatke koje mu dodelite \(i može da ih označi kao završene\)/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/novac, liste i tuđe obaveze ne vidi nikada/)).toBeInTheDocument();
   });
 
   it("collects the PIN twice and hands it to the mutation", async () => {

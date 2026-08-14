@@ -75,8 +75,13 @@ describe("matchSearchPages", () => {
   });
 
   it("returns a section once even when both its label and an old name match", () => {
-    // "ac" is inside "Novac" and inside "placanja".
-    expect(matchSearchPages("ac").map((page) => page.id)).toEqual(["money"]);
+    // "ac" is inside "Novac" and inside "placanja", money's pre-redesign name.
+    // Since Liste became Zadaci it is inside that label too, which makes this a
+    // better case than it was: the point is that money appears ONCE despite
+    // matching twice, not that it is the only section that can match.
+    const ids = matchSearchPages("ac").map((page) => page.id);
+    expect(ids.filter((id) => id === "money")).toEqual(["money"]);
+    expect(ids).toEqual(["money", "tasks"]);
   });
 
   it("keeps the canonical nav order and ignores an empty term", () => {

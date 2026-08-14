@@ -6,12 +6,20 @@ import { BirthdayDetailDialog } from "@/components/birthdays/BirthdayDetailDialo
 import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { ExternalEventDetailDialog } from "@/components/dashboard/ExternalEventDetailDialog";
 import { PaymentDetailDialog } from "@/components/payments/PaymentDetailDialog";
+import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import { useActivities } from "@/hooks/useActivities";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import type { Activity, Birthday, Event, ExternalCalendarEvent, Payment } from "@/types/database";
+import type {
+  Activity,
+  Birthday,
+  Event,
+  ExternalCalendarEvent,
+  Payment,
+  Task,
+} from "@/types/database";
 import type { ResolvedActivityBlock } from "@/utils/activity";
 
 /**
@@ -25,6 +33,19 @@ import type { ResolvedActivityBlock } from "@/utils/activity";
  * INLINE via the self-contained `ActivityEditDialog` (no /activities
  * redirect) - its schedule/participants data is already warm from `useAgenda`.
  */
+
+/**
+ * What a tapped task row hands the sheet. The SERIES date and the shown date are
+ * both carried: occurrence writes key on the former, the copy reads the latter.
+ */
+type TaskSelection = {
+  task: Task;
+  occurrenceDate: string;
+  effectiveDate: string;
+  assigneeIds: string[];
+  missed: boolean;
+};
+
 export function useAgendaDetails({
   onEditEvent,
   onEditPayment,
@@ -33,6 +54,8 @@ export function useAgendaDetails({
   onEditEvent: (event: Event) => void;
   onEditPayment: (payment: Payment) => void;
   onEditBirthday: (birthday: Birthday) => void;
+  // No task equivalent: `TaskDetailSheet` carries its own editor as a sub-view,
+  // so every host gets "Izmeni zadatak" without having a form of its own.
 }): { onSelect: (item: AgendaItem) => void; dialogs: ReactNode } {
   const { byId: peopleById } = useFamilyMembers();
   const { byEvent } = useEventParticipants();
@@ -50,6 +73,7 @@ export function useAgendaDetails({
   const [selectedBlock, setSelectedBlock] = useState<ResolvedActivityBlock | null>(null);
   const [selectedBirthday, setSelectedBirthday] = useState<Birthday | null>(null);
   const [selectedExternal, setSelectedExternal] = useState<ExternalCalendarEvent | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskSelection | null>(null);
   // The activity whose full edit form is open inline (no /activities redirect).
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
@@ -60,6 +84,15 @@ export function useAgendaDetails({
         break;
       case "event":
         setSelectedEvent(item.event);
+        break;
+      case "task":
+        setSelectedTask({
+          task: item.task,
+          occurrenceDate: item.occurrenceDate,
+          effectiveDate: item.date,
+          assigneeIds: item.assigneeIds,
+          missed: item.missed,
+        });
         break;
       case "payment":
         setSelectedPayment(item.payment);
@@ -131,6 +164,18 @@ export function useAgendaDetails({
           if (!open) setSelectedExternal(null);
         }}
         event={selectedExternal}
+      />
+
+      <TaskDetailSheet
+        open={!!selectedTask}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTask(null);
+        }}
+        task={selectedTask?.task ?? null}
+        occurrenceDate={selectedTask?.occurrenceDate ?? null}
+        effectiveDate={selectedTask?.effectiveDate ?? null}
+        assigneeIds={selectedTask?.assigneeIds ?? []}
+        missed={selectedTask?.missed ?? false}
       />
     </>
   );

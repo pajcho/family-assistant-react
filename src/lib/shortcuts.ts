@@ -18,9 +18,12 @@ import { isApplePlatform } from "@/lib/platform";
  *     screen); events take O, their next spoken letter ("dOgađaji").
  *   - "Porodica" and "Podešavanja" both want P. Family keeps it; settings
  *     takes S, which is what Linear (and most apps) use for settings anyway.
- * "Škola" is the one destination whose own letters are ALL spoken for (š->s
- * is settings, k is the calendar, o is events, l is lists, a is activities), so
- * it takes E - the letter the word ends on when you ask for it ("školE").
+ * "Škola" is the one destination whose own letters were ALL spoken for when it
+ * arrived (š->s is settings, k is the calendar, o is events, l was lists, a is
+ * activities), so it takes E - the letter the word ends on when you ask for it
+ * ("školE"). Liste has since become Zadaci and freed L, but Škola keeps E: a
+ * keyboard shortcut somebody has already learned is not worth re-teaching for
+ * a tidier table.
  */
 
 /** Second key of the `G` sequence, per destination. */
@@ -28,7 +31,7 @@ export const NAV_SHORTCUT_KEYS: Readonly<Record<NavSectionKey, string>> = {
   today: "D",
   calendar: "K",
   money: "N",
-  lists: "L",
+  tasks: "Z",
   activities: "A",
   school: "E",
   events: "O",

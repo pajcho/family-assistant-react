@@ -2,7 +2,23 @@
 <html lang="sr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      `interactive-widget=resizes-content` asks the software keyboard to shrink
+      the LAYOUT viewport, not just the visual one, so a focused field near the
+      bottom is simply inside a shorter page. Chromium honours it; Safari does
+      NOT - measured on iOS 26 with the keyboard up, `clientHeight` stayed 714
+      while `visualViewport.height` fell to 377, and Safari scrolled the window
+      to bring the focused field into view instead. Both outcomes are fine:
+      nothing in the app tries to out-guess either one.
+
+      `src/hooks/useIsKeyboardOpen.ts` was written for this flag being here - it
+      documents that signal 1 (visualViewport vs innerHeight) stops firing with
+      it, which is why it ORs in the focused-field signal.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Porodični kalendar, plaćanja i podsetnici" />

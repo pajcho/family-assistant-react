@@ -56,7 +56,7 @@ function LoginPage() {
           Porodični asistent
         </h1>
         <p className="mt-1 text-sm font-normal text-muted-foreground">
-          Kalendar, plaćanja, budžet i liste -<br />
+          Kalendar, plaćanja, budžet i zadaci -<br />
           sve što porodica deli, na jednom mestu.
         </p>
 

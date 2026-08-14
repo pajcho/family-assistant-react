@@ -4,6 +4,7 @@ import {
   BanknotesIcon,
   CakeIcon,
   CalendarIcon,
+  CheckCircleIcon,
   ClipboardDocumentListIcon,
   QrCodeIcon,
   ShoppingCartIcon,
@@ -14,7 +15,8 @@ import { ActivityAddDialog } from "@/components/activities/ActivityAddDialog";
 import { BirthdayQuickAddFlow } from "@/components/birthdays/BirthdayQuickAddFlow";
 import { ExpenseQuickAddFlow } from "@/components/budget/ExpenseQuickAddFlow";
 import { EventQuickAddFlow } from "@/components/events/EventQuickAddFlow";
-import { ListQuickAddFlow } from "@/components/lists/ListQuickAddFlow";
+import { ListQuickAddFlow } from "@/components/tasks/ListQuickAddFlow";
+import { TaskQuickAddFlow } from "@/components/tasks/TaskQuickAddFlow";
 import { PaymentQuickAddFlow } from "@/components/payments/PaymentQuickAddFlow";
 import { SheetStackHeader } from "@/components/common/SheetStack";
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
@@ -26,10 +28,10 @@ import { cn } from "@/lib/cn";
  * per-page FAB below `lg`).
  *
  * Receipt scanning leads: it is the fastest way into the app's most frequent
- * entry (a shop expense) and the only one that fills the form for you. It gets
- * the full width of the sheet and nothing else - it used to be an accent-filled
- * hero, which shouted at a menu where every row is a thing you asked for. The
- * seven tiles all follow the Meni grid's visual language now.
+ * entry (a shop expense) and the only one that fills the form for you. Zadatak
+ * follows it on its own full-width row, because a task is the other thing people
+ * add several times a day and the one that can be finished from anywhere - and
+ * because the grid below has to stay at six tiles, three even rows of two.
  *
  * Every flow here is self-contained (owns its mutation, reports its own
  * errors) and none of them navigate: you add from wherever you are and land
@@ -41,7 +43,7 @@ import { cn } from "@/lib/cn";
 // must stay out of the main bundle even though the "+" is always on screen.
 import { ReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 
-type AddKind = "expense" | "payment" | "event" | "activity" | "birthday" | "list";
+type AddKind = "expense" | "payment" | "event" | "activity" | "birthday" | "list" | "task";
 
 /**
  * One tile - shared by the scan row (full width) and the six type tiles.
@@ -112,6 +114,25 @@ export function GlobalAddSheet({
                 </span>
               </span>
             </button>
+            {/* Full width, directly under the scan row: a task is the entry with
+                the shortest path (a name is enough) and the widest reach - it
+                shows up on Danas, in Kalendar and in the digest the moment it
+                gets a date. */}
+            <button
+              type="button"
+              onClick={() => start("task")}
+              className={cn(TILE_CLASS, "col-span-2")}
+            >
+              <span className={TILE_ICON_CLASS}>
+                <CheckCircleIcon className="size-[17px]" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block">Zadatak</span>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  Sa datumom stiže i na Danas - bez njega ide u listu
+                </span>
+              </span>
+            </button>
             {TILES.map((tile) => (
               <button
                 key={tile.kind}
@@ -129,7 +150,7 @@ export function GlobalAddSheet({
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      {/* Mounted only while running, so six forms' worth of state and queries
+      {/* Mounted only while running, so seven forms' worth of state and queries
           never sit behind the bar. */}
       {active === "scan" ? (
         <Suspense fallback={null}>
@@ -142,6 +163,7 @@ export function GlobalAddSheet({
       {active === "activity" ? <ActivityAddDialog open onOpenChange={closeActive} /> : null}
       {active === "birthday" ? <BirthdayQuickAddFlow open onOpenChange={closeActive} /> : null}
       {active === "list" ? <ListQuickAddFlow open onOpenChange={closeActive} /> : null}
+      {active === "task" ? <TaskQuickAddFlow open onOpenChange={closeActive} /> : null}
     </>
   );
 }

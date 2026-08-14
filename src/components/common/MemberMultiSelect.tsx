@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Chip, ChipRow, FieldGroupLabel, FieldHint } from "@/components/common/FormControls";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useMemberEmoji } from "@/hooks/useMemberAvatarStyle";
@@ -19,6 +21,19 @@ export type MemberMultiSelectProps = {
   people?: ReadonlyArray<Profile>;
   /** Shown instead of the pills when the roster is empty. */
   emptyLabel?: string;
+  /**
+   * Rendered as the FIRST pill of the same row, before the roster. The tasks
+   * form puts "Samo ja" there: it belongs among the people chips because it is
+   * the same question ("who is this for"), and reads as an option rather than a
+   * separate switch above them.
+   */
+  leading?: ReactNode;
+  /**
+   * Freezes the roster pills (the leading slot owns its own state). Used where
+   * assigning is meaningless - a task in a personal list is visible to nobody
+   * else, so there is nobody to hand it to.
+   */
+  disabled?: boolean;
 };
 
 /**
@@ -35,6 +50,8 @@ export function MemberMultiSelect({
   hint,
   people,
   emptyLabel = "Nema članova porodice.",
+  leading,
+  disabled = false,
 }: MemberMultiSelectProps) {
   const { members: family } = useFamilyMembers();
   const members = people ?? family;
@@ -51,10 +68,11 @@ export function MemberMultiSelect({
   return (
     <div>
       <FieldGroupLabel>{label}</FieldGroupLabel>
-      {members.length === 0 ? (
+      {members.length === 0 && !leading ? (
         <p className="text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
         <ChipRow role="group" aria-label={typeof label === "string" ? label : "Članovi"}>
+          {leading}
           {members.map((person) => {
             const selected = value.includes(person.id);
             const color = person.color ?? fallbackColorForProfile(person.id);
@@ -68,6 +86,7 @@ export function MemberMultiSelect({
               <Chip
                 key={person.id}
                 selected={selected}
+                disabled={disabled}
                 onClick={() => toggle(person.id)}
                 // Member chips keep the person's own fruit colour on selection.
                 style={selected ? { backgroundColor: `${color}1F`, borderColor: color } : undefined}

@@ -1,0 +1,68 @@
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { ListForm, type ListFormMode, type ListFormPayload } from "@/components/tasks/ListForm";
+import type { List } from "@/types/database";
+
+export type ListFormDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  list: List | null;
+  /**
+   * Optional intent. Defaults to inferring "edit" when a `list` is passed
+   * and "create" otherwise - so existing call sites (dashboard add, detail
+   * edit) keep working untouched. Pass "duplicate" explicitly to pre-fill
+   * from a list while still creating a new one.
+   */
+  mode?: ListFormMode;
+  /** Create mode only - pre-fills the name (from a starter chip). */
+  initialName?: string;
+  error?: string | null;
+  saving?: boolean;
+  onSubmit: (payload: ListFormPayload) => void;
+};
+
+export function ListFormDialog({
+  open,
+  onOpenChange,
+  list,
+  mode,
+  initialName,
+  error,
+  saving,
+  onSubmit,
+}: ListFormDialogProps) {
+  const resolvedMode: ListFormMode = mode ?? (list ? "edit" : "create");
+  const title =
+    resolvedMode === "edit"
+      ? "Izmeni listu"
+      : resolvedMode === "duplicate"
+        ? "Dupliraj listu"
+        : "Dodaj listu";
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
+        {error ? (
+          <div className="mb-4 rounded-lg bg-neg-soft p-3 text-sm font-normal text-neg">
+            {error}
+          </div>
+        ) : null}
+        <ListForm
+          list={list}
+          mode={resolvedMode}
+          initialName={initialName}
+          saving={saving}
+          onSubmit={onSubmit}
+          onCancel={() => onOpenChange(false)}
+        />
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  );
+}

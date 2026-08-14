@@ -16,6 +16,24 @@ vi.mock("@/hooks/useMemberAvatarStyle", () => ({
   useMemberAvatarStyleValue: () => "initials",
 }));
 
+// Third and fourth doors, opened when the agenda grew a task row: `TaskRow`
+// resolves its own completion state and its list name, so it imports the
+// profile, tasks and occurrence hooks, and all three reach the Supabase client
+// at import time. The rows exercised below are birthdays, events and payments -
+// task rendering has its own suite in components/tasks/__tests__/TaskRow.test.tsx
+// - so these are stubbed rather than the row being stubbed out wholesale, which
+// would stop this file from proving AgendaItemRow still routes a task at all.
+vi.mock("@/hooks/useProfile", () => ({
+  useProfile: () => ({ profile: null, familyId: null, isLoading: false }),
+}));
+vi.mock("@/hooks/useTasks", () => ({
+  useListsWithTasks: () => ({ data: [], isLoading: false }),
+  useToggleTask: () => ({ mutate: () => {}, isPending: false }),
+}));
+vi.mock("@/hooks/useTaskOccurrences", () => ({
+  useTaskOccurrenceRows: () => ({ occurrences: [], byKey: new Map(), isLoading: false }),
+}));
+
 import { AgendaItemRow } from "@/components/dashboard/AgendaItemRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
 import type { Birthday, Event, Payment } from "@/types/database";

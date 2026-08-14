@@ -26,7 +26,6 @@ import {
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
 import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { useAppCommands } from "@/hooks/useAppCommands";
-import { useIsKeyboardOpen } from "@/hooks/useIsKeyboardOpen";
 import { useProfile, useUpdateNavSlots } from "@/hooks/useProfile";
 import { readNavRecents } from "@/lib/navRecents";
 
@@ -48,18 +47,12 @@ import { readNavRecents } from "@/lib/navRecents";
  */
 
 export function MobileBottomNav() {
-  // iOS Safari auto-elevates the keyboard above page content and leaves the
-  // bar sandwiched between the form and the keyboard; unmounting it is the
-  // one reliable fix (see useIsKeyboardOpen).
-  const keyboardOpen = useIsKeyboardOpen();
   const { openAdd } = useAppCommands();
   const { profile } = useProfile();
   // Until the profile loads this renders the default layout - same bar every
   // new user sees, so there's no blank state, just a quick swap for the few
   // who customized.
   const slots = useMemo(() => normalizeNavSlots(profile?.nav_slots), [profile]);
-
-  if (keyboardOpen) return null;
 
   const fixed = NAV_SECTION_MAP[FIXED_SECTION];
   const [left, right] = [slots[0], slots[1]];

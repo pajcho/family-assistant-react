@@ -8,6 +8,7 @@ import { filterKidAgendaItems } from "@/components/kid/kidAgendaModel";
 import { useKidBirthdayVisibility } from "@/components/kid/useKidBirthdayVisibility";
 import { isCanceledAgendaItem, useAgenda } from "@/hooks/useAgenda";
 import { useKidSession } from "@/hooks/useKidSession";
+import { useKidTasks } from "@/hooks/useKidTasks";
 import { useToday } from "@/hooks/useToday";
 
 /** Days ahead of today the screen looks. Tomorrow + 13 = two full weeks. */
@@ -40,6 +41,10 @@ export function KidUpcomingView() {
   // have happened) - see the note in `KidTodayView`.
   const { items, isLoading } = useAgenda({ from, to, includeCanceled: true });
   const birthdays = useKidBirthdayVisibility(kidProfileId);
+  // Chores in the same window. None of them is tickable here - you cannot do
+  // tomorrow's washing up today - so the circles read as "not done yet" and a
+  // tap anywhere on the card opens its details.
+  const tasks = useKidTasks({ from, to });
 
   const personIds = useMemo(() => new Set(kidProfileId ? [kidProfileId] : []), [kidProfileId]);
   const mine = useMemo(
@@ -48,8 +53,10 @@ export function KidUpcomingView() {
   );
 
   // The visibility query joins the loading gate, so a visible birthday never
-  // pops in after the list has already settled.
-  const loading = isLoading || birthdays.isLoading;
+  // pops in after the list has already settled. The chore rows join it for the
+  // same reason: `useAgenda` does not wait for the occurrence rows that say
+  // which repeats are already resolved.
+  const loading = isLoading || birthdays.isLoading || tasks.isLoading;
   // Two weeks whose only rows are cancellations are not two full weeks, so the
   // closing line says so rather than implying there was something.
   const anythingOn = mine.some((item) => !isCanceledAgendaItem(item));
@@ -76,6 +83,7 @@ export function KidUpcomingView() {
             todayISO={today.str}
             grouped
             birthdayNotes={birthdays.notes}
+            tasks={tasks}
           />
           <KidDone>{anythingOn ? "To je sve za sada! 🔭" : "Ništa drugo te ne čeka. 🔭"}</KidDone>
         </>

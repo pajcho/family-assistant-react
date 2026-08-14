@@ -10,15 +10,15 @@ The interface is in Serbian, with push reminders and realtime sync between famil
 **▶ App: [pajcho.github.io/family-assistant-react](https://pajcho.github.io/family-assistant-react/)**
 (a private instance - an account inside the family is required)
 
-|                    Today                     |                        Week                         |                      Month                      |
-| :------------------------------------------: | :-------------------------------------------------: | :---------------------------------------------: |
-|     ![Today](docs/screenshots/danas.png)     |   ![Week](docs/screenshots/kalendar-nedelja.png)    |  ![Month](docs/screenshots/kalendar-mesec.png)  |
-|                  **Budget**                  |                    **Payments**                     |                    **Lists**                    |
-|    ![Budget](docs/screenshots/budzet.png)    |     ![Payments](docs/screenshots/placanja.png)      |      ![Lists](docs/screenshots/liste.png)       |
-|                  **School**                  |                      **Menu**                       |                **Global search**                |
-|    ![School](docs/screenshots/skola.png)     |         ![Menu](docs/screenshots/meni.png)          | ![Global search](docs/screenshots/pretraga.png) |
-|                 **Kid mode**                 |                  **Kid schedule**                   |                 **Dark theme**                  |
-| ![Kid mode](docs/screenshots/dete-danas.png) | ![Kid schedule](docs/screenshots/dete-raspored.png) | ![Dark theme](docs/screenshots/tamna-tema.png)  |
+|                    Today                    |                        Week                        |                     Month                      |
+| :-----------------------------------------: | :------------------------------------------------: | :--------------------------------------------: |
+|    ![Today](docs/screenshots/today.png)     |    ![Week](docs/screenshots/calendar-week.png)     | ![Month](docs/screenshots/calendar-month.png)  |
+|                 **Budget**                  |                    **Payments**                    |                   **Tasks**                    |
+|   ![Budget](docs/screenshots/budget.png)    |     ![Payments](docs/screenshots/payments.png)     |      ![Tasks](docs/screenshots/tasks.png)      |
+|                 **School**                  |                      **Menu**                      |               **Global search**                |
+|   ![School](docs/screenshots/school.png)    |         ![Menu](docs/screenshots/menu.png)         | ![Global search](docs/screenshots/search.png)  |
+|                **Kid mode**                 |                  **Kid schedule**                  |                 **Dark theme**                 |
+| ![Kid mode](docs/screenshots/kid-today.png) | ![Kid schedule](docs/screenshots/kid-schedule.png) | ![Dark theme](docs/screenshots/dark-theme.png) |
 
 ## Features
 

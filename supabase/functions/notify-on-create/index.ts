@@ -1,9 +1,15 @@
 // supabase/functions/notify-on-create/index.ts
 //
-// Triggered by AFTER INSERT on lists / events / payments / birthdays via
-// pg_net (see migration 20260520250000_notify_on_create.sql). Fans out
-// an instant push notification to every family member who has the
-// matching opt-in enabled, except the actor who created the row.
+// Triggered by AFTER INSERT on lists / events / payments / birthdays via pg_net
+// (see migration 20260520250000_notify_on_create.sql). Fans out an instant push
+// notification to every family member who has the matching opt-in enabled,
+// except the actor who created the row.
+//
+// TASKS NO LONGER ARRIVE HERE. They are queued instead and sent in batches by
+// `notify-outbox` (20260812000000_task_notify_outbox.sql), because they are the
+// one kind people create ten of in a row, and because a task's assignees are
+// written after its row - too late for any AFTER INSERT trigger to read. The
+// `task` branches below stay as a closed door for anything that still posts one.
 //
 // Auth: matches the send-due-pushes pattern. `verify_jwt = false` in
 // config.toml (we set that alongside this function) so pg_net can call
@@ -27,7 +33,7 @@ const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "";
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
-type EntityType = "list" | "event" | "payment" | "birthday";
+type EntityType = "list" | "event" | "payment" | "birthday" | "task";
 
 interface NotifyRequest {
   entityType: EntityType;
@@ -52,6 +58,7 @@ interface PreferenceRow {
   notify_on_event_create: boolean;
   notify_on_payment_create: boolean;
   notify_on_birthday_create: boolean;
+  notify_on_task_create: boolean;
 }
 
 const PREF_KEY: Record<EntityType, keyof PreferenceRow> = {
@@ -59,6 +66,7 @@ const PREF_KEY: Record<EntityType, keyof PreferenceRow> = {
   event: "notify_on_event_create",
   payment: "notify_on_payment_create",
   birthday: "notify_on_birthday_create",
+  task: "notify_on_task_create",
 };
 
 const KIND_FOR: Record<EntityType, string> = {
@@ -66,6 +74,7 @@ const KIND_FOR: Record<EntityType, string> = {
   event: "event_create",
   payment: "payment_create",
   birthday: "birthday_create",
+  task: "task_create",
 };
 
 const TITLE_FOR: Record<EntityType, string> = {
@@ -73,13 +82,21 @@ const TITLE_FOR: Record<EntityType, string> = {
   event: "Novi događaj",
   payment: "Novo plaćanje",
   birthday: "Novi rođendan",
+  task: "Novi zadatak",
 };
 
+// The old list route was deleted with no redirect when list items became tasks,
+// so the list deep-link moved with it: a push carrying the old path opens a 404.
+// This function therefore MUST be deployed in the same release as the route
+// rename. A task has no route of its own - `/tasks` is the screen that lists the
+// dated ones, and a task's push always carries a date (the trigger only fires
+// for one).
 const URL_FOR: Record<EntityType, (id: string) => string> = {
-  list: (id) => `/lists/${id}`,
+  list: (id) => `/tasks/${id}`,
   event: () => "/events",
   payment: () => "/payments",
   birthday: () => "/birthdays",
+  task: () => "/tasks",
 };
 
 Deno.serve(async (req) => {
@@ -121,6 +138,25 @@ Deno.serve(async (req) => {
     }
   }
 
+  // The same door, the same second lock, for tasks. A personal task is visible
+  // to its owner alone (RLS restricts `scope = 'personal'` to `owner_id`), and
+  // only a DATED task is worth waking anybody for - an undated one is a
+  // shopping-list line or a parked thought, and ten of them dropped into the
+  // groceries list must not be ten pushes. The trigger already filters on both
+  // (`WHEN NEW.scope = 'family' AND NEW.due_date IS NOT NULL`); this covers
+  // anything reaching the endpoint by another route, and fails CLOSED.
+  if (body.entityType === "task") {
+    const { data: task, error } = await supabase
+      .from("tasks")
+      .select("scope, due_date")
+      .eq("id", body.entityId)
+      .maybeSingle();
+    const row = task as { scope?: string; due_date?: string | null } | null;
+    if (error || row?.scope !== "family" || !row.due_date) {
+      return Response.json({ ok: true, processed: 0, reason: "not a dated family task" });
+    }
+  }
+
   // Resolve actor name (for the push body). The actor row may not exist
   // if the insert came from a service-role connection - fall back to a
   // neutral phrasing in that case.
@@ -155,7 +191,7 @@ Deno.serve(async (req) => {
   const { data: prefs } = await supabase
     .from("notification_preferences")
     .select(
-      "user_id, notify_on_list_create, notify_on_event_create, notify_on_payment_create, notify_on_birthday_create",
+      "user_id, notify_on_list_create, notify_on_event_create, notify_on_payment_create, notify_on_birthday_create, notify_on_task_create",
     )
     .in("user_id", memberIds);
   const prefByUser = new Map<string, PreferenceRow>();

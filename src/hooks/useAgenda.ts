@@ -7,11 +7,13 @@ import type {
   ExternalCalendarEvent,
   Payment,
   Profile,
+  Task,
 } from "@/types/database";
 import { normalizeTime, resolveBlocksInRange, type ResolvedActivityBlock } from "@/utils/activity";
 import { expandBirthdayOccurrences } from "@/utils/birthday";
 import { eventDaySlices } from "@/utils/event";
 import { expandPaymentOccurrences } from "@/utils/payment";
+import { expandTaskOccurrences, isMissedOccurrence, isRecurringTask } from "@/utils/task";
 import { useActivities } from "@/hooks/useActivities";
 import { useActivityOverrides } from "@/hooks/useActivityOverrides";
 import { useActivityParticipants } from "@/hooks/useActivityParticipants";
@@ -26,26 +28,39 @@ import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentsList } from "@/hooks/usePayments";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
+import { useTaskAssignees } from "@/hooks/useTaskAssignees";
+import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
+import { useTasksList } from "@/hooks/useTasks";
+import { useToday } from "@/hooks/useToday";
 
 /**
- * Unified agenda layer - merges activities, events, payments and birthdays for
- * a date range `[from, to]` into one chronologically-sorted list, generalizing
- * the today-only merge that used to live in `DashboardTodayCard`.
+ * Unified agenda layer - merges activities, events, tasks, payments and
+ * birthdays for a date range `[from, to]` into one chronologically-sorted list,
+ * generalizing the today-only merge that used to live in `DashboardTodayCard`.
  *
  * Both dashboard tabs consume this: "Danas" with `from === to === today`,
  * "Uskoro" with a growing `[tomorrow, horizon]` window. The Phase 4 calendar
  * will feed off the same layer.
  *
  * All recurrence is expanded client-side by the pure helpers in `utils/`
- * (`resolveBlocksInRange`, `expandPaymentOccurrences`, `expandBirthdayOccurrences`)
- * over data the underlying hooks already load wholesale - only the events query
- * is range-scoped, so growing the horizon costs at most one extra events fetch.
+ * (`resolveBlocksInRange`, `expandPaymentOccurrences`, `expandTaskOccurrences`,
+ * `expandBirthdayOccurrences`) over data the underlying hooks already load
+ * wholesale - only the events query is range-scoped, so growing the horizon costs
+ * at most one extra events fetch.
  */
 
-/** Within-day ordering buckets, continuing the scheme from the old today card. */
+/**
+ * Within-day ordering buckets, continuing the scheme from the old today card.
+ *
+ * An untimed task sits directly after the all-day events and ABOVE birthdays and
+ * payments: a task is the one kind in this list a person is expected to act on
+ * today, and the two below it are read-only news. Renumbering these shifted
+ * birthdays and payments up by one - two tests pin the values.
+ */
 const ALL_DAY_SORT_KEY = 24 * 60 + 1; // 1441 - after every timed minute of the day
-const BIRTHDAY_SORT_KEY = ALL_DAY_SORT_KEY + 1; // 1442 - after all-day events
-const PAYMENT_SORT_KEY = ALL_DAY_SORT_KEY + 2; // 1443 - at the very bottom
+const TASK_SORT_KEY = ALL_DAY_SORT_KEY + 1; // 1442 - after all-day events
+const BIRTHDAY_SORT_KEY = ALL_DAY_SORT_KEY + 2; // 1443
+const PAYMENT_SORT_KEY = ALL_DAY_SORT_KEY + 3; // 1444 - at the very bottom
 
 export type AgendaItem =
   | {
@@ -85,6 +100,30 @@ export type AgendaItem =
       canceled: boolean;
     }
   | {
+      kind: "task";
+      /** `effectiveDate` of this instance - where it actually shows. */
+      date: string;
+      sortKey: number;
+      task: Task;
+      /**
+       * The SERIES date this instance came from. Occurrence rows key on it, so
+       * every write (tick, skip, move) must pass THIS, never `date`.
+       */
+      occurrenceDate: string;
+      /** Normalized HH:mm, or null for an all-day task. */
+      dueTime: string | null;
+      assigneeIds: string[];
+      /**
+       * Whole-occurrence completion. Only meaningful for
+       * `completion_mode: 'shared'` - for 'per_assignee' the row layer has to ask
+       * `isTaskDoneOn(task, occurrenceDate, byKey, personId)` instead, because
+       * "is this done" has as many answers as the task has assignees.
+       */
+      isDone: boolean;
+      /** A past recurring instance nobody resolved. See the arm's note below. */
+      missed: boolean;
+    }
+  | {
       kind: "payment";
       date: string;
       sortKey: number;
@@ -116,6 +155,10 @@ export function agendaItemKey(item: AgendaItem): string {
     case "event":
       // Date suffix: a multi-day event expands into one item per covered day.
       return `event-${item.event.id}-${item.date}`;
+    case "task":
+      // Series date, not effective date: a moved occurrence keeps its identity
+      // (and its React key) when it lands on another day.
+      return `task-${item.task.id}-${item.occurrenceDate}`;
     case "payment":
       return `payment-${item.payment.id}-${item.occurrenceDate}`;
     case "birthday":
@@ -190,6 +233,15 @@ export function useAgenda({
   const { byPayment } = usePaymentParticipants();
   const { byKey: paymentOverridesByKey } = usePaymentOverrides();
   const birthdaysQuery = useBirthdaysList();
+  // Tasks load wholesale; their recurrence is projected client-side like
+  // payments', and the occurrence rows are the sparse override table.
+  const tasksQuery = useTasksList();
+  const { byKey: taskOccurrencesByKey } = useTaskOccurrenceRows();
+  const { byTask } = useTaskAssignees();
+  // A past instance is "propušteno" only relative to today, and today has to
+  // come from the shared store - a memo that read `new Date()` would keep
+  // yesterday's answer across an overnight PWA suspend.
+  const today = useToday().str;
 
   const activitiesById = useMemo(() => {
     const map = new Map<string, Activity>();
@@ -275,6 +327,39 @@ export function useAgenda({
       });
     }
 
+    // ── Tasks ───────────────────────────────────────────────────────────
+    // Only DATED tasks are agenda material - an undated one is somebody's
+    // someday list and lives only inside its list. Recurrence is walked by
+    // `expandTaskOccurrences`, which also applies the 'moved' overrides.
+    for (const task of tasksQuery.data ?? []) {
+      if (!task.due_date) continue;
+      const dueTime = task.due_time ? normalizeTime(task.due_time) : null;
+      const recurring = isRecurringTask(task);
+      for (const instance of expandTaskOccurrences(task, from, to, taskOccurrencesByKey)) {
+        // A skip is a decision, so the row goes. A DONE one stays, flagged, and
+        // renders ticked: making it vanish the instant it is tapped pulls the
+        // list out from under the thumb that just tapped it.
+        if (instance.isSkipped) continue;
+        out.push({
+          kind: "task",
+          date: instance.effectiveDate,
+          // A timed task is a point in the day like anything else; an untimed one
+          // joins the all-day block just below the events.
+          sortKey: dueTime ? timeToMin(dueTime) : TASK_SORT_KEY,
+          task,
+          occurrenceDate: instance.occurrenceDate,
+          dueTime,
+          assigneeIds: byTask.get(task.id) ?? [],
+          isDone: instance.isDone,
+          // Recurring only, by design: a repeat that was missed IS the row you
+          // see struck through on its own day, while a one-off that slipped is
+          // carried forward by `useOverdueTasks` and would otherwise be told off
+          // twice for the same thing.
+          missed: recurring && isMissedOccurrence(instance, today),
+        });
+      }
+    }
+
     // ── Payments ────────────────────────────────────────────────────────
     // Paid / paused series are out (matches the today card + payments page);
     // the rest are projected into the window by effective date.
@@ -321,6 +406,10 @@ export function useAgenda({
     paymentOverridesByKey,
     byPayment,
     birthdaysQuery.data,
+    tasksQuery.data,
+    taskOccurrencesByKey,
+    byTask,
+    today,
   ]);
 
   const { byDay, days } = useMemo(() => {
@@ -342,7 +431,8 @@ export function useAgenda({
     eventsQuery.isLoading ||
     externalQuery.isLoading ||
     paymentsQuery.isLoading ||
-    birthdaysQuery.isLoading;
+    birthdaysQuery.isLoading ||
+    tasksQuery.isLoading;
 
   return { items, byDay, days, isLoading };
 }
