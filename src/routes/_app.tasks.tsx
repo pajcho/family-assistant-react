@@ -75,7 +75,14 @@ function TasksSplit() {
           <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-accent group-active:bg-accent" />
         </Separator>
 
-        <Panel id="detail" minSize="360px" className="h-full overflow-y-auto bg-card p-6">
+        {/* This panel is its own scrollport AND its own surface, so the sticky
+            group headings inside it have to paint `card`, not the page
+            background they default to - see `SectionHeading`. */}
+        <Panel
+          id="detail"
+          minSize="360px"
+          className="h-full overflow-y-auto bg-card p-6 [--heading-sticky-bg:var(--color-card)]"
+        >
           <Outlet />
         </Panel>
       </Group>

@@ -26,6 +26,7 @@ export function AgendaDateHeader({
   count,
   muted = false,
   selected = false,
+  sticky = false,
   className,
 }: {
   day: string;
@@ -41,6 +42,8 @@ export function AgendaDateHeader({
   count?: number;
   muted?: boolean;
   selected?: boolean;
+  /** Pin the header while its own day section scrolls past. */
+  sticky?: boolean;
   className?: string;
 }) {
   const date = parseISO(day + "T12:00:00");
@@ -54,6 +57,7 @@ export function AgendaDateHeader({
     <SectionHeading
       count={count}
       muted={muted && !selected}
+      sticky={sticky}
       className={cn(selected && "text-accent-deep", className)}
     >
       {selected ? (

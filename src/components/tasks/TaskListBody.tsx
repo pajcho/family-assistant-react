@@ -539,6 +539,12 @@ function GroupedRows({
   }, [rows, grouping, today, byId]);
 
   return (
+    // NOT sticky, unlike every other grouped list in the app: these rows live
+    // inside a rounded `overflow-hidden` card, which makes that card the
+    // scrollport a sticky child would pin against - and it never scrolls, so the
+    // header would ride away with the group anyway while painting a band of the
+    // page background across a white card. Un-clipping the card to fix that
+    // would cost it its rounded corners under the swipe layer.
     <div className="space-y-2">
       {groups.map((group) => (
         <div key={group.key}>
