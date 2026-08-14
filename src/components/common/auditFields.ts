@@ -1,5 +1,5 @@
 import { formatDate } from "@/utils/date";
-import { normalizeTime } from "@/utils/activity";
+import { DAY_LABELS_FULL, normalizeTime } from "@/utils/activity";
 import { serbianPlural } from "@/utils/plural";
 
 /**
@@ -113,6 +113,30 @@ const COMPLETION_MODE = enumOf({ shared: "zajednički", per_assignee: "svako za 
 
 const SCOPE = enumOf({ personal: "lična", family: "porodična" });
 
+const SHIFT = enumOf({ morning: "prepodne", afternoon: "popodne" });
+
+const VARIANT = enumOf({ A: "A nedelja", B: "B nedelja" });
+
+/** `day_of_week` is stored 0-based from Monday, the way the week grid reads it. */
+const weekday: Formatter = (v) =>
+  typeof v === "number" ? (DAY_LABELS_FULL[v] ?? String(v)) : null;
+
+const minutes: Formatter = (v) =>
+  typeof v === "number"
+    ? `${v} ${serbianPlural(v, { one: "minut", few: "minuta", many: "minuta" })}`
+    : null;
+
+/** A month/day pair is edited as two columns, so each reads as a bare number. */
+const monthNumber: Formatter = (v) => (typeof v === "number" ? `${v}. mesec` : null);
+
+const dayNumber: Formatter = (v) => (typeof v === "number" ? `${v}.` : null);
+
+/** "1." is week-by-week; anything else is "every N weeks". */
+const weeks: Formatter = (v) =>
+  typeof v === "number"
+    ? `${v} ${serbianPlural(v, { one: "nedelja", few: "nedelje", many: "nedelja" })}`
+    : null;
+
 const f = (label: string, format: Formatter): AuditFieldSpec => ({ label, format });
 
 /**
@@ -211,6 +235,42 @@ export const AUDIT_FIELDS: Record<string, Record<string, AuditFieldSpec>> = {
     color: f("Boja", text),
     icon: f("Ikonica", text),
     monthly_limit: f("Mesečni limit", money),
+  },
+  school_timetable_entries: {
+    subject: f("Predmet", text),
+    room: f("Učionica", text),
+    day_of_week: f("Dan", weekday),
+    period_index: f("Čas", dayNumber),
+    variant: f("Nedelja", VARIANT),
+    person_id: f("Učenik", member),
+  },
+  school_breaks: {
+    name: f("Naziv", text),
+    start_month: f("Počinje (mesec)", monthNumber),
+    start_day: f("Počinje (dan)", dayNumber),
+    end_month: f("Završava (mesec)", monthNumber),
+    end_day: f("Završava (dan)", dayNumber),
+  },
+  bell_schedules: {
+    period_minutes: f("Trajanje časa", minutes),
+    small_break_minutes: f("Mali odmor", minutes),
+    big_break_minutes: f("Veliki odmor", minutes),
+    max_periods: f("Broj časova", number),
+    morning_start: f("Početak prepodne", time),
+    afternoon_start: f("Početak popodne", time),
+  },
+  school_shift_anchors: {
+    anchor_week_start: f("Početna nedelja", date),
+    anchor_shift: f("Smena", SHIFT),
+    flip_interval_weeks: f("Smena se menja na", weeks),
+    is_alternating: f("Naizmenične smene", bool),
+    fixed_time_band: f("Stalni termin", SHIFT),
+  },
+  receipts: {
+    merchant: f("Prodavac", text),
+    store_name: f("Prodavnica", text),
+    total_amount: f("Ukupno", money),
+    issued_on: f("Datum računa", date),
   },
 };
 

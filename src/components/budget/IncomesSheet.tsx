@@ -11,6 +11,8 @@ import {
 
 import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/common/DateField";
@@ -63,7 +65,12 @@ type View =
   | { kind: "one-time" } // add a one-off (bonus etc.)
   | { kind: "source"; income: Income | null } // add / edit a recurring source
   | { kind: "delete-entry"; entry: IncomeEntry }
-  | { kind: "delete-source"; income: Income };
+  | { kind: "delete-source"; income: Income }
+  // Incomes have no detail sheet of their own - the edit form IS the entry's
+  // screen - so the authorship line lives at the bottom of that form and pushes
+  // the history from there (plan 018).
+  | { kind: "audit-entry"; entry: IncomeEntry }
+  | { kind: "audit-source"; income: Income };
 
 function memberOptions(members: ReadonlyArray<Profile>) {
   return members.map((m) => (
@@ -142,23 +149,25 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   };
 
   const titleFor = (view: View) =>
-    view.kind === "list"
-      ? `Prihodi - ${monthLabel(month)}`
-      : view.kind === "sources"
-        ? "Redovni prihodi"
-        : view.kind === "confirm"
-          ? "Potvrdi prihod"
-          : view.kind === "entry"
-            ? "Izmeni prihod"
-            : view.kind === "one-time"
-              ? "Jednokratni prihod"
-              : view.kind === "delete-entry"
-                ? "Obriši prihod"
-                : view.kind === "delete-source"
-                  ? "Obriši redovni prihod"
-                  : view.income
-                    ? "Izmeni redovni prihod"
-                    : "Novi redovni prihod";
+    view.kind === "audit-entry" || view.kind === "audit-source"
+      ? "Istorija izmena"
+      : view.kind === "list"
+        ? `Prihodi - ${monthLabel(month)}`
+        : view.kind === "sources"
+          ? "Redovni prihodi"
+          : view.kind === "confirm"
+            ? "Potvrdi prihod"
+            : view.kind === "entry"
+              ? "Izmeni prihod"
+              : view.kind === "one-time"
+                ? "Jednokratni prihod"
+                : view.kind === "delete-entry"
+                  ? "Obriši prihod"
+                  : view.kind === "delete-source"
+                    ? "Obriši redovni prihod"
+                    : view.income
+                      ? "Izmeni redovni prihod"
+                      : "Novi redovni prihod";
 
   const handleDeleteEntry = async (entry: IncomeEntry) => {
     try {
@@ -507,13 +516,27 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
           ) : null}
 
           {view.kind === "entry" ? (
-            <EntryForm
-              month={month}
-              members={members}
-              entry={view.entry}
-              defaultReceivedOn={defaultReceivedOn}
-              onDone={back}
-            />
+            <>
+              <EntryForm
+                month={month}
+                members={members}
+                entry={view.entry}
+                defaultReceivedOn={defaultReceivedOn}
+                onDone={back}
+              />
+              <DetailAuditLine
+                row={view.entry}
+                onOpenHistory={() => push({ kind: "audit-entry", entry: view.entry })}
+              />
+            </>
+          ) : null}
+
+          {view.kind === "audit-entry" ? (
+            <AuditTimeline entityType="income_entries" entityId={view.entry.id} />
+          ) : null}
+
+          {view.kind === "audit-source" ? (
+            <AuditTimeline entityType="incomes" entityId={view.income.id} />
           ) : null}
 
           {view.kind === "one-time" ? (
@@ -526,7 +549,19 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
           ) : null}
 
           {view.kind === "source" ? (
-            <SourceForm income={view.income} members={members} onDone={back} />
+            <>
+              <SourceForm income={view.income} members={members} onDone={back} />
+              {/* Only an EXISTING source has an author; the same view doubles as
+                  "add a new one", where there is nothing to show yet. */}
+              {view.income ? (
+                <DetailAuditLine
+                  row={view.income}
+                  onOpenHistory={() =>
+                    push({ kind: "audit-source", income: view.income as Income })
+                  }
+                />
+              ) : null}
+            </>
           ) : null}
         </ResponsiveDialogContent>
       )}

@@ -109,8 +109,8 @@ describe("renderChanges", () => {
 });
 
 describe("AUDIT_FIELDS vs audit_columns() in the migration", () => {
-  // Transcribed from public.audit_columns() in
-  // supabase/migrations/20260814150000_audit_log.sql. A column recorded by the
+  // Transcribed from public.audit_columns(), whose current body lives in
+  // supabase/migrations/20260814160000_audit_school_and_receipts.sql. A column recorded by the
   // database and missing here renders as nothing, which looks like "nobody
   // edited that" - the failure this pins.
   const RECORDED: Record<string, string[]> = {
@@ -174,6 +174,31 @@ describe("AUDIT_FIELDS vs audit_columns() in the migration", () => {
       "auto_delete_completed_after_hours",
     ],
     expense_categories: ["name", "color", "icon", "monthly_limit"],
+    school_timetable_entries: [
+      "subject",
+      "room",
+      "day_of_week",
+      "period_index",
+      "variant",
+      "person_id",
+    ],
+    school_breaks: ["name", "start_month", "start_day", "end_month", "end_day"],
+    bell_schedules: [
+      "period_minutes",
+      "small_break_minutes",
+      "big_break_minutes",
+      "max_periods",
+      "morning_start",
+      "afternoon_start",
+    ],
+    school_shift_anchors: [
+      "anchor_week_start",
+      "anchor_shift",
+      "flip_interval_weeks",
+      "is_alternating",
+      "fixed_time_band",
+    ],
+    receipts: ["merchant", "store_name", "total_amount", "issued_on"],
   };
 
   it("covers every table the trigger is attached to", () => {

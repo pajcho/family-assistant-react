@@ -432,3 +432,39 @@ Still to check by hand, since neither is reachable from SQL:
   rows.
 - CI: no test may import a module whose chain reaches `lib/supabase` - locally
   it passes on `.env` and fails on CI.
+
+## 12. Coverage follow-up (same release)
+
+The first three PRs recorded ten tables but only surfaced six of them, because
+`DetailAuditLine` needs a detail sheet to sit in and four entities had none.
+Closed here, on the same branch:
+
+| Module        | Was                 | Now                                                      |
+| ------------- | ------------------- | -------------------------------------------------------- |
+| Troškovi      | recorded, invisible | `ExpenseDetailSheet` (new)                               |
+| Prihodi       | recorded, invisible | line at the foot of the two edit views in `IncomesSheet` |
+| Liste         | recorded, invisible | `ListInfoPanel` on the shared line + history             |
+| Škola, Računi | not recorded at all | recorded and rendered                                    |
+
+Three things worth knowing before touching this again:
+
+- **An expense had no detail view at all.** Tapping one went straight into the
+  edit form, which is why it was the only entity with nowhere to show its
+  author. `ExpenseDetailSheet` fills that gap for expenses that answer for
+  themselves - hand-typed, and rows orphaned by a deleted payment.
+  Receipt-sourced and payment-sourced rows keep routing to their own source, as
+  `openExpenseFromCategory` always did: their facts live elsewhere and two
+  detail screens for one spend would eventually disagree.
+- **`bell_schedules` and `school_shift_anchors` have no `id` column** (they are
+  keyed by family and by person). `log_audit_change()` now falls back
+  `id -> person_id -> family_id` for `entity_id`. Without it those two wrote
+  NULL into a NOT NULL column, which the trigger's own exception guard would
+  have swallowed - a silent no-history, the worst kind of failure.
+- **`receipt_items` stays out.** One receipt import inserts twenty to thirty
+  rows at once and would bury every other entry; who claimed which line already
+  shows up as the expense that claim creates.
+
+Incomes are the one deviation from the sheet convention: they have no detail
+view, so the line sits at the bottom of the edit form instead. Building two more
+detail sheets for a screen people open once a month was not worth it; revisit if
+Prihodi ever gets its own detail layout.

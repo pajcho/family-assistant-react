@@ -56,14 +56,14 @@ const auditKey: QueryKeyFor = rootKey("audit_log");
  * exactly what each hook's old realtime block used to invalidate, so a change
  * reaches the same screens it always did.
  *
- * The tables carrying `auditKey` are exactly the ten in `audit_columns()`.
+ * The tables carrying `auditKey` are exactly the fifteen in `audit_columns()`.
  */
 const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   activities: [familyKey("activities"), auditKey],
   activity_overrides: [familyKey("activity_overrides")],
   activity_participants: [familyKey("activity_participants")],
   activity_schedule: [familyKey("activity_schedule")],
-  bell_schedules: [familyKey("bell_schedule")],
+  bell_schedules: [familyKey("bell_schedule"), auditKey],
   birthday_visibility: [familyKey("birthday_visibility")],
   birthdays: [familyKey("birthdays"), auditKey],
   event_participants: [familyKey("event_participants")],
@@ -90,11 +90,11 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   // then loses the PT409 race they never saw coming. Keyed by expense id.
   receipt_items: [rootKey("receipt_items")],
   // Keyed by receipt id; the split also moves what each expense is worth.
-  receipts: [rootKey("receipt-context"), familyKey("expenses")],
+  receipts: [rootKey("receipt-context"), familyKey("expenses"), auditKey],
   school_break_members: [familyKey("school_break_members")],
-  school_breaks: [familyKey("school_breaks")],
-  school_shift_anchors: [familyKey("school_shift_anchors")],
-  school_timetable_entries: [familyKey("school_timetable")],
+  school_breaks: [familyKey("school_breaks"), auditKey],
+  school_shift_anchors: [familyKey("school_shift_anchors"), auditKey],
+  school_timetable_entries: [familyKey("school_timetable"), auditKey],
   task_assignees: [familyKey("task_assignees")],
   task_occurrences: [familyKey("task_occurrences")],
   // Task rows live in TWO caches - the flat family list and the nested
