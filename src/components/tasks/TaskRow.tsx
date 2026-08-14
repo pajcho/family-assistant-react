@@ -16,6 +16,7 @@ import { useListsWithTasks, useToggleTask } from "@/hooks/useTasks";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { assigneeProgress, taskTickSlot } from "@/components/tasks/taskItemModel";
 import { useToday } from "@/hooks/useToday";
+import { formatDate } from "@/utils/date";
 import { isFutureOccurrence, isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
 
 /**
@@ -64,7 +65,8 @@ export function TaskRow({
 }: TaskRowProps) {
   const { task } = item;
   const toggle = useToggleTask();
-  const { personId, circleDone, rowDone, canTick, progress } = useTaskCompletionSlot(item);
+  const { personId, circleDone, rowDone, canTick, blockedReason, progress } =
+    useTaskCompletionSlot(item);
   const listName = useTaskListName(showListName ? task.list_id : null);
 
   // A done row is never also "propušteno": it was resolved, just late.
@@ -83,6 +85,7 @@ export function TaskRow({
           done={circleDone}
           name={task.name}
           disabled={!canTick}
+          disabledReason={blockedReason}
           onToggle={() => {
             // `item.occurrenceDate` (the SERIES date), never `item.date`: a
             // moved occurrence is still ticked under the date the series says it
@@ -147,6 +150,8 @@ function useTaskCompletionSlot(item: TaskAgendaItem): {
   /** Whether the TASK is finished - everybody's answer. Drives strike + dimming. */
   rowDone: boolean;
   canTick: boolean;
+  /** Why the circle is dead, for the tap that would otherwise do nothing. */
+  blockedReason: string | undefined;
   /** "1/3" when several people each owe their own tick; null otherwise. */
   progress: { done: number; total: number } | null;
 } {
@@ -177,6 +182,13 @@ function useTaskCompletionSlot(item: TaskAgendaItem): {
     circleDone: own,
     rowDone: allDone ?? own,
     canTick: slot.canTick && !notYetDue,
+    // The date rule first: it is the one that applies to a person who IS an
+    // assignee and would otherwise be told the chore is not theirs.
+    blockedReason: notYetDue
+      ? `Još nije na redu - može se završiti ${formatDate(item.date)}.`
+      : slot.canTick
+        ? undefined
+        : "Ovo mogu da završe samo oni kojima je zadatak dodeljen.",
     progress,
   };
 }

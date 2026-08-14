@@ -48,6 +48,16 @@ vi.mock("@/hooks/useToday", () => ({
   useToday: () => ({ str: TODAY, date: new Date(`${TODAY}T12:00:00`) }),
 }));
 
+// A locked circle explains itself through a toast, so the toast is the
+// assertion surface for "the app said why".
+const toastMessages: string[] = [];
+vi.mock("sonner", () => ({
+  toast: Object.assign((message: string) => toastMessages.push(message), {
+    success: (message: string) => toastMessages.push(message),
+    error: (message: string) => toastMessages.push(message),
+  }),
+}));
+
 // Rendered as a marker so the assignee assertions can see it without dragging
 // the roster query (and the Supabase client) into the run.
 vi.mock("@/components/common/MemberBadges", () => ({
@@ -106,6 +116,22 @@ function renderRow(item: TaskAgendaItem, props: { showTime?: boolean } = {}) {
   return { onClick };
 }
 
+/**
+ * Whether the circle refuses a tap. Two mechanisms, one meaning: a plain
+ * `disabled` when there is nothing to say, and `aria-disabled` when there IS a
+ * reason - a truly disabled input cannot be focused and fires no events, so it
+ * could never deliver one.
+ */
+function circleIsLocked(): boolean {
+  const box = screen.getByRole("checkbox") as HTMLInputElement;
+  return box.disabled || box.getAttribute("aria-disabled") === "true";
+}
+
+/** What a finger actually hits: the padded label around the sr-only input. */
+function clickCircleArea(): void {
+  (screen.getByRole("checkbox").closest("label") as HTMLElement).click();
+}
+
 /** The row's own tap target - the circle is a checkbox, never a button. */
 function rowButton(): HTMLElement {
   return screen.getByRole("button");
@@ -116,6 +142,7 @@ beforeEach(() => {
   occurrences = [];
   lists = [];
   viewerId = "parent-1";
+  toastMessages.length = 0;
 });
 
 describe("TaskRow markup", () => {
@@ -195,16 +222,41 @@ describe("TaskRow completion circle", () => {
     // had lived through yet.
     const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
     renderRow(taskItem({ task: daily, date: "2026-08-15", occurrenceDate: "2026-08-15" }));
-    const circle = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(circle.disabled).toBe(true);
-    circle.click();
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
     expect(toggleMutate).not.toHaveBeenCalled();
+  });
+
+  it("says WHY a locked circle is locked, instead of just swallowing the tap", () => {
+    // A dead circle that looks exactly like a live one is the whole complaint:
+    // you tap, nothing happens, and no screen tells you what the rule is.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: "2026-08-16", occurrenceDate: "2026-08-16" }));
+    expect(
+      screen.getByLabelText('„Izbaci smeće": Još nije na redu - može se završiti 16.08.2026.'),
+    ).toBeInTheDocument();
+    // The finger lands on the padded label, not on the sr-only input - and a
+    // disabled input fires no click at all, which is exactly why the handler
+    // hangs off the label.
+    clickCircleArea();
+    expect(toastMessages).toContain("Još nije na redu - može se završiti 16.08.2026.");
+  });
+
+  it("gives the other locked case its own reason", () => {
+    // Assigned to two other people under `shared`, so this viewer may not close
+    // it for them - a different rule, and one the date reason must not mask.
+    viewerId = "parent-1";
+    const theirs = { ...baseTask, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: theirs, assigneeIds: ["kid-1", "kid-2"] }));
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
+    expect(toastMessages.join("|")).toContain("samo oni kojima je zadatak dodeljen");
   });
 
   it("still ticks today's instance of that same chore", () => {
     const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
     renderRow(taskItem({ task: daily, date: TODAY, occurrenceDate: TODAY }));
-    expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(false);
+    expect(circleIsLocked()).toBe(false);
     screen.getByRole("checkbox").click();
     expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ date: TODAY, done: true }));
   });
@@ -219,7 +271,7 @@ describe("TaskRow completion circle", () => {
         occurrenceDate: "2026-08-20",
       }),
     );
-    expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(false);
+    expect(circleIsLocked()).toBe(false);
   });
 
   it("says how many instances of a series an overdue row stands for", () => {
@@ -251,7 +303,7 @@ describe("TaskRow per-assignee completion", () => {
     // meaning - the row counts the answers instead of pretending to be one.
     renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1", "kid-2"] }));
     const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(true);
+    expect(circleIsLocked()).toBe(true);
     expect(screen.getByText("0/2")).toBeVisible();
     box.click();
     expect(toggleMutate).not.toHaveBeenCalled();
@@ -345,7 +397,7 @@ describe("TaskRow per-assignee completion", () => {
     const shared: Task = { ...baseTask, completion_mode: "shared" };
     renderRow(taskItem({ task: shared, assigneeIds: ["kid-1"] }));
     const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(false);
+    expect(circleIsLocked()).toBe(false);
     box.click();
     expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ personId: null }));
   });
@@ -353,9 +405,8 @@ describe("TaskRow per-assignee completion", () => {
   it("will not let a bystander finish a shared chore split between several", () => {
     const shared: Task = { ...baseTask, completion_mode: "shared" };
     renderRow(taskItem({ task: shared, assigneeIds: ["kid-1", "kid-2"] }));
-    const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(true);
-    box.click();
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
     expect(toggleMutate).not.toHaveBeenCalled();
   });
 });

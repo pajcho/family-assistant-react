@@ -394,7 +394,7 @@ alone.
    build). The action row below it already names the count and can be acted on;
    the info row said the same thing twice and could not be tapped.
 5. **History and backlog rows carry a progress line** - `1/3 · Milan · fali još
-   2` (maintainer request). Without it, a day two of three people had finished
+2` (maintainer request). Without it, a day two of three people had finished
    read as a bare "Propušteno", which is the wrong answer to "what happened
    here". The line is count-first and verb-free so it needs no gender agreement
    for a mixed list of names.
@@ -408,8 +408,8 @@ alone.
    - partly done (`per_assignee`) - the action row reads "Otpada za ostale; 1/3
      već završeno" and the confirm names them: "Milan je već završio/la svoj deo
      - ta kvačica ostaje zabeležena." That sentence is true because per-person
-     rows are untouched by a whole-occurrence skip; the claim and the write must
-     stay in step if either is ever changed.
+       rows are untouched by a whole-occurrence skip; the claim and the write must
+       stay in step if either is ever changed.
 7. **The history window is bounded at the near end only.** The plan said "the
    last 90 days"; a skip or a move made for TODAY or for a day still ahead is
    invisible everywhere else in the app (the agenda drops skipped instances), so
@@ -420,6 +420,25 @@ alone.
 9. **Browser verification could not use the in-app preview pane** - clicks time
    out there (the pane reports itself hidden). Driven with Playwright from the
    scratchpad instead, the recipe from `project_readme_screenshot_recipe`.
+10. **A locked circle now looks locked and says why** (maintainer, second
+    review). Section 6 only said "disabled"; a disabled circle was drawn exactly
+    like a live one and swallowed the tap, so the rule was unguessable. It is
+    now dashed with a padlock, and a tap answers - "Još nije na redu - može se
+    završiti 16.08.2026." or "Ovo mogu da završe samo oni kojima je zadatak
+    dodeljen."
+    The mechanism matters: while there is a reason to give, the input carries
+    `aria-disabled` rather than `disabled`. A truly disabled input cannot be
+    focused and fires no events, so it could neither be reached by a keyboard
+    nor deliver the explanation; the input is controlled, so the tick still
+    never flips. A click handler on the wrapping `<label>` was the first attempt
+    and is not allowed - `jsx-a11y(click-events-have-key-events)` fails
+    `pnpm check`, correctly.
+11. **A move onto its own date is not reported as a move.** Moving an occurrence
+    and moving it back leaves a row whose `moved_to_date` equals its
+    `occurrence_date`; the history read "15.08.2026 - Pomereno na 15.08.2026".
+    Such a row now resolves to "nothing happened", and an entry that says
+    nothing about a day that has not passed is dropped rather than called
+    "Propušteno" (which would be a lie about a day nobody has missed yet).
 
 ## 12. Definition of done
 

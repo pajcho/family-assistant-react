@@ -254,11 +254,38 @@ describe("TaskHistoryList", () => {
       />,
     );
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent ?? "");
-    expect(rows).toHaveLength(5); // 17, 15, 14, 13, 12
+    // 17, 14, 13, 12 - but NOT the 15th: that row moves the day onto itself, so
+    // nothing happened to it (see the no-op test below).
+    expect(rows).toHaveLength(4);
     expect(rows.join("|")).toContain("17.08.2026");
-    expect(rows.join("|")).toContain("15.08.2026");
     expect(rows.join("|")).toContain("14.08.2026");
-    expect(screen.getAllByRole("button", { name: "Vrati" })).toHaveLength(3);
+    expect(rows.join("|")).not.toContain("15.08.2026");
+    expect(screen.getAllByRole("button", { name: "Vrati" })).toHaveLength(2);
+  });
+
+  it("does not report a move that landed on the day it started from", () => {
+    // Moving an occurrence and moving it straight back leaves a row behind. It
+    // used to read "15.08.2026 - Pomereno na 15.08.2026", which says nothing
+    // twice and looks like a bug to anybody reading their own history.
+    occurrences = [
+      makeOccurrence({
+        occurrence_date: "2026-08-16",
+        status: "moved",
+        moved_to_date: "2026-08-16",
+      }),
+      // The same shape in the PAST is still a day that passed unresolved, and
+      // that is worth saying - just not as a move.
+      makeOccurrence({
+        id: "o2",
+        occurrence_date: "2026-08-12",
+        status: "moved",
+        moved_to_date: "2026-08-12",
+      }),
+    ];
+    render(<TaskHistoryList task={daily} assigneeIds={[]} today={TODAY} onRestore={() => {}} />);
+    expect(screen.queryByText(/Pomereno/)).toBeNull();
+    expect(screen.queryByText("16.08.2026")).toBeNull();
+    expect(screen.getByText("12.08.2026")).toBeInTheDocument();
   });
 
   it("names who has already done their part, and how much is still missing", () => {

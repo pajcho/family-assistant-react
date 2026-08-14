@@ -93,6 +93,7 @@ function wholeRow(rows: TaskOccurrence[] | undefined): TaskOccurrence | undefine
  * as missed - it is not forgotten, it was deliberately put somewhere else.
  */
 function statusOf(
+  occurrenceDate: string,
   instance: TaskOccurrenceInstance | undefined,
   row: TaskOccurrence | undefined,
   progress: { done: number; total: number } | null,
@@ -103,7 +104,10 @@ function statusOf(
     return "done";
   }
   if (row?.status === "skipped") return "skipped";
-  if (row?.moved_to_date) return "moved";
+  // A relocation ONTO the day it already sat on is not a move. Such a row can be
+  // left behind by moving an occurrence and then moving it back, and reporting
+  // it read "15.08.2026 - Pomereno na 15.08.2026", which says nothing twice.
+  if (row?.moved_to_date && row.moved_to_date !== occurrenceDate) return "moved";
   return "missed";
 }
 
@@ -131,7 +135,11 @@ function useTaskHistory(task: Task | null, assigneeIds: string[], today: string)
     const progress = perAssignee
       ? assigneeProgress(task, assigneeIds, occurrenceDate, byKey)
       : null;
-    const status = statusOf(instance, row, progress);
+    const status = statusOf(occurrenceDate, instance, row, progress);
+    // Nothing happened here AND the day has not passed - a row left behind by a
+    // move that was undone, or a day still ahead. "Propušteno" would be a lie
+    // about a day nobody has missed yet, so it is simply not history.
+    if (status === "missed" && occurrenceDate >= today) return;
     const done = status === "done";
     entries.set(occurrenceDate, {
       occurrenceDate,
@@ -246,7 +254,9 @@ export function TaskHistoryList({
         const who = entry.actorPersonId ? nameOf(entry.actorPersonId) : null;
         const shared = progressLine(entry.progress, entry.doneBy, nameOf);
         const label =
-          entry.status === "moved" && entry.movedToDate
+          entry.status === "moved" &&
+          entry.movedToDate &&
+          entry.movedToDate !== entry.occurrenceDate
             ? `${meta.label} na ${formatDate(entry.movedToDate)}`
             : entry.status === "done" && entry.progress
               ? `${meta.label} ${entry.progress.done}/${entry.progress.total}`
