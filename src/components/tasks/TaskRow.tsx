@@ -17,6 +17,7 @@ import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { assigneeProgress, taskTickSlot } from "@/components/tasks/taskItemModel";
 import { useToday } from "@/hooks/useToday";
 import { formatDate } from "@/utils/date";
+import { pluralSr } from "@/utils/plural";
 import { isFutureOccurrence, isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
 
 /**
@@ -119,10 +120,15 @@ export function TaskRow({
           {skipped ? <Pill tone="muted">preskočeno</Pill> : null}
           {missed && !skipped ? <Pill tone="neg">propušteno</Pill> : null}
           {/* One overdue row stands for every unresolved instance of its series,
-              so it has to say how many. Not shown at 1: the row already carries
-              that one instance's date in its meta line. */}
+              so it has to say how many. "propušteno", not "kasni": the number
+              counts missed OCCURRENCES, and "kasni 3" beside a date reads as
+              three DAYS - which it only ever is by coincidence, and never for a
+              weekly chore. Not shown at 1: the row already carries that one
+              instance's date in its meta line. */}
           {item.lateCount && item.lateCount > 1 ? (
-            <Pill tone="neg">kasni {item.lateCount}</Pill>
+            <Pill tone="neg">
+              {item.lateCount} {pluralSr(item.lateCount, "propušten", "propuštena", "propuštenih")}
+            </Pill>
           ) : null}
         </ItemTitle>
         {meta.length > 0 || item.assigneeIds.length > 0 ? (

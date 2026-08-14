@@ -132,7 +132,7 @@ export type AgendaItem =
        * How many unresolved instances of this SERIES the row stands for, set
        * only by `useOverdueTasks`: the overdue block shows one row per task, not
        * one per late day, so a chore missed three times is one row reading
-       * "kasni 3" and dated to the oldest of them. Absent everywhere else, where
+       * "3 propuštena" and dated to the oldest of them. Absent everywhere else, where
        * a row is always exactly one instance.
        */
       lateCount?: number;

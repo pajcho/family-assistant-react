@@ -292,11 +292,21 @@ describe("TaskRow completion circle", () => {
   });
 
   it("says how many instances of a series an overdue row stands for", () => {
+    // Occurrences, not days - and the label has to say which, because the row
+    // carries a date right beside it and a bare number reads as days from it.
     const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
     renderRow(
       taskItem({ task: daily, date: "2026-08-11", occurrenceDate: "2026-08-11", lateCount: 3 }),
     );
-    expect(screen.getByText("kasni 3")).toBeInTheDocument();
+    expect(screen.getByText("3 propuštena")).toBeInTheDocument();
+  });
+
+  it("agrees with the count past the paucal", () => {
+    const weekly = { ...baseTask, recurrence_period: "weekly" as const, due_date: "2026-06-15" };
+    renderRow(
+      taskItem({ task: weekly, date: "2026-06-15", occurrenceDate: "2026-06-15", lateCount: 5 }),
+    );
+    expect(screen.getByText("5 propuštenih")).toBeInTheDocument();
   });
 
   it("does not count out loud when the row stands for exactly one instance", () => {
@@ -304,7 +314,7 @@ describe("TaskRow completion circle", () => {
     renderRow(
       taskItem({ task: daily, date: "2026-08-13", occurrenceDate: "2026-08-13", lateCount: 1 }),
     );
-    expect(screen.queryByText(/^kasni/)).toBeNull();
+    expect(screen.queryByText(/propušten/)).toBeNull();
   });
 });
 

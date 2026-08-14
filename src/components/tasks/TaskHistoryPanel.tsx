@@ -327,7 +327,7 @@ export type TaskLateListProps = {
 
 /**
  * The unresolved past instances of one series, oldest first - what the overdue
- * block's "kasni 3" collapses. Each row resolves ONE day, because that is the
+ * block's "3 propuštena" collapses. Each row resolves ONE day, because that is the
  * unit the debt is owed in; "Preskoči sve zaostalo" lives in the sub-view's
  * footer, in the parent.
  */

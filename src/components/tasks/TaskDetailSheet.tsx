@@ -363,7 +363,7 @@ export function TaskDetailSheet({
   const movedFrom = override?.status === "moved" ? seriesDate : null;
 
   // Every unresolved past instance of this series, not just the one the row was
-  // opened on: the overdue block collapses them into a single "kasni 3" row, and
+  // opened on: the overdue block collapses them into a single "3 propuštena" row, and
   // this is where that row is unpacked.
   const late = useMemo(
     () => (task && recurring ? lateOccurrences(task, today, byKey, assigneeIds) : []),
