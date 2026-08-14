@@ -28,8 +28,16 @@ import { getDisplayName } from "@/utils/identity";
  * screens the user has already visited.
  */
 
-/** Nothing about a family's history is worth an em dash of ceremony. */
-const DASH = "-";
+/**
+ * Stands in for a side of the diff that has no value: the field was unset
+ * before the edit, or the edit cleared it.
+ *
+ * A word rather than a dash. The placeholder used to be a bare "-", which said
+ * nothing on its own and - once the "old value" strikethrough ran through it -
+ * rendered as a single long dash, so it read as a stray character rather than
+ * as "there was nothing here".
+ */
+const EMPTY = "prazno";
 
 function useResolvers(): AuditResolvers {
   const { byId: membersById } = useFamilyMembers();
@@ -165,11 +173,29 @@ export function AuditTimeline({ entityType, entityId }: AuditTimelineProps) {
                           >
                             <dt className="text-muted-foreground">{row.label}</dt>
                             <dd className="min-w-0">
-                              <span className="text-muted-foreground line-through">
-                                {row.from ?? DASH}
+                              {/* Struck through only when there IS an old value.
+                                  A strikethrough over the empty placeholder put
+                                  a line through a hyphen, which renders as one
+                                  long dash - the very character this repo bans,
+                                  read by everyone as a typo rather than as
+                                  "there was nothing here". */}
+                              <span
+                                className={
+                                  row.from == null
+                                    ? "text-muted-foreground italic"
+                                    : "text-muted-foreground line-through"
+                                }
+                              >
+                                {row.from ?? EMPTY}
                               </span>
                               <span className="px-1 text-muted-foreground">{"->"}</span>
-                              <span className="font-semibold">{row.to ?? DASH}</span>
+                              <span
+                                className={
+                                  row.to == null ? "italic text-muted-foreground" : "font-semibold"
+                                }
+                              >
+                                {row.to ?? EMPTY}
+                              </span>
                             </dd>
                           </div>
                         ))}
