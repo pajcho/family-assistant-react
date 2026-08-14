@@ -12,9 +12,10 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { GroupHeader, StatusPill } from "@/components/money/moneyUi";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import type { Expense, ExpenseCategory } from "@/types/database";
-import { isDetachedPaymentExpense } from "@/utils/budget";
+import { expenseLabels, isDetachedPaymentExpense } from "@/utils/budget";
 import { addDays, srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
+import { usePaymentLinkTargets } from "@/hooks/usePaymentLinks";
 import { useToday } from "@/hooks/useToday";
 
 /**
@@ -57,6 +58,7 @@ function ExpenseRow({
   categoriesById,
   itemCounts,
   isReceiptPart,
+  linkName,
   onOpenReceipt,
   onEditManual,
   onOpenPayment,
@@ -66,6 +68,8 @@ function ExpenseRow({
   itemCounts: Record<string, number> | undefined;
   /** True when other expenses in this month share the same receipt. */
   isReceiptPart: boolean;
+  /** Activity/event this expense is linked to, resolved once by the parent. */
+  linkName?: string | null;
   onOpenReceipt: (expense: Expense) => void;
   onEditManual: (expense: Expense) => void;
   onOpenPayment: (expense: Expense) => void;
@@ -79,9 +83,11 @@ function ExpenseRow({
   const isDetached = isDetachedPaymentExpense(expense);
   const isPayment = expense.source === "payment" && !isDetached;
   const itemCount = isReceipt ? (itemCounts?.[expense.id] ?? 0) : 0;
-  const primary = isReceipt
-    ? expense.merchant || expense.note?.trim() || category?.name || "Račun"
-    : expense.note?.trim() || category?.name || "Trošak";
+  // The category still feeds the TITLE chain (a row with nothing else to be
+  // called reads "Namirnice" rather than "Trošak") - it just no longer spends a
+  // line of its own down in the meta.
+  const { title, detail } = expenseLabels(expense, { linkName, categoryName: category?.name });
+  const hasMeta = !!detail || isPayment || isDetached || isReceipt;
 
   // Every row taps the whole surface into a modal: receipt → receipt detail,
   // payment → the payment's detail popup, manual (and detached) → the edit form
@@ -100,51 +106,66 @@ function ExpenseRow({
         className="flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 text-left shadow-card transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]"
       >
         {/* The category colour is user data, so the tile keeps it (tinted) -
-            only the chrome around it follows the design tokens. */}
+            only the chrome around it follows the design tokens.
+
+            The tile IS the category on this list: its icon and colour say it
+            without spending a line of text on the name. `title` spells it out
+            on hover, and the sr-only copy keeps it in the button's accessible
+            name - a coloured square announces nothing on its own. On a phone
+            the name is one tap away, in the row's own modal. */}
         <span
-          className="grid size-[42px] shrink-0 place-items-center rounded-[14px]"
+          className="grid size-[26px] shrink-0 place-items-center rounded-sm"
           style={{ backgroundColor: `${color}1f`, color }}
+          title={category?.name}
         >
-          <Icon className="size-5" />
+          <Icon className="size-3.5" />
         </span>
+        {category ? <span className="sr-only">Kategorija: {category.name}</span> : null}
         {/* Left column (title + meta) and right column (amount + original) are
             siblings, so the EUR annotation can never push the meta row down. */}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate text-[15px] leading-tight font-semibold tracking-[-0.01em]">
-              {primary}
+              {title}
             </span>
             <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
           </span>
-          <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground">
-            {category ? <span className="truncate">{category.name}</span> : null}
-            {isPayment ? (
-              <StatusPill tone="warn">
-                <LockClosedIcon className="size-2.5" />
-                iz plaćanja
-              </StatusPill>
-            ) : isDetached ? (
-              // No lock: the payment it came from is gone, so this row is not
-              // locked to anything - and calling it payment-sourced would promise a
-              // payment that no longer opens.
-              <StatusPill tone="muted">
-                <LinkSlashIcon className="size-2.5" />
-                plaćanje obrisano
-              </StatusPill>
-            ) : isReceipt ? (
-              <StatusPill tone="accent">
-                <ReceiptPercentIcon className="size-2.5" />
-                {isReceiptPart ? "deo računa" : "račun"}
-              </StatusPill>
-            ) : (
-              <span className="truncate">ručno</span>
-            )}
-            {isReceipt && itemCount > 0 ? (
-              <span className="shrink-0 truncate">
-                {itemCount} {stavkeLabel(itemCount)}
-              </span>
-            ) : null}
-          </span>
+          {/* Only what the row does NOT already say: a second identifier and
+              the state pills. There is deliberately no "ručno" token - a hand
+              typed expense is the default here, so the word marked almost every
+              row and told you nothing; the pills are the exceptions worth
+              calling out. Rows with nothing to add render no second line at
+              all, and stay the same height anyway (the 42px tile is the
+              floor). */}
+          {hasMeta ? (
+            <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground">
+              {detail ? <span className="truncate">{detail}</span> : null}
+              {isPayment ? (
+                <StatusPill tone="warn">
+                  <LockClosedIcon className="size-2.5" />
+                  iz plaćanja
+                </StatusPill>
+              ) : isDetached ? (
+                // No lock: the payment it came from is gone, so this row is not
+                // locked to anything - and calling it payment-sourced would promise a
+                // payment that no longer opens.
+                <StatusPill tone="muted">
+                  <LinkSlashIcon className="size-2.5" />
+                  plaćanje obrisano
+                </StatusPill>
+              ) : isReceipt ? (
+                <StatusPill tone="accent">
+                  <ReceiptPercentIcon className="size-2.5" />
+                  {isReceiptPart ? "deo računa" : "račun"}
+                </StatusPill>
+              ) : null}
+              {isReceipt && itemCount > 0 ? (
+                <span className="shrink-0 truncate">
+                  {itemCount} {stavkeLabel(itemCount)}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </span>
         <span className="shrink-0 text-right text-[15px] font-bold tracking-[-0.01em] tabular-nums">
           <Amount value={expense.amount} />
@@ -171,6 +192,8 @@ export function BudgetTimeline({
   const { str: today, date: todayDate } = useToday();
   const yesterday = useMemo(() => format(addDays(todayDate, -1), "yyyy-MM-dd"), [todayDate]);
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
+  // One resolver for the whole ledger, not one hook per row.
+  const { targetFor } = usePaymentLinkTargets(expenses);
 
   // Receipts represented by MORE than one expense this month - their rows say
   // a receipt PART instead of a whole receipt. Split parts share the receipt's date, so
@@ -216,6 +239,7 @@ export function BudgetTimeline({
                 categoriesById={categoriesById}
                 itemCounts={itemCounts}
                 isReceiptPart={!!expense.receipt_id && multiPartReceiptIds.has(expense.receipt_id)}
+                linkName={targetFor(expense)?.name}
                 onOpenReceipt={onOpenReceipt}
                 onEditManual={onEditManual}
                 onOpenPayment={onOpenPayment}

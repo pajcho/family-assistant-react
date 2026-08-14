@@ -54,9 +54,10 @@ describe("LinkedPaymentsList", () => {
 });
 
 describe("LinkedExpensesList", () => {
-  it("titles rows by merchant, then note, then a generic label", () => {
-    expect(expenseRowTitle({ ...expense, merchant: "Maxi" } as Expense)).toBe("Maxi");
+  it("titles rows by note, then merchant, then a generic label", () => {
+    expect(expenseRowTitle({ ...expense, merchant: "Maxi" } as Expense)).toBe("Oprema za trening");
     expect(expenseRowTitle(expense)).toBe("Oprema za trening");
+    expect(expenseRowTitle({ ...expense, note: null, merchant: "Maxi" } as Expense)).toBe("Maxi");
     expect(expenseRowTitle({ ...expense, note: null } as Expense)).toBe("Trošak");
   });
 

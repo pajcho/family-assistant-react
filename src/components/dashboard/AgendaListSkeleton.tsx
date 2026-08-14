@@ -17,7 +17,7 @@ export function AgendaListSkeleton({ rows = 5 }: { rows?: number }) {
           key={i}
           className="flex items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3"
         >
-          <Skeleton className="size-[42px] shrink-0 rounded-lg" />
+          <Skeleton className="size-[26px] shrink-0 rounded-sm" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Skeleton className={`h-3.5 ${TITLE_WIDTHS[i % TITLE_WIDTHS.length]}`} />
             <Skeleton className="h-2.5 w-1/4" />

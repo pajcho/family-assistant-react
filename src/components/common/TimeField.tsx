@@ -139,6 +139,10 @@ export function TimeField({
           <span className="font-normal">{placeholder}</span>
         )
       }
+      // No chevron: these sit two-to-a-row, and the 16px arrow was eating the
+      // last digit of the time on a phone. It pointed at nothing the row did
+      // not already promise by being tappable.
+      chevron={false}
       disabled={disabled}
       onPointerDown={startLongPress}
       onPointerUp={cancelLongPress}

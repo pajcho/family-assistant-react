@@ -73,6 +73,86 @@ export function isDetachedPaymentExpense(expense: Expense): boolean {
 }
 
 /* ------------------------------------------------------------------------- */
+/* What an expense row is CALLED                                             */
+/* ------------------------------------------------------------------------- */
+
+/** Which field an expense's title came from. */
+export type ExpenseLabelSource = "note" | "merchant" | "link" | "category" | "generic";
+
+export type ExpenseLabels = {
+  /** What the row is called. Never empty. */
+  title: string;
+  /** Where the title came from - so a caller that renders the category (or the
+   *  merchant) on its own does not print the same string twice. */
+  titleFrom: ExpenseLabelSource;
+  /** The next identifier down the chain, for the row's second line. */
+  detail: string | null;
+};
+
+export type ExpenseLabelContext = {
+  /** Name of the activity/event the expense is linked to (see `usePaymentLinkTargets`). */
+  linkName?: string | null;
+  /**
+   * Category name, as the LAST title fallback. Omit it on surfaces where the
+   * category is already the context (the category drill-down): there it would
+   * name every row identically.
+   */
+  categoryName?: string | null;
+};
+
+const GENERIC_TITLE: Record<string, string> = {
+  receipt: "Račun",
+  payment: "Iz plaćanja",
+  manual: "Trošak",
+};
+
+/**
+ * The one place that decides what an expense is called - the ledger, the
+ * category drill-down, search and the linked-money lists all read it, so the
+ * same spend can't be "Maxi" in one list and "Trošak" in the next (it was, in
+ * four slightly different copies of this chain).
+ *
+ * Order: note -> merchant -> linked activity/event -> category -> a generic
+ * word for the source. The note leads because it is the only field the expense
+ * form actually offers: `merchant` reaches the table from the receipt scanner
+ * (and the demo seed), never from someone typing a manual expense, so a row
+ * carrying both is a SCANNED receipt that its owner also chose to label - and
+ * that label is the more deliberate of the two.
+ *
+ * Payment-sourced rows need no special case: generating one copies the
+ * payment's name into `note`, frozen at that moment. Reading the live payment
+ * name here would quietly rewrite history when a payment is renamed, the same
+ * reason the currency code freezes the original amount and rate.
+ *
+ * `detail` is the next identifier the title did NOT use, so a row can show
+ * both halves ("Sveske i pribor" + "Knjižara Delfi") without repeating itself.
+ * The category never fills that slot - lists that want it render it themselves.
+ */
+export function expenseLabels(
+  expense: Pick<Expense, "note" | "merchant" | "source">,
+  context: ExpenseLabelContext = {},
+): ExpenseLabels {
+  const candidates: ReadonlyArray<{ from: ExpenseLabelSource; value: string }> = [
+    { from: "note", value: expense.note?.trim() || "" },
+    { from: "merchant", value: expense.merchant?.trim() || "" },
+    { from: "link", value: context.linkName?.trim() || "" },
+  ];
+  const named = candidates.filter((c) => c.value !== "");
+  const categoryName = context.categoryName?.trim() || "";
+
+  if (named.length === 0) {
+    return categoryName
+      ? { title: categoryName, titleFrom: "category", detail: null }
+      : {
+          title: GENERIC_TITLE[expense.source] ?? GENERIC_TITLE.manual,
+          titleFrom: "generic",
+          detail: null,
+        };
+  }
+  return { title: named[0].value, titleFrom: named[0].from, detail: named[1]?.value ?? null };
+}
+
+/* ------------------------------------------------------------------------- */
 /* Monthly cycle: income - spent = remaining, plus a projection to month-end */
 /* ------------------------------------------------------------------------- */
 

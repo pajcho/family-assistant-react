@@ -27,15 +27,22 @@ export interface PaymentLinkTarget {
   date?: string;
 }
 
+/**
+ * Anything carrying the link columns. Expenses link only to an activity or an
+ * event (never a birthday - see `LinkedMoneyFlow`), so `birthday_id` is
+ * optional and they can be resolved through the same hook.
+ */
+export type LinkedRow = Pick<Payment, "activity_id" | "event_id"> & {
+  birthday_id?: string | null;
+};
+
 export interface UsePaymentLinkTargetsResult {
   /**
    * Resolve one payment's link to its display target. Returns `null` when the
    * payment has no link OR the target hasn't loaded yet (callers just skip the
    * row - it appears on the next render).
    */
-  targetFor: (
-    payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id">,
-  ) => PaymentLinkTarget | null;
+  targetFor: (payment: LinkedRow) => PaymentLinkTarget | null;
 }
 
 /**
@@ -43,7 +50,7 @@ export interface UsePaymentLinkTargetsResult {
  * row through `targetFor`, instead of one hook per row.
  */
 export function usePaymentLinkTargets(
-  payments: ReadonlyArray<Pick<Payment, "activity_id" | "event_id" | "birthday_id">>,
+  payments: ReadonlyArray<LinkedRow>,
 ): UsePaymentLinkTargetsResult {
   const activitiesQuery = useActivities();
   const birthdaysQuery = useBirthdaysData();
@@ -64,9 +71,7 @@ export function usePaymentLinkTargets(
     const activitiesById = new Map((activitiesQuery.data ?? []).map((a) => [a.id, a]));
     const eventsById = new Map((eventsQuery.data ?? []).map((e) => [e.id, e]));
     const birthdaysById = new Map((birthdaysQuery.data ?? []).map((b) => [b.id, b]));
-    return (
-      payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id">,
-    ): PaymentLinkTarget | null => {
+    return (payment: LinkedRow): PaymentLinkTarget | null => {
       if (payment.activity_id) {
         const activity = activitiesById.get(payment.activity_id);
         return activity ? { kind: "activity", id: activity.id, name: activity.name } : null;
@@ -87,9 +92,7 @@ export function usePaymentLinkTargets(
 }
 
 /** Single-payment convenience for the detail dialogs. */
-export function usePaymentLinkTarget(
-  payment: Pick<Payment, "activity_id" | "event_id" | "birthday_id"> | null,
-): PaymentLinkTarget | null {
+export function usePaymentLinkTarget(payment: LinkedRow | null): PaymentLinkTarget | null {
   const paymentList = useMemo(() => (payment ? [payment] : []), [payment]);
   const { targetFor } = usePaymentLinkTargets(paymentList);
   return payment ? targetFor(payment) : null;

@@ -47,6 +47,7 @@ import {
 } from "@/hooks/useExpenses";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense, ReceiptItem } from "@/types/database";
+import { expenseLabels } from "@/utils/budget";
 import { formatDate } from "@/utils/date";
 import { serbianPlural, stavkeLabel } from "@/utils/plural";
 import { getDisplayName } from "@/utils/identity";
@@ -506,7 +507,9 @@ export function ReceiptExpenseDialog({
               ? "Podeli račun"
               : view === "link"
                 ? "Poveži sa"
-                : expense?.merchant || "Račun";
+                : expense
+                  ? expenseLabels(expense).title
+                  : "Račun";
 
   return (
     <SheetStackViews
@@ -518,8 +521,8 @@ export function ReceiptExpenseDialog({
           {!expense ? null : view === "delete" ? (
             <>
               <p className="text-sm text-muted-foreground">
-                Obrisati trošak „{expense.merchant || "Račun"}" od <Amount value={expense.amount} />
-                ? Ova radnja se ne može opozvati.
+                Obrisati trošak „{expenseLabels(expense).title}" od{" "}
+                <Amount value={expense.amount} />? Ova radnja se ne može opozvati.
               </p>
               <ResponsiveDialogFooter>
                 <Button

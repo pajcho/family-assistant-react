@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import type { Expense, Payment } from "@/types/database";
+import { expenseLabels } from "@/utils/budget";
 import { formatDate, isOverdue } from "@/utils/date";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { recurrenceLabel } from "@/utils/payment";
@@ -138,9 +139,14 @@ export function LinkedPaymentsList({
   );
 }
 
-/** Display title for an expense row: merchant, else note, else a generic label. */
+/**
+ * Display title for an expense row - the shared chain (see `expenseLabels`),
+ * with no link name passed in: these rows are already listed UNDER the
+ * activity or event they point at, so naming them after it would repeat the
+ * heading on every row.
+ */
 export function expenseRowTitle(expense: Expense): string {
-  return expense.merchant?.trim() || expense.note?.trim() || "Trošak";
+  return expenseLabels(expense).title;
 }
 
 /**
