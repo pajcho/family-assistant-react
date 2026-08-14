@@ -39,36 +39,49 @@ const rootKey =
 const paymentHistoryKey: QueryKeyFor = rootKey("payment_history");
 
 /**
+ * Every audited table also refreshes any open change-history panel.
+ *
+ * `audit_log` has no broadcast trigger of its own on purpose (see
+ * 20260814150000_audit_log.sql): a second message per write would double
+ * realtime traffic to refresh a panel that is almost never open. The subject's
+ * own message already arrives, and the audit row was written in the same
+ * transaction, so invalidating off it is both free and correct.
+ */
+const auditKey: QueryKeyFor = rootKey("audit_log");
+
+/**
  * Table name (as sent by the trigger) to the query keys it invalidates.
  *
  * Keep in sync with the trigger list in the migration above. The values mirror
  * exactly what each hook's old realtime block used to invalidate, so a change
  * reaches the same screens it always did.
+ *
+ * The tables carrying `auditKey` are exactly the ten in `audit_columns()`.
  */
 const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
-  activities: [familyKey("activities")],
+  activities: [familyKey("activities"), auditKey],
   activity_overrides: [familyKey("activity_overrides")],
   activity_participants: [familyKey("activity_participants")],
   activity_schedule: [familyKey("activity_schedule")],
   bell_schedules: [familyKey("bell_schedule")],
   birthday_visibility: [familyKey("birthday_visibility")],
-  birthdays: [familyKey("birthdays")],
+  birthdays: [familyKey("birthdays"), auditKey],
   event_participants: [familyKey("event_participants")],
-  events: [familyKey("events")],
-  expense_categories: [familyKey("expense_categories")],
-  expenses: [familyKey("expenses")],
+  events: [familyKey("events"), auditKey],
+  expense_categories: [familyKey("expense_categories"), auditKey],
+  expenses: [familyKey("expenses"), auditKey],
   external_calendar_events: [familyKey("external_calendar_events")],
   external_event_local: [familyKey("external_event_local")],
   // The family row is fetched as part of the profile query (useProfile), which
   // is what `useRenameFamily` and the currency settings invalidate too.
   families: [rootKey("profile")],
-  income_entries: [familyKey("income_entries")],
-  incomes: [familyKey("incomes")],
-  lists: [familyKey("lists")],
+  income_entries: [familyKey("income_entries"), auditKey],
+  incomes: [familyKey("incomes"), auditKey],
+  lists: [familyKey("lists"), auditKey],
   payment_history: [familyKey("payments"), paymentHistoryKey],
   payment_overrides: [familyKey("payment_overrides")],
   payment_participants: [familyKey("payment_participants")],
-  payments: [familyKey("payments"), paymentHistoryKey],
+  payments: [familyKey("payments"), paymentHistoryKey, auditKey],
   // Renaming a member (or changing their emoji / color) redraws every screen
   // that paints participants, and `useProfile` caches the caller's own row.
   profiles: [familyKey("family-members"), rootKey("profile")],
@@ -87,7 +100,7 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   // Task rows live in TWO caches - the flat family list and the nested
   // lists-with-tasks select - so a change has to reach both or a row shows
   // ticked on Danas and unticked inside its list. See hooks/useTasks.ts.
-  tasks: [familyKey("tasks"), familyKey("lists")],
+  tasks: [familyKey("tasks"), familyKey("lists"), auditKey],
 };
 
 interface ChangeMessage {

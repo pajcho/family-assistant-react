@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
@@ -78,7 +79,7 @@ export type EventDetailDialogProps = {
   onEdit: (event: Event) => void;
 };
 
-type View = "detail" | "reschedule" | "cancel" | "delete" | "money";
+type View = "detail" | "reschedule" | "cancel" | "delete" | "money" | "audit";
 
 export function EventDetailDialog({
   open,
@@ -229,7 +230,9 @@ export function EventDetailDialog({
           ? "Obriši događaj"
           : view === "money"
             ? "Dodaj uz događaj"
-            : "Detalji događaja";
+            : view === "audit"
+              ? "Istorija izmena"
+              : "Detalji događaja";
 
   return (
     <>
@@ -258,7 +261,9 @@ export function EventDetailDialog({
                   />
                 ) : null}
 
-                {view === "money" ? (
+                {view === "audit" ? (
+                  <AuditTimeline entityType="events" entityId={event.id} />
+                ) : view === "money" ? (
                   <LinkedMoneyChooser
                     onPick={(kind) => {
                       // Hide (don't close) the sheet under the pre-linked form -
@@ -403,7 +408,7 @@ export function EventDetailDialog({
                       a row opens that entry's detail over this sheet. */}
                     <EventMoneySection eventId={event.id} onSelect={setMoneyTarget} />
 
-                    <DetailAuditLine row={event} />
+                    <DetailAuditLine row={event} onOpenHistory={() => push("audit")} />
                   </>
                 )}
               </div>

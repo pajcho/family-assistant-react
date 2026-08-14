@@ -1056,6 +1056,44 @@ export interface KidAccess {
   updated_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Change history
+// ---------------------------------------------------------------------------
+
+export type AuditAction = "create" | "update" | "delete";
+
+/**
+ * One recorded change (`audit_log`), written only by the `log_audit_change`
+ * trigger - never by a client, which has no INSERT policy on the table.
+ *
+ * `entity_type` is the SUBJECT TABLE NAME (`payments`, not `payment`), the same
+ * vocabulary `broadcast_family_change` puts on the realtime wire.
+ *
+ * Rows exist only from the day the feature shipped, and only for writes made by
+ * a real person: pg_cron, the Google sync and every edge function on the
+ * service role are skipped, as is an update that changed no audited column. So
+ * an empty history means "nothing worth recording since", not "nothing
+ * happened".
+ */
+export interface AuditLogEntry {
+  id: number;
+  family_id: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  /** `profiles.id`, or NULL when the actor could not be resolved to a member. */
+  actor_id: string | null;
+  /** The subject's name AS IT WAS, so a deleted entity is still nameable. */
+  label: string | null;
+  /**
+   * `{ column: [old, new] }` for an update; NULL for a create or a delete.
+   * Values are raw column values - see `auditFields.ts` for how they become
+   * something a person can read.
+   */
+  changes: Record<string, [unknown, unknown]> | null;
+  created_at: string;
+}
+
 /**
  * A device a parent linked for a child (`kid_devices`). The row stores only the
  * SHA-256 of the device token; the raw token lives in that device's

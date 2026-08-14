@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
@@ -58,7 +59,7 @@ export type ActivityDetailDialogProps = {
   onEdit: (activity: Activity) => void;
 };
 
-type View = "detail" | "money" | "delete";
+type View = "detail" | "money" | "delete" | "audit";
 
 /** A weekday, its time range and its repeat - one line per schedule rule. */
 function ruleLabel(rule: ActivitySchedule): string {
@@ -162,7 +163,9 @@ export function ActivityDetailDialog({
       ? "Dodaj uz aktivnost"
       : view === "delete"
         ? "Obriši aktivnost"
-        : "Detalji aktivnosti";
+        : view === "audit"
+          ? "Istorija izmena"
+          : "Detalji aktivnosti";
 
   return (
     <>
@@ -199,6 +202,8 @@ export function ActivityDetailDialog({
                       setMoneyRequest({ kind, link: { kind: "activity", id: activity.id } });
                     }}
                   />
+                ) : view === "audit" ? (
+                  <AuditTimeline entityType="activities" entityId={activity.id} />
                 ) : view === "delete" ? (
                   <DetailDeleteBody name={activity.name} note="Brišu se i svi njeni termini." />
                 ) : (
@@ -270,7 +275,7 @@ export function ActivityDetailDialog({
                       a row opens that entry's detail over this sheet. */}
                     <ActivityMoneySection activity={activity} onSelect={setMoneyTarget} />
 
-                    <DetailAuditLine row={activity} />
+                    <DetailAuditLine row={activity} onOpenHistory={() => push("audit")} />
                   </>
                 )}
               </div>

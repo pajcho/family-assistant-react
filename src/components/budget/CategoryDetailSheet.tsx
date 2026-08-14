@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { DetailActionRow } from "@/components/common/DetailSheet";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
+import { SheetStackHeader } from "@/components/common/SheetStack";
 import { FieldGroupLabel } from "@/components/common/FormControls";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
@@ -139,6 +141,7 @@ export function CategoryDetailSheet({
 }: CategoryDetailSheetProps) {
   const updateCategory = useUpdateExpenseCategory();
   const [limitInput, setLimitInput] = useState("");
+  const [auditOpen, setAuditOpen] = useState(false);
 
   // Seed the limit editor whenever a different category (or fresh open) shows.
   useEffect(() => {
@@ -216,170 +219,189 @@ export function CategoryDetailSheet({
   const addCategoryId = row?.categoryId ?? null;
 
   return (
-    <ResponsiveDialog open={open && !hidden} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
-        <ResponsiveDialogHeader className="sr-only">
-          <ResponsiveDialogTitle>{row?.name ?? "Kategorija"}</ResponsiveDialogTitle>
-        </ResponsiveDialogHeader>
-        {row ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span
-                className="grid size-[50px] shrink-0 place-items-center rounded-[17px]"
-                style={{ backgroundColor: `${row.color}22` }}
-              >
-                <Icon className="size-6" style={{ color: row.color }} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-bold text-foreground">{row.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {monthLabel(month)} · {catExpenses.length}{" "}
-                  {catExpenses.length === 1 ? "trošak" : "troškova"}
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-              <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="text-[34px] font-bold tracking-[-0.03em] tabular-nums text-foreground">
-                  <Amount value={total} />
+    <>
+      <ResponsiveDialog open={open && !hidden} onOpenChange={onOpenChange}>
+        <ResponsiveDialogContent className="sm:max-w-md">
+          <ResponsiveDialogHeader className="sr-only">
+            <ResponsiveDialogTitle>{row?.name ?? "Kategorija"}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          {row ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <span
+                  className="grid size-[50px] shrink-0 place-items-center rounded-[17px]"
+                  style={{ backgroundColor: `${row.color}22` }}
+                >
+                  <Icon className="size-6" style={{ color: row.color }} />
                 </span>
-                {limit ? (
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    / <Amount value={limit} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-bold text-foreground">{row.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {monthLabel(month)} · {catExpenses.length}{" "}
+                    {catExpenses.length === 1 ? "trošak" : "troškova"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+                <div className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-[34px] font-bold tracking-[-0.03em] tabular-nums text-foreground">
+                    <Amount value={total} />
                   </span>
+                  {limit ? (
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      / <Amount value={limit} />
+                    </span>
+                  ) : null}
+                </div>
+                {pct != null ? (
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full transition-[width]"
+                      style={{
+                        width: `${Math.min(100, Math.max(pct, 2))}%`,
+                        backgroundColor: barColor,
+                      }}
+                    />
+                  </div>
+                ) : null}
+                {pct != null && pct >= 100 && limit ? (
+                  <p className="mt-1.5 text-xs font-semibold text-neg">
+                    Preko limita za <Amount value={total - limit} round />
+                  </p>
                 ) : null}
               </div>
-              {pct != null ? (
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full transition-[width]"
-                    style={{
-                      width: `${Math.min(100, Math.max(pct, 2))}%`,
-                      backgroundColor: barColor,
-                    }}
-                  />
-                </div>
-              ) : null}
-              {pct != null && pct >= 100 && limit ? (
-                <p className="mt-1.5 text-xs font-semibold text-neg">
-                  Preko limita za <Amount value={total - limit} round />
-                </p>
-              ) : null}
-            </div>
 
-            {/* The one emphasized action, straight under the numbers it adds
+              {/* The one emphasized action, straight under the numbers it adds
                 to - the whole reason someone opens a category they overspent
                 is usually to record the next trošak in it. */}
-            {onAddExpense && addCategoryId ? (
-              <DetailActionRow
-                icon={PlusIcon}
-                tone="primary"
-                label="Dodaj trošak"
-                description={`Kategorija ${row.name} je već izabrana`}
-                onClick={() => onAddExpense(addCategoryId)}
-              />
-            ) : null}
+              {onAddExpense && addCategoryId ? (
+                <DetailActionRow
+                  icon={PlusIcon}
+                  tone="primary"
+                  label="Dodaj trošak"
+                  description={`Kategorija ${row.name} je već izabrana`}
+                  onClick={() => onAddExpense(addCategoryId)}
+                />
+              ) : null}
 
-            {/* 6-month mini trend for the category. */}
-            <div className="rounded-xl border border-border bg-card p-3 shadow-card">
-              <div className="flex h-20 items-end gap-1.5">
-                {trend.map((bar) => (
-                  <div key={bar.month} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+              {/* 6-month mini trend for the category. */}
+              <div className="rounded-xl border border-border bg-card p-3 shadow-card">
+                <div className="flex h-20 items-end gap-1.5">
+                  {trend.map((bar) => (
                     <div
-                      className={cn("w-full rounded-t", bar.month === month ? "" : "opacity-40")}
-                      style={{
-                        height: `${Math.max((bar.total / trendMax) * 56, bar.total > 0 ? 3 : 1)}px`,
-                        backgroundColor: bar.total > 0 ? row.color : "var(--border)",
-                      }}
-                      title={`${monthLabel(bar.month)}: ${Math.round(bar.total).toLocaleString("sr-Latn-RS")} RSD`}
-                    />
-                    <span
-                      className={cn(
-                        "text-[10px]",
-                        bar.month === month
-                          ? "font-semibold text-foreground"
-                          : "text-muted-foreground",
-                      )}
+                      key={bar.month}
+                      className="flex min-w-0 flex-1 flex-col items-center gap-1"
                     >
-                      {monthLabel(bar.month).split(" ")[0].slice(0, 3)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {category ? (
-              <div className="space-y-2">
-                <Label htmlFor="category-limit-input">Mesečni limit</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="category-limit-input"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="Bez limita"
-                    value={limitInput}
-                    onChange={(e) => setLimitInput(e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0"
-                    disabled={!limitValid || !limitDirty || updateCategory.isPending}
-                    onClick={() => {
-                      void saveLimit();
-                    }}
-                  >
-                    Sačuvaj
-                  </Button>
-                </div>
-                {suggestion != null && suggestion !== limit ? (
-                  <button
-                    type="button"
-                    onClick={() => setLimitInput(String(suggestion))}
-                    className="text-xs font-normal text-accent-deep underline-offset-4 hover:underline"
-                  >
-                    Predlog: {suggestion.toLocaleString("sr-Latn-RS")} RSD (prosek prethodnih
-                    meseci)
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Troškovi bez kategorije - dodeli kategoriju izmenom pojedinačnog troška.
-              </p>
-            )}
-
-            {catExpenses.length > 0 ? (
-              <div>
-                <FieldGroupLabel>Troškovi</FieldGroupLabel>
-                <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card text-sm">
-                  {catExpenses.map((e) => (
-                    <ExpenseLine
-                      key={e.id}
-                      expense={e}
-                      linkName={targetFor(e)?.name}
-                      onOpen={onOpenExpense}
-                    />
+                      <div
+                        className={cn("w-full rounded-t", bar.month === month ? "" : "opacity-40")}
+                        style={{
+                          height: `${Math.max((bar.total / trendMax) * 56, bar.total > 0 ? 3 : 1)}px`,
+                          backgroundColor: bar.total > 0 ? row.color : "var(--border)",
+                        }}
+                        title={`${monthLabel(bar.month)}: ${Math.round(bar.total).toLocaleString("sr-Latn-RS")} RSD`}
+                      />
+                      <span
+                        className={cn(
+                          "text-[10px]",
+                          bar.month === month
+                            ? "font-semibold text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {monthLabel(bar.month).split(" ")[0].slice(0, 3)}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
-            ) : null}
 
-            {category ? <DetailAuditLine row={category} /> : null}
-          </div>
-        ) : null}
-        <ResponsiveDialogFooter>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-          >
-            Zatvori
-          </Button>
-        </ResponsiveDialogFooter>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+              {category ? (
+                <div className="space-y-2">
+                  <Label htmlFor="category-limit-input">Mesečni limit</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="category-limit-input"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="Bez limita"
+                      value={limitInput}
+                      onChange={(e) => setLimitInput(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={!limitValid || !limitDirty || updateCategory.isPending}
+                      onClick={() => {
+                        void saveLimit();
+                      }}
+                    >
+                      Sačuvaj
+                    </Button>
+                  </div>
+                  {suggestion != null && suggestion !== limit ? (
+                    <button
+                      type="button"
+                      onClick={() => setLimitInput(String(suggestion))}
+                      className="text-xs font-normal text-accent-deep underline-offset-4 hover:underline"
+                    >
+                      Predlog: {suggestion.toLocaleString("sr-Latn-RS")} RSD (prosek prethodnih
+                      meseci)
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Troškovi bez kategorije - dodeli kategoriju izmenom pojedinačnog troška.
+                </p>
+              )}
+
+              {catExpenses.length > 0 ? (
+                <div>
+                  <FieldGroupLabel>Troškovi</FieldGroupLabel>
+                  <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card text-sm">
+                    {catExpenses.map((e) => (
+                      <ExpenseLine
+                        key={e.id}
+                        expense={e}
+                        linkName={targetFor(e)?.name}
+                        onOpen={onOpenExpense}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {category ? (
+                <DetailAuditLine row={category} onOpenHistory={() => setAuditOpen(true)} />
+              ) : null}
+            </div>
+          ) : null}
+          <ResponsiveDialogFooter>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => onOpenChange(false)}
+            >
+              Zatvori
+            </Button>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
+      {/* The change history, as a NEW overlay over this one - the SheetStack
+          convention, done with a boolean because this sheet is a plain dialog
+          rather than a stack and converting it is not this change's business.
+          Dismissing it closes only this layer and leaves the category sheet
+          underneath exactly where it was. */}
+      <ResponsiveDialog open={auditOpen} onOpenChange={setAuditOpen}>
+        <ResponsiveDialogContent className="sm:max-w-md">
+          <SheetStackHeader title="Istorija izmena" onBack={() => setAuditOpen(false)} />
+          <AuditTimeline entityType="expense_categories" entityId={category?.id ?? null} />
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </>
   );
 }

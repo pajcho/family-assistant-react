@@ -12,6 +12,7 @@ import { format } from "date-fns";
 
 import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
@@ -67,7 +68,7 @@ export type BirthdayDetailDialogProps = {
   onEdit: (birthday: Birthday) => void;
 };
 
-type View = "detail" | "delete";
+type View = "detail" | "delete" | "audit";
 
 /** "Puni 9 godina / 21 godinu / 3 godine" - Serbian count agreement. */
 function ageLabel(age: number): string {
@@ -186,7 +187,12 @@ export function BirthdayDetailDialog({
   const days = birthday ? daysUntilBirthday(birthday.birth_date) : 0;
   const nextAge = birthday ? currentAge(birthday.birth_date) + 1 : 0;
 
-  const titleFor = (view: View) => (view === "delete" ? "Obriši rođendan" : "Detalji rođendana");
+  const titleFor = (view: View) =>
+    view === "delete"
+      ? "Obriši rođendan"
+      : view === "audit"
+        ? "Istorija izmena"
+        : "Detalji rođendana";
   const hidden = !!moneyRequest || !!moneyTarget || !!viewedCelebration || !!celebrationForm;
 
   return (
@@ -215,7 +221,9 @@ export function BirthdayDetailDialog({
                   />
                 ) : null}
 
-                {view === "delete" ? (
+                {view === "audit" ? (
+                  <AuditTimeline entityType="birthdays" entityId={birthday.id} />
+                ) : view === "delete" ? (
                   <DetailDeleteBody name={birthday.name} />
                 ) : (
                   <>
@@ -311,7 +319,7 @@ export function BirthdayDetailDialog({
                       onSelect={(payment) => setMoneyTarget({ kind: "payment", payment })}
                     />
 
-                    <DetailAuditLine row={birthday} />
+                    <DetailAuditLine row={birthday} onOpenHistory={() => push("audit")} />
                   </>
                 )}
               </div>

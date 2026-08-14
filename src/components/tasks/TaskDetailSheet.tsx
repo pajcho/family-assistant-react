@@ -34,6 +34,7 @@ import {
 } from "@/components/common/DetailSheet";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import { TaskEditForm, type TaskEditPayload } from "@/components/tasks/TaskEditDialog";
 import { TaskHistoryList, TaskLateList } from "@/components/tasks/TaskHistoryPanel";
@@ -113,7 +114,7 @@ export type TaskDetailSheetProps = {
   missed?: boolean;
 };
 
-type View = "detail" | "date" | "edit" | "delete" | "skip" | "history" | "late";
+type View = "detail" | "date" | "edit" | "delete" | "skip" | "history" | "late" | "audit";
 
 /**
  * What a pending skip acts on. `dates` are SERIES dates, and there is more than
@@ -602,7 +603,9 @@ export function TaskDetailSheet({
               ? "Istorija"
               : view === "late"
                 ? "Zaostalo"
-                : "Detalji zadatka";
+                : view === "audit"
+                  ? "Istorija izmena"
+                  : "Detalji zadatka";
 
   /** Open the skip confirm for one day, or for every unresolved one behind it. */
   const askSkip = (dates: string[], all = false) => {
@@ -636,7 +639,9 @@ export function TaskDetailSheet({
                 />
               ) : null}
 
-              {view === "date" ? (
+              {view === "audit" ? (
+                <AuditTimeline entityType="tasks" entityId={task.id} />
+              ) : view === "date" ? (
                 <div className="space-y-3">
                   {/* A move is a fact about the OCCURRENCE, so it takes the day
                       away from everybody it was given to - the same sentence the
@@ -905,7 +910,7 @@ export function TaskDetailSheet({
                     />
                   </DetailActionList>
 
-                  <DetailAuditLine row={task} />
+                  <DetailAuditLine row={task} onOpenHistory={() => push("audit")} />
                 </>
               )}
             </div>

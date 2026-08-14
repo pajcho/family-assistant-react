@@ -20,6 +20,7 @@ import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui
 import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { AuditTimeline } from "@/components/common/AuditTimeline";
 import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
@@ -104,7 +105,15 @@ export type PaymentDetailDialogProps = {
   variant?: "full" | "info";
 };
 
-type View = "detail" | "reschedule" | "cancel" | "confirm-amount" | "delete" | "history" | "undo";
+type View =
+  | "detail"
+  | "reschedule"
+  | "cancel"
+  | "confirm-amount"
+  | "delete"
+  | "history"
+  | "undo"
+  | "audit";
 
 function paymentSubtitle(payment: Payment): string {
   if (payment.recurrence_period === "limited") return "Plaćanje na rate";
@@ -355,7 +364,11 @@ export function PaymentDetailDialog({
               ? "Istorija plaćanja"
               : view === "undo"
                 ? "Poništi plaćanje"
-                : "Detalji plaćanja";
+                : // Distinct from "Istorija plaćanja" above on purpose: that one
+                  // is which months were paid, this one is who edited the row.
+                  view === "audit"
+                  ? "Istorija izmena"
+                  : "Detalji plaćanja";
 
   const overrideActive = cancelOverrideActive || override?.action === "reschedule";
   const showOccurrenceActions = !readOnly && !!payment && !overrideActive && !payment.is_paused;
@@ -429,7 +442,9 @@ export function PaymentDetailDialog({
                   />
                 ) : null}
 
-                {view === "reschedule" ? (
+                {view === "audit" ? (
+                  <AuditTimeline entityType="payments" entityId={payment.id} />
+                ) : view === "reschedule" ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <DateField
@@ -698,7 +713,7 @@ export function PaymentDetailDialog({
                       ) : null}
                     </DetailActionList>
 
-                    <DetailAuditLine row={payment} />
+                    <DetailAuditLine row={payment} onOpenHistory={() => push("audit")} />
                   </>
                 )}
               </div>

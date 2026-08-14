@@ -1,10 +1,10 @@
 # 018 - Change history for every module ("Ko je šta menjao")
 
-**Status:** TODO
+**Status:** DONE (all three PRs on `feat/change-history`; NOT merged, migrations NOT pushed to prod)
 **Priority:** P2 (feature)
 **Effort:** L
 **Depends on:** nothing (branches from `main`)
-**Branches:** three stacked PRs, see section 9.
+**Branch:** `feat/change-history` - three commits, one release. See section 9.
 
 Design document this plan implements (it carries the mockups and the rejected
 alternatives): <https://claude.ai/code/artifact/79b20a29-53b8-435c-b70a-b68ed241446f>
@@ -107,9 +107,13 @@ Every trigger and both layers need the same answer to "who is acting", and
 CREATE OR REPLACE FUNCTION public.audit_actor_id()
 RETURNS UUID
 LANGUAGE sql
+SECURITY DEFINER
 STABLE
-SET search_path = public, pg_temp
-AS $$ SELECT COALESCE(public.kid_profile_id(), auth.uid()) $$;
+SET search_path = ''
+AS $$
+  SELECT p.id FROM public.profiles p
+  WHERE p.id = COALESCE(public.kid_profile_id(), auth.uid())
+$$;
 ```
 
 A kid acts through a synthetic auth user that has **no row in `profiles`**
@@ -350,8 +354,33 @@ old entity with nothing logged does not read as a bug.
 | 2   | `feat/audit-log`      | Section 5: table, trigger, allowlist, RLS, retention. **No UI.** Let it fill for a few days. | No, but zero risk to ship      |
 | 3   | `feat/audit-timeline` | Sections 6-8: field registry, `AuditTimeline`, wire the chevron on the quiet line            | Yes - the actual feature       |
 
+All three landed on ONE branch, `feat/change-history`, because the maintainer
+chose to release them together. The commits stay separate and in the order
+above, so the three are still reviewable one at a time.
+
 Deferred to a fourth PR, per decision 5: the per-module view, which is the only
 place a deletion can be seen.
+
+Deviations in PR 3, all applied:
+
+- **`entity_type` stores the TABLE name** (`payments`), not the singular alias
+  this plan first sketched (`payment`). It is the vocabulary
+  `broadcast_family_change()` already puts on the realtime wire, and one
+  vocabulary that cannot drift beats two that can.
+- **`CategoryDetailSheet` opens the history as a second `ResponsiveDialog`**
+  behind a boolean rather than as a `SheetStack` level. That sheet is a plain
+  dialog with its own `hidden` contract and converting it to a stack is not
+  this change's business; the behaviour is identical - a new overlay over the
+  old one, dismissal returns to it.
+- **The history query is invalidated off the SUBJECT's realtime message**, via
+  a shared `["audit_log"]` key added to all ten audited tables in
+  `TABLE_INVALIDATIONS`. `audit_log` gets no broadcast trigger of its own: a
+  second message per write would double realtime traffic to refresh a panel
+  that is almost never open.
+- **The registry is pinned against the migration in a test.**
+  `auditFields.test.ts` transcribes `audit_columns()` and asserts the two agree
+  table by table, because a column the database records and the registry does
+  not know renders as nothing - which reads as "nobody edited that".
 
 ## 10. STOP conditions
 
