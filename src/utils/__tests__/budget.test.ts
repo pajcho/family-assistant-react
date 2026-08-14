@@ -24,6 +24,8 @@ import { overrideKey } from "../payment";
 
 function income(over: Partial<Income> = {}): Income {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "inc1",
     family_id: "fam",
     person_id: null,
@@ -40,6 +42,8 @@ function income(over: Partial<Income> = {}): Income {
 
 function incomeEntry(over: Partial<IncomeEntry> = {}): IncomeEntry {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "ie1",
     family_id: "fam",
     income_id: "inc1",
@@ -58,6 +62,8 @@ function incomeEntry(over: Partial<IncomeEntry> = {}): IncomeEntry {
 
 function expense(over: Partial<Expense> = {}): Expense {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "exp1",
     family_id: "fam",
     amount: 1000,
@@ -85,6 +91,8 @@ function expense(over: Partial<Expense> = {}): Expense {
 
 function payment(over: Partial<Payment> = {}): Payment {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "pay1",
     family_id: "fam",
     name: "Kirija",
@@ -115,6 +123,8 @@ function payment(over: Partial<Payment> = {}): Payment {
 
 function category(over: Partial<ExpenseCategory> = {}): ExpenseCategory {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "cat1",
     family_id: "fam",
     name: "Namirnice",

@@ -36,6 +36,7 @@ anywhere (see AGENTS.md) - ASCII `-` only.
 | 015  | Tasks and reminders (one `tasks` entity, plus kid chores)                    | P1       | XL     | none (from main)   | DONE (branch `feat/tasks-and-reminders`, one PR; 1145 tests, browser-verified on both apps; NOT merged, prod migrations NOT pushed)                                                                               |
 | 016  | Lists findable again (segment, scope, recency, remembered quick add)         | P1       | M      | 015                | DONE (2026-08-12, on `feat/tasks-and-reminders` itself; A + C + D + E2 all shipped, see section 13 for deviations; section 10's two remaining test files added 2026-08-14; search normalization still deferred)   |
 | 017  | Recurring tasks: no ticking ahead, visible debt, and a history               | P1       | L      | 015 (merged)       | DONE (2026-08-14, branch `feat/recurring-task-clarity`; not from the audits - maintainer-reported. 9 deviations in section 13, incl. the skip-over-finished-work guard. NOT merged, migration NOT pushed to prod) |
+| 018  | Change history for every module ("Ko je šta menjao")                         | P2       | L      | none (from main)   | IN PROGRESS (2026-08-14; maintainer-requested, not from the audits. Design settled in the linked artifact; PR 1 of 3 in flight on `feat/audit-who`)                                                               |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale).

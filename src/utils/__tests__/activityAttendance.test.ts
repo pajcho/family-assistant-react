@@ -16,6 +16,8 @@ import { computeActivityMonthlySummaries } from "../activityAttendance";
 
 function activity(over: Partial<Activity> = {}): Activity {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "a1",
     family_id: "fam",
     name: "Engleski",

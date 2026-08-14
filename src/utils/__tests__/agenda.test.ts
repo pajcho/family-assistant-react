@@ -24,6 +24,8 @@ import {
 
 function payment(over: Partial<Payment> = {}): Payment {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "pay1",
     family_id: "fam",
     name: "Kirija",
@@ -337,6 +339,8 @@ const WED_2 = "2026-06-10";
 
 function activity(over: Partial<Activity> = {}): Activity {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "a1",
     family_id: "fam",
     name: "Engleski",

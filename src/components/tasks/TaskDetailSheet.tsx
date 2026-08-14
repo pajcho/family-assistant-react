@@ -14,7 +14,6 @@ import {
   PencilSquareIcon,
   TrashIcon,
   UserGroupIcon,
-  UserIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
@@ -35,6 +34,7 @@ import {
 } from "@/components/common/DetailSheet";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import { TaskEditForm, type TaskEditPayload } from "@/components/tasks/TaskEditDialog";
 import { TaskHistoryList, TaskLateList } from "@/components/tasks/TaskHistoryPanel";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
@@ -417,16 +417,6 @@ export function TaskDetailSheet({
       ? taskSkipCopy(task, skipTarget, assigneeNames, doneNamesFor(skipTarget.dates))
       : null;
 
-  const createdLabel = task?.created_by_id
-    ? personStampLabel(task.created_by_id, task.created_at, peopleById)
-    : null;
-  // Only when it says something the line above does not: a task nobody has
-  // touched since it was made would otherwise print the same name twice.
-  const updatedLabel =
-    task?.updated_by_id && task.updated_at !== task.created_at
-      ? personStampLabel(task.updated_by_id, task.updated_at, peopleById)
-      : null;
-
   const tomorrow = shiftIsoByDays(today, 1);
   // "Pomeri" means postpone, so the shortcut is only offered while it actually
   // pushes the instance forward - today or already behind. Anything further out
@@ -773,20 +763,13 @@ export function TaskDetailSheet({
                     {/* No "Zaostalo" row here: the action row below already says
                         how many are waiting AND opens them. Two lines for one
                         fact, one of which cannot be acted on, is just noise. */}
-                    {/* Who made this thing, and who last touched it. Both columns
-                        have existed since the lists feature and were shown
-                        nowhere but ListInfoPanel - which is how "nobody knows
-                        who created it" became true of a task. */}
-                    {createdLabel ? (
-                      <DetailInfoText label="Kreirao/la" icon={UserIcon} value={createdLabel} />
-                    ) : null}
-                    {updatedLabel ? (
-                      <DetailInfoText
-                        label="Poslednja izmena"
-                        icon={PencilSquareIcon}
-                        value={updatedLabel}
-                      />
-                    ) : null}
+                    {/* Authorship used to sit here as two more rows in an
+                        already long facts card, under the label "Kreirao/la" -
+                        the slash being an admission that the app cannot know
+                        which form to use. It moved to `DetailAuditLine` at the
+                        bottom of the sheet, where every other module now says
+                        the same thing the same way and no verb needs a gender
+                        (plan 018). */}
                   </DetailInfoRows>
 
                   <DetailActionList>
@@ -921,6 +904,8 @@ export function TaskDetailSheet({
                       tone="destructive"
                     />
                   </DetailActionList>
+
+                  <DetailAuditLine row={task} />
                 </>
               )}
             </div>

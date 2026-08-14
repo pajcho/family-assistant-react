@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
   DetailActionRow,
@@ -401,6 +402,8 @@ export function EventDetailDialog({
                     {/* Linked payments + expenses (render nothing without any);
                       a row opens that entry's detail over this sheet. */}
                     <EventMoneySection eventId={event.id} onSelect={setMoneyTarget} />
+
+                    <DetailAuditLine row={event} />
                   </>
                 )}
               </div>

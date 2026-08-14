@@ -12,6 +12,7 @@ import { format } from "date-fns";
 
 import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
   DetailActionRow,
@@ -309,6 +310,8 @@ export function BirthdayDetailDialog({
                       payments={linkedPayments}
                       onSelect={(payment) => setMoneyTarget({ kind: "payment", payment })}
                     />
+
+                    <DetailAuditLine row={birthday} />
                   </>
                 )}
               </div>

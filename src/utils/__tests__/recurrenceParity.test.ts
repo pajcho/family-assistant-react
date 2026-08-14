@@ -30,6 +30,8 @@ import { expandPaymentOccurrences, overrideKey, paymentOccurrencesInMonth } from
 
 function payment(over: Partial<Payment> = {}): Payment {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "pay1",
     family_id: "fam",
     name: "Kirija",

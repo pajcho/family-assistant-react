@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
   DetailActionRow,
@@ -268,6 +269,8 @@ export function ActivityDetailDialog({
                     {/* Linked payments + expenses (render nothing without any);
                       a row opens that entry's detail over this sheet. */}
                     <ActivityMoneySection activity={activity} onSelect={setMoneyTarget} />
+
+                    <DetailAuditLine row={activity} />
                   </>
                 )}
               </div>

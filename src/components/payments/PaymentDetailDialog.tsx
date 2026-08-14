@@ -20,6 +20,7 @@ import { ResponsiveDialogContent, ResponsiveDialogFooter } from "@/components/ui
 import { ExchangeRateRow, useCurrencyAmount } from "@/components/common/CurrencyAmountField";
 import { DateField } from "@/components/common/DateField";
 import { SheetStackHeader, SheetStackViews, useSheetStack } from "@/components/common/SheetStack";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import {
   DetailActionList,
   DetailActionRow,
@@ -696,6 +697,8 @@ export function PaymentDetailDialog({
                         />
                       ) : null}
                     </DetailActionList>
+
+                    <DetailAuditLine row={payment} />
                   </>
                 )}
               </div>

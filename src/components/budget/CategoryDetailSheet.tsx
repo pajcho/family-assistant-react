@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { DetailActionRow } from "@/components/common/DetailSheet";
+import { DetailAuditLine } from "@/components/common/DetailAuditLine";
 import { FieldGroupLabel } from "@/components/common/FormControls";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
@@ -365,6 +366,8 @@ export function CategoryDetailSheet({
                 </div>
               </div>
             ) : null}
+
+            {category ? <DetailAuditLine row={category} /> : null}
           </div>
         ) : null}
         <ResponsiveDialogFooter>

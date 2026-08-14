@@ -79,6 +79,8 @@ const luka = { id: "kid-1", first_name: "Luka", last_name: "Petrović" };
 const sofija = { id: "kid-2", first_name: "Sofija", last_name: "Petrović" };
 
 const baka: Birthday = {
+  created_by_id: null,
+  updated_by_id: null,
   id: "b-1",
   family_id: "fam-1",
   name: "Baka Mira",
