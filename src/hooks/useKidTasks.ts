@@ -14,6 +14,7 @@ import { normalizeTime } from "@/utils/activity";
 import { subtractDay } from "@/utils/date";
 import {
   expandTaskOccurrences,
+  isHiddenBySkip,
   isRecurringTask,
   isTaskDoneOn,
   taskOccurrenceKey,
@@ -272,9 +273,11 @@ export function useKidTasks({ from, to }: { from: string; to: string }): UseKidT
       const dueTime = task.due_time ? normalizeTime(task.due_time) : null;
       for (const instance of expandTaskOccurrences(task, from, to, occurrencesByKey)) {
         // A skip is a decision a parent already made, so it is not a chore any
-        // more. A DONE one stays: a row vanishing under the thumb that just
+        // more - unless this child had already done it, in which case their
+        // work stays on their board rather than being quietly deleted from it.
+        // A DONE one stays too: a row vanishing under the thumb that just
         // tapped it reads as "I must have imagined it".
-        if (instance.isSkipped) continue;
+        if (isHiddenBySkip(task, instance, occurrencesByKey, kidProfileId)) continue;
         map.set(taskOccurrenceKey(task.id, instance.occurrenceDate), {
           task,
           occurrenceDate: instance.occurrenceDate,
@@ -283,6 +286,9 @@ export function useKidTasks({ from, to }: { from: string; to: string }): UseKidT
           isDone: isTaskDoneOn(task, instance.occurrenceDate, occurrencesByKey, kidProfileId),
           canComplete:
             isKid &&
+            // A day that was called off is not theirs to change any more; it is
+            // only still here because they had finished it.
+            !instance.isSkipped &&
             instance.effectiveDate <= today &&
             instance.occurrenceDate >= earliest &&
             instance.occurrenceDate <= today,

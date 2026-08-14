@@ -71,6 +71,11 @@ export function TaskRow({
 
   // A done row is never also "propušteno": it was resolved, just late.
   const missed = item.missed && !rowDone;
+  // Only reachable for somebody who had already finished their part before the
+  // day was called off (`isHiddenBySkip`), so the row reads as settled: struck
+  // through like a done one, and labelled, or it would look like an ordinary
+  // completion and leave them wondering where everybody else went.
+  const skipped = item.skipped === true;
   const meta = [taskRecurrenceLabel(task), listName, dateLabel ? `rok ${dateLabel}` : null].filter(
     Boolean,
   );
@@ -78,14 +83,16 @@ export function TaskRow({
   return (
     <ItemCard
       onClick={onClick}
-      dimmed={rowDone}
+      dimmed={rowDone || skipped}
       ariaLabel={`Otvori detalje za „${task.name}"`}
       leading={
         <TaskCheckCircle
           done={circleDone}
           name={task.name}
-          disabled={!canTick}
-          disabledReason={blockedReason}
+          disabled={!canTick || skipped}
+          disabledReason={
+            skipped ? "Ovaj dan je preskočen. Otvorite zadatak da biste ga vratili." : blockedReason
+          }
           onToggle={() => {
             // `item.occurrenceDate` (the SERIES date), never `item.date`: a
             // moved occurrence is still ticked under the date the series says it
@@ -97,8 +104,10 @@ export function TaskRow({
       }
     >
       <ItemMain>
-        <ItemTitle className={rowDone ? "text-muted-foreground" : undefined}>
-          <span className={cn("min-w-0 truncate", rowDone && "line-through")}>{task.name}</span>
+        <ItemTitle className={rowDone || skipped ? "text-muted-foreground" : undefined}>
+          <span className={cn("min-w-0 truncate", (rowDone || skipped) && "line-through")}>
+            {task.name}
+          </span>
           {/* "1/3" for a chore everybody owes their own tick on - the circle can
               only ever answer for one person, so the count is what says whether
               the thing as a whole is finished. */}
@@ -107,7 +116,8 @@ export function TaskRow({
               {progress.done}/{progress.total}
             </Pill>
           ) : null}
-          {missed ? <Pill tone="neg">propušteno</Pill> : null}
+          {skipped ? <Pill tone="muted">preskočeno</Pill> : null}
+          {missed && !skipped ? <Pill tone="neg">propušteno</Pill> : null}
           {/* One overdue row stands for every unresolved instance of its series,
               so it has to say how many. Not shown at 1: the row already carries
               that one instance's date in its meta line. */}

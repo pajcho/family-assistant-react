@@ -567,6 +567,37 @@ export function isMissedOccurrence(instance: TaskOccurrenceInstance, today: stri
 }
 
 /**
+ * Whether a skipped instance should drop off this viewer's lists.
+ *
+ * Skipping exists to take a called-off day off the board, so the answer is
+ * normally yes - EXCEPT for somebody who had already finished their own part of
+ * it. Their work is not undone by the rest of the day being called off, and
+ * having the row vanish from under them contradicts what the skip confirmation
+ * promises ("ostaje zabeleženo"). They keep it, ticked and struck through.
+ *
+ * Only `per_assignee` can reach that state: under `shared` the completion IS the
+ * whole-occurrence row, so a skip would have to overwrite it - which is why a
+ * finished day cannot be skipped at all (see `occurrenceDone` in
+ * TaskDetailSheet). `isTaskDoneOn` reads the shared row there and answers false
+ * for a skipped one, so the two cases need no branch here.
+ *
+ * A DISPLAY rule, deliberately not mirrored in
+ * `supabase/functions/_shared/expandTask.ts`: the digest and the reminder pushes
+ * ask "should we chase somebody about this", and the answer for a day that was
+ * called off and that they have already done is no, whoever they are.
+ */
+export function isHiddenBySkip(
+  task: TaskCompletionFields,
+  instance: TaskOccurrenceInstance,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  viewerPersonId: string | null | undefined,
+): boolean {
+  if (!instance.isSkipped) return false;
+  if (!viewerPersonId) return true;
+  return !isTaskDoneOn(task, instance.occurrenceDate, occurrencesByKey, viewerPersonId);
+}
+
+/**
  * How far back a repeating task's unfinished instances are still carried as
  * debt. Past that they are history and live only in the detail sheet's
  * "Istorija" - a daily chore abandoned in spring is not two hundred rows of

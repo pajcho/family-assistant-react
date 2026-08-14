@@ -440,25 +440,38 @@ alone.
     showing an empty ring that invited a tap which re-sent "finish it" and
     changed nothing. The circle now reads `isTaskDoneOn(..., personId)` and the
     tap sends the state being asked for, so it unticks as well as ticks.
-12. **The skip confirm says WHERE a kept tick stays** (maintainer, fourth
-    review, asking the right question: "how exactly will Milan's tick be
-    remembered?"). It said "ta kvačica ostaje zabeležena", which is true of the
-    data and misleading about the screen. Traced both halves:
+12. **A skipped day stays on the list of whoever had finished it** (maintainer,
+    fourth and fifth review). The question that started it was the right one:
+    "how exactly will Milan's tick be remembered?" Both halves, traced:
     - the tick genuinely survives - `useUpsertOccurrenceOverride` upserts only
       the `person_id IS NULL` row (`onConflict: task_id,occurrence_date,person_id`)
-      and `useRestoreOccurrence` deletes only that one, so restoring the day
-      brings the day back with the tick intact;
-    - but the day drops off EVERY list - `useAgenda`, `taskItems`, `useKidTasks`
-      all `continue` on `isSkipped` - including the list of whoever ticked it.
-    So it now reads "Dan nestaje sa njihovih spiskova ... ostaje zabeleženo u
-    istoriji i vraća se ako vratite ovaj dan." If the `isSkipped` drop is ever
-    made conditional, this sentence has to change with it.
+      and `useRestoreOccurrence` deletes only that one;
+    - but the day dropped off EVERY list - `useAgenda`, `taskItems`,
+      `useKidTasks` all `continue` on `isSkipped` - including the list of
+      whoever ticked it. So "ta kvačica ostaje zabeležena" was true of the data
+      and misleading about the screen.
+
+    Rather than water the promise down, the maintainer chose to make it true. A
+    shared predicate `isHiddenBySkip(task, instance, byKey, viewerPersonId)`
+    replaces the three bare `isSkipped` checks: a skipped day is hidden EXCEPT
+    from somebody who had already finished their own part, who keeps it ticked,
+    struck through, dimmed, locked and labelled "preskočeno" (`AgendaItem` gains
+    `skipped`). Only `per_assignee` can reach that state - under `shared` the
+    completion IS the row a skip overwrites, and a finished shared day cannot be
+    skipped at all.
+
+    A DISPLAY rule, deliberately NOT mirrored in `expandTask.ts`: the digest
+    asks "should we chase somebody about this", and for a day that was called
+    off and that they have already done, the answer is no.
+
+    Known limit, worth saying out loud: the agenda and the /tasks screens start
+    at today, so a PAST skipped day only reappears where past days are drawn at
+    all (the month and week calendars, plus the history). The common case -
+    today or a coming day being called off - is the one this covers.
+
     Serbian agreement in the same pass: the "all" variant runs its count through
-    `serbianPlural` three times (noun, "otpada/otpadaju", "nestaje/nestaju"),
-    and "ovaj dan" / "ove dane" follows the number of DAYS while
-    "je završio/la" / "su završili" follows the number of PEOPLE - branching
-    both off one count is what produced "vraća se ako vratite ovaj dan" under a
-    two-day skip.
+    `serbianPlural` for the noun and for the verb, because "2 zaostalih
+    ponavljanja otpada" is not something a person would say.
 13. **A move onto its own date is not reported as a move.** Moving an occurrence
     and moving it back leaves a row whose `moved_to_date` equals its
     `occurrence_date`; the history read "15.08.2026 - Pomereno na 15.08.2026".

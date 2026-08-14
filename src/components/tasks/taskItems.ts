@@ -3,12 +3,18 @@ import { useMemo } from "react";
 import { taskAgendaItem, type TaskAgendaItem } from "@/components/tasks/taskItemModel";
 import { completedEntries } from "@/components/tasks/completedTasks";
 import { COMPLETED_WINDOW_DAYS, type SmartListKey } from "@/components/tasks/smartLists";
+import { useProfile } from "@/hooks/useProfile";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import type { Task } from "@/types/database";
-import { expandTaskOccurrences, isRecurringTask, isTaskOverdue } from "@/utils/task";
+import {
+  expandTaskOccurrences,
+  isHiddenBySkip,
+  isRecurringTask,
+  isTaskOverdue,
+} from "@/utils/task";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
 
 /**
@@ -121,7 +127,8 @@ export interface UseTaskAgendaItemsResult {
  *
  * Skipped instances are dropped and done ones kept, the same two rules
  * `useAgenda` applies: a row must not vanish from under the thumb the moment it
- * is ticked.
+ * is ticked. The one exception is a skipped day this viewer had already finished
+ * their part of, which stays struck through - see `isHiddenBySkip`.
  */
 export function useTaskAgendaItems({
   from,
@@ -131,6 +138,8 @@ export function useTaskAgendaItems({
   const tasksQuery = useTasksList();
   const { byTask } = useTaskAssignees();
   const { byKey } = useTaskOccurrenceRows();
+  // Only for the skipped-but-mine exception; see `isHiddenBySkip`.
+  const viewerPersonId = useProfile().profile?.id ?? null;
 
   const tasks = tasksQuery.data;
 
@@ -146,7 +155,7 @@ export function useTaskAgendaItems({
       }
       const assigneeIds = byTask.get(task.id) ?? [];
       for (const instance of expandTaskOccurrences(task, from, to, byKey)) {
-        if (instance.isSkipped) continue;
+        if (isHiddenBySkip(task, instance, byKey, viewerPersonId)) continue;
         out.push(taskAgendaItem(task, instance, assigneeIds, today));
       }
     }
@@ -154,7 +163,7 @@ export function useTaskAgendaItems({
     // Most recently ticked first - the done pile is read newest-down.
     somedayDone.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
     return { items: out, undated: someday, undatedDone: somedayDone };
-  }, [tasks, byTask, byKey, from, to, today]);
+  }, [tasks, byTask, byKey, viewerPersonId, from, to, today]);
 
   return { items, undated, undatedDone, isLoading: tasksQuery.isLoading };
 }

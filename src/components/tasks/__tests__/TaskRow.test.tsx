@@ -274,6 +274,23 @@ describe("TaskRow completion circle", () => {
     expect(circleIsLocked()).toBe(false);
   });
 
+  it("keeps a skipped day the viewer had finished, struck and labelled", () => {
+    // The promise the skip confirmation makes: the rest of the day is called
+    // off, their own work is not. It must not read as an ordinary completion,
+    // hence the pill - otherwise they wonder where everybody else went.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-13", occurrenceDate: "2026-08-13", skipped: true }),
+    );
+    expect(screen.getByText("preskočeno")).toBeInTheDocument();
+    expect(screen.getByText("Izbaci smeće")).toHaveClass("line-through");
+    // And it is settled: the circle no longer invites a change.
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
+    expect(toggleMutate).not.toHaveBeenCalled();
+    expect(toastMessages.join("|")).toContain("preskočen");
+  });
+
   it("says how many instances of a series an overdue row stands for", () => {
     const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
     renderRow(

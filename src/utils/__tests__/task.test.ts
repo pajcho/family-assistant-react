@@ -4,6 +4,7 @@ import type { Task, TaskOccurrence } from "@/types/database";
 import {
   expandTaskOccurrences,
   isFutureOccurrence,
+  isHiddenBySkip,
   isMissedOccurrence,
   isRecurringTask,
   isTaskDoneOn,
@@ -887,6 +888,71 @@ describe("isFutureOccurrence", () => {
     const oneOff = makeTask({ recurrence_period: "one-time", due_date: "2026-08-20" });
     expect(isFutureOccurrence(oneOff, "2026-08-20", today)).toBe(false);
     expect(isFutureOccurrence({ recurrence_period: null }, "2026-08-20", today)).toBe(false);
+  });
+});
+
+describe("isHiddenBySkip", () => {
+  // No `today` here on purpose: this rule is about who owns a skipped day, not
+  // about when it falls.
+  const chore = makeTask({
+    recurrence_period: "daily",
+    due_date: "2026-08-12",
+    completion_mode: "per_assignee",
+  });
+
+  function instanceOn(date: string, map: Map<string, TaskOccurrence[]>) {
+    const found = expandTaskOccurrences(chore, "2026-08-01", "2026-08-31", map).find(
+      (i) => i.occurrenceDate === date,
+    );
+    if (!found) throw new Error(`no instance on ${date}`);
+    return found;
+  }
+
+  const skippedOn = (date: string, ...rest: TaskOccurrence[]) =>
+    byKey(makeOccurrence({ occurrence_date: date, status: "skipped" }), ...rest);
+
+  it("leaves an unskipped instance alone, whoever is asking", () => {
+    const instance = instanceOn("2026-08-13", NO_OCCURRENCES);
+    expect(isHiddenBySkip(chore, instance, NO_OCCURRENCES, "p1")).toBe(false);
+    expect(isHiddenBySkip(chore, instance, NO_OCCURRENCES, null)).toBe(false);
+  });
+
+  it("hides a skipped instance from somebody who had not done it", () => {
+    const map = skippedOn("2026-08-13");
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p2")).toBe(true);
+  });
+
+  it("keeps it for somebody who had already finished their own part", () => {
+    // The day was called off for the rest; their work is not undone by that, and
+    // the skip confirmation promises exactly this.
+    const map = skippedOn(
+      "2026-08-13",
+      makeOccurrence({
+        id: "o2",
+        occurrence_date: "2026-08-13",
+        person_id: "p1",
+        status: "done",
+      }),
+    );
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p1")).toBe(false);
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p2")).toBe(true);
+  });
+
+  it("hides it from a viewer with no identity at all", () => {
+    const map = skippedOn("2026-08-13");
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, null)).toBe(true);
+  });
+
+  it("hides a skipped SHARED day from everybody", () => {
+    // There is one answer under `shared` and the skip overwrote it, so nobody
+    // has a finished part to keep. (A finished shared day cannot be skipped at
+    // all - the action is withdrawn.)
+    const shared = makeTask({ recurrence_period: "daily", due_date: "2026-08-12" });
+    const map = byKey(makeOccurrence({ occurrence_date: "2026-08-13", status: "skipped" }));
+    const instance = expandTaskOccurrences(shared, "2026-08-01", "2026-08-31", map).find(
+      (i) => i.occurrenceDate === "2026-08-13",
+    );
+    expect(isHiddenBySkip(shared, instance as never, map, "p1")).toBe(true);
   });
 });
 

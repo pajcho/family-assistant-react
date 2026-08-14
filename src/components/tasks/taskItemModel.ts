@@ -73,6 +73,9 @@ export function taskAgendaItem(
     dueTime,
     assigneeIds,
     isDone: instance.isDone,
+    // Only ever true for an instance the caller kept despite the skip, i.e. one
+    // this viewer had already finished - see `isHiddenBySkip`.
+    skipped: instance.isSkipped,
     // Recurring only, exactly as `useAgenda` decides it: a one-off that slipped
     // is carried over by the overdue block instead of being struck in place.
     missed: isRecurringTask(task) && isMissedOccurrence(instance, today),
