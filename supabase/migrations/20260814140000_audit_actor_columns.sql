@@ -31,21 +31,41 @@
 -- It returns NULL for everyone else, so an adult falls through to auth.uid(),
 -- which IS their profile id.
 --
--- NULL is a real result, not a failure: pg_cron jobs, edge functions and
--- anything else on the service role have no uid. Callers must handle it (see
+-- The result is then CHECKED AGAINST profiles, and that check is the difference
+-- between a working app and a broken one. An authenticated session whose uid
+-- has no profile row is not hypothetical: disabling a child's access clears
+-- `kid_access.auth_user_id` but leaves the synthetic auth user standing, so an
+-- orphaned kid token still authenticates, `kid_profile_id()` no longer resolves
+-- it, and `auth.uid()` names a user that `profiles` has never heard of. Without
+-- this filter the columns below would take that id, the foreign key would
+-- reject it, and the person's WRITE would fail - the audit machinery breaking
+-- the very thing it exists to observe.
+--
+-- So an unknown actor degrades to NULL, which is a state the schema and the UI
+-- already model: "we do not know who did this".
+--
+-- SECURITY DEFINER for the same reason kid_profile_id() is: `profiles` is
+-- RLS-protected and a child cannot select from it, so an invoker-rights lookup
+-- would return NULL for exactly the callers this is meant to resolve. It leaks
+-- nothing - the only value it can ever return is the caller's own id.
+--
+-- NULL is also the honest answer for pg_cron, edge functions and anything else
+-- on the service role, which have no uid at all. Callers must handle it (see
 -- the COALESCE in update_audit_actor below).
 
 CREATE OR REPLACE FUNCTION public.audit_actor_id()
 RETURNS UUID
 LANGUAGE sql
+SECURITY DEFINER
 STABLE
-SET search_path = public, pg_temp
+SET search_path = ''
 AS $$
-  SELECT COALESCE(public.kid_profile_id(), auth.uid())
+  SELECT p.id FROM public.profiles p
+  WHERE p.id = COALESCE(public.kid_profile_id(), auth.uid())
 $$;
 
 COMMENT ON FUNCTION public.audit_actor_id() IS
-  'The profiles.id of whoever is acting: a child via kid_profile_id(), anyone else via auth.uid(). NULL on the service role.';
+  'The profiles.id of whoever is acting: a child via kid_profile_id(), anyone else via auth.uid(). NULL on the service role, and NULL rather than a dangling id when the uid has no profile.';
 
 -- ---------------------------------------------------------------------------
 -- 2. The columns

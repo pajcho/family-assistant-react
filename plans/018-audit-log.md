@@ -117,6 +117,22 @@ A kid acts through a synthetic auth user that has **no row in `profiles`**
 FK violation on insert, or - if the FK were dropped - a row the UI renders as
 "nepoznat korisnik". `kid_profile_id()` maps it to the child's real profile.
 
+**The result must then be checked against `profiles`, and the function must be
+SECURITY DEFINER to do it.** Found during verification, not by reasoning: the
+local database had five authenticated users with no profile row, four of them
+orphaned kid identities. Disabling a child's access clears
+`kid_access.auth_user_id` but leaves the synthetic auth user standing, so an
+orphaned token still authenticates, `kid_profile_id()` stops resolving it, and
+`auth.uid()` names somebody `profiles` has never heard of. The FK then rejects
+the stamp and **the person's write fails** - the audit machinery breaking the
+thing it exists to observe. Filtering through `profiles` degrades that to NULL,
+which the schema and the UI already model as "we do not know who did this".
+
+SECURITY DEFINER because `profiles` is RLS-protected and a child cannot select
+from it, so an invoker-rights lookup would return NULL for exactly the callers
+this is meant to resolve. It leaks nothing: the only value it can return is the
+caller's own id.
+
 Generic BEFORE INSERT and BEFORE UPDATE triggers then fill the pair, mirroring
 `update_task_audit_fields()`. Both must tolerate `audit_actor_id()` returning
 NULL (pg_cron, edge functions on the service role) by leaving the prior value
@@ -351,15 +367,39 @@ Stop and ask the maintainer rather than guessing if:
 
 ## 11. Verification
 
-- Personal-list leak: create a personal list as member A, edit it, confirm
-  member B's session reads zero `audit_log` rows for it. Reproduce the leak
-  first against a permissive policy, then confirm the real one blocks it, the
-  shape plan 008 used.
-- Kid actor: have a kid session tick a chore and edit an allowed field, confirm
-  `actor_id` resolves to the child's `profiles` row and the UI names them.
-- Empty-diff rule: add one task to a list, confirm exactly one `audit_log` row
-  exists (the task), not two (the bumped parent list).
-- Service role: run the gcal sync and confirm it writes zero audit rows.
-- CI: no test may import a module whose chain reaches `lib/supabase`
-  (see [Project: CI has no Supabase env]) - locally it passes on `.env` and
-  fails on CI.
+`supabase/tests/audit_log_verification.sql` carries 15 assertions covering both
+migrations and is the file to re-run whenever the trigger or the policy is
+touched. It runs in one transaction that rolls back, and it derives its own
+family and members, so it is safe against a database with real data and needs no
+local ids baked in:
+
+```bash
+docker exec -i supabase_db_family-assistant psql -U postgres -d postgres -X -q -f - < supabase/tests/audit_log_verification.sql
+```
+
+It lives there rather than in vitest because CI has no Supabase instance (see
+[Project: CI has no Supabase env]) - and the personal-list boundary in 5.1 is
+not reachable from JS at all. What it pins:
+
+- Authorship: insert stamps both columns, an edit re-stamps only the editor, a
+  service-role write keeps the known author, and a session with no profile row
+  still writes (unattributed) instead of failing.
+- Change log: a create carries the label and no diff, an edit carries exactly
+  the audited columns old-and-new, a delete keeps the name of a row that is
+  gone, and neither a service-role write nor an unaudited-column update logs
+  anything.
+- The empty-diff rule specifically: adding a task logs the task and does NOT log
+  a contentless edit against the parent list that
+  `bump_parent_list_on_item_change()` touched.
+- Privacy: a personal list is logged owner-visible, another member of the same
+  family reads zero rows for it while reading the family list fine, the owner
+  still reads their own, and a client cannot INSERT an entry at all.
+
+Still to check by hand, since neither is reachable from SQL:
+
+- Kid actor end to end: have a kid session tick a chore, confirm `actor_id`
+  resolves to the child's `profiles` row and the UI names them.
+- Service role end to end: run the gcal sync and confirm it writes zero audit
+  rows.
+- CI: no test may import a module whose chain reaches `lib/supabase` - locally
+  it passes on `.env` and fails on CI.
