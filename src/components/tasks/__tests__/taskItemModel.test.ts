@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assigneeProgress,
+  isItemOutstanding,
   taskTickSlot,
   matchesPersonFilter,
   nextTaskInstance,
@@ -69,6 +70,8 @@ function occurrence(overrides: Partial<TaskOccurrence> = {}): TaskOccurrence {
     moved_to_date: null,
     completed_at: "2026-08-10T08:00:00Z",
     completed_by_person_id: "p1",
+    acted_by_person_id: null,
+    acted_at: null,
     note: null,
     created_at: "2026-08-10T08:00:00Z",
     updated_at: "2026-08-10T08:00:00Z",
@@ -92,6 +95,8 @@ function occurrencesByKeyFrom(rows: readonly TaskOccurrence[]): Map<string, Task
 }
 
 const NO_OCCURRENCES = new Map<string, TaskOccurrence[]>();
+/** The rail on "Svi" - the family's own answer. */
+const NO_PEOPLE: ReadonlySet<string> = new Set();
 
 describe("nextTaskInstance", () => {
   it("has nothing to point at for an undated task", () => {
@@ -310,5 +315,57 @@ describe("taskAgendaItem", () => {
     // A one-off that slipped is carried over by the overdue block instead.
     const oneOff = task({ due_date: "2026-08-03" });
     expect(taskAgendaItem(oneOff, past, [], TODAY).missed).toBe(false);
+  });
+});
+
+/**
+ * Whose answer a count gives. Every number on /tasks - the four tiles, every
+ * section heading - goes through `isItemOutstanding`, so this is where the rule
+ * that a person rail changes the QUESTION (not just the row set) is pinned down.
+ */
+describe("isItemOutstanding", () => {
+  const chore = task({
+    due_date: TODAY,
+    recurrence_period: "daily",
+    completion_mode: "per_assignee",
+  });
+  const instance = {
+    occurrenceDate: TODAY,
+    effectiveDate: TODAY,
+    occurrence: undefined,
+    isDone: false,
+    isSkipped: false,
+  };
+  const row = (personId: string) =>
+    occurrence({ id: `occ-${personId}`, person_id: personId, status: "done" as const });
+
+  it("asks the family when the rail is on everybody", () => {
+    const item = taskAgendaItem(chore, instance, ["p1", "p2"], TODAY);
+    const oneDone = occurrencesByKeyFrom([row("p1")]);
+    // One of two has ticked, so the chore is not finished - and `item.isDone` is
+    // false here whatever happens, which is exactly why it cannot be the test.
+    expect(isItemOutstanding(item, oneDone, NO_PEOPLE)).toBe(true);
+
+    const bothDone = occurrencesByKeyFrom([row("p1"), row("p2")]);
+    expect(isItemOutstanding(item, bothDone, NO_PEOPLE)).toBe(false);
+  });
+
+  it("asks only the picked people when the rail is filtered", () => {
+    const item = taskAgendaItem(chore, instance, ["p1", "p2"], TODAY);
+    const oneDone = occurrencesByKeyFrom([row("p1")]);
+    // p1 has done their part: nothing is owed BY p1, everything still is by p2.
+    expect(isItemOutstanding(item, oneDone, new Set(["p1"]))).toBe(false);
+    expect(isItemOutstanding(item, oneDone, new Set(["p2"]))).toBe(true);
+    expect(isItemOutstanding(item, oneDone, new Set(["p1", "p2"]))).toBe(true);
+  });
+
+  it("treats a shared tick and a skipped day as settled for everybody", () => {
+    const shared = task({ due_date: TODAY, recurrence_period: "daily" });
+    const done = taskAgendaItem(shared, { ...instance, isDone: true }, ["p1"], TODAY);
+    expect(isItemOutstanding(done, NO_OCCURRENCES, NO_PEOPLE)).toBe(false);
+    expect(isItemOutstanding(done, NO_OCCURRENCES, new Set(["p1"]))).toBe(false);
+
+    const skipped = taskAgendaItem(shared, { ...instance, isSkipped: true }, ["p1"], TODAY);
+    expect(isItemOutstanding(skipped, NO_OCCURRENCES, NO_PEOPLE)).toBe(false);
   });
 });

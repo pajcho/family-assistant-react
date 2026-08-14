@@ -534,9 +534,12 @@ export function taskCompletionOn(
  * Unfinished, non-recurring, and its due date already passed - the tasks the
  * overdue block carries forward day after day until they are dealt with.
  *
- * A repeating task is deliberately never overdue (decision 6 of the plan): a
- * chore missed on Tuesday is a missed Tuesday, not a debt that follows you into
- * Wednesday's list. Those read as `isMissedOccurrence` instead. Undated tasks
+ * This answers for a task ROW, which is why a repeating task is never overdue
+ * here: a series has no single deadline to have missed. Lateness for a repeat is
+ * per instance and is {@link lateOccurrences}, which the overdue block reads
+ * alongside this. (Decision 6 of plan 015 said a missed Tuesday is not a debt at
+ * all; plan 017 kept the row-level half of that and reversed the instance-level
+ * half, because a debt nobody can see is a debt nobody pays.) Undated tasks
  * cannot be late either - they are somebody's someday list.
  */
 export function isTaskOverdue(
@@ -561,6 +564,131 @@ export function isTaskOverdue(
  */
 export function isMissedOccurrence(instance: TaskOccurrenceInstance, today: string): boolean {
   return instance.effectiveDate < today && !instance.isDone && !instance.isSkipped;
+}
+
+/**
+ * Whether a skipped instance should drop off this viewer's lists.
+ *
+ * Skipping exists to take a called-off day off the board, so the answer is
+ * normally yes - EXCEPT for somebody who had already finished their own part of
+ * it. Their work is not undone by the rest of the day being called off, and
+ * having the row vanish from under them contradicts what the skip confirmation
+ * promises ("ostaje zabeleženo"). They keep it, ticked and struck through.
+ *
+ * Only `per_assignee` can reach that state: under `shared` the completion IS the
+ * whole-occurrence row, so a skip would have to overwrite it - which is why a
+ * finished day cannot be skipped at all (see `occurrenceDone` in
+ * TaskDetailSheet). `isTaskDoneOn` reads the shared row there and answers false
+ * for a skipped one, so the two cases need no branch here.
+ *
+ * A DISPLAY rule, deliberately not mirrored in
+ * `supabase/functions/_shared/expandTask.ts`: the digest and the reminder pushes
+ * ask "should we chase somebody about this", and the answer for a day that was
+ * called off and that they have already done is no, whoever they are.
+ */
+export function isHiddenBySkip(
+  task: TaskCompletionFields,
+  instance: TaskOccurrenceInstance,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  viewerPersonId: string | null | undefined,
+): boolean {
+  if (!instance.isSkipped) return false;
+  if (!viewerPersonId) return true;
+  return !isTaskDoneOn(task, instance.occurrenceDate, occurrencesByKey, viewerPersonId);
+}
+
+/**
+ * How far back a repeating task's unfinished instances are still carried as
+ * debt. Past that they are history and live only in the detail sheet's
+ * "Istorija" - a daily chore abandoned in spring is not two hundred rows of
+ * guilt on the dashboard.
+ */
+export const LATE_LOOKBACK_DAYS = 30;
+
+/**
+ * This instance has not come due yet, so it cannot be finished from a list.
+ *
+ * Recurring only, and that asymmetry is the point: a one-off's `due_date` is a
+ * DEADLINE, and paying a bill or buying the milk early is normal, while a
+ * repeat's occurrence date is an APPOINTMENT - tomorrow's dishes cannot be done
+ * today, and a circle offering to say they were is how a week of meaningless
+ * `done` rows gets written by one thumb on a week strip.
+ *
+ * The detail sheet deliberately ignores this and lets the tick through with a
+ * different label: "I did it in advance" is real, and two taps is the right
+ * price for it.
+ */
+export function isFutureOccurrence(
+  task: Pick<Task, "recurrence_period">,
+  effectiveDate: string,
+  today: string,
+): boolean {
+  return isRecurringTask(task) && effectiveDate > today;
+}
+
+/**
+ * Whether an instance has been dealt with, for the purpose of owing it.
+ *
+ * `TaskOccurrenceInstance.isDone` is whole-occurrence completion and is
+ * therefore ALWAYS false for a `per_assignee` chore - completion there is one
+ * fact per person, not one per occurrence. Taken at face value that would report
+ * a chore all three assignees finished last Tuesday as still owed, so this
+ * re-resolves it the way the row layer does: everybody who was given it has
+ * ticked their own copy.
+ *
+ * With no assignees a `per_assignee` chore has nobody to have finished it, so it
+ * falls back to the shared answer `isDone` already gave.
+ *
+ * `assigneeIds` is WHOSE ANSWER IS BEING ASKED FOR, not simply who the task
+ * belongs to - which is what makes a person rail work. Pass the whole assignee
+ * list for the family's answer ("is this chore done?"); pass the people the rail
+ * has picked for theirs ("does Milan still owe this?"). Every count and every
+ * late list on /tasks goes through here, so the two questions can never be
+ * answered by two different rules.
+ */
+export function isInstanceResolved(
+  task: TaskCompletionFields,
+  instance: TaskOccurrenceInstance,
+  assigneeIds: readonly string[],
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+): boolean {
+  if (instance.isDone || instance.isSkipped) return true;
+  if (task.completion_mode !== "per_assignee" || assigneeIds.length === 0) return false;
+  return assigneeIds.every((personId) =>
+    isTaskDoneOn(task, instance.occurrenceDate, occurrencesByKey, personId),
+  );
+}
+
+/**
+ * The unresolved past instances of one repeating series, oldest first - the debt
+ * the overdue block carries.
+ *
+ * Bounded by {@link LATE_LOOKBACK_DAYS} rather than by the series' own start, so
+ * the cost is a fixed window whatever the anchor is. Judged on `effectiveDate`
+ * throughout (via `isMissedOccurrence`), which is what makes a move do what it
+ * says: an instance dragged forward into next week is not late, and one dragged
+ * back into last week is.
+ *
+ * Empty for a non-recurring task - that one is `isTaskOverdue`, and a task
+ * counted by both would be told off twice for the same thing.
+ */
+export function lateOccurrences(
+  task: TaskSeriesFields & TaskCompletionFields,
+  today: string,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  assigneeIds: readonly string[] = [],
+  lookbackDays: number = LATE_LOOKBACK_DAYS,
+): TaskOccurrenceInstance[] {
+  if (!isRecurringTask(task)) return [];
+  const from = addDayStr(today, -Math.max(1, lookbackDays));
+  const to = addDayStr(today, -1);
+  return expandTaskOccurrences(task, from, to, occurrencesByKey)
+    .filter(
+      (instance) =>
+        isMissedOccurrence(instance, today) &&
+        !isInstanceResolved(task, instance, assigneeIds, occurrencesByKey),
+    )
+    .toSorted((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 }
 
 /* ------------------------------------------------------------------------- */

@@ -27,6 +27,7 @@ import {
   detailSheetDates,
   isTaskAgendaItem,
   matchesPersonFilter,
+  outstandingCount,
   type TaskAgendaItem,
 } from "@/components/tasks/taskItemModel";
 import { useSmartListCounts, useTaskAgendaItems } from "@/components/tasks/taskItems";
@@ -35,6 +36,7 @@ import { useCreateListFlow } from "@/components/tasks/useCreateListFlow";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useOverdueTasks } from "@/hooks/useOverdueTasks";
 import { useSearchDialog } from "@/hooks/useSearchDialog";
+import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { useListsWithTasks, useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
@@ -65,11 +67,6 @@ import type { ListWithTasks } from "@/types/database";
 
 /** Rows per section before "Prikaži još" - about a screenful on a phone. */
 const SECTION_LIMIT = 5;
-
-/** How many of a section's rows are still to do - what its heading counts. */
-function openCount(items: readonly TaskAgendaItem[]): number {
-  return items.filter((item) => !item.isDone).length;
-}
 
 /** Stable empty array - keeps `useListOrder`'s input identity quiet while loading. */
 const EMPTY_LISTS: ListWithTasks[] = [];
@@ -116,10 +113,13 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
   const shownLists =
     listScope === "family" ? familyLists : listScope === "personal" ? personalLists : lists;
 
-  const overdue = useOverdueTasks();
+  // Narrowed at the source, not filtered afterwards: with a rail chip on, what
+  // is late is what is late FOR THEM - see `useOverdueTasks`.
+  const overdue = useOverdueTasks(personIds);
   const week = useTaskAgendaItems({ from: today, to: weekEnd, today });
   const counts = useSmartListCounts(personIds);
   const tasksQuery = useTasksList();
+  const { byKey } = useTaskOccurrenceRows();
 
   // Same cached query the two hooks above read - no extra fetch. The linger
   // needs the LIVE row for a task that has left the sections.
@@ -131,10 +131,7 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
   // An empty person set means "everybody", the same convention the dashboard and
   // the activities chips use. It narrows the dated sections; the lists grid is
   // left alone, because a list is a container and has no assignee to filter on.
-  const lateItems = useMemo(
-    () => overdue.items.filter(isTaskAgendaItem).filter((i) => matchesPersonFilter(i, personIds)),
-    [overdue.items, personIds],
-  );
+  const lateItems = useMemo(() => overdue.items.filter(isTaskAgendaItem), [overdue.items]);
   const weekItems = useMemo(
     () => week.items.filter((i) => matchesPersonFilter(i, personIds)),
     [week.items, personIds],
@@ -256,7 +253,6 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
           scope={listScope}
           onScopeChange={setListScope}
           loading={listsQuery.isLoading && lists.length === 0}
-          today={today}
           onAdd={openAdd}
           onAddWithName={openAddWithName}
         />
@@ -296,13 +292,17 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
             </p>
           ) : null}
 
-          {cut === null && !datedLoading
-            ? sections.map((section) => {
+          {/* The top gap belongs to this whole block, not to each section: the
+              headers are pinned, and sections separated by a margin hand the
+              top over through a strip that belongs to neither of them. */}
+          {cut === null && !datedLoading ? (
+            <div className="mt-4">
+              {sections.map((section) => {
                 const isExpanded = expanded.has(section.key);
                 const shown = isExpanded ? section.items : section.items.slice(0, SECTION_LIMIT);
                 const hidden = section.items.length - shown.length;
                 return (
-                  <section key={section.key} className="mt-4">
+                  <section key={section.key}>
                     {/* Counts what is still OUTSTANDING, not what is drawn: a
                         row ticked during this visit stays on screen for undo,
                         and counting it would put this number one above the tile
@@ -312,39 +312,48 @@ export function TasksIndexScreen({ tab, onTabChange, cut, onCutChange }: TasksIn
                         day={section.day}
                         today={today}
                         tomorrow={tomorrow}
-                        count={openCount(section.items)}
+                        count={outstandingCount(section.items, byKey, personIds)}
+                        sticky
                       />
                     ) : (
                       <SectionHeading
-                        count={openCount(section.items)}
+                        count={outstandingCount(section.items, byKey, personIds)}
                         tone={section.late ? "neg" : "default"}
+                        sticky
                       >
                         {section.label}
                       </SectionHeading>
                     )}
-                    <div className="mt-1.5 space-y-1.5">
-                      {shown.map((item) => (
-                        <TaskRow
-                          key={agendaItemKey(item)}
-                          item={item}
-                          onClick={() => setOpenTask(item)}
-                          dateLabel={section.late ? formatDate(item.date) : undefined}
-                        />
-                      ))}
+                    {/* The gap to the next section is the CONTENT's padding,
+                        never the section's: a sticky header stops at its
+                        containing block's content box, so padding on the
+                        section would unpin it early. */}
+                    <div className="pb-4">
+                      <div className="space-y-1.5">
+                        {shown.map((item) => (
+                          <TaskRow
+                            key={agendaItemKey(item)}
+                            item={item}
+                            onClick={() => setOpenTask(item)}
+                            dateLabel={section.late ? formatDate(item.date) : undefined}
+                          />
+                        ))}
+                      </div>
+                      {hidden > 0 || isExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(section.key)}
+                          className="mt-1.5 block w-full rounded-lg border border-dashed border-border py-1.5 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                        >
+                          {isExpanded ? "Prikaži manje" : `Prikaži još ${hidden}`}
+                        </button>
+                      ) : null}
                     </div>
-                    {hidden > 0 || isExpanded ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(section.key)}
-                        className="mt-1.5 block w-full rounded-lg border border-dashed border-border py-1.5 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                      >
-                        {isExpanded ? "Prikaži manje" : `Prikaži još ${hidden}`}
-                      </button>
-                    ) : null}
                   </section>
                 );
-              })
-            : null}
+              })}
+            </div>
+          ) : null}
 
           {/* No "Pregled" row down here any more: the tile strip at the top IS
               the four cuts now, and repeating them as chips said the same thing
@@ -388,7 +397,6 @@ function ListsTab({
   scope,
   onScopeChange,
   loading,
-  today,
   onAdd,
   onAddWithName,
 }: {
@@ -399,10 +407,23 @@ function ListsTab({
   scope: ScopeFilter;
   onScopeChange: (next: ScopeFilter) => void;
   loading: boolean;
-  today: string;
   onAdd: () => void;
   onAddWithName: (name: string) => void;
 }) {
+  // Family-wide on purpose, whatever the other tab's rail has selected: a list
+  // is a container and "1 kasni" on it means the list is behind, not that the
+  // person you were looking at is. Same rows the Kasni view renders, so the tile
+  // and that screen can never name different lists.
+  const overdue = useOverdueTasks();
+  const lateByList = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of overdue.items) {
+      if (item.kind !== "task" || !item.task.list_id) continue;
+      map.set(item.task.list_id, (map.get(item.task.list_id) ?? 0) + 1);
+    }
+    return map;
+  }, [overdue.items]);
+
   const groups = grouped
     ? [
         { key: "family", label: "Porodične", items: familyLists },
@@ -452,13 +473,23 @@ function ListsTab({
 
       {!loading && lists.length > 0
         ? groups.map((group) => (
-            <section key={group.key} className="mt-2 first:mt-1">
+            // Same rule as the dated half: the gap is the section's own padding
+            // so the pinned headings hand off with nothing uncovered between.
+            // `first:` only - a gap above the FIRST heading has nothing to hand
+            // off from, while one between sections would be that uncovered strip.
+            <section key={group.key} className="first:pt-1">
               {group.label ? (
-                <SectionHeading count={group.items.length}>{group.label}</SectionHeading>
+                <SectionHeading count={group.items.length} sticky>
+                  {group.label}
+                </SectionHeading>
               ) : null}
-              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5 pb-2">
                 {group.items.map((list) => (
-                  <ListGridCard key={list.id} list={list} today={today} />
+                  <ListGridCard
+                    key={list.id}
+                    list={list}
+                    lateCount={lateByList.get(list.id) ?? 0}
+                  />
                 ))}
               </div>
             </section>

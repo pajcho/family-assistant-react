@@ -442,27 +442,26 @@ export function AgendaUpcomingList({
               <section
                 key={day}
                 id={`agenda-day-${day}`}
-                className="scroll-mt-2 pb-4"
+                className="scroll-mt-2"
                 aria-current={isLinked ? "date" : undefined}
               >
                 {/* Sticky per section: the day you are reading stays named at
                     the top of the list and is pushed out by the next day's
-                    header, so a long scroll never loses its date. Opaque
-                    background (no backdrop-filter - iOS fails to repaint it)
-                    with a small horizontal bleed so rows pass cleanly under. */}
+                    header, so a long scroll never loses its date. */}
                 <AgendaDateHeader
                   day={day}
                   today={today}
                   tomorrow={tomorrow}
                   muted={isEmpty}
                   selected={isLinked}
-                  className={cn(
-                    "sticky top-(--agenda-sticky-top) z-10 -mx-1.5 bg-background px-1.5 pt-1",
-                    isEmpty ? "pb-1" : "pb-2",
-                  )}
+                  sticky
+                  className={cn(isEmpty && "pb-1")}
                 />
                 {isEmpty ? null : (
-                  <ul className="space-y-2.5">
+                  // The day gap belongs to the ROWS, not to the section: padding
+                  // on the section would unpin its header early - see
+                  // `SectionHeading`'s recipe.
+                  <ul className="space-y-2.5 pb-4">
                     {dayItems.map((item) => (
                       <AgendaItemRow
                         key={agendaItemKey(item)}

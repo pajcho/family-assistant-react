@@ -21,6 +21,7 @@ import {
   detailSheetDates,
   isTaskAgendaItem,
   matchesPersonFilter,
+  outstandingCount,
   taskAgendaItem,
   undatedTaskInstance,
   type TaskAgendaItem,
@@ -31,11 +32,13 @@ import { agendaItemKey } from "@/hooks/useAgenda";
 import { useIsWide } from "@/hooks/useIsWide";
 import { useOverdueTasks } from "@/hooks/useOverdueTasks";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
+import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/utils/date";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
+import { isFutureOccurrence } from "@/utils/task";
 
 /**
  * ONE screen for three of the four cross-list views - Kasni, Zakazano and Inbox
@@ -53,16 +56,6 @@ import { shiftIsoByDays } from "@/utils/pickerGrid";
  * from Danas: there the meta line says what KIND of thing a row is, here it says
  * where it lives.
  */
-
-/**
- * How many of a group's rows are still to do - what its heading counts. A row
- * ticked during this visit stays on screen so the tap can be undone, and
- * counting it would leave the heading disagreeing with every other number about
- * the same thing.
- */
-function openCount(items: readonly TaskAgendaItem[]): number {
-  return items.filter((item) => !item.isDone).length;
-}
 
 export type SmartTaskListBodyProps = {
   source: SmartListKey;
@@ -87,9 +80,12 @@ export function SmartTaskListBody({ source, personIds, onClearFilter }: SmartTas
   const navigate = useNavigate();
 
   const { byTask } = useTaskAssignees();
-  const overdue = useOverdueTasks();
+  // Person-aware at the source: with a rail chip on, "late" means late FOR THEM,
+  // which filtering the rows afterwards cannot express - see `useOverdueTasks`.
+  const overdue = useOverdueTasks(personIds);
   const agenda = useTaskAgendaItems({ from: today, to: windowEnd, today });
   const tasksQuery = useTasksList();
+  const { byKey } = useTaskOccurrenceRows();
 
   const [openTask, setOpenTask] = useState<TaskAgendaItem | null>(null);
 
@@ -110,19 +106,26 @@ export function SmartTaskListBody({ source, personIds, onClearFilter }: SmartTas
 
   const selection = useMemo(() => {
     const keep = (item: TaskAgendaItem) => {
-      if (source === "inbox") return item.task.list_id === null;
-      return true;
+      if (source !== "inbox") return true;
+      if (item.task.list_id !== null) return false;
+      // Only what can actually be ticked. The Inbox is a CONTAINER - "what has
+      // no list" - not a schedule, and a daily chore projected across the whole
+      // 90-day window filled it with ninety identical locked rows for one task.
+      // Zakazano keeps them, because there they are the point: that view IS the
+      // calendar of what is coming. See `isFutureOccurrence` for the lock.
+      return !isFutureOccurrence(item.task, item.date, today);
     };
     const pass = (item: TaskAgendaItem) => keep(item) && matchesPersonFilter(item, personIds);
 
     // Kasni is ONLY the overdue block; Zakazano leads with it and then walks the
     // window; the Inbox adds the someday pile, because a task with no date is
-    // still in your inbox.
-    const late = overdue.items.filter(isTaskAgendaItem).filter(pass);
+    // still in your inbox. The overdue rows arrive already narrowed to the rail,
+    // so only the view's own `keep` applies to them.
+    const late = overdue.items.filter(isTaskAgendaItem).filter(keep);
     const dated = source === "late" ? [] : agenda.items.filter(pass);
     const undated = source === "inbox" ? undatedItems.filter(pass) : [];
     return { late, dated, undated };
-  }, [source, personIds, overdue.items, agenda.items, undatedItems]);
+  }, [source, personIds, overdue.items, agenda.items, undatedItems, today]);
 
   // Rows ticked during THIS visit keep their place instead of vanishing under
   // the thumb - see `useTickedHereLinger`. They are folded back into the group
@@ -212,24 +215,28 @@ export function SmartTaskListBody({ source, personIds, onClearFilter }: SmartTas
 
       {!isLoading
         ? groups.map((group) => (
-            <section key={group.key} className="mb-4">
-              {/* Outstanding rows, not drawn rows - see `openCount`. */}
+            // Sections touch, and the gap lives on the row list inside them:
+            // both halves of the sticky handoff rule - see `SectionHeading`.
+            <section key={group.key}>
+              {/* Outstanding rows, not drawn rows - see `outstandingCount`. */}
               {group.day ? (
                 <AgendaDateHeader
                   day={group.day}
                   today={today}
                   tomorrow={tomorrow}
-                  count={openCount(group.items)}
+                  count={outstandingCount(group.items, byKey, personIds)}
+                  sticky
                 />
               ) : (
                 <SectionHeading
-                  count={openCount(group.items)}
+                  count={outstandingCount(group.items, byKey, personIds)}
                   tone={group.late ? "neg" : "default"}
+                  sticky
                 >
                   {group.label}
                 </SectionHeading>
               )}
-              <div className="mt-1.5 space-y-1.5">
+              <div className="space-y-1.5 pb-4">
                 {group.items.map((item) => (
                   <TaskRow
                     key={agendaItemKey(item)}

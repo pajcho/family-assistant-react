@@ -10,7 +10,8 @@ import { useOverdueTasks } from "@/hooks/useOverdueTasks";
  *
  * Exists so `OverdueSection` takes ONE list and stays a dumb renderer. The two
  * sources have different definitions of late (a payment's live occurrence can be
- * rescheduled, a task's due date cannot; a recurring task is never late at all),
+ * rescheduled, a task's due date cannot; a repeating task is late per instance
+ * and collapses several of them into one row),
  * and keeping each rule in its own hook is what stops that nuance leaking into
  * the component.
  *

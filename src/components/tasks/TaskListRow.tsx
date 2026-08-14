@@ -52,6 +52,12 @@ export type TaskListRowProps = {
    */
   canTick?: boolean;
   /**
+   * Why the circle is dead. Without it a tap on a locked circle does nothing at
+   * all and the row never says why - which is the whole complaint the lock
+   * treatment answers.
+   */
+  blockedReason?: string;
+  /**
    * "1/3" for a chore everybody owes their own tick on. The circle can only ever
    * answer for one person, so the count is what says whether the thing as a
    * whole is finished.
@@ -103,6 +109,7 @@ export function TaskListRow({
   duePill,
   assigneeIds,
   canTick = true,
+  blockedReason,
   progress = null,
   timeLabel,
   dragHandle,
@@ -127,6 +134,7 @@ export function TaskListRow({
         name={item.name}
         onToggle={() => onToggle(item)}
         disabled={!canTick}
+        disabledReason={blockedReason}
         dense
       />
       {/* Hit-target scoping: the wrapper owns the flex-1 stretch (with inert

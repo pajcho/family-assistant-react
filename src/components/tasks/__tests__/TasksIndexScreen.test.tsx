@@ -67,6 +67,12 @@ vi.mock("@/hooks/useOverdueTasks", () => ({
   }),
 }));
 
+// The section headings count what is still owed, which for a `per_assignee`
+// chore means asking the occurrence rows per person - see `outstandingCount`.
+vi.mock("@/hooks/useTaskOccurrences", () => ({
+  useTaskOccurrenceRows: () => ({ occurrences: [], byKey: new Map(), isLoading: false }),
+}));
+
 vi.mock("@/components/tasks/taskItems", () => ({
   useSmartListCounts: () => ({ late: 1, scheduled: 2, inbox: 0, done: 4 }),
   useTaskAgendaItems: () => ({

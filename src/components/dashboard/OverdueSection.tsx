@@ -8,9 +8,10 @@ import { srLocale } from "@/utils/date";
 
 /**
  * Everything that is already late, in one block pinned above today - the
- * past-due unpaid payments AND the unfinished one-off tasks, merged and sorted
- * oldest first by `useOverdueItems` (a repeating chore is never late: a missed
- * Tuesday is a missed Tuesday, not a debt that follows you into Wednesday).
+ * past-due unpaid payments AND the unfinished tasks, merged and sorted oldest
+ * first by `useOverdueItems`. A repeating chore appears here as ONE row per
+ * task however many of its instances are behind, dated to the oldest and
+ * carrying a "3 propuštena" pill; `useOverdueTasks` is where that collapse happens.
  *
  * One block rather than two on purpose: "what have I let slip" is a single
  * question, and splitting it by whether the thing costs money buries the shorter
@@ -40,8 +41,15 @@ export function OverdueSection({
     0,
   );
   return (
-    <section>
-      <SectionHeading as="h3" tone="neg" count={items.length} className="mb-2">
+    // This block must TOUCH the day sections below it, or the handoff between
+    // "Prekoračeno" and the first day's header runs through a strip belonging to
+    // no section. `mb-0` is what drops the agenda list's `space-y-5` here
+    // (Tailwind puts it on the child, at zero specificity); the gap itself is
+    // the row list's `pb-5`, inside the section - see `SectionHeading`.
+    <section className="mb-0">
+      {/* Pinned like the day headers below it, by the same shared recipe - what
+          is late stays named while you scroll through it. */}
+      <SectionHeading as="h3" tone="neg" count={items.length} sticky>
         Prekoračeno
         {totalAmount > 0 ? (
           <>
@@ -50,7 +58,7 @@ export function OverdueSection({
           </>
         ) : null}
       </SectionHeading>
-      <ul className="space-y-2.5">
+      <ul className="space-y-2.5 pb-5">
         {items.map((item) => (
           <AgendaItemRow
             key={agendaItemKey(item)}

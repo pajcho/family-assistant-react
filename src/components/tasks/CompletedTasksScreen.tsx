@@ -112,15 +112,19 @@ export function CompletedTasksBody({ personIds, onClearFilter }: CompletedTasksB
 
       {!isLoading
         ? groups.map((group) => (
-            <section key={group.day} className="mb-4">
+            // No margin and no section padding - the day gap is the row list's,
+            // so the pinned header travels the whole section. See
+            // `SectionHeading`'s sticky recipe.
+            <section key={group.day}>
               <AgendaDateHeader
                 day={group.day}
                 today={today}
                 tomorrow={tomorrow}
                 yesterday={yesterday}
                 count={group.items.length}
+                sticky
               />
-              <div className="mt-1.5 space-y-1.5">
+              <div className="space-y-1.5 pb-4">
                 {group.items.map((entry) => (
                   <CompletedRow
                     key={entry.key}

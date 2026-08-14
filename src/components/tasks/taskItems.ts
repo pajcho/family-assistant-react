@@ -2,13 +2,24 @@ import { useMemo } from "react";
 
 import { taskAgendaItem, type TaskAgendaItem } from "@/components/tasks/taskItemModel";
 import { completedEntries } from "@/components/tasks/completedTasks";
-import { COMPLETED_WINDOW_DAYS, type SmartListKey } from "@/components/tasks/smartLists";
+import {
+  COMPLETED_WINDOW_DAYS,
+  SCHEDULED_WINDOW_DAYS,
+  type SmartListKey,
+} from "@/components/tasks/smartLists";
+import { useOverdueTasks } from "@/hooks/useOverdueTasks";
+import { useProfile } from "@/hooks/useProfile";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { useTasksList } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
 import type { Task } from "@/types/database";
-import { expandTaskOccurrences, isRecurringTask, isTaskOverdue } from "@/utils/task";
+import {
+  expandTaskOccurrences,
+  isFutureOccurrence,
+  isHiddenBySkip,
+  isInstanceResolved,
+} from "@/utils/task";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
 
 /**
@@ -30,29 +41,47 @@ const NO_PERSON_FILTER: ReadonlySet<string> = new Set();
 /**
  * How much each cross-list view holds - the sidebar's rows and the index's tiles.
  *
- * The three forward-looking ones count TASKS, not occurrences: a chore that
- * repeats daily is one thing you own, not ninety, and the list rows beside these
- * count tasks too. Cheap by construction - no recurrence expansion at all, just
- * three predicates over rows already in the cache.
+ * Every number here is derived from the SAME rows its own screen renders, which
+ * is the whole point of the hook. Three rules make that true, and each of them
+ * used to be broken in a way somebody could see:
  *
- * Završeno is the exception and counts EVENTS, because that is what its screen
- * shows: five ticks of the same daily chore are five things that happened.
+ *   1. **What is late is `useOverdueTasks`**, not a predicate of its own.
+ *      `isTaskOverdue` answers for a task ROW and is false for every repeat by
+ *      design, so counting with it said "Kasni 3" over a list of 7: the four
+ *      repeating chores with missed days were invisible to the tile and present
+ *      in the list.
+ *   2. **The three forward-looking ones count TASKS with something OUTSTANDING**,
+ *      not tasks that merely exist. A chore that repeats daily is one thing you
+ *      own, not ninety (which is why the unit is tasks), but one whose next three
+ *      months are all ticked, or whose series has ended, owes nothing and must
+ *      not sit in the count. That is also why they need the expansion: "has this
+ *      anything left to do in the window the screen shows" cannot be read off
+ *      the task row.
+ *   3. **`personIds` decides whose answer it is**, not just which rows survive.
+ *      For `per_assignee` work "done" has one answer per person, so a chore Milan
+ *      finished is finished FOR MILAN - `isInstanceResolved` is asked with the
+ *      rail's people, exactly as `useOverdueTasks` and every section heading ask
+ *      it.
  *
- * `personIds` narrows all four to the people the caller's rail has picked. On
- * the index the tiles sit directly under that rail and now swap the body below
- * them, so a tile counting the whole family above rows counting one person is
- * the number and the list disagreeing in plain sight. Each view applies it the
- * way its own screen does: the three forward-looking ones on WHO IT IS FOR,
- * Završeno on WHO TICKED IT.
+ * Završeno is the odd one out in unit: it counts EVENTS, because that is what its
+ * screen shows - five ticks of the same daily chore are five things that
+ * happened - and its rail filters on WHO TICKED IT rather than who owes it.
+ *
+ * The window is `SCHEDULED_WINDOW_DAYS`, the one Zakazano and the Inbox render;
+ * a task dated past it is not in the count because it is not in the list either.
  */
 export function useSmartListCounts(
   personIds: ReadonlySet<string> = NO_PERSON_FILTER,
 ): Record<SmartListKey, number> {
   const tasksQuery = useTasksList();
   const { byTask } = useTaskAssignees();
-  const { occurrences } = useTaskOccurrenceRows();
+  const { occurrences, byKey } = useTaskOccurrenceRows();
   const today = useToday().str;
   const since = shiftIsoByDays(today, -COMPLETED_WINDOW_DAYS) ?? today;
+  const windowEnd = shiftIsoByDays(today, SCHEDULED_WINDOW_DAYS) ?? today;
+  // The same rows the Kasni list renders, for the same people - so the tile and
+  // the heading below it are literally the same number.
+  const overdue = useOverdueTasks(personIds);
 
   const tasks = tasksQuery.data;
 
@@ -66,24 +95,50 @@ export function useSmartListCounts(
   }, [tasks, occurrences, since, personIds]);
 
   return useMemo(() => {
-    let late = 0;
+    // Late tasks are outstanding by definition, and both other views lead with
+    // that same block - so they start from it rather than re-deciding it.
+    const lateTaskIds = new Set<string>();
+    for (const item of overdue.items) {
+      if (item.kind === "task") lateTaskIds.add(item.task.id);
+    }
+
     let scheduled = 0;
     let inbox = 0;
     for (const task of tasks ?? []) {
       // Same rule as `matchesPersonFilter`: an empty selection is everybody, and
       // a task with no assignees belongs to the family, so it drops out the
       // moment a person is picked.
-      if (personIds.size > 0 && !(byTask.get(task.id) ?? []).some((id) => personIds.has(id))) {
+      const assigneeIds = byTask.get(task.id) ?? [];
+      if (personIds.size > 0 && !assigneeIds.some((id) => personIds.has(id))) continue;
+
+      if (!task.due_date) {
+        // The someday pile: no date, so it is only ever an Inbox row.
+        if (!task.is_completed && task.list_id === null) inbox += 1;
         continue;
       }
-      const recurring = isRecurringTask(task);
-      const open = recurring || !task.is_completed;
-      if (isTaskOverdue(task, today)) late += 1;
-      if (open && task.due_date) scheduled += 1;
-      if (open && task.list_id === null) inbox += 1;
+
+      const owedBy =
+        personIds.size === 0 ? assigneeIds : assigneeIds.filter((id) => personIds.has(id));
+      // Two questions, because the two views ask different ones. Zakazano wants
+      // anything unresolved in the window - a repeat's next three months ARE
+      // what it shows. The Inbox only lists what can be ticked right now (a
+      // future occurrence is locked), so counting a chore whose only unresolved
+      // instances are locked would put a 1 on a tile over rows that are all
+      // settled. `lateTaskIds` satisfies both: a debt is owed and tickable.
+      let scheduledHere = lateTaskIds.has(task.id);
+      let inboxHere = lateTaskIds.has(task.id);
+      for (const instance of expandTaskOccurrences(task, today, windowEnd, byKey)) {
+        if (isInstanceResolved(task, instance, owedBy, byKey)) continue;
+        scheduledHere = true;
+        if (!isFutureOccurrence(task, instance.effectiveDate, today)) inboxHere = true;
+        if (scheduledHere && inboxHere) break;
+      }
+
+      if (scheduledHere) scheduled += 1;
+      if (inboxHere && task.list_id === null) inbox += 1;
     }
-    return { late, scheduled, inbox, done };
-  }, [tasks, byTask, personIds, today, done]);
+    return { late: overdue.items.length, scheduled, inbox, done };
+  }, [tasks, byTask, byKey, personIds, today, windowEnd, overdue.items, done]);
 }
 
 export interface UseTaskAgendaItemsOptions {
@@ -121,7 +176,8 @@ export interface UseTaskAgendaItemsResult {
  *
  * Skipped instances are dropped and done ones kept, the same two rules
  * `useAgenda` applies: a row must not vanish from under the thumb the moment it
- * is ticked.
+ * is ticked. The one exception is a skipped day this viewer had already finished
+ * their part of, which stays struck through - see `isHiddenBySkip`.
  */
 export function useTaskAgendaItems({
   from,
@@ -131,6 +187,8 @@ export function useTaskAgendaItems({
   const tasksQuery = useTasksList();
   const { byTask } = useTaskAssignees();
   const { byKey } = useTaskOccurrenceRows();
+  // Only for the skipped-but-mine exception; see `isHiddenBySkip`.
+  const viewerPersonId = useProfile().profile?.id ?? null;
 
   const tasks = tasksQuery.data;
 
@@ -146,7 +204,7 @@ export function useTaskAgendaItems({
       }
       const assigneeIds = byTask.get(task.id) ?? [];
       for (const instance of expandTaskOccurrences(task, from, to, byKey)) {
-        if (instance.isSkipped) continue;
+        if (isHiddenBySkip(task, instance, byKey, viewerPersonId)) continue;
         out.push(taskAgendaItem(task, instance, assigneeIds, today));
       }
     }
@@ -154,7 +212,7 @@ export function useTaskAgendaItems({
     // Most recently ticked first - the done pile is read newest-down.
     somedayDone.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
     return { items: out, undated: someday, undatedDone: somedayDone };
-  }, [tasks, byTask, byKey, from, to, today]);
+  }, [tasks, byTask, byKey, viewerPersonId, from, to, today]);
 
   return { items, undated, undatedDone, isLoading: tasksQuery.isLoading };
 }

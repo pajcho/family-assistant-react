@@ -81,7 +81,13 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
       setStickyOffset(0);
       return;
     }
-    const measure = () => setStickyOffset(stickyBox.offsetHeight);
+    // Measured fractionally and rounded DOWN. `offsetHeight` rounds to the
+    // nearest integer, and a box that is really 94.5px tall reported 95 - so
+    // every sticky header below parked half a pixel BELOW the strip's bottom
+    // edge and the rows scrolling past showed through the seam (a full hairline
+    // at 2x). Flooring parks them half a pixel high instead, under a strip that
+    // outranks them (z-30 over z-10), where the overlap cannot be seen.
+    const measure = () => setStickyOffset(Math.floor(stickyBox.getBoundingClientRect().height));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(stickyBox);

@@ -819,6 +819,14 @@ export interface TaskOccurrence {
   moved_to_date: string | null;
   completed_at: string | null;
   completed_by_person_id: string | null;
+  /**
+   * Who put this occurrence into its CURRENT state, and when - the one stamp
+   * that also covers skipping and moving, which `completed_*` never did.
+   * Written by a trigger, never by the client. Superseded states are not kept:
+   * a slot that was skipped, restored and skipped again reads as one skip.
+   */
+  acted_by_person_id: string | null;
+  acted_at: string | null;
   note: string | null;
   created_at: string;
   updated_at: string;

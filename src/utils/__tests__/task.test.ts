@@ -3,10 +3,13 @@ import { describe, expect, it } from "vitest";
 import type { Task, TaskOccurrence } from "@/types/database";
 import {
   expandTaskOccurrences,
+  isFutureOccurrence,
+  isHiddenBySkip,
   isMissedOccurrence,
   isRecurringTask,
   isTaskDoneOn,
   isTaskOverdue,
+  lateOccurrences,
   taskOccurrenceKey,
   taskRecurrenceLabel,
 } from "@/utils/task";
@@ -73,6 +76,8 @@ function makeOccurrence(overrides: Partial<TaskOccurrence> = {}): TaskOccurrence
     moved_to_date: null,
     completed_at: "2026-08-10T09:00:00Z",
     completed_by_person_id: "p1",
+    acted_by_person_id: null,
+    acted_at: null,
     note: null,
     created_at: "2026-08-10T09:00:00Z",
     updated_at: "2026-08-10T09:00:00Z",
@@ -857,12 +862,198 @@ describe("isTaskOverdue", () => {
   });
 
   it("is false for a repeating task, whatever its anchor says", () => {
-    // Decision 6: one-offs carry over, repeats do not. A missed Tuesday chore is
-    // a missed Tuesday, not a debt that follows you into Wednesday.
+    // A series has no single deadline to have missed, so this row-level question
+    // stays false for it. Its instances are late one at a time, which is
+    // `lateOccurrences` below.
     const daily = makeTask({ recurrence_period: "daily", due_date: "2026-01-01" });
     const weekly = makeTask({ recurrence_period: "weekly", due_date: "2026-01-01" });
     expect(isTaskOverdue(daily, today)).toBe(false);
     expect(isTaskOverdue(weekly, today)).toBe(false);
+  });
+});
+
+describe("isFutureOccurrence", () => {
+  const today = "2026-08-14";
+  const repeat = makeTask({ recurrence_period: "daily", due_date: "2026-08-10" });
+
+  it("is true only past today, for a repeat", () => {
+    expect(isFutureOccurrence(repeat, "2026-08-15", today)).toBe(true);
+    expect(isFutureOccurrence(repeat, "2026-08-14", today)).toBe(false);
+    expect(isFutureOccurrence(repeat, "2026-08-13", today)).toBe(false);
+  });
+
+  it("is false for a one-off, whose due date is a deadline and not an appointment", () => {
+    // Paying a bill or buying the milk before it is due is normal; doing
+    // tomorrow's dishes today is not.
+    const oneOff = makeTask({ recurrence_period: "one-time", due_date: "2026-08-20" });
+    expect(isFutureOccurrence(oneOff, "2026-08-20", today)).toBe(false);
+    expect(isFutureOccurrence({ recurrence_period: null }, "2026-08-20", today)).toBe(false);
+  });
+});
+
+describe("isHiddenBySkip", () => {
+  // No `today` here on purpose: this rule is about who owns a skipped day, not
+  // about when it falls.
+  const chore = makeTask({
+    recurrence_period: "daily",
+    due_date: "2026-08-12",
+    completion_mode: "per_assignee",
+  });
+
+  function instanceOn(date: string, map: Map<string, TaskOccurrence[]>) {
+    const found = expandTaskOccurrences(chore, "2026-08-01", "2026-08-31", map).find(
+      (i) => i.occurrenceDate === date,
+    );
+    if (!found) throw new Error(`no instance on ${date}`);
+    return found;
+  }
+
+  const skippedOn = (date: string, ...rest: TaskOccurrence[]) =>
+    byKey(makeOccurrence({ occurrence_date: date, status: "skipped" }), ...rest);
+
+  it("leaves an unskipped instance alone, whoever is asking", () => {
+    const instance = instanceOn("2026-08-13", NO_OCCURRENCES);
+    expect(isHiddenBySkip(chore, instance, NO_OCCURRENCES, "p1")).toBe(false);
+    expect(isHiddenBySkip(chore, instance, NO_OCCURRENCES, null)).toBe(false);
+  });
+
+  it("hides a skipped instance from somebody who had not done it", () => {
+    const map = skippedOn("2026-08-13");
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p2")).toBe(true);
+  });
+
+  it("keeps it for somebody who had already finished their own part", () => {
+    // The day was called off for the rest; their work is not undone by that, and
+    // the skip confirmation promises exactly this.
+    const map = skippedOn(
+      "2026-08-13",
+      makeOccurrence({
+        id: "o2",
+        occurrence_date: "2026-08-13",
+        person_id: "p1",
+        status: "done",
+      }),
+    );
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p1")).toBe(false);
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, "p2")).toBe(true);
+  });
+
+  it("hides it from a viewer with no identity at all", () => {
+    const map = skippedOn("2026-08-13");
+    expect(isHiddenBySkip(chore, instanceOn("2026-08-13", map), map, null)).toBe(true);
+  });
+
+  it("hides a skipped SHARED day from everybody", () => {
+    // There is one answer under `shared` and the skip overwrote it, so nobody
+    // has a finished part to keep. (A finished shared day cannot be skipped at
+    // all - the action is withdrawn.)
+    const shared = makeTask({ recurrence_period: "daily", due_date: "2026-08-12" });
+    const map = byKey(makeOccurrence({ occurrence_date: "2026-08-13", status: "skipped" }));
+    const instance = expandTaskOccurrences(shared, "2026-08-01", "2026-08-31", map).find(
+      (i) => i.occurrenceDate === "2026-08-13",
+    );
+    expect(isHiddenBySkip(shared, instance as never, map, "p1")).toBe(true);
+  });
+});
+
+describe("lateOccurrences", () => {
+  const today = "2026-08-14";
+  const daily = makeTask({ recurrence_period: "daily", due_date: "2026-08-11" });
+
+  const dates = (instances: { effectiveDate: string }[]) => instances.map((i) => i.effectiveDate);
+
+  it("returns every unresolved past instance, oldest first", () => {
+    expect(dates(lateOccurrences(daily, today, NO_OCCURRENCES))).toEqual([
+      "2026-08-11",
+      "2026-08-12",
+      "2026-08-13",
+    ]);
+  });
+
+  it("never includes today or the future", () => {
+    const late = lateOccurrences(daily, today, NO_OCCURRENCES);
+    expect(late.every((instance) => instance.effectiveDate < today)).toBe(true);
+  });
+
+  it("drops the instances that were done or skipped", () => {
+    const map = byKey(
+      makeOccurrence({ occurrence_date: "2026-08-11", status: "done" }),
+      makeOccurrence({ occurrence_date: "2026-08-12", status: "skipped" }),
+    );
+    expect(dates(lateOccurrences(daily, today, map))).toEqual(["2026-08-13"]);
+  });
+
+  it("is empty for a task that does not repeat", () => {
+    const oneOff = makeTask({ recurrence_period: "one-time", due_date: "2026-08-01" });
+    // That one is `isTaskOverdue`; counted by both, it would be told off twice.
+    expect(lateOccurrences(oneOff, today, NO_OCCURRENCES)).toEqual([]);
+  });
+
+  it("judges a moved instance by where it landed", () => {
+    const forward = byKey(
+      makeOccurrence({
+        occurrence_date: "2026-08-11",
+        status: "moved",
+        moved_to_date: "2026-08-20",
+      }),
+    );
+    // Moved out of the past: not late, it is deliberately in the future.
+    expect(dates(lateOccurrences(daily, today, forward))).toEqual(["2026-08-12", "2026-08-13"]);
+
+    const backward = byKey(
+      makeOccurrence({
+        occurrence_date: "2026-08-13",
+        status: "moved",
+        moved_to_date: "2026-08-12",
+      }),
+    );
+    // Two instances land on the 12th, and both are owed.
+    expect(dates(lateOccurrences(daily, today, backward))).toEqual([
+      "2026-08-11",
+      "2026-08-12",
+      "2026-08-12",
+    ]);
+  });
+
+  it("stops at the lookback bound instead of walking the whole series", () => {
+    const old = makeTask({ recurrence_period: "daily", due_date: "2024-01-01" });
+    const late = lateOccurrences(old, today, NO_OCCURRENCES);
+    expect(late).toHaveLength(30);
+    expect(late[0].effectiveDate).toBe("2026-07-15");
+  });
+
+  it("respects an ended series", () => {
+    const ended = makeTask({
+      recurrence_period: "daily",
+      due_date: "2026-08-11",
+      recurrence_until: "2026-08-12",
+    });
+    expect(dates(lateOccurrences(ended, today, NO_OCCURRENCES))).toEqual([
+      "2026-08-11",
+      "2026-08-12",
+    ]);
+  });
+
+  it("counts a per_assignee chore as owed until EVERY assignee has ticked", () => {
+    // `instance.isDone` is always false for this mode - whole-occurrence
+    // completion is not a fact it has - so without the per-person re-resolution
+    // a chore all three finished would be reported late forever.
+    const chore = makeTask({
+      recurrence_period: "daily",
+      due_date: "2026-08-13",
+      completion_mode: "per_assignee",
+    });
+    const assignees = ["p1", "p2"];
+    const oneDone = byKey(
+      makeOccurrence({ occurrence_date: "2026-08-13", person_id: "p1", status: "done" }),
+    );
+    expect(dates(lateOccurrences(chore, today, oneDone, assignees))).toEqual(["2026-08-13"]);
+
+    const bothDone = byKey(
+      makeOccurrence({ occurrence_date: "2026-08-13", person_id: "p1", status: "done" }),
+      makeOccurrence({ occurrence_date: "2026-08-13", person_id: "p2", status: "done" }),
+    );
+    expect(lateOccurrences(chore, today, bothDone, assignees)).toEqual([]);
   });
 });
 

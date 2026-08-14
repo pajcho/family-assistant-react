@@ -33,10 +33,10 @@ import { useDeleteTask, useReorderTasks, useToggleTask, useUpdateTask } from "@/
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
-import { srLocale } from "@/utils/date";
+import { formatDate, srLocale } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
-import { isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
+import { isFutureOccurrence, isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
 import type { Task, ListWithTasks } from "@/types/database";
 
 /**
@@ -63,6 +63,8 @@ type ResolvedTask = {
   personId: string | null;
   /** False for somebody the task was not given to - see `taskTickSlot`. */
   canTick: boolean;
+  /** Why the circle is dead, shown on the tap that would otherwise do nothing. */
+  blockedReason: string | undefined;
   /** "1/2" for a `per_assignee` chore this viewer is not on; null otherwise. */
   progress: { done: number; total: number } | null;
 };
@@ -156,6 +158,7 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
         const own = slot.aggregate
           ? progress !== null && progress.done === progress.total
           : isTaskDoneOn(task, seriesDate, byKey, slot.personId);
+        const notYetDue = isFutureOccurrence(task, instance?.effectiveDate ?? today, today);
         return {
           task,
           occurrenceDate,
@@ -169,7 +172,15 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
           rowDone: progress ? progress.done === progress.total : own,
           assigneeIds,
           personId: slot.personId,
-          canTick: slot.canTick,
+          // Inside a list a repeat shows the NEXT instance, which can easily be
+          // days out (a weekly chore seen on Wednesday). That one is not
+          // finishable here either - same rule as every agenda circle.
+          canTick: slot.canTick && !notYetDue,
+          blockedReason: notYetDue
+            ? `Još nije na redu - može se završiti ${formatDate(instance?.effectiveDate ?? today)}.`
+            : slot.canTick
+              ? undefined
+              : "Ovo mogu da završe samo oni kojima je zadatak dodeljen.",
           progress,
         };
       }),
@@ -246,6 +257,7 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
   // day and how late it is IS the point.
   const rowProps = (row: ResolvedTask): TaskListRowProps => ({
     canTick: row.canTick,
+    blockedReason: row.blockedReason,
     progress: row.progress,
     item: row.task,
     done: row.done,
@@ -527,6 +539,12 @@ function GroupedRows({
   }, [rows, grouping, today, byId]);
 
   return (
+    // NOT sticky, unlike every other grouped list in the app: these rows live
+    // inside a rounded `overflow-hidden` card, which makes that card the
+    // scrollport a sticky child would pin against - and it never scrolls, so the
+    // header would ride away with the group anyway while painting a band of the
+    // page background across a white card. Un-clipping the card to fix that
+    // would cost it its rounded corners under the swipe layer.
     <div className="space-y-2">
       {groups.map((group) => (
         <div key={group.key}>

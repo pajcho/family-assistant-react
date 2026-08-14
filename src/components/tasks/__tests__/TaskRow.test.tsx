@@ -40,6 +40,24 @@ vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: viewerId ? { id: viewerId } : null, familyId: "f1" }),
 }));
 
+// Pinned, not stubbed out: the row now asks whether an instance has come due
+// yet, and a test whose answer depends on the machine's clock would start
+// failing on its own one morning.
+const TODAY = "2026-08-14";
+vi.mock("@/hooks/useToday", () => ({
+  useToday: () => ({ str: TODAY, date: new Date(`${TODAY}T12:00:00`) }),
+}));
+
+// A locked circle explains itself through a toast, so the toast is the
+// assertion surface for "the app said why".
+const toastMessages: string[] = [];
+vi.mock("sonner", () => ({
+  toast: Object.assign((message: string) => toastMessages.push(message), {
+    success: (message: string) => toastMessages.push(message),
+    error: (message: string) => toastMessages.push(message),
+  }),
+}));
+
 // Rendered as a marker so the assignee assertions can see it without dragging
 // the roster query (and the Supabase client) into the run.
 vi.mock("@/components/common/MemberBadges", () => ({
@@ -98,6 +116,22 @@ function renderRow(item: TaskAgendaItem, props: { showTime?: boolean } = {}) {
   return { onClick };
 }
 
+/**
+ * Whether the circle refuses a tap. Two mechanisms, one meaning: a plain
+ * `disabled` when there is nothing to say, and `aria-disabled` when there IS a
+ * reason - a truly disabled input cannot be focused and fires no events, so it
+ * could never deliver one.
+ */
+function circleIsLocked(): boolean {
+  const box = screen.getByRole("checkbox") as HTMLInputElement;
+  return box.disabled || box.getAttribute("aria-disabled") === "true";
+}
+
+/** What a finger actually hits: the padded label around the sr-only input. */
+function clickCircleArea(): void {
+  (screen.getByRole("checkbox").closest("label") as HTMLElement).click();
+}
+
 /** The row's own tap target - the circle is a checkbox, never a button. */
 function rowButton(): HTMLElement {
   return screen.getByRole("button");
@@ -108,6 +142,7 @@ beforeEach(() => {
   occurrences = [];
   lists = [];
   viewerId = "parent-1";
+  toastMessages.length = 0;
 });
 
 describe("TaskRow markup", () => {
@@ -180,6 +215,107 @@ describe("TaskRow completion circle", () => {
       expect.objectContaining({ done: false, personId: null }),
     );
   });
+
+  it("refuses a repeat that has not come due yet", () => {
+    // The reported mess: a daily chore drew a live circle on every visible day
+    // of the week strip, and each one wrote a real `done` row for a day nobody
+    // had lived through yet.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: "2026-08-15", occurrenceDate: "2026-08-15" }));
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
+    expect(toggleMutate).not.toHaveBeenCalled();
+  });
+
+  it("says WHY a locked circle is locked, instead of just swallowing the tap", () => {
+    // A dead circle that looks exactly like a live one is the whole complaint:
+    // you tap, nothing happens, and no screen tells you what the rule is.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: "2026-08-16", occurrenceDate: "2026-08-16" }));
+    expect(
+      screen.getByLabelText('„Izbaci smeće": Još nije na redu - može se završiti 16.08.2026.'),
+    ).toBeInTheDocument();
+    // The finger lands on the padded label, not on the sr-only input - and a
+    // disabled input fires no click at all, which is exactly why the handler
+    // hangs off the label.
+    clickCircleArea();
+    expect(toastMessages).toContain("Još nije na redu - može se završiti 16.08.2026.");
+  });
+
+  it("gives the other locked case its own reason", () => {
+    // Assigned to two other people under `shared`, so this viewer may not close
+    // it for them - a different rule, and one the date reason must not mask.
+    viewerId = "parent-1";
+    const theirs = { ...baseTask, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: theirs, assigneeIds: ["kid-1", "kid-2"] }));
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
+    expect(toastMessages.join("|")).toContain("samo oni kojima je zadatak dodeljen");
+  });
+
+  it("still ticks today's instance of that same chore", () => {
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: TODAY, occurrenceDate: TODAY }));
+    expect(circleIsLocked()).toBe(false);
+    screen.getByRole("checkbox").click();
+    expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ date: TODAY, done: true }));
+  });
+
+  it("leaves a one-off alone - finishing that early is normal", () => {
+    // A deadline, not an appointment: paying a bill or buying the milk before it
+    // is due is exactly what people do.
+    renderRow(
+      taskItem({
+        task: { ...baseTask, due_date: "2026-08-20" },
+        date: "2026-08-20",
+        occurrenceDate: "2026-08-20",
+      }),
+    );
+    expect(circleIsLocked()).toBe(false);
+  });
+
+  it("keeps a skipped day the viewer had finished, struck and labelled", () => {
+    // The promise the skip confirmation makes: the rest of the day is called
+    // off, their own work is not. It must not read as an ordinary completion,
+    // hence the pill - otherwise they wonder where everybody else went.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-13", occurrenceDate: "2026-08-13", skipped: true }),
+    );
+    expect(screen.getByText("preskočeno")).toBeInTheDocument();
+    expect(screen.getByText("Izbaci smeće")).toHaveClass("line-through");
+    // And it is settled: the circle no longer invites a change.
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
+    expect(toggleMutate).not.toHaveBeenCalled();
+    expect(toastMessages.join("|")).toContain("preskočen");
+  });
+
+  it("says how many instances of a series an overdue row stands for", () => {
+    // Occurrences, not days - and the label has to say which, because the row
+    // carries a date right beside it and a bare number reads as days from it.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-11", occurrenceDate: "2026-08-11", lateCount: 3 }),
+    );
+    expect(screen.getByText("3 propuštena")).toBeInTheDocument();
+  });
+
+  it("agrees with the count past the paucal", () => {
+    const weekly = { ...baseTask, recurrence_period: "weekly" as const, due_date: "2026-06-15" };
+    renderRow(
+      taskItem({ task: weekly, date: "2026-06-15", occurrenceDate: "2026-06-15", lateCount: 5 }),
+    );
+    expect(screen.getByText("5 propuštenih")).toBeInTheDocument();
+  });
+
+  it("does not count out loud when the row stands for exactly one instance", () => {
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-13", occurrenceDate: "2026-08-13", lateCount: 1 }),
+    );
+    expect(screen.queryByText(/propušten/)).toBeNull();
+  });
 });
 
 describe("TaskRow per-assignee completion", () => {
@@ -194,7 +330,7 @@ describe("TaskRow per-assignee completion", () => {
     // meaning - the row counts the answers instead of pretending to be one.
     renderRow(taskItem({ task: perAssignee, assigneeIds: ["kid-1", "kid-2"] }));
     const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(true);
+    expect(circleIsLocked()).toBe(true);
     expect(screen.getByText("0/2")).toBeVisible();
     box.click();
     expect(toggleMutate).not.toHaveBeenCalled();
@@ -214,6 +350,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "parent-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
@@ -247,6 +385,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "parent-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
@@ -268,6 +408,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "kid-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
@@ -282,7 +424,7 @@ describe("TaskRow per-assignee completion", () => {
     const shared: Task = { ...baseTask, completion_mode: "shared" };
     renderRow(taskItem({ task: shared, assigneeIds: ["kid-1"] }));
     const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(false);
+    expect(circleIsLocked()).toBe(false);
     box.click();
     expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ personId: null }));
   });
@@ -290,9 +432,8 @@ describe("TaskRow per-assignee completion", () => {
   it("will not let a bystander finish a shared chore split between several", () => {
     const shared: Task = { ...baseTask, completion_mode: "shared" };
     renderRow(taskItem({ task: shared, assigneeIds: ["kid-1", "kid-2"] }));
-    const box = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(box.disabled).toBe(true);
-    box.click();
+    expect(circleIsLocked()).toBe(true);
+    clickCircleArea();
     expect(toggleMutate).not.toHaveBeenCalled();
   });
 });

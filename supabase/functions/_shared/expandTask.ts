@@ -201,19 +201,87 @@ export function isTaskDoneOn(
   return rows.some((r) => r.person_id == null && r.status === "done");
 }
 
-/** Unfinished, non-recurring, and its due date already passed. */
+/**
+ * Unfinished, non-recurring, and its due date already passed.
+ *
+ * Answers for a task ROW, so a series is never overdue here - it has no single
+ * deadline to have missed. Lateness for a repeat is per instance and is
+ * {@link lateOccurrences}.
+ */
 export function isTaskOverdue(task: TaskSeries, today: string): boolean {
   if (task.is_completed || isRecurringTask(task)) return false;
   return task.due_date != null && task.due_date < today;
 }
 
 /**
- * A past instance nobody resolved - shown struck through, never carried over.
- * Asked of recurring instances only; a one-off that slipped is `isTaskOverdue`,
- * which is a different treatment (it carries over into the overdue block).
+ * A past instance nobody resolved. Asked of recurring instances only; a one-off
+ * that slipped is `isTaskOverdue`, which is a different treatment.
  */
 export function isMissedOccurrence(instance: TaskOccurrenceInstance, today: string): boolean {
   return instance.effectiveDate < today && !instance.isDone && !instance.isSkipped;
+}
+
+/** How far back unfinished instances of a repeat are still carried as debt. */
+export const LATE_LOOKBACK_DAYS = 30;
+
+/**
+ * This instance has not come due yet, so it cannot be finished from a list.
+ * Recurring only: a one-off's due date is a deadline (finishing early is
+ * normal), a repeat's occurrence date is an appointment.
+ */
+export function isFutureOccurrence(
+  task: Pick<TaskSeries, "recurrence_period">,
+  effectiveDate: string,
+  today: string,
+): boolean {
+  return isRecurringTask(task) && effectiveDate > today;
+}
+
+/**
+ * Whether an instance has been dealt with, for the purpose of owing it.
+ * `isDone` is whole-occurrence completion and is always false for a
+ * `per_assignee` chore, so that shape is re-resolved per person: everybody it
+ * was given to has ticked their own copy.
+ */
+function isInstanceResolved(
+  task: TaskSeries,
+  instance: TaskOccurrenceInstance,
+  assigneeIds: readonly string[],
+  occurrencesByKey: Map<string, TaskOccurrenceRecord[]>,
+): boolean {
+  if (instance.isDone || instance.isSkipped) return true;
+  if (task.completion_mode !== "per_assignee" || assigneeIds.length === 0) return false;
+  return assigneeIds.every((personId) =>
+    isTaskDoneOn(task, instance.occurrenceDate, occurrencesByKey, personId),
+  );
+}
+
+/**
+ * The unresolved past instances of one repeating series, oldest first - the debt
+ * the overdue block carries. Bounded by {@link LATE_LOOKBACK_DAYS} rather than by
+ * the series' own start, and judged on `effectiveDate` throughout, so an instance
+ * moved forward into next week is not late and one moved back into last week is.
+ *
+ * Mirrors `lateOccurrences` in src/utils/task.ts; expandTask.parity.test.ts
+ * fails if the two ever disagree.
+ */
+export function lateOccurrences(
+  task: TaskSeries,
+  today: string,
+  occurrencesByKey: Map<string, TaskOccurrenceRecord[]>,
+  assigneeIds: readonly string[] = [],
+  lookbackDays: number = LATE_LOOKBACK_DAYS,
+): TaskOccurrenceInstance[] {
+  if (!isRecurringTask(task)) return [];
+  const from = addIsoDays(today, -Math.max(1, lookbackDays));
+  const to = addIsoDays(today, -1);
+  return expandTaskOccurrences(task, from, to, occurrencesByKey)
+    .filter(
+      (instance) =>
+        isMissedOccurrence(instance, today) &&
+        !isInstanceResolved(task, instance, assigneeIds, occurrencesByKey),
+    )
+    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 }
 
 // ---------------------------------------------------------------------------

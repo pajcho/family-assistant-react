@@ -145,7 +145,7 @@ function useUpsertOccurrenceOverride<TInput extends { taskId: string; occurrence
   build: (input: TInput) => Pick<TaskOccurrence, "status" | "moved_to_date">,
   errorMessage: string,
 ) {
-  const { familyId } = useProfile();
+  const { familyId, profile } = useProfile();
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, TInput, OccurrenceRollback>({
@@ -185,6 +185,11 @@ function useUpsertOccurrenceOverride<TInput extends { taskId: string; occurrence
           moved_to_date,
           completed_at: null,
           completed_by_person_id: null,
+          // What the trigger will stamp server-side. Guessed here rather than
+          // left null so the history sub-view names the person immediately
+          // instead of showing an unattributed row for one refetch.
+          acted_by_person_id: profile?.id ?? null,
+          acted_at: nowIso,
           note: null,
           created_at: nowIso,
           updated_at: nowIso,

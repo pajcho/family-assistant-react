@@ -13,7 +13,12 @@ import { normalizeTime, resolveBlocksInRange, type ResolvedActivityBlock } from 
 import { expandBirthdayOccurrences } from "@/utils/birthday";
 import { eventDaySlices } from "@/utils/event";
 import { expandPaymentOccurrences } from "@/utils/payment";
-import { expandTaskOccurrences, isMissedOccurrence, isRecurringTask } from "@/utils/task";
+import {
+  expandTaskOccurrences,
+  isHiddenBySkip,
+  isMissedOccurrence,
+  isRecurringTask,
+} from "@/utils/task";
 import { useActivities } from "@/hooks/useActivities";
 import { useActivityOverrides } from "@/hooks/useActivityOverrides";
 import { useActivityParticipants } from "@/hooks/useActivityParticipants";
@@ -27,6 +32,7 @@ import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
 import { usePaymentsList } from "@/hooks/usePayments";
+import { useProfile } from "@/hooks/useProfile";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
@@ -122,6 +128,20 @@ export type AgendaItem =
       isDone: boolean;
       /** A past recurring instance nobody resolved. See the arm's note below. */
       missed: boolean;
+      /**
+       * How many unresolved instances of this SERIES the row stands for, set
+       * only by `useOverdueTasks`: the overdue block shows one row per task, not
+       * one per late day, so a chore missed three times is one row reading
+       * "3 propuštena" and dated to the oldest of them. Absent everywhere else, where
+       * a row is always exactly one instance.
+       */
+      lateCount?: number;
+      /**
+       * This instance was skipped and is shown anyway, because this viewer had
+       * already finished their own part of it. Renders ticked and struck with a
+       * "preskočeno" pill - see `isHiddenBySkip`.
+       */
+      skipped?: boolean;
     }
   | {
       kind: "payment";
@@ -237,6 +257,9 @@ export function useAgenda({
   // payments', and the occurrence rows are the sparse override table.
   const tasksQuery = useTasksList();
   const { byKey: taskOccurrencesByKey } = useTaskOccurrenceRows();
+  // Only used to decide whether a SKIPPED instance still belongs to this viewer
+  // (they had already done their part); everything else here is family-wide.
+  const viewerPersonId = useProfile().profile?.id ?? null;
   const { byTask } = useTaskAssignees();
   // A past instance is "propušteno" only relative to today, and today has to
   // come from the shared store - a memo that read `new Date()` would keep
@@ -336,10 +359,12 @@ export function useAgenda({
       const dueTime = task.due_time ? normalizeTime(task.due_time) : null;
       const recurring = isRecurringTask(task);
       for (const instance of expandTaskOccurrences(task, from, to, taskOccurrencesByKey)) {
-        // A skip is a decision, so the row goes. A DONE one stays, flagged, and
+        // A skip is a decision, so the row goes - unless this viewer had already
+        // done their part of it, in which case their work stays on the board,
+        // struck through (`isHiddenBySkip`). A DONE one stays too, flagged, and
         // renders ticked: making it vanish the instant it is tapped pulls the
         // list out from under the thumb that just tapped it.
-        if (instance.isSkipped) continue;
+        if (isHiddenBySkip(task, instance, taskOccurrencesByKey, viewerPersonId)) continue;
         out.push({
           kind: "task",
           date: instance.effectiveDate,
@@ -355,6 +380,9 @@ export function useAgenda({
           // see struck through on its own day, while a one-off that slipped is
           // carried forward by `useOverdueTasks` and would otherwise be told off
           // twice for the same thing.
+          // Reached only through the exception above: skipped, but this viewer
+          // had finished their part, so the row is theirs to keep.
+          skipped: instance.isSkipped,
           missed: recurring && isMissedOccurrence(instance, today),
         });
       }
@@ -408,6 +436,7 @@ export function useAgenda({
     birthdaysQuery.data,
     tasksQuery.data,
     taskOccurrencesByKey,
+    viewerPersonId,
     byTask,
     today,
   ]);
