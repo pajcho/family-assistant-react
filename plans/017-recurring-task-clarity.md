@@ -472,6 +472,7 @@ alone.
     Serbian agreement in the same pass: the "all" variant runs its count through
     `serbianPlural` for the noun and for the verb, because "2 zaostalih
     ponavljanja otpada" is not something a person would say.
+
 13. **A move onto its own date is not reported as a move.** Moving an occurrence
     and moving it back leaves a row whose `moved_to_date` equals its
     `occurrence_date`; the history read "15.08.2026 - Pomereno na 15.08.2026".
