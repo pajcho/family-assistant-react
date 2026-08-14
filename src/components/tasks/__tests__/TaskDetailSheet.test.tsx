@@ -26,6 +26,10 @@ vi.mock("@/hooks/useTaskOccurrences", () => ({
   useTaskOccurrenceRows: () => ({ byKey: new Map(), occurrences: [], isLoading: false }),
 }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: () => ({ profile: null, familyId: null }) }));
+// `AuditTimeline` reaches Supabase through `useAuditLog`, and CI has no
+// VITE_SUPABASE_* - stubbing the module cuts that chain in one line, the same
+// way the assignee picker below is cut. See plans/018-audit-log.md.
+vi.mock("@/components/common/AuditTimeline", () => ({ AuditTimeline: () => null }));
 vi.mock("@/hooks/useFamilyMembers", () => ({ useFamilyMembers: () => ({ byId: new Map() }) }));
 vi.mock("@/components/common/MemberBadges", () => ({ MemberBadges: () => null }));
 vi.mock("@/components/common/DateField", () => ({ DateField: () => null }));

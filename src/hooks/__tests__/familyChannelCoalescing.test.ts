@@ -19,7 +19,14 @@ describe("invalidationKeysFor", () => {
     // trigger creates. Both payment tables map onto ["payments", familyId].
     const keys = invalidationKeysFor(["payments", "payment_history", "expenses"], FAMILY);
 
-    expect(keys).toEqual([["payments", FAMILY], ["payment_history"], ["expenses", FAMILY]]);
+    // ["audit_log"] appears ONCE even though both `payments` and `expenses`
+    // carry it - every audited table shares that key by design.
+    expect(keys).toEqual([
+      ["payments", FAMILY],
+      ["payment_history"],
+      ["audit_log"],
+      ["expenses", FAMILY],
+    ]);
   });
 
   it("collapses tables that share one root key", () => {
@@ -28,6 +35,7 @@ describe("invalidationKeysFor", () => {
     // when the same window also carries a `lists` change.
     expect(invalidationKeysFor(["lists", "tasks"], FAMILY)).toEqual([
       ["lists", FAMILY],
+      ["audit_log"],
       ["tasks", FAMILY],
     ]);
   });
@@ -41,7 +49,18 @@ describe("invalidationKeysFor", () => {
   });
 
   it("ignores tables with no mapping and keeps the rest", () => {
-    expect(invalidationKeysFor(["not_a_table", "events"], FAMILY)).toEqual([["events", FAMILY]]);
+    expect(invalidationKeysFor(["not_a_table", "events"], FAMILY)).toEqual([
+      ["events", FAMILY],
+      ["audit_log"],
+    ]);
+  });
+
+  it("emits the shared audit key once for a burst across audited tables", () => {
+    // Every one of the ten audited tables maps onto ["audit_log"], so a busy
+    // window must not invalidate the open history panel once per table.
+    const keys = invalidationKeysFor(["payments", "expenses", "tasks", "birthdays"], FAMILY);
+
+    expect(keys.filter((k) => k[0] === "audit_log")).toHaveLength(1);
   });
 
   it("returns nothing for an empty window", () => {
@@ -53,6 +72,7 @@ describe("invalidationKeysFor", () => {
 
     expect(invalidationKeysFor(pending, FAMILY)).toEqual([
       ["events", FAMILY],
+      ["audit_log"],
       ["birthdays", FAMILY],
     ]);
   });

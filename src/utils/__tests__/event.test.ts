@@ -19,6 +19,8 @@ import {
 /** Minimal event - only the schedule columns the helpers read. */
 function makeEvent(overrides: Partial<Event>): Event {
   return {
+    created_by_id: null,
+    updated_by_id: null,
     id: "e1",
     family_id: "f1",
     name: "Test",

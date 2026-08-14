@@ -78,7 +78,33 @@ export interface Profile {
   updated_at: string;
 }
 
-export interface Event {
+// ---------------------------------------------------------------------------
+// Authorship, shared by every entity a person can create
+// ---------------------------------------------------------------------------
+
+/**
+ * Who wrote a row and who last changed it.
+ *
+ * Both are `profiles.id`, never `auth.users.id`: a member without a login (a
+ * child, or anyone added by name only) has a profile and no auth row, and they
+ * can be the author. Filled by the `set_audit_actor` / `update_audit_actor`
+ * triggers, so no form ever sends them.
+ *
+ * NULL is normal and has two meanings the UI must not confuse with an error:
+ * the row predates the columns (nothing records who wrote it, and inventing an
+ * author would be worse than admitting we do not know), or it was written with
+ * no acting user - a pg_cron job or an edge function on the service role.
+ *
+ * `lists` and `tasks` carry the same pair from an older migration and declare
+ * it on their own interfaces; they are not folded in here because `lists` names
+ * its creator `owner_id` and uses it as an access guard as well.
+ */
+export interface AuditedByMember {
+  created_by_id: string | null;
+  updated_by_id: string | null;
+}
+
+export interface Event extends AuditedByMember {
   id: string;
   family_id: string;
   name: string;
@@ -136,7 +162,7 @@ export interface EventParticipant {
 
 export type RecurrencePeriod = "monthly" | "weekly" | "limited" | "one-time";
 
-export interface Payment {
+export interface Payment extends AuditedByMember {
   id: string;
   family_id: string;
   name: string;
@@ -276,7 +302,7 @@ export interface PaymentOverride {
   updated_at: string;
 }
 
-export interface Birthday {
+export interface Birthday extends AuditedByMember {
   id: string;
   family_id: string;
   name: string;
@@ -295,7 +321,7 @@ export interface Birthday {
  * heroicon (see `categoryIcon`); `color` is a hex string like profiles.color.
  * `monthly_limit` (Faza 4) is an optional RSD ceiling - NULL = untracked.
  */
-export interface ExpenseCategory {
+export interface ExpenseCategory extends AuditedByMember {
   id: string;
   family_id: string;
   name: string;
@@ -322,7 +348,7 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
  * link, globally-unique dedup key) and own a set of `expense_items` loaded
  * lazily on detail. `activity_id` / `event_id` are XOR, mirroring payments.
  */
-export interface Expense {
+export interface Expense extends AuditedByMember {
   id: string;
   family_id: string;
   /** ALWAYS the RSD value (converted at entry for foreign-currency rows) -
@@ -412,7 +438,7 @@ export interface ReceiptItem {
  * pauses it without deleting; `is_recurring=false` marks a one-off (still
  * counted in its month).
  */
-export interface Income {
+export interface Income extends AuditedByMember {
   id: string;
   family_id: string;
   person_id: string | null;
@@ -435,7 +461,7 @@ export interface Income {
  * rewrites a past month's income. `month` is "YYYY-MM"; `received_on` is the
  * day it actually landed (informational).
  */
-export interface IncomeEntry {
+export interface IncomeEntry extends AuditedByMember {
   id: string;
   family_id: string;
   income_id: string | null;
@@ -467,7 +493,7 @@ export type SchoolShift = "morning" | "afternoon";
  */
 export type WeekPattern = "every" | "A" | "B";
 
-export interface Activity {
+export interface Activity extends AuditedByMember {
   id: string;
   family_id: string;
   name: string;
@@ -1028,6 +1054,44 @@ export interface KidAccess {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Change history
+// ---------------------------------------------------------------------------
+
+export type AuditAction = "create" | "update" | "delete";
+
+/**
+ * One recorded change (`audit_log`), written only by the `log_audit_change`
+ * trigger - never by a client, which has no INSERT policy on the table.
+ *
+ * `entity_type` is the SUBJECT TABLE NAME (`payments`, not `payment`), the same
+ * vocabulary `broadcast_family_change` puts on the realtime wire.
+ *
+ * Rows exist only from the day the feature shipped, and only for writes made by
+ * a real person: pg_cron, the Google sync and every edge function on the
+ * service role are skipped, as is an update that changed no audited column. So
+ * an empty history means "nothing worth recording since", not "nothing
+ * happened".
+ */
+export interface AuditLogEntry {
+  id: number;
+  family_id: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  /** `profiles.id`, or NULL when the actor could not be resolved to a member. */
+  actor_id: string | null;
+  /** The subject's name AS IT WAS, so a deleted entity is still nameable. */
+  label: string | null;
+  /**
+   * `{ column: [old, new] }` for an update; NULL for a create or a delete.
+   * Values are raw column values - see `auditFields.ts` for how they become
+   * something a person can read.
+   */
+  changes: Record<string, [unknown, unknown]> | null;
+  created_at: string;
 }
 
 /**

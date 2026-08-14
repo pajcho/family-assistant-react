@@ -40,6 +40,8 @@ import type { Activity, Birthday, Event, Payment } from "@/types/database";
 import type { ResolvedActivityBlock } from "@/utils/activity";
 
 const birthday: Birthday = {
+  created_by_id: null,
+  updated_by_id: null,
   id: "b1",
   family_id: "f1",
   name: "Ana",
@@ -50,6 +52,8 @@ const birthday: Birthday = {
 };
 
 const event: Event = {
+  created_by_id: null,
+  updated_by_id: null,
   id: "e1",
   family_id: "f1",
   name: "Ročište",
@@ -69,6 +73,8 @@ const event: Event = {
 };
 
 const payment: Payment = {
+  created_by_id: null,
+  updated_by_id: null,
   id: "p1",
   family_id: "f1",
   name: "Infostan",

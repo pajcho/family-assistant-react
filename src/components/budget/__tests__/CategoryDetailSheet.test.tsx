@@ -18,6 +18,16 @@ vi.mock("@/hooks/useExpenseCategories", () => ({
 // The member badge on a listed expense self-fetches the roster, and
 // `useFamilyMembers` reaches `lib/supabase` at import time - which throws on CI,
 // where the VITE_SUPABASE_* vars don't exist. Same stub the agenda-row suite uses.
+// `DetailAuditLine` resolves author names through `useFamilyMembers`, which
+// is another route to the same client. Mocked rather than stubbed out, so the
+// line itself still renders here.
+vi.mock("@/hooks/useFamilyMembers", () => ({ useFamilyMembers: () => ({ byId: new Map() }) }));
+
+// `AuditTimeline` reaches Supabase through `useAuditLog`, and CI has no
+// VITE_SUPABASE_* - stubbing the module cuts that chain in one line, the same
+// way the hooks above are cut. See plans/018-audit-log.md.
+vi.mock("@/components/common/AuditTimeline", () => ({ AuditTimeline: () => null }));
+
 vi.mock("@/components/common/MemberBadges", () => ({
   MemberBadges: () => null,
 }));

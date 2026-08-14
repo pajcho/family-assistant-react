@@ -25,6 +25,7 @@ import { useToday } from "@/hooks/useToday";
 import { BudgetAddMenu } from "@/components/budget/BudgetAddMenu";
 import { CategoryDetailSheet } from "@/components/budget/CategoryDetailSheet";
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
+import { ExpenseDetailSheet } from "@/components/budget/ExpenseDetailSheet";
 import { ReceiptExpenseDialog } from "@/components/budget/ReceiptExpenseDialog";
 import { IncomesSheet } from "@/components/budget/IncomesSheet";
 import { CategoriesSheet } from "@/components/budget/CategoriesSheet";
@@ -142,6 +143,10 @@ export function BudgetPage({
   const [editing, setEditing] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [receiptDetail, setReceiptDetail] = useState<Expense | null>(null);
+  // The detail sheet for an expense that answers for itself (hand-typed, or
+  // orphaned by a deleted payment). Receipt- and payment-sourced rows keep
+  // opening their own source, as they always have.
+  const [expenseDetail, setExpenseDetail] = useState<Expense | null>(null);
   // Payment-sourced expense tapped → open that payment's detail popup.
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   // Its edit action opens the payment edit form INLINE (no hop to /money).
@@ -464,7 +469,16 @@ export function BudgetPage({
   const openExpenseFromCategory = (expense: Expense) => {
     if (expense.source === "receipt") setReceiptDetail(expense);
     else if (expense.source === "payment") openPaymentDetail(expense);
-    else openEdit(expense);
+    else openExpenseDetail(expense);
+  };
+
+  // A hand-typed expense used to open the EDIT FORM on tap, which made it the
+  // one entity in the app with no detail view - and so the one with nowhere to
+  // put "who entered this" (plan 018). It opens its sheet now; "Izmeni" there
+  // reaches the same form.
+  const openExpenseDetail = (expense: Expense) => {
+    if (expense.source !== "manual" && !isDetachedPaymentExpense(expense)) return;
+    setExpenseDetail(expense);
   };
 
   // "Izmeni" in that popup - full payment edit form, right here on Novac.
@@ -566,7 +580,7 @@ export function BudgetPage({
           isSearching={search.isSearching}
           categoriesById={categoriesById}
           onOpenReceipt={setReceiptDetail}
-          onEditManual={openEdit}
+          onEditManual={openExpenseDetail}
         />
       ) : null}
 
@@ -1023,7 +1037,7 @@ export function BudgetPage({
               categoriesById={categoriesById}
               itemCounts={itemCounts}
               onOpenReceipt={setReceiptDetail}
-              onEditManual={openEdit}
+              onEditManual={openExpenseDetail}
               onOpenPayment={openPaymentDetail}
             />
           )}
@@ -1061,6 +1075,15 @@ export function BudgetPage({
         // Anything opened FROM the drill-down (the add form, an expense's own
         // detail) takes the screen alone and hands it back on dismissal.
         hidden={addOpen || !!receiptDetail || !!selectedPayment}
+      />
+
+      <ExpenseDetailSheet
+        open={!!expenseDetail}
+        onOpenChange={(next) => {
+          if (!next) setExpenseDetail(null);
+        }}
+        expense={expenseDetail}
+        onEdit={openEdit}
       />
 
       <ExpenseFormDialog
