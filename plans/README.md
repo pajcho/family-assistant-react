@@ -35,6 +35,7 @@ anywhere (see AGENTS.md) - ASCII `-` only.
 | 014  | Batch gcal-sync writes (PERF-05)                                             | P2       | M      | none (from main)   | DONE (branch `advisor/014-gcal-sync-batching`, reviewed 2026-08-09; 175 -> 3 statements at N=100, row-set equality vs a legacy reference asserted; NOT merged, NOT deployed)                                    |
 | 015  | Tasks and reminders (one `tasks` entity, plus kid chores)                    | P1       | XL     | none (from main)   | DONE (branch `feat/tasks-and-reminders`, one PR; 1145 tests, browser-verified on both apps; NOT merged, prod migrations NOT pushed)                                                                             |
 | 016  | Lists findable again (segment, scope, recency, remembered quick add)         | P1       | M      | 015                | DONE (2026-08-12, on `feat/tasks-and-reminders` itself; A + C + D + E2 all shipped, see section 13 for deviations; section 10's two remaining test files added 2026-08-14; search normalization still deferred) |
+| 017  | Recurring tasks: no ticking ahead, visible debt, and a history               | P1       | L      | 015 (merged)       | DONE (2026-08-14, branch `feat/recurring-task-clarity`; not from the audits - maintainer-reported. 9 deviations in section 13, incl. the skip-over-finished-work guard. NOT merged, migration NOT pushed to prod) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale).

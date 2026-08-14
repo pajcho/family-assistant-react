@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { Task } from "@/types/database";
 
 /**
- * Only the delete question is exercised here - it is the sheet's one piece of
- * domain copy that branches, and it is pure. Everything else in the module
+ * The two branching pieces of domain copy - the delete question and the skip
+ * confirmation - are exercised here, because both are pure and both are where
+ * this sheet says what an action will actually do. Everything else in the module
  * reaches `lib/supabase` through its hooks, so those are stubbed just far enough
  * for the import to succeed on CI, which has no Supabase env.
  */
@@ -16,7 +17,13 @@ vi.mock("@/hooks/useTasks", () => ({
   useUpdateTask: () => ({}),
 }));
 vi.mock("@/hooks/useTaskOccurrences", () => ({
-  useTaskOccurrences: () => ({ byKey: new Map(), skipOccurrence: {}, moveOccurrence: {} }),
+  useTaskOccurrences: () => ({
+    byKey: new Map(),
+    skipOccurrence: {},
+    moveOccurrence: {},
+    restoreOccurrence: {},
+  }),
+  useTaskOccurrenceRows: () => ({ byKey: new Map(), occurrences: [], isLoading: false }),
 }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: () => ({ profile: null, familyId: null }) }));
 vi.mock("@/hooks/useFamilyMembers", () => ({ useFamilyMembers: () => ({ byId: new Map() }) }));
@@ -26,7 +33,7 @@ vi.mock("@/components/common/DateField", () => ({ DateField: () => null }));
 // assignee picker; stubbing the module cuts that whole chain in one line.
 vi.mock("@/components/tasks/TaskEditDialog", () => ({ TaskEditForm: () => null }));
 
-import { taskDeleteCopy } from "@/components/tasks/TaskDetailSheet";
+import { taskDeleteCopy, taskSkipCopy } from "@/components/tasks/TaskDetailSheet";
 
 const oneOff: Pick<Task, "name" | "recurrence_period"> = {
   name: "Odnesi paket",
@@ -53,7 +60,10 @@ describe("taskDeleteCopy", () => {
     const copy = taskDeleteCopy(repeating, "2026-08-10");
     expect(copy.message).toContain("se ponavlja");
     expect(copy.message).toContain("10.08.2026");
-    expect(copy.occurrence?.label).toBe("Samo ovo ponavljanje");
+    // Named for the write it performs. One write under two different words - one
+    // of them "obriši" - is what made this menu unreadable.
+    expect(copy.occurrence?.label).toBe("Preskoči ovo ponavljanje");
+    expect(copy.occurrence?.note).toContain("za sve");
     expect(copy.series.label).toBe("Cela serija");
   });
 
@@ -61,5 +71,77 @@ describe("taskDeleteCopy", () => {
     const copy = taskDeleteCopy(repeating, null);
     expect(copy.occurrence).not.toBeNull();
     expect(copy.message).not.toContain("(");
+  });
+
+  it("withdraws the skip answer once the day is finished", () => {
+    // Skip and completion share one slot, so "samo ovo ponavljanje" on a day
+    // everybody already finished would quietly delete their work.
+    const copy = taskDeleteCopy(repeating, "2026-08-10", true);
+    expect(copy.occurrence).toBeNull();
+    expect(copy.message).toContain("već završeno");
+    expect(copy.series.note).toContain("sva njegova ponavljanja");
+  });
+});
+
+describe("taskSkipCopy", () => {
+  it("names every assignee a skip takes the day away from", () => {
+    const copy = taskSkipCopy(repeating, { dates: ["2026-08-14"], all: false }, [
+      "Milan",
+      "Jelena",
+      "Ana",
+    ]);
+    expect(copy.title).toBe("Preskoči ponavljanje");
+    expect(copy.message).toContain("14.08.2026");
+    expect(copy.message).toContain("Milan, Jelena, Ana");
+    // The half people asked about: a skip is not personal.
+    expect(copy.message).toContain("za sve kojima je zadatak dodeljen");
+    // And the half that makes it feel reversible, because it is.
+    expect(copy.message).toContain("istorije");
+    expect(copy.confirm).toBe("Preskoči");
+  });
+
+  it("says the family when a chore belongs to nobody in particular", () => {
+    const copy = taskSkipCopy(repeating, { dates: ["2026-08-14"], all: false }, []);
+    expect(copy.message).toContain("za celu porodicu");
+    expect(copy.message).not.toContain("()");
+  });
+
+  it("names the work a skip does NOT throw away", () => {
+    // The half that makes this a fair choice to offer: Milan did his part, and
+    // skipping the day for the other two leaves his tick standing.
+    const one = taskSkipCopy(
+      repeating,
+      { dates: ["2026-08-14"], all: false },
+      ["Milan", "Jelena", "Ana"],
+      ["Milan"],
+    );
+    expect(one.message).toContain("Milan je već završio/la svoj deo");
+    expect(one.message).toContain("ostaje zabeležena");
+
+    const two = taskSkipCopy(
+      repeating,
+      { dates: ["2026-08-14"], all: false },
+      ["Milan", "Jelena", "Ana"],
+      ["Milan", "Jelena"],
+    );
+    expect(two.message).toContain("Milan, Jelena su već završili");
+    expect(two.message).toContain("ostaju zabeležene");
+  });
+
+  it("says nothing about completions when there are none", () => {
+    const copy = taskSkipCopy(repeating, { dates: ["2026-08-14"], all: false }, ["Ana"], []);
+    expect(copy.message).not.toContain("zabeležen");
+  });
+
+  it("counts the days when the whole backlog is being skipped at once", () => {
+    const copy = taskSkipCopy(
+      repeating,
+      { dates: ["2026-08-11", "2026-08-12", "2026-08-13"], all: true },
+      ["Ana"],
+    );
+    expect(copy.title).toBe("Preskoči sve zaostalo");
+    expect(copy.message).toContain("3 zaostalih ponavljanja");
+    expect(copy.message).toContain("Izbaci smeće");
+    expect(copy.confirm).toBe("Preskoči sve");
   });
 });

@@ -41,3 +41,8 @@ export function placanjaLabel(count: number): string {
 export function zadaciLabel(count: number): string {
   return serbianPlural(count, { one: "zadatak", few: "zadatka", many: "zadataka" });
 }
+
+/** Occurrence agreement: "ponavljanje / ponavljanja / ponavljanja" for a count. */
+export function ponavljanjaLabel(count: number): string {
+  return serbianPlural(count, { one: "ponavljanje", few: "ponavljanja", many: "ponavljanja" });
+}

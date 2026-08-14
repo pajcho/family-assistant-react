@@ -15,7 +15,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useListsWithTasks, useToggleTask } from "@/hooks/useTasks";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
 import { assigneeProgress, taskTickSlot } from "@/components/tasks/taskItemModel";
-import { isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
+import { useToday } from "@/hooks/useToday";
+import { isFutureOccurrence, isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
 
 /**
  * A dated task as an agenda row - the one row in the app whose LEADING slot is
@@ -104,6 +105,12 @@ export function TaskRow({
             </Pill>
           ) : null}
           {missed ? <Pill tone="neg">propušteno</Pill> : null}
+          {/* One overdue row stands for every unresolved instance of its series,
+              so it has to say how many. Not shown at 1: the row already carries
+              that one instance's date in its meta line. */}
+          {item.lateCount && item.lateCount > 1 ? (
+            <Pill tone="neg">kasni {item.lateCount}</Pill>
+          ) : null}
         </ItemTitle>
         {meta.length > 0 || item.assigneeIds.length > 0 ? (
           <ItemMeta>
@@ -145,9 +152,15 @@ function useTaskCompletionSlot(item: TaskAgendaItem): {
 } {
   const { profile } = useProfile();
   const { byKey } = useTaskOccurrenceRows();
+  const today = useToday().str;
   const viewerId = profile?.id ?? null;
 
   const slot = taskTickSlot(item.task, item.assigneeIds, viewerId);
+  // A repeat that has not come due yet is not something a list circle may
+  // finish - see `isFutureOccurrence`. The circle stays visible and disabled;
+  // hiding it would read as "this can never be done". The detail sheet is the
+  // deliberate way through, for the rare "I did it in advance".
+  const notYetDue = isFutureOccurrence(item.task, item.date, today);
   const progress =
     item.task.completion_mode === "per_assignee" && item.assigneeIds.length > 1
       ? assigneeProgress(item.task, item.assigneeIds, item.occurrenceDate, byKey)
@@ -163,7 +176,7 @@ function useTaskCompletionSlot(item: TaskAgendaItem): {
     personId: slot.personId,
     circleDone: own,
     rowDone: allDone ?? own,
-    canTick: slot.canTick,
+    canTick: slot.canTick && !notYetDue,
     progress,
   };
 }

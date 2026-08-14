@@ -59,6 +59,8 @@ function occurrence(overrides: Partial<TaskOccurrence> = {}): TaskOccurrence {
     moved_to_date: null,
     completed_at: "2026-08-10T09:00:00Z",
     completed_by_person_id: "ana",
+    acted_by_person_id: null,
+    acted_at: null,
     note: null,
     created_at: "2026-08-10T09:00:00Z",
     updated_at: "2026-08-10T09:00:00Z",

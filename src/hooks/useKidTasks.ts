@@ -205,6 +205,10 @@ function useCompleteKidTask(kidProfileId: string | null) {
                   moved_to_date: null,
                   completed_at: nowIso,
                   completed_by_person_id: kidProfileId,
+                  // The trigger resolves a kid session through kid_profile_id(),
+                  // since a child has no `profiles` row to match auth.uid().
+                  acted_by_person_id: kidProfileId,
+                  acted_at: nowIso,
                   note: null,
                   created_at: nowIso,
                   updated_at: nowIso,

@@ -2,17 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import {
   expandTaskOccurrences as expandServer,
+  isFutureOccurrence as futureServer,
   isMissedOccurrence as missedServer,
   isTaskDoneOn as doneServer,
   isTaskOverdue as overdueServer,
+  lateOccurrences as lateServer,
   type TaskOccurrenceRecord,
   type TaskSeries,
 } from "./expandTask.ts";
 import {
   expandTaskOccurrences as expandClient,
+  isFutureOccurrence as futureClient,
   isMissedOccurrence as missedClient,
   isTaskDoneOn as doneClient,
   isTaskOverdue as overdueClient,
+  lateOccurrences as lateClient,
 } from "@/utils/task";
 import type { Task, TaskOccurrence } from "@/types/database";
 
@@ -244,6 +248,45 @@ describe("expandTask parity: the app and the digest must agree", () => {
     }
 
     expect(divergences.slice(0, 5).join("\n")).toBe("");
+  });
+
+  it("agrees on late and future instances for 600 generated series", () => {
+    const rand = lcg(20260814);
+    const today = isoDay(base, 5);
+    const divergences: string[] = [];
+
+    for (let n = 0; n < 600; n += 1) {
+      const { client, server } = makeSeries(rand, base);
+      const occ = makeOccurrences(rand, client.id, base);
+
+      // Both halves of the per_assignee re-resolution: nobody assigned (falls
+      // back to the shared answer) and the two people the corpus generates rows
+      // for, which is where a chore everybody finished must stop being late.
+      for (const assignees of [[], ["person-1"], ["person-1", "person-2"]]) {
+        const c = comparable(lateClient(client, today, occ.client, assignees));
+        const s = comparable(lateServer(server, today, occ.server, assignees));
+        if (JSON.stringify(c) !== JSON.stringify(s)) {
+          divergences.push(
+            [
+              `series ${n} lateOccurrences(assignees=${assignees.length}): period=${client.recurrence_period}`,
+              `  client(${c.length}): ${c.slice(0, 8).join(", ")}`,
+              `  server(${s.length}): ${s.slice(0, 8).join(", ")}`,
+            ].join("\n"),
+          );
+        }
+      }
+
+      for (let d = -3; d <= 10; d += 1) {
+        const date = isoDay(base, 5 + d);
+        const cf = futureClient(client, date, today);
+        const sf = futureServer(server, date, today);
+        if (cf !== sf) {
+          divergences.push(`series ${n} isFutureOccurrence(${date}): client=${cf} server=${sf}`);
+        }
+      }
+    }
+
+    expect(divergences.slice(0, 5).join("\n\n")).toBe("");
   });
 
   it("agrees on a daily chore anchored two years back, the case both guards handle differently", () => {

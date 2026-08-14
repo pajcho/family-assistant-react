@@ -8,9 +8,10 @@ import { srLocale } from "@/utils/date";
 
 /**
  * Everything that is already late, in one block pinned above today - the
- * past-due unpaid payments AND the unfinished one-off tasks, merged and sorted
- * oldest first by `useOverdueItems` (a repeating chore is never late: a missed
- * Tuesday is a missed Tuesday, not a debt that follows you into Wednesday).
+ * past-due unpaid payments AND the unfinished tasks, merged and sorted oldest
+ * first by `useOverdueItems`. A repeating chore appears here as ONE row per
+ * task however many of its instances are behind, dated to the oldest and
+ * carrying a "kasni 3" pill; `useOverdueTasks` is where that collapse happens.
  *
  * One block rather than two on purpose: "what have I let slip" is a single
  * question, and splitting it by whether the thing costs money buries the shorter

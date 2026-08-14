@@ -40,6 +40,14 @@ vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: viewerId ? { id: viewerId } : null, familyId: "f1" }),
 }));
 
+// Pinned, not stubbed out: the row now asks whether an instance has come due
+// yet, and a test whose answer depends on the machine's clock would start
+// failing on its own one morning.
+const TODAY = "2026-08-14";
+vi.mock("@/hooks/useToday", () => ({
+  useToday: () => ({ str: TODAY, date: new Date(`${TODAY}T12:00:00`) }),
+}));
+
 // Rendered as a marker so the assignee assertions can see it without dragging
 // the roster query (and the Supabase client) into the run.
 vi.mock("@/components/common/MemberBadges", () => ({
@@ -180,6 +188,55 @@ describe("TaskRow completion circle", () => {
       expect.objectContaining({ done: false, personId: null }),
     );
   });
+
+  it("refuses a repeat that has not come due yet", () => {
+    // The reported mess: a daily chore drew a live circle on every visible day
+    // of the week strip, and each one wrote a real `done` row for a day nobody
+    // had lived through yet.
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: "2026-08-15", occurrenceDate: "2026-08-15" }));
+    const circle = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(circle.disabled).toBe(true);
+    circle.click();
+    expect(toggleMutate).not.toHaveBeenCalled();
+  });
+
+  it("still ticks today's instance of that same chore", () => {
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(taskItem({ task: daily, date: TODAY, occurrenceDate: TODAY }));
+    expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(false);
+    screen.getByRole("checkbox").click();
+    expect(toggleMutate).toHaveBeenCalledWith(expect.objectContaining({ date: TODAY, done: true }));
+  });
+
+  it("leaves a one-off alone - finishing that early is normal", () => {
+    // A deadline, not an appointment: paying a bill or buying the milk before it
+    // is due is exactly what people do.
+    renderRow(
+      taskItem({
+        task: { ...baseTask, due_date: "2026-08-20" },
+        date: "2026-08-20",
+        occurrenceDate: "2026-08-20",
+      }),
+    );
+    expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it("says how many instances of a series an overdue row stands for", () => {
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-11", occurrenceDate: "2026-08-11", lateCount: 3 }),
+    );
+    expect(screen.getByText("kasni 3")).toBeInTheDocument();
+  });
+
+  it("does not count out loud when the row stands for exactly one instance", () => {
+    const daily = { ...baseTask, recurrence_period: "daily" as const, due_date: "2026-08-10" };
+    renderRow(
+      taskItem({ task: daily, date: "2026-08-13", occurrenceDate: "2026-08-13", lateCount: 1 }),
+    );
+    expect(screen.queryByText(/^kasni/)).toBeNull();
+  });
 });
 
 describe("TaskRow per-assignee completion", () => {
@@ -214,6 +271,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "parent-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
@@ -247,6 +306,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "parent-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",
@@ -268,6 +329,8 @@ describe("TaskRow per-assignee completion", () => {
         moved_to_date: null,
         completed_at: "2026-08-10T09:00:00Z",
         completed_by_person_id: "kid-1",
+        acted_by_person_id: null,
+        acted_at: null,
         note: null,
         created_at: "2026-08-10T09:00:00Z",
         updated_at: "2026-08-10T09:00:00Z",

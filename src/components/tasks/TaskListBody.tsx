@@ -36,7 +36,7 @@ import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
 import { srLocale } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
-import { isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
+import { isFutureOccurrence, isTaskDoneOn, taskRecurrenceLabel } from "@/utils/task";
 import type { Task, ListWithTasks } from "@/types/database";
 
 /**
@@ -169,7 +169,11 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
           rowDone: progress ? progress.done === progress.total : own,
           assigneeIds,
           personId: slot.personId,
-          canTick: slot.canTick,
+          // Inside a list a repeat shows the NEXT instance, which can easily be
+          // days out (a weekly chore seen on Wednesday). That one is not
+          // finishable here either - same rule as every agenda circle.
+          canTick:
+            slot.canTick && !isFutureOccurrence(task, instance?.effectiveDate ?? today, today),
           progress,
         };
       }),
