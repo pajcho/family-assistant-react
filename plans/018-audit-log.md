@@ -431,7 +431,18 @@ Still to check by hand, since neither is reachable from SQL:
 - Service role end to end: run the gcal sync and confirm it writes zero audit
   rows.
 - CI: no test may import a module whose chain reaches `lib/supabase` - locally
-  it passes on `.env` and fails on CI.
+  it passes on `.env` and fails on CI. This feature tripped it twice, because
+  adding `DetailAuditLine` and `AuditTimeline` to existing sheets pulls
+  `useAuditLog` and `useFamilyMembers` into every test that renders one.
+  Reproduce the CI environment before pushing:
+
+  ```bash
+  VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= pnpm vitest run --mode ci-no-env
+  ```
+
+  `--mode ci-no-env` points Vite at a `.env.ci-no-env` that does not exist, so
+  the empty vars stand and the guard in `lib/supabase.ts` throws exactly as it
+  does on CI.
 
 ## 12. Coverage follow-up (same release)
 
