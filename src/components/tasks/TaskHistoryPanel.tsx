@@ -309,9 +309,18 @@ export type TaskLateListProps = {
   task: Task | null;
   assigneeIds: string[];
   today: string;
+  /**
+   * Whose copy each circle here owns, from `taskTickSlot` - the viewer's own for
+   * a `per_assignee` chore, the whole occurrence otherwise. The circle reads AND
+   * writes this slot, which is what makes it show a tick the viewer has already
+   * given rather than an empty ring they can pointlessly tap.
+   */
+  personId: string | null;
   /** From `taskTickSlot` - only the people a chore was given to may finish it. */
   canTick: boolean;
-  onComplete: (occurrenceDate: string) => void;
+  /** Why a circle here is dead, for the tap that would otherwise do nothing. */
+  blockedReason?: string;
+  onComplete: (occurrenceDate: string, done: boolean) => void;
   onSkip: (occurrenceDate: string) => void;
   busy?: boolean;
 };
@@ -326,7 +335,9 @@ export function TaskLateList({
   task,
   assigneeIds,
   today,
+  personId,
   canTick,
+  blockedReason,
   onComplete,
   onSkip,
   busy = false,
@@ -369,6 +380,11 @@ export function TaskLateList({
           doneAssignees(task, assigneeIds, instance.occurrenceDate, byKey),
           nameOf,
         );
+        // The viewer's OWN answer for this day. A day stays owed until everybody
+        // it was given to has ticked, so it can sit here with the viewer's part
+        // already done - and a circle hard-coded to empty then invited a tap that
+        // re-sent "finish it" and changed nothing.
+        const mine = isTaskDoneOn(task, instance.occurrenceDate, byKey, personId);
         return (
           <li
             key={instance.occurrenceDate}
@@ -376,10 +392,11 @@ export function TaskLateList({
           >
             <div className="flex min-w-0 items-center gap-3">
               <TaskCheckCircle
-                done={false}
+                done={mine}
                 name={`${task.name} (${formatDate(instance.effectiveDate)})`}
                 disabled={!canTick || busy}
-                onToggle={() => onComplete(instance.occurrenceDate)}
+                disabledReason={canTick ? undefined : blockedReason}
+                onToggle={() => onComplete(instance.occurrenceDate, !mine)}
               />
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="min-w-0 truncate text-sm font-medium text-foreground">

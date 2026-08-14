@@ -318,6 +318,7 @@ describe("TaskLateList", () => {
         task={daily}
         assigneeIds={[]}
         today={TODAY}
+        personId={null}
         canTick
         onComplete={() => {}}
         onSkip={() => {}}
@@ -336,13 +337,17 @@ describe("TaskLateList", () => {
         task={daily}
         assigneeIds={[]}
         today={TODAY}
+        personId={null}
         canTick
         onComplete={onComplete}
         onSkip={onSkip}
       />,
     );
     screen.getAllByRole("checkbox")[0].click();
-    expect(onComplete).toHaveBeenCalledWith("2026-08-11");
+    // The second argument is the state being ASKED for, not the current one:
+    // these circles read and write the viewer's own slot, so a day they already
+    // finished unticks instead of pointlessly re-finishing.
+    expect(onComplete).toHaveBeenCalledWith("2026-08-11", true);
     screen.getAllByRole("button", { name: "Preskoči" })[1].click();
     expect(onSkip).toHaveBeenCalledWith("2026-08-12");
   });
@@ -360,6 +365,7 @@ describe("TaskLateList", () => {
         task={chore}
         assigneeIds={["p1", "p2"]}
         today={TODAY}
+        personId={null}
         canTick
         onComplete={() => {}}
         onSkip={() => {}}
@@ -368,12 +374,40 @@ describe("TaskLateList", () => {
     expect(screen.getByText("1/2 · Milan · fali još 1")).toBeInTheDocument();
   });
 
+  it("shows the viewer's own tick, and offers to take it back", () => {
+    // A day stays owed until everybody has ticked, so it can sit in this list
+    // with the viewer's part already done. The circle used to be hard-coded
+    // empty there, which invited a tap that re-sent "finish it" and changed
+    // nothing at all.
+    const chore = { ...daily, completion_mode: "per_assignee" as const, due_date: "2026-08-13" };
+    const onComplete = vi.fn<(date: string, done: boolean) => void>();
+    occurrences = [
+      makeOccurrence({ occurrence_date: "2026-08-13", person_id: "p2", status: "done" }),
+    ];
+    render(
+      <TaskLateList
+        task={chore}
+        assigneeIds={["p1", "p2"]}
+        today={TODAY}
+        personId="p2"
+        canTick
+        onComplete={onComplete}
+        onSkip={() => {}}
+      />,
+    );
+    const circle = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(circle.checked).toBe(true);
+    circle.click();
+    expect(onComplete).toHaveBeenCalledWith("2026-08-13", false);
+  });
+
   it("greys the circles for somebody the chore was not given to", () => {
     render(
       <TaskLateList
         task={daily}
         assigneeIds={["p1"]}
         today={TODAY}
+        personId={null}
         canTick={false}
         onComplete={() => {}}
         onSkip={() => {}}

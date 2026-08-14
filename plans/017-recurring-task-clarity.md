@@ -433,7 +433,14 @@ alone.
     never flips. A click handler on the wrapping `<label>` was the first attempt
     and is not allowed - `jsx-a11y(click-events-have-key-events)` fails
     `pnpm check`, correctly.
-11. **A move onto its own date is not reported as a move.** Moving an occurrence
+11. **The backlog's circles read the viewer's own slot** (maintainer, third
+    review). They were hard-coded to `done={false}`, which was wrong the moment
+    the list holds a `per_assignee` day: such a day stays owed until EVERYBODY
+    has ticked, so it sits there with the viewer's own part already finished,
+    showing an empty ring that invited a tap which re-sent "finish it" and
+    changed nothing. The circle now reads `isTaskDoneOn(..., personId)` and the
+    tap sends the state being asked for, so it unticks as well as ticks.
+12. **A move onto its own date is not reported as a move.** Moving an occurrence
     and moving it back leaves a row whose `moved_to_date` equals its
     `occurrence_date`; the history read "15.08.2026 - Pomereno na 15.08.2026".
     Such a row now resolves to "nothing happened", and an entry that says

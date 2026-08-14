@@ -515,10 +515,15 @@ export function TaskDetailSheet({
     }
   };
 
-  /** Tick one late instance from the "Zaostalo" list, under its OWN series date. */
-  const completeLate = (occurrenceDate: string) => {
+  /**
+   * Tick or untick one late instance from the "Zaostalo" list, under its OWN
+   * series date. `done` comes from the row, which reads the same slot this
+   * writes - so a day the viewer has already finished unticks rather than
+   * re-sending "finish it" and changing nothing.
+   */
+  const completeLate = (occurrenceDate: string, done: boolean) => {
     if (!task || !slot.canTick) return;
-    toggleTask.mutate({ task, date: occurrenceDate, personId: slotPersonId, done: true });
+    toggleTask.mutate({ task, date: occurrenceDate, personId: slotPersonId, done });
   };
 
   const handleDeleteSeries = async () => {
@@ -665,7 +670,9 @@ export function TaskDetailSheet({
                   task={task}
                   assigneeIds={assigneeIds}
                   today={today}
+                  personId={slotPersonId}
                   canTick={slot.canTick}
+                  blockedReason="Ovo mogu da završe samo oni kojima je zadatak dodeljen."
                   onComplete={completeLate}
                   onSkip={(date) => askSkip([date])}
                   busy={saving}
