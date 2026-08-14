@@ -40,7 +40,22 @@ export interface UseOverdueTasksResult {
   isLoading: boolean;
 }
 
-export function useOverdueTasks(): UseOverdueTasksResult {
+/** Stable "everybody" - the surfaces without a person rail pass nothing. */
+const NO_PERSON_FILTER: ReadonlySet<string> = new Set();
+
+/**
+ * `personIds` is the person rail's selection, and it does TWO things here rather
+ * than one: it drops the tasks those people are not on (the shared
+ * `matchesPersonFilter` rule - a task with no assignees belongs to the family
+ * and leaves the moment somebody is picked), and it decides WHOSE lateness is
+ * being asked about. A `per_assignee` chore two of three people still owe is
+ * late for the family and late for those two, but NOT for the one who ticked it
+ * - filtering the rows after the fact could never tell those apart, which is how
+ * a chore somebody had finished sat in their own "Kasni".
+ */
+export function useOverdueTasks(
+  personIds: ReadonlySet<string> = NO_PERSON_FILTER,
+): UseOverdueTasksResult {
   const tasksQuery = useTasksList();
   const { byTask } = useTaskAssignees();
   const { byKey } = useTaskOccurrenceRows();
@@ -51,10 +66,15 @@ export function useOverdueTasks(): UseOverdueTasksResult {
     const out: AgendaItem[] = [];
     for (const task of tasksQuery.data ?? []) {
       const assigneeIds = byTask.get(task.id) ?? [];
+      if (personIds.size > 0 && !assigneeIds.some((id) => personIds.has(id))) continue;
       const dueTime = task.due_time ? normalizeTime(task.due_time) : null;
 
       if (isRecurringTask(task)) {
-        const late = lateOccurrences(task, today, byKey, assigneeIds);
+        // Narrowed to the rail's people, so "resolved" means resolved BY THEM.
+        // The row still carries every assignee - it shows all their avatars.
+        const owedBy =
+          personIds.size === 0 ? assigneeIds : assigneeIds.filter((id) => personIds.has(id));
+        const late = lateOccurrences(task, today, byKey, owedBy);
         const oldest = late[0];
         if (!oldest) continue;
         out.push({
@@ -96,7 +116,7 @@ export function useOverdueTasks(): UseOverdueTasksResult {
     // Oldest overdue first - longest-outstanding at the top.
     out.sort((a, b) => a.date.localeCompare(b.date));
     return out;
-  }, [tasksQuery.data, byTask, byKey, today]);
+  }, [tasksQuery.data, byTask, byKey, today, personIds]);
 
   return { items, isLoading: tasksQuery.isLoading };
 }

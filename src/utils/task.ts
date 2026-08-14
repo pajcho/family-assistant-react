@@ -638,8 +638,15 @@ export function isFutureOccurrence(
  *
  * With no assignees a `per_assignee` chore has nobody to have finished it, so it
  * falls back to the shared answer `isDone` already gave.
+ *
+ * `assigneeIds` is WHOSE ANSWER IS BEING ASKED FOR, not simply who the task
+ * belongs to - which is what makes a person rail work. Pass the whole assignee
+ * list for the family's answer ("is this chore done?"); pass the people the rail
+ * has picked for theirs ("does Milan still owe this?"). Every count and every
+ * late list on /tasks goes through here, so the two questions can never be
+ * answered by two different rules.
  */
-function isInstanceResolved(
+export function isInstanceResolved(
   task: TaskCompletionFields,
   instance: TaskOccurrenceInstance,
   assigneeIds: readonly string[],

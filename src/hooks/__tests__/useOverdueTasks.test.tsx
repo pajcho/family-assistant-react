@@ -96,6 +96,11 @@ function makeOccurrence(overrides: Partial<TaskOccurrence> = {}): TaskOccurrence
 }
 
 const items = () => renderHook(() => useOverdueTasks()).result.current.items;
+const itemsFor = (personIds: ReadonlySet<string>) =>
+  renderHook(() => useOverdueTasks(personIds)).result.current.items;
+/** Narrowed to the task arm - the only one this hook's task half emits. */
+const taskIds = (rows: ReturnType<typeof items>) =>
+  rows.flatMap((row) => (row.kind === "task" ? [row.task.id] : []));
 
 beforeEach(() => {
   tasks = [];
@@ -190,6 +195,32 @@ describe("useOverdueTasks", () => {
       makeOccurrence({ id: "o2", occurrence_date: "2026-08-13", person_id: "p2", status: "done" }),
     );
     expect(items()).toHaveLength(0);
+  });
+
+  it("answers for the people the rail has picked, not just about them", () => {
+    tasks = [
+      makeTask({ id: "hers", due_date: "2026-08-09" }),
+      makeTask({
+        id: "chore",
+        due_date: "2026-08-13",
+        recurrence_period: "daily",
+        completion_mode: "per_assignee",
+      }),
+    ];
+    assignees = new Map([
+      ["hers", ["p2"]],
+      ["chore", ["p1", "p2"]],
+    ]);
+    occurrences = [
+      makeOccurrence({ task_id: "chore", occurrence_date: "2026-08-13", person_id: "p1" }),
+    ];
+
+    // Everybody: p2 still owes the chore, and p2's one-off is late too.
+    expect(taskIds(items())).toEqual(["hers", "chore"]);
+    // p1: not on the one-off at all, and their own copy of the chore is ticked -
+    // which only a person-aware answer can tell from "the chore is unfinished".
+    expect(taskIds(itemsFor(new Set(["p1"])))).toEqual([]);
+    expect(taskIds(itemsFor(new Set(["p2"])))).toEqual(["hers", "chore"]);
   });
 
   it("sorts everything oldest first, whatever kind it is", () => {

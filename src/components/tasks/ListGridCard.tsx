@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { PlusIcon, UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 
-import { isTaskOverdue } from "@/utils/task";
 import type { ListWithTasks } from "@/types/database";
 
 /**
@@ -17,14 +16,22 @@ import type { ListWithTasks } from "@/types/database";
 
 export type ListGridCardProps = {
   list: ListWithTasks;
-  today: string;
+  /**
+   * How many of this list's tasks owe something - counted once, family-wide, by
+   * `useOverdueTasks` and handed down. It CANNOT be derived from `list.tasks`:
+   * `isTaskOverdue` answers for a task row and is false for every repeat, so a
+   * list holding nothing but a daily chore missed all week used to read "0
+   * kasni" while /tasks said it was late. One definition of the word, one place
+   * it is computed.
+   */
+  lateCount: number;
 };
 
-export function ListGridCard({ list, today }: ListGridCardProps) {
+export function ListGridCard({ list, lateCount }: ListGridCardProps) {
   const active = list.tasks.filter((task) => !task.is_completed);
   const done = list.tasks.length - active.length;
   const dated = active.filter((task) => task.due_date !== null).length;
-  const late = active.filter((task) => isTaskOverdue(task, today)).length;
+  const late = lateCount;
   const progress = list.tasks.length > 0 ? Math.round((done / list.tasks.length) * 100) : 0;
   const isFamily = list.scope === "family";
 

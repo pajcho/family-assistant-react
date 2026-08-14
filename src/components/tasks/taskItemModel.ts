@@ -4,6 +4,7 @@ import { normalizeTime } from "@/utils/activity";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
 import {
   expandTaskOccurrences,
+  isInstanceResolved,
   isMissedOccurrence,
   isRecurringTask,
   isTaskDoneOn,
@@ -40,6 +41,58 @@ export function isTaskAgendaItem(item: AgendaItem): item is TaskAgendaItem {
 export function matchesPersonFilter(item: TaskAgendaItem, personIds: ReadonlySet<string>): boolean {
   if (personIds.size === 0) return true;
   return item.assigneeIds.some((id) => personIds.has(id));
+}
+
+/**
+ * The people whose answer a filtered surface wants for `item` - the rail's
+ * selection narrowed to this task's own assignees, or every assignee when the
+ * rail is showing everybody.
+ *
+ * Only `per_assignee` completion has more than one answer to give, but the
+ * narrowing is stated once here so nothing has to re-derive it.
+ */
+function owedBy(item: TaskAgendaItem, personIds: ReadonlySet<string>): readonly string[] {
+  if (personIds.size === 0) return item.assigneeIds;
+  return item.assigneeIds.filter((id) => personIds.has(id));
+}
+
+/**
+ * Whether this row still owes work TO THE PEOPLE THE RAIL HAS PICKED - the one
+ * rule every count on /tasks uses, so a tile, a section heading and the rows
+ * under it can never disagree about what is outstanding.
+ *
+ * `item.isDone` alone cannot answer it: whole-occurrence completion is always
+ * false for a `per_assignee` chore, so a chore Milan finished counted as owed by
+ * Milan the moment his rail chip was on. With the rail on "Svi" the question
+ * goes back to the family's answer - three people each owe their own tick, and
+ * one of them being done does not finish it.
+ */
+export function isItemOutstanding(
+  item: TaskAgendaItem,
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  personIds: ReadonlySet<string>,
+): boolean {
+  return !isInstanceResolved(
+    item.task,
+    {
+      occurrenceDate: item.occurrenceDate,
+      effectiveDate: item.date,
+      occurrence: undefined,
+      isDone: item.isDone,
+      isSkipped: item.skipped === true,
+    },
+    owedBy(item, personIds),
+    occurrencesByKey,
+  );
+}
+
+/** How many of a group's rows are still owed - what every heading counts. */
+export function outstandingCount(
+  items: readonly TaskAgendaItem[],
+  occurrencesByKey: Map<string, TaskOccurrence[]>,
+  personIds: ReadonlySet<string>,
+): number {
+  return items.filter((item) => isItemOutstanding(item, occurrencesByKey, personIds)).length;
 }
 
 /**

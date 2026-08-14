@@ -36,6 +36,7 @@ import { TaskGroupingSelector } from "@/components/tasks/TaskGroupingSelector";
 import { TaskListBody, type TaskGrouping } from "@/components/tasks/TaskListBody";
 import { TaskScreenHeader, TaskScreenShell } from "@/components/tasks/TaskScreenShell";
 import { useIsWide } from "@/hooks/useIsWide";
+import { useOverdueTasks } from "@/hooks/useOverdueTasks";
 import { useSmartSort } from "@/hooks/useSmartSort";
 import { useToday } from "@/hooks/useToday";
 import { pushRecentListId } from "@/lib/recentLists";
@@ -49,7 +50,6 @@ import {
   useUpdateList,
 } from "@/hooks/useTasks";
 import { exportListAsCsv, exportListAsMarkdown } from "@/lib/listExport";
-import { isTaskOverdue } from "@/utils/task";
 import type { List, ListWithTasks } from "@/types/database";
 
 export const Route = createFileRoute("/_app/tasks/$listId")({
@@ -133,6 +133,12 @@ function ListDetailLoaded({
 }) {
   const navigate = useNavigate();
   const today = useToday().str;
+  // The one definition of "kasni" in the app - repeats included. Reads the same
+  // warm caches this screen already lives on, so it costs no fetch.
+  const overdue = useOverdueTasks();
+  const lateHere = overdue.items.filter(
+    (item) => item.kind === "task" && item.task.list_id === list.id,
+  ).length;
 
   const updateList = useUpdateList();
   const createList = useCreateList();
@@ -239,7 +245,7 @@ function ListDetailLoaded({
       header={
         <TaskScreenHeader
           title={list.name}
-          subtitle={listSubtitle(list, today)}
+          subtitle={listSubtitle(list, lateHere)}
           showBack={showBack}
           onBack={onBack}
           actions={
@@ -320,10 +326,13 @@ function ListDetailLoaded({
  * already see which rows carry a date chip, and the grid card on the index still
  * says it there, where it helps you pick a list. Scope and "kasni" have no other
  * home on this screen, so they stay.
+ *
+ * `late` is counted by `useOverdueTasks` and passed in, never re-derived from
+ * `list.tasks`: `isTaskOverdue` is false for every repeat, so a list of missed
+ * daily chores used to call itself on time.
  */
-function listSubtitle(list: ListWithTasks, today: string): string {
+function listSubtitle(list: ListWithTasks, late: number): string {
   const active = list.tasks.filter((task) => !task.is_completed);
-  const late = active.filter((task) => isTaskOverdue(task, today)).length;
   return [
     list.scope === "family" ? "porodična" : "lična",
     `${active.length} ${active.length === 1 ? "aktivan" : "aktivnih"}`,
