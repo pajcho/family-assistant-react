@@ -15,6 +15,13 @@ vi.mock("@/hooks/useExpenseCategories", () => ({
   useUpdateExpenseCategory: () => ({ mutateAsync: vi.fn<() => Promise<void>>(), isPending: false }),
 }));
 
+// The member badge on a listed expense self-fetches the roster, and
+// `useFamilyMembers` reaches `lib/supabase` at import time - which throws on CI,
+// where the VITE_SUPABASE_* vars don't exist. Same stub the agenda-row suite uses.
+vi.mock("@/components/common/MemberBadges", () => ({
+  MemberBadges: () => null,
+}));
+
 // Link resolution reaches useActivities -> useProfile -> useAuth; stub it to the
 // one link this file cares about (the row linked to activity "act-1").
 vi.mock("@/hooks/usePaymentLinks", () => ({
