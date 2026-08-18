@@ -7,11 +7,12 @@ import { readRecentListIds } from "@/lib/recentLists";
 import type { ListScope, ListWithTasks } from "@/types/database";
 
 /**
- * Where "Dodaj → Zadatak" opens, per plan 016 section 8: the last list this
- * device used - unless the caller has an opinion, and `initialListId` is three
- * states (an id, an explicit `null` for the Inbox, `undefined` for "no
- * opinion"). The memory itself is `lib/recentLists` and real localStorage, so
- * these tests exercise the true store rather than a mock of it.
+ * Where "Dodaj → Zadatak" opens: the Inbox, unless the caller picked a list.
+ * `initialListId` is three states (an id, an explicit `null`, `undefined` for
+ * "no opinion") and the last two both mean the Inbox. The device's list memory
+ * survives only as the one-tap chip row, which the Inbox leads. That memory is
+ * `lib/recentLists` and real localStorage, so these tests exercise the true
+ * store rather than a mock of it.
  *
  * Every Supabase-touching hook is mocked with a standalone factory (never
  * `importOriginal`) - CI has no Supabase env.
@@ -107,14 +108,14 @@ describe("TaskQuickAddFlow", () => {
     window.localStorage.clear();
   });
 
-  it("preselects the list this device last used when the caller has no opinion", () => {
+  it("opens on the Inbox when the caller has no opinion, whatever this device last used", () => {
     remember(["l2", "l1"]);
     render(<TaskQuickAddFlow open onOpenChange={vi.fn<(open: boolean) => void>()} />);
 
-    expect(listSelect().value).toBe("l2");
-    // The memory also surfaces as one-tap picks, most recent first, Inbox last.
+    expect(listSelect().value).toBe("");
+    // The memory survives as one-tap picks: the Inbox leads, then most recent.
     const chips = screen.getAllByRole("button", { name: /Šoping|Radovi|^Inbox$/ });
-    expect(chips.map((chip) => chip.textContent)).toEqual(["Šoping", "Radovi", "Inbox"]);
+    expect(chips.map((chip) => chip.textContent)).toEqual(["Inbox", "Šoping", "Radovi"]);
   });
 
   it("lets an explicit id win over the memory", () => {
@@ -137,14 +138,20 @@ describe("TaskQuickAddFlow", () => {
     expect(listSelect().value).toBe("");
   });
 
-  it("falls back to the Inbox when the remembered list is gone", async () => {
-    remember(["deleted-list"]);
-    render(<TaskQuickAddFlow open onOpenChange={vi.fn<(open: boolean) => void>()} />);
+  it("falls back to the Inbox when the handed-over list is gone", async () => {
+    render(
+      <TaskQuickAddFlow
+        open
+        onOpenChange={vi.fn<(open: boolean) => void>()}
+        initialListId="deleted-list"
+      />,
+    );
     await waitFor(() => expect(listSelect().value).toBe(""));
   });
 
   it("records a successful add as the device's most recent list", async () => {
     remember(["l2"]);
+    // Picked by hand below - the sheet itself opens on the Inbox now.
     mutateAsync.mockResolvedValue({});
     const onOpenChange = vi.fn<(open: boolean) => void>();
     render(<TaskQuickAddFlow open onOpenChange={onOpenChange} />);
