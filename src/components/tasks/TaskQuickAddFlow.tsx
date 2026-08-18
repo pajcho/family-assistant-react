@@ -43,7 +43,7 @@ export type TaskQuickAddFlowProps = {
    * you to type it again.
    */
   initialDraft?: TaskDraft;
-  /** Preselected list. `null`/undefined = Inbox. */
+  /** Preselected list. `null` or omitted = Inbox. */
   initialListId?: string | null;
 };
 
@@ -59,18 +59,19 @@ function blankDraft(target: string, viewerId: string | null): TaskDraft {
 }
 
 /**
- * Where the sheet opens.
+ * Where the sheet opens: the Inbox, unless the caller picked a list.
  *
- * `initialListId` is THREE states, not two: an id means the caller picked one
- * (the composer's handover), `null` means it explicitly means Inbox, and both
- * win outright. Only `undefined` - the global "+", which has no opinion - falls
- * back to the last list this device used, which is what makes "open the app,
- * put milk on the shopping list" a couple of taps instead of a hunt through a
- * ten-entry select. Read fresh every time, so it reflects the add you just made.
+ * `initialListId` is still three states - an id (the composer's handover),
+ * `null` for the Inbox, `undefined` for "no opinion" - but the last two now
+ * land in the same place. The global "+" has no opinion by definition: a task
+ * typed there is a thought caught on the way past, and the Inbox is what exists
+ * to catch it. It used to open on the last list this device added to, which
+ * quietly filed things into "Šoping" days after the shopping for anyone who did
+ * not read the select. The lists you actually use are still one tap away in the
+ * chip row below.
  */
 function defaultListId(initialListId: string | null | undefined): string {
-  if (initialListId !== undefined) return initialListId ?? NO_LIST;
-  return readRecentListIds()[0] ?? NO_LIST;
+  return initialListId ?? NO_LIST;
 }
 
 export function TaskQuickAddFlow({
@@ -116,8 +117,12 @@ export function TaskQuickAddFlow({
   const listScope: ListScope | null =
     listId === NO_LIST ? null : (scopeById.get(listId) ?? "family");
 
-  // The three most recent lists that still exist, plus the Inbox. Empty until
-  // this device has actually opened one, so a first run shows only the select.
+  // The Inbox leads, then the three most recent lists that still exist. It
+  // leads because it is where the sheet opens and where a task with nothing
+  // else set belongs, so the row reads as "here, or one of these" - and the
+  // selected chip is where the eye starts rather than somewhere down the row.
+  // Empty until this device has actually opened a list, so a first run shows
+  // only the select instead of a lone chip repeating what it already says.
   const quickPicks = useMemo(() => {
     if (!lists) return [];
     const byId = new Map(lists.map((list) => [list.id, list]));
@@ -126,7 +131,7 @@ export function TaskQuickAddFlow({
       .filter((list) => list !== undefined)
       .slice(0, 3)
       .map((list) => ({ value: list.id, label: list.name }));
-    return recent.length > 0 ? [...recent, { value: NO_LIST, label: "Inbox" }] : [];
+    return recent.length > 0 ? [{ value: NO_LIST, label: "Inbox" }, ...recent] : [];
   }, [lists]);
 
   const reset = () => {
@@ -167,7 +172,7 @@ export function TaskQuickAddFlow({
     wasOpen.current = open;
   }, [open, initialDraft, initialListId, viewerId]);
 
-  // The remembered list may have been deleted since it was remembered. Once the
+  // A list handed over by the caller may have been deleted meanwhile. Once the
   // lists are actually in, a selection that is not among them falls back to the
   // Inbox rather than leaving the select pointing at a row that is gone.
   useEffect(() => {
@@ -189,9 +194,10 @@ export function TaskQuickAddFlow({
     try {
       await createTask.mutateAsync(taskDraftToCreateInput({ ...draft, name }, target));
       // "I used this list" - the other of exactly two places that record it, so
-      // the next "+ -> Zadatak" opens here and the grid puts it on top. The
-      // Inbox is deliberately NOT recorded: "no list" is not a list, and storing
-      // it would make the next open preselect nothing while looking remembered.
+      // the chip row above and the list grid put it on top. It no longer decides
+      // where the sheet OPENS (that is always the Inbox), only what is one tap
+      // away once it has. The Inbox is deliberately NOT recorded: "no list" is
+      // not a list, and it is the default anyway.
       if (target) pushRecentListId(target);
       onOpenChange(false);
       reset();
@@ -266,10 +272,9 @@ export function TaskQuickAddFlow({
             <FieldGroupLabel>
               <label htmlFor="task-quick-list">Lista</label>
             </FieldGroupLabel>
-            {/* The lists you actually use, one tap each, above the full set.
-                A ten-entry native select is two taps and a scroll for the one
-                list somebody adds to every day. Inbox closes the row so "no
-                list" stays just as cheap. */}
+            {/* Inbox first, then the lists you actually use, one tap each,
+                above the full set. A ten-entry native select is two taps and a
+                scroll for the one list somebody adds to every day. */}
             {quickPicks.length > 0 ? (
               <ChipRow className="mb-2">
                 {quickPicks.map((pick) => (
