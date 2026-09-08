@@ -1,6 +1,8 @@
 // supabase/functions/notify-outbox/index.ts
 //
-// Cron-triggered every minute (see 20260812000000_task_notify_outbox.sql). Sends
+// Called from the per-minute cron tick, but only on minutes where the outbox
+// holds pending rows - `flush_notification_outbox()` checks that first (see
+// 20260908141749_housekeeping_cron_and_pg_net.sql). Sends
 // the "somebody added tasks" pushes that the INSERT trigger queued, grouped so
 // that one sitting at the keyboard costs one notification per person.
 //
@@ -16,8 +18,9 @@
 //   4. claim each (user, task) slot in `notification_log` before sending
 //   5. send one push per person, then mark the queue rows processed
 //
-// An empty queue costs exactly ONE query and returns - which matters, because
-// this runs 1440 times a day and the queue is empty for almost all of them.
+// An empty queue still costs exactly ONE query and returns. The SQL-side check
+// looks at any pending row, this one only at rows old enough to be ripe, so the
+// two disagree for the length of the grouping window and this path still runs.
 //
 // Auth: `verify_jwt = false` in config.toml, X-Cron-Secret instead, same as
 // send-due-pushes and notify-on-create.
@@ -271,7 +274,9 @@ Deno.serve(async (req) => {
       rows.map((row) => row.id),
     );
 
-  // Cheap retention sweep, on the tick that already had work to do.
+  // Cheap retention sweep, on the tick that already had work to do. Since the
+  // SQL side only calls in when something is pending, processed rows linger
+  // until the next real flush; they are a few dozen bytes each.
   await supabase
     .from("notification_outbox")
     .delete()

@@ -4,7 +4,7 @@
 // activity / external-calendar / task reminders) all decided by `plan.ts`, which
 // is pure and unit-tested. This file is only the I/O shell:
 //
-//   1. one Promise.all of bulk reads -> every row the job could need
+//   1. four short rounds of bulk reads -> every row the job could need
 //   2. planDispatch() -> the exact list of pushes due this minute
 //   3. one `notification_log` upsert -> claims every slot at once
 //   4. send whatever the claim granted
@@ -135,7 +135,15 @@ interface DispatchContext {
 }
 
 /**
- * Every row any dispatch path could need, in one round trip.
+ * Every row any dispatch path could need, in four short rounds.
+ *
+ * The rounds are deliberate. Each request in flight pins a PostgREST pool
+ * connection, and each pool connection is a Postgres backend that stays
+ * resident afterwards; one round of fifteen parallel reads every minute kept
+ * nine backends alive around the clock on the 431 MB Nano box, memory that
+ * then has to be paged back in from swap on every tick (see the housekeeping
+ * migration of 2026-09-08). Four at a time caps the pool at four, for a few
+ * hundred milliseconds of extra latency the job does not notice.
  *
  * The date windows are deliberately wide: the exact fire minute is decided
  * per recipient timezone in `plan.ts`, and local dates span UTC-12..UTC+14.
@@ -152,28 +160,15 @@ async function loadDispatchContext(
   const paymentWindowEnd = addDays(utcToday, PAYMENT_WINDOW_DAYS_AFTER);
   const taskWindowEnd = addDays(utcToday, TASK_WINDOW_DAYS_AFTER);
 
-  const [
-    prefsRes,
-    profilesRes,
-    subsRes,
-    eventsRes,
-    paymentsRes,
-    birthdaysRes,
-    localsRes,
-    externalRes,
-    actsRes,
-    schedRes,
-    partsRes,
-    ovRes,
-    anchorsRes,
-    tasksRes,
-    taskOccRes,
-  ] = await Promise.all([
+  const [prefsRes, profilesRes, subsRes] = await Promise.all([
     supabase
       .from("notification_preferences")
       .select("user_id, morning_enabled, morning_time, evening_enabled, evening_time, timezone"),
     supabase.from("profiles").select("id, family_id, first_name, last_name"),
     supabase.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth"),
+  ]);
+
+  const [eventsRes, paymentsRes, birthdaysRes, localsRes] = await Promise.all([
     // Unfiltered on remind_minutes_before: the digest counts every event on
     // its target date, the reminder path filters the same rows in memory.
     //
@@ -200,6 +195,9 @@ async function loadDispatchContext(
       .from("external_event_local")
       .select("family_id, ical_uid, remind_minutes_before")
       .not("remind_minutes_before", "is", null),
+  ]);
+
+  const [externalRes, actsRes, schedRes, partsRes] = await Promise.all([
     // Every mirrored event in the window, not just the ones carrying a
     // reminder: the digest counts them too, all-day ones included. `visibility`
     // and `owner_user_id` are what let plan.ts re-apply the RLS rule this
@@ -226,6 +224,9 @@ async function loadDispatchContext(
         "id, activity_id, day_of_week, start_time, end_time, week_pattern, recurrence_interval_weeks",
       ),
     supabase.from("activity_participants").select("activity_id, person_id"),
+  ]);
+
+  const [ovRes, anchorsRes, tasksRes, taskOccRes] = await Promise.all([
     supabase
       .from("activity_overrides")
       .select(
