@@ -18,14 +18,16 @@ interface ExternalEventFilters {
   to?: string;
 }
 
+/** The columns every read of this table selects - RLS decides which rows. */
+const EXTERNAL_EVENT_COLUMNS =
+  "id, calendar_id, family_id, owner_user_id, visibility, google_event_id, ical_uid, recurring_event_id, title, description, location, start_at, end_at, local_date, start_time, end_time, is_all_day, event_type, status, html_link, source_url, color";
+
 async function fetchExternalEvents(
   filters: ExternalEventFilters,
 ): Promise<ExternalCalendarEvent[]> {
   let q = supabase
     .from("external_calendar_events")
-    .select(
-      "id, calendar_id, family_id, owner_user_id, visibility, google_event_id, ical_uid, recurring_event_id, title, description, location, start_at, end_at, local_date, start_time, end_time, is_all_day, event_type, status, html_link, source_url, color",
-    )
+    .select(EXTERNAL_EVENT_COLUMNS)
     .order("local_date", { ascending: true })
     .order("start_time", { ascending: true, nullsFirst: true });
   if (filters.from) q = q.gte("local_date", filters.from);
@@ -50,6 +52,29 @@ export function useExternalEventsList(filters: ExternalEventFilters = {}) {
   });
 
   return query;
+}
+
+/**
+ * One mirrored event, fetched by id - for surfaces holding a REFERENCE to it
+ * rather than a window of the calendar (today: a global search hit, which can
+ * land on any date at all).
+ */
+export function useExternalEventById(id: string | null | undefined) {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["external_calendar_events", familyId, "by-id", id],
+    queryFn: async (): Promise<ExternalCalendarEvent | null> => {
+      const { data, error } = await supabase
+        .from("external_calendar_events")
+        .select(EXTERNAL_EVENT_COLUMNS)
+        .eq("id", id as string)
+        .single();
+      if (error || !data) return null;
+      return data as unknown as ExternalCalendarEvent;
+    },
+    enabled: !!familyId && !!id,
+  });
 }
 
 /**

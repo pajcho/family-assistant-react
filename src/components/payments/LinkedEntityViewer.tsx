@@ -6,14 +6,26 @@ import { useActivities } from "@/hooks/useActivities";
 import { useBirthdaysData } from "@/hooks/useBirthdays";
 import { useEventById } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
-import type { PaymentLinkTarget } from "@/hooks/usePaymentLinks";
+import type { PaymentLinkKind } from "@/hooks/usePaymentLinks";
 
 /**
- * In-place DETAIL popup for the entity a payment points at - what opens when
- * you tap its "Povezano sa" chip. Tapping a link is a "show me what this is"
- * gesture, so it lands on the same detail sheet the entity's own page opens
- * (`EventDetailDialog` / `ActivityDetailDialog` / `BirthdayDetailDialog`),
- * never straight on an edit form.
+ * What this viewer needs of a reference: the kind and the id. Deliberately
+ * structural rather than `PaymentLinkTarget` itself - a search hit is not a
+ * payment link and has no business carrying that type's `name` / `date`, but a
+ * `PaymentLinkTarget` still satisfies this.
+ */
+export type ViewableEntityRef = {
+  kind: PaymentLinkKind;
+  id: string;
+};
+
+/**
+ * In-place DETAIL popup for an event / activity / birthday that some other
+ * surface points at - a payment's "Povezano sa" chip, a global-search hit.
+ * Tapping a reference is a "show me what this is" gesture, so it lands on the
+ * same detail sheet the entity's own page opens (`EventDetailDialog` /
+ * `ActivityDetailDialog` / `BirthdayDetailDialog`), never straight on an edit
+ * form.
  *
  * "Izmeni" inside those sheets is delegated back up through `onEdit`; the host
  * routes it to `LinkedEntityEditor`, which owns every in-place edit form. The
@@ -31,8 +43,8 @@ import type { PaymentLinkTarget } from "@/hooks/usePaymentLinks";
  * once actually opened (the inner component mounts lazily).
  */
 export type LinkedEntityViewerProps = {
-  /** The tapped link; null renders nothing. */
-  target: PaymentLinkTarget | null;
+  /** The tapped reference; null renders nothing. */
+  target: ViewableEntityRef | null;
   /** Dismissed - the host sheet underneath comes back. */
   onClose: () => void;
   /** "Izmeni" tapped inside the detail sheet - open the edit form for it. */

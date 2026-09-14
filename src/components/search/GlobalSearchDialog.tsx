@@ -14,11 +14,12 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import {
-  LinkedEntityEditor,
-  type EditableEntityRef,
-} from "@/components/payments/LinkedEntityEditor";
 import { SEARCH_PAGES, matchSearchPages, normalizeTerm } from "@/components/search/searchPages";
+import { SearchResultDetail } from "@/components/search/SearchResultDetail";
+import {
+  searchResultAction,
+  type SearchDetailTarget,
+} from "@/components/search/searchResultAction";
 import {
   MIN_SEARCH_CHARS,
   useGlobalSearch,
@@ -33,11 +34,13 @@ import { cn } from "@/lib/cn";
  * `useGlobalSearch`; hits are grouped by type with the agenda's icons/colors.
  * A "Stranice" group matches page names (diacritic-insensitive, so
  * "rodjendani" finds the birthdays page, and forgiving of the pre-redesign
- * names, so "uskoro" finds the calendar) and navigates; its pages are derived from the nav's
- * own section list, see {@link SEARCH_PAGES}. Entity hits (activity,
- * event, payment, birthday) open their EDIT dialog in place via
- * LinkedEntityEditor - no page change; only lists/list items (they ARE pages)
- * and Google-mirror events still navigate.
+ * names, so "uskoro" finds the calendar) and navigates; its pages are derived
+ * from the nav's own section list, see {@link SEARCH_PAGES}.
+ *
+ * Every ENTITY hit - activity, event, payment, birthday, task, Google-mirror
+ * event - opens its DETAIL sheet in place via {@link SearchResultDetail}, never
+ * an edit form and never a page change. Lists navigate, because a list IS a
+ * page. The routing table itself is {@link searchResultAction}.
  */
 
 const DEBOUNCE_MS = 250;
@@ -128,9 +131,9 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const { results, isSearching, enabled } = useGlobalSearch(debouncedTerm);
 
-  // In-place edit for entity hits - mounted as a sibling of the palette so it
-  // survives the palette closing.
-  const [editTarget, setEditTarget] = useState<EditableEntityRef | null>(null);
+  // In-place detail sheet for entity hits - mounted as a sibling of the palette
+  // so it survives the palette closing.
+  const [detailTarget, setDetailTarget] = useState<SearchDetailTarget | null>(null);
 
   // Page matches - instant, diacritic-insensitive, same min length, and they
   // still answer to the pre-redesign names. Keyed by section key, since
@@ -177,38 +180,19 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
 
   const select = (result: SearchResult) => {
     onOpenChange(false);
-    switch (result.kind) {
+    const action = searchResultAction(result);
+    switch (action.type) {
       case "page": {
-        // Direct page-name hit - the one case that still navigates by design.
-        const page = SEARCH_PAGES.find((p) => p.id === result.id);
+        const page = SEARCH_PAGES.find((p) => p.id === action.pageId);
         // `search` carries Porodica's `?tab=family`; undefined for the rest.
         if (page) void navigate({ to: page.to, search: page.search });
         break;
       }
       case "list":
-        // A list IS a page - deep-link to it.
-        void navigate({ to: "/tasks/$listId", params: { listId: result.id } });
+        void navigate({ to: "/tasks/$listId", params: { listId: action.listId } });
         break;
-      case "task":
-        // A task inside a list opens that list; a standalone one has no list to
-        // open, so it goes to the Inbox smart list, which is where it lives.
-        if (result.listId) {
-          void navigate({ to: "/tasks/$listId", params: { listId: result.listId } });
-        } else {
-          void navigate({ to: "/tasks/inbox" });
-        }
-        break;
-      case "activity":
-      case "event":
-      case "payment":
-      case "birthday":
-        // Open the edit dialog right here - no redirect.
-        setEditTarget({ kind: result.kind, id: result.id });
-        break;
-      case "external":
-        // Mirrored Google events are read-only and have no page of their own -
-        // they live in the agenda, which is Kalendar's default view.
-        void navigate({ to: "/calendar" });
+      case "detail":
+        setDetailTarget(action.target);
         break;
     }
   };
@@ -307,7 +291,7 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
         </DialogContent>
       </Dialog>
 
-      <LinkedEntityEditor target={editTarget} onClose={() => setEditTarget(null)} />
+      <SearchResultDetail target={detailTarget} onClose={() => setDetailTarget(null)} />
     </>
   );
 }

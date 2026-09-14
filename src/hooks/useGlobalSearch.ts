@@ -33,12 +33,6 @@ export interface SearchResult {
   title: string;
   /** Secondary line - date, amount, parent list… */
   subtitle: string | null;
-  /**
-   * For `task`: the parent list to open. ABSENT for a standalone task, whose
-   * `list_id` is null - the dialog sends those to the Inbox instead, because a
-   * result you cannot open is worse than no result at all.
-   */
-  listId?: string;
 }
 
 /** Max hits per entity group. */
@@ -90,7 +84,7 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
       .limit(MAX_PER_GROUP),
     supabase
       .from("tasks")
-      .select("id,name,list_id,lists(name)")
+      .select("id,name,lists(name)")
       .eq("family_id", familyId)
       .ilike("name", pattern)
       .order("updated_at", { ascending: false })
@@ -148,7 +142,6 @@ async function searchAll(familyId: string, term: string): Promise<SearchResult[]
       // A standalone task has no parent list to name, so it says where it does
       // live instead of showing an empty second line.
       subtitle: parentName ?? "Inbox",
-      listId: row.list_id ?? undefined,
     });
   }
   for (const row of external.data ?? []) {

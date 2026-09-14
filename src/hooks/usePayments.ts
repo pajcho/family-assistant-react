@@ -20,6 +20,7 @@ import {
  *
  * Surface:
  *   - `usePaymentsList({ hidePaid? })`               - list query
+ *   - `usePaymentById(id)`                        - single payment, by id
  *   - `usePaymentHistory({ monthFilter? })`          - family-wide history query
  *   - `usePaymentHistoryByPaymentId(paymentId)`      - per-payment history query
  *   - `useCreatePayment()`                           - insert mutation
@@ -207,6 +208,35 @@ export function usePaymentsList(filters: PaymentListFilters = {}) {
   });
 
   return query;
+}
+
+/**
+ * One payment, fetched by id.
+ *
+ * For surfaces that hold a payment REFERENCE rather than a list row - a global
+ * search hit, a "Povezano sa" chip - where no warm `usePaymentsList` cache is
+ * guaranteed to contain it (`hidePaid` alone forks that cache in two).
+ *
+ * Keyed under the `["payments", familyId]` prefix on purpose: `invalidateAll`
+ * and the realtime broadcast both invalidate that prefix, so an edit made from
+ * the detail sheet is reflected the moment it lands.
+ */
+export function usePaymentById(id: string | null | undefined) {
+  const { familyId } = useProfile();
+
+  return useQuery({
+    queryKey: ["payments", familyId, "by-id", id],
+    queryFn: async (): Promise<Payment | null> => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("id", id as string)
+        .single();
+      if (error || !data) return null;
+      return data as Payment;
+    },
+    enabled: !!familyId && !!id,
+  });
 }
 
 export function usePaymentHistory(filters: PaymentHistoryFilters = {}) {

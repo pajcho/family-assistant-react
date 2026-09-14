@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import type { ActivityFormPayload } from "@/components/activities/ActivityForm";
@@ -21,10 +20,8 @@ import { useEventById, useUpdateEvent } from "@/hooks/useEvents";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { useProfile } from "@/hooks/useProfile";
 import { useSchoolShiftAnchors } from "@/hooks/useSchoolShifts";
-import { hasPaymentHistory, useUpdatePayment } from "@/hooks/usePayments";
+import { hasPaymentHistory, usePaymentById, useUpdatePayment } from "@/hooks/usePayments";
 import { usePaymentParticipants } from "@/hooks/usePaymentParticipants";
-import type { Payment } from "@/types/database";
-import { supabase } from "@/lib/supabase";
 
 /**
  * In-place edit dialog for an entity referenced from somewhere else - a
@@ -173,20 +170,10 @@ function EventLinkEditor({ id, onClose }: EditorProps) {
 function PaymentEditor({ id, onClose }: EditorProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [hasHistory, setHasHistory] = useState(false);
-  const { familyId } = useProfile();
   const { byPayment } = usePaymentParticipants();
   const updatePayment = useUpdatePayment();
 
-  const paymentQuery = useQuery({
-    queryKey: ["payment_by_id", familyId, id],
-    queryFn: async (): Promise<Payment | null> => {
-      const { data, error } = await supabase.from("payments").select("*").eq("id", id).single();
-      if (error || !data) return null;
-      return data as Payment;
-    },
-    enabled: !!familyId,
-  });
-  const payment = paymentQuery.data ?? null;
+  const payment = usePaymentById(id).data ?? null;
 
   // Recurrence radios lock once real history exists (same as /payments).
   useEffect(() => {
