@@ -167,6 +167,10 @@ export type AgendaItem =
       personIds: string[];
     };
 
+/** One arm of the union, for call sites that hold a list already split by kind. */
+export type PaymentAgendaItem = Extract<AgendaItem, { kind: "payment" }>;
+export type TaskAgendaItem = Extract<AgendaItem, { kind: "task" }>;
+
 /** Stable React key for an agenda row - unique per occurrence across kinds. */
 export function agendaItemKey(item: AgendaItem): string {
   switch (item.kind) {
