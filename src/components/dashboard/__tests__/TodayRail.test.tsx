@@ -30,6 +30,14 @@ vi.mock("@/hooks/useFamilyMembers", () => ({
   useFamilyMembers: () => ({ byId: new Map() }),
 }));
 
+// Same trap through the row key: the rail imports `agendaItemKey` from the
+// agenda hook, and that module fans out to a dozen Supabase-backed hooks. A
+// standalone factory (never `importOriginal`) keeps the real module out; the
+// types imported below are erased, so they still come from the real file.
+vi.mock("@/hooks/useAgenda", () => ({
+  agendaItemKey: (item: { kind: string; date: string }) => `${item.kind}:${item.date}`,
+}));
+
 import { TodayRail } from "@/components/dashboard/TodayRail";
 import type { PaymentAgendaItem, TaskAgendaItem } from "@/hooks/useAgenda";
 
