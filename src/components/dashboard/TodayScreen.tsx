@@ -13,6 +13,7 @@ import { TodayWeekStrip } from "@/components/dashboard/TodayWeekStrip";
 import { AgendaListSkeleton } from "@/components/dashboard/AgendaListSkeleton";
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
 import { useAgenda } from "@/hooks/useAgenda";
+import type { PaymentAgendaItem, TaskAgendaItem } from "@/hooks/useAgenda";
 import { useAgendaFilters } from "@/hooks/useAgendaFilters";
 import { useAgendaDetails } from "@/components/dashboard/AgendaDetailDialogs";
 import { useAgendaEditForms } from "@/components/dashboard/useAgendaEditForms";
@@ -104,24 +105,22 @@ export function TodayScreen() {
     return map;
   }, [filteredItems]);
 
-  const overdueTotal = overdueItems.reduce(
-    (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),
-    0,
-  );
-
   // Overdue money and overdue work are both "you are late", but they are not
   // interchangeable: one has a dinar total and belongs on the payments page, the
   // other has neither. Merging them into one banner would either call a chore a
   // placanje, or send somebody looking for their chore to a money screen. So the
-  // counts are split, and each half links where its own rows actually live.
+  // counts are split, and each half links where its own rows actually live - on
+  // the phone's banners below AND in the desktop rail, which takes the same two
+  // lists.
   const overduePaymentItems = useMemo(
-    () => overdueItems.filter((item) => item.kind === "payment"),
+    () => overdueItems.filter((item): item is PaymentAgendaItem => item.kind === "payment"),
     [overdueItems],
   );
   const overdueTaskItems = useMemo(
-    () => overdueItems.filter((item) => item.kind === "task"),
+    () => overdueItems.filter((item): item is TaskAgendaItem => item.kind === "task"),
     [overdueItems],
   );
+  const overdueTotal = overduePaymentItems.reduce((sum, item) => sum + item.payment.amount, 0);
 
   // Wave the 👋 only on the moment of dismissal (visible → dismissed in this
   // session), so returning to the screen while hidden waves nothing.
@@ -264,7 +263,8 @@ export function TodayScreen() {
         </div>
         <TodayRail
           today={today}
-          overdueItems={overdueItems}
+          overduePayments={overduePaymentItems}
+          overdueTasks={overdueTaskItems}
           upcoming={filteredItems}
           countByDay={countByDay}
           filterActive={filterActive}

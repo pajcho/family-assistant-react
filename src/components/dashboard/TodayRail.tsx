@@ -5,12 +5,12 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 import { Amount } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
-import type { AgendaItem } from "@/hooks/useAgenda";
+import type { AgendaItem, PaymentAgendaItem, TaskAgendaItem } from "@/hooks/useAgenda";
 import { agendaItemKey } from "@/hooks/useAgenda";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import { fallbackColorForProfile, getWeekStart } from "@/utils/activity";
 import { srLocale } from "@/utils/date";
-import { placanjaLabel } from "@/utils/plural";
+import { placanjaLabel, zadaciLabel } from "@/utils/plural";
 
 /**
  * The desktop-only right column on Danas (>= lg).
@@ -20,17 +20,24 @@ import { placanjaLabel } from "@/utils/plural";
  * these stay where they are (overdue is a banner above the timeline, the rest
  * lives in Kalendar) - a phone has no spare column, and stacking them under the
  * timeline would just bury the day.
+ *
+ * Overdue arrives already split into money and work, and the rail keeps the
+ * split: the same two banners the phone shows, one per kind, each linking where
+ * its own rows live. One merged banner here once called a late chore a
+ * "plaćanje", summed it to 0 RSD and sent the click to the payments page.
  */
 
 export function TodayRail({
   today,
-  overdueItems,
+  overduePayments,
+  overdueTasks,
   upcoming,
   countByDay,
   filterActive,
 }: {
   today: string;
-  overdueItems: ReadonlyArray<AgendaItem>;
+  overduePayments: ReadonlyArray<PaymentAgendaItem>;
+  overdueTasks: ReadonlyArray<TaskAgendaItem>;
   /**
    * Agenda items from today on, ascending - the source for the next-days block.
    * Already run through the screen's person/type filter, like `countByDay`;
@@ -42,25 +49,30 @@ export function TodayRail({
   /** Whether a filter is narrowing the two lists - only changes empty copy. */
   filterActive: boolean;
 }) {
-  const overdueTotal = overdueItems.reduce(
-    (sum, item) => (item.kind === "payment" ? sum + item.payment.amount : sum),
-    0,
-  );
+  const overdueTotal = overduePayments.reduce((sum, item) => sum + item.payment.amount, 0);
 
   return (
     <aside className="hidden lg:sticky lg:top-0 lg:flex lg:flex-col lg:gap-3 lg:self-start">
-      {overdueItems.length > 0 ? (
-        <Link
-          to="/money"
-          search={{ tab: "payments" }}
-          className="flex items-center gap-2.5 rounded-xl bg-neg-soft px-3.5 py-3 text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.99]"
-        >
+      {overduePayments.length > 0 ? (
+        <Link to="/money" search={{ tab: "payments" }} className={overdueBannerClass}>
           <ExclamationTriangleIcon className="size-[17px] flex-none" />
           <span>
-            Prekoračeno · {overdueItems.length} {placanjaLabel(overdueItems.length)}
+            Prekoračeno · {overduePayments.length} {placanjaLabel(overduePayments.length)}
           </span>
           <span className="ml-auto font-bold tabular-nums">
             <Amount value={overdueTotal} round />
+          </span>
+        </Link>
+      ) : null}
+
+      {/* `/tasks/late`, not `/tasks` like the phone banner: on desktop a bare
+          `/tasks` opens the last list you looked at, and the late rows are not
+          in it - they live in the Kasni cut. */}
+      {overdueTasks.length > 0 ? (
+        <Link to="/tasks/late" className={overdueBannerClass}>
+          <ExclamationTriangleIcon className="size-[17px] flex-none" />
+          <span>
+            Kasni · {overdueTasks.length} {zadaciLabel(overdueTasks.length)}
           </span>
         </Link>
       ) : null}
@@ -70,6 +82,9 @@ export function TodayRail({
     </aside>
   );
 }
+
+const overdueBannerClass =
+  "flex items-center gap-2.5 rounded-xl bg-neg-soft px-3.5 py-3 text-[13.5px] font-semibold text-neg transition-transform active:scale-[0.99]";
 
 /** Month grid with a load dot per busy day; a day opens Kalendar on that day. */
 function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<string, number> }) {
