@@ -135,6 +135,8 @@ const BASE_TASK: Task = {
   remind_minutes_before: null,
   remind_days_before: null,
   sort_order: 1,
+  category: null,
+  category_confidence: null,
   created_by_id: "viewer-1",
   updated_by_id: null,
   created_at: "2026-08-01T00:00:00Z",

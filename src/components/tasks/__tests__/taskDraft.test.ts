@@ -216,6 +216,8 @@ describe("private tasks", () => {
       remind_minutes_before: null,
       remind_days_before: null,
       sort_order: 1,
+      category: null,
+      category_confidence: null,
       created_by_id: "user-1",
       updated_by_id: "user-1",
       created_at: "2026-08-01T10:00:00Z",

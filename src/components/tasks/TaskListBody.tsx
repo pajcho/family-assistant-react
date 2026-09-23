@@ -32,7 +32,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDeleteTask, useReorderTasks, useToggleTask, useUpdateTask } from "@/hooks/useTasks";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useTaskOccurrenceRows } from "@/hooks/useTaskOccurrences";
-import { CATEGORY_LABEL, groupByCategory } from "@/hooks/useSmartSort";
+import { groupByCategory } from "@/hooks/useSmartSort";
+import { SHOP_CATEGORY_LABEL } from "@/lib/shopCategories";
 import { formatDate, srLocale } from "@/utils/date";
 import { getDisplayName } from "@/utils/identity";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
@@ -468,7 +469,7 @@ function GroupedRows({
       const rowsById = new Map(rows.map((row) => [row.task.id, row]));
       return groupByCategory(rows.map((row) => row.task)).map((group) => ({
         key: group.category,
-        label: CATEGORY_LABEL[group.category],
+        label: SHOP_CATEGORY_LABEL[group.category],
         late: false,
         rows: group.items.flatMap((task) => {
           const row = rowsById.get(task.id);

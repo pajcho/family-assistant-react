@@ -808,6 +808,16 @@ export interface Task {
   /** Push this many days before `due_date`, for all-day tasks. */
   remind_days_before: number | null;
   sort_order: number;
+  /**
+   * Shop department key (`dairy`, `pantry`, ..., `other`), filed by the
+   * categorize-tasks edge function for items on a smart-sorted list. NULL =
+   * not filed yet, and renders under "Ostalo". Read it through
+   * `toShopCategory` (lib/shopCategories), never compare the raw string.
+   * Cleared by the database whenever `name` changes.
+   */
+  category: string | null;
+  /** The model's confidence (0..1) behind `category`; NULL while unfiled. */
+  category_confidence: number | null;
   created_by_id: string | null;
   updated_by_id: string | null;
   created_at: string;

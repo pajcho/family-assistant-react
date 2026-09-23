@@ -12,7 +12,7 @@ import type {
   TaskRecurrencePeriod,
   TaskScope,
 } from "@/types/database";
-import { applyCategorySort } from "@/lib/groceryCategorize";
+import { applyCategorySort } from "@/lib/shopCategories";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -118,7 +118,9 @@ export type UpdateTaskInput = {
  * around. Smart sort is a *view-time projection* on top: when
  * `smart_sort_enabled = true` we re-arrange the tasks into aisle order
  * client-side, without ever touching the persisted sort_order. Toggling smart
- * sort off non-destructively restores the manual order.
+ * sort off non-destructively restores the manual order. The aisle each task
+ * lands in is its stored `category` (filed by the categorize-tasks function);
+ * an unfiled task sorts last, under "Ostalo", until it is filed.
  *
  * Extracted so the optimistic mutations (`useCreateTask` etc.) can drop a
  * placeholder into the cache and have it land in the same slot the next
@@ -155,7 +157,7 @@ function rollbackTaskCaches(
 }
 
 /** Both keys, invalidated together - see the module note on the two caches. */
-function invalidateTaskCaches(queryClient: QueryClient, familyId: string | null): void {
+export function invalidateTaskCaches(queryClient: QueryClient, familyId: string | null): void {
   void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
   void queryClient.invalidateQueries({ queryKey: ["tasks", familyId] });
 }
@@ -407,8 +409,9 @@ export function useToggleSmartSort() {
 
 /**
  * Bulk-clone tasks into a (freshly created) list - the "Dupliraj sa stavkama"
- * half of the duplicate flow. Copies name, notes and the manual sort_order, but
- * always inserts as NOT completed and WITHOUT dates, assignees or recurrence:
+ * half of the duplicate flow. Copies name, notes, shop department and the manual
+ * sort_order, but always inserts as NOT completed and WITHOUT dates, assignees
+ * or recurrence:
  * the use-case is a fresh shopping list from a template, not an archive copy of
  * somebody's schedule. No optimistic update - this runs right after the list
  * insert, so the invalidate is what surfaces the new list + tasks together.
@@ -433,6 +436,10 @@ export function useCopyTasks() {
         description: task.description,
         sort_order: task.sort_order,
         is_completed: false,
+        // Same name, same department: carrying the filing over spares the copy
+        // a round of model calls and a visible shuffle out of "Ostalo".
+        category: task.category,
+        category_confidence: task.category_confidence,
         // family_id, owner_id and scope are filled in by the BEFORE INSERT trigger
       }));
       const { error } = await supabase.from("tasks").insert(rows);
@@ -454,7 +461,7 @@ export function useCopyTasks() {
  * sort_order, so the value it sends to Postgres matches what `onMutate` already
  * showed in the cache.
  */
-const TEMP_TASK_ID_PREFIX = "temp-";
+export const TEMP_TASK_ID_PREFIX = "temp-";
 
 /** Highest persisted sort_order among `tasks`, ignoring in-flight placeholders. */
 function maxPersistedSortOrder(tasks: readonly Task[] | undefined): number {
@@ -568,6 +575,9 @@ export function useCreateTask() {
         remind_minutes_before: payload.remind_minutes_before ?? null,
         remind_days_before: payload.remind_days_before ?? null,
         sort_order: maxOrder + 1,
+        // Unfiled until categorize-tasks answers, same as the inserted row.
+        category: null,
+        category_confidence: null,
         // Audit columns reference `auth.users`, not `profiles`, so this is the
         // auth uid - exactly what `set_task_defaults()` will stamp server-side.
         created_by_id: user?.id ?? null,
