@@ -77,6 +77,13 @@ verify_jwt = false
 [functions.exchange-rate]
 verify_jwt = true
 
+# categorize-tasks is called from the client, fire-and-forget, whenever a
+# smart-sorted list shows items that are not filed into a shop department yet.
+# It runs on the member's own session (RLS decides what they may file) and asks
+# Jev, so verify_jwt = true keeps anonymous callers from spending the key.
+[functions.categorize-tasks]
+verify_jwt = true
+
 # notify-outbox is fired by pg_cron through pg_net, not by a user session -
 # same X-Cron-Secret pattern as send-due-pushes.
 [functions.notify-outbox]
