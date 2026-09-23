@@ -742,6 +742,16 @@ export interface List {
    */
   smart_sort_enabled: boolean;
   /**
+   * Probability (0..1) that this is a shopping list, judged by the
+   * detect-shopping-list edge function when the list grows. NULL = never
+   * judged. At or above SHOPPING_LIST_THRESHOLD the list is offered "Po rafovima".
+   */
+  shopping_likelihood: number | null;
+  /** Item count at the last judgement; the next one waits until the list has doubled. */
+  shopping_checked_items: number | null;
+  /** The "Po rafovima" suggestion was answered (closed, or smart sort toggled by hand). */
+  aisle_suggestion_dismissed: boolean;
+  /**
    * Per-list retention window for completed items, in hours. NULL means
    * "never auto-delete" (the default). A pg_cron job purges items whose
    * `completed_at` is older than this value.

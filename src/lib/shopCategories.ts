@@ -82,20 +82,27 @@ export function applyCategorySort<T extends { category: string | null; sort_orde
   return [...items].sort((a, b) => rank(a) - rank(b) || a.sort_order - b.sort_order);
 }
 
-const SHOPPING_NAME_PATTERN = /sopin|shop|kupovin|namirn|grocer|trznic|pijac|prodavnic|market/i;
+/**
+ * Whether a list is a shopping list is judged by Jev (the detect-shopping-list
+ * function) from its name and items, not matched against a list of names: a
+ * regex knew "Shopping" but not "za kupiti", and could not tell a meal diary
+ * full of food from a list of things to buy.
+ *
+ * These two rules mirror supabase/functions/_shared/shopCategories.ts, where
+ * the function enforces them; the parity test next to it keeps them equal.
+ */
+
+/** At or above this `lists.shopping_likelihood` the list is a shopping list. */
+export const SHOPPING_LIST_THRESHOLD = 0.5;
+
+/** The first judgement waits for this many items. */
+export const MIN_ITEMS_FOR_LIST_CHECK = 2;
 
 /**
- * Whether to offer "Po rafovima" on a list that does not use it yet. Matches
- * the list NAME only: the old content check counted items the keyword
- * dictionary recognised, and with the dictionary gone there is nothing to count
- * until a list has been filed. A list with smart sort already on keeps the
- * option regardless (see useSmartSort).
+ * Whether a list with `itemCount` items is due for a judgement, given how many
+ * it had at the last one: first at MIN_ITEMS_FOR_LIST_CHECK, then each time the
+ * list has doubled.
  */
-export function looksLikeShoppingList(name: string): boolean {
-  return SHOPPING_NAME_PATTERN.test(
-    name
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .replace(/đ/gi, "d"),
-  );
+export function shouldCheckShoppingList(itemCount: number, checkedItems: number | null): boolean {
+  return itemCount >= Math.max(MIN_ITEMS_FOR_LIST_CHECK, 2 * (checkedItems ?? 0));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyCategorySort, looksLikeShoppingList, toShopCategory } from "@/lib/shopCategories";
+import { applyCategorySort, shouldCheckShoppingList, toShopCategory } from "@/lib/shopCategories";
 
 describe("toShopCategory", () => {
   it("reads an unfiled item and an unknown key as other, so every item renders", () => {
@@ -40,12 +40,16 @@ describe("applyCategorySort", () => {
   });
 });
 
-describe("looksLikeShoppingList", () => {
-  it("recognises a shopping list by name, with or without diacritics", () => {
-    expect(looksLikeShoppingList("Shopping")).toBe(true);
-    expect(looksLikeShoppingList("Šoping")).toBe(true);
-    expect(looksLikeShoppingList("Tržnica subota")).toBe(true);
-    expect(looksLikeShoppingList("Todo")).toBe(false);
-    expect(looksLikeShoppingList("Obroci 25 Maj")).toBe(false);
+describe("shouldCheckShoppingList", () => {
+  it("first judges a list at two items", () => {
+    expect(shouldCheckShoppingList(1, null)).toBe(false);
+    expect(shouldCheckShoppingList(2, null)).toBe(true);
+  });
+
+  it("re-judges only once the list has doubled, so a growing list costs log2(n) calls", () => {
+    expect(shouldCheckShoppingList(3, 2)).toBe(false);
+    expect(shouldCheckShoppingList(4, 2)).toBe(true);
+    expect(shouldCheckShoppingList(7, 4)).toBe(false);
+    expect(shouldCheckShoppingList(8, 4)).toBe(true);
   });
 });

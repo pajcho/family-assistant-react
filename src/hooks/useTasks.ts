@@ -376,6 +376,10 @@ export function useDeleteList() {
  * the flag back off non-destructively restores the user's underlying manual
  * order (the same order surfaced by the drag-to-reorder UI when smart sort is
  * off).
+ *
+ * Either direction also answers the "Po rafovima" suggestion for good: a family
+ * that turned aisles off by hand does not want to be asked again, and one that
+ * turned them on has nothing left to be asked.
  */
 export function useToggleSmartSort() {
   const { familyId } = useProfile();
@@ -385,7 +389,7 @@ export function useToggleSmartSort() {
     mutationFn: async (args: { list: ListWithTasks; enabled: boolean }): Promise<void> => {
       const { error } = await supabase
         .from("lists")
-        .update({ smart_sort_enabled: args.enabled })
+        .update({ smart_sort_enabled: args.enabled, aisle_suggestion_dismissed: true })
         .eq("id", args.list.id);
       if (error) throw new Error(error.message);
     },
@@ -399,6 +403,49 @@ export function useToggleSmartSort() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Greška pri promeni sortiranja");
+    },
+  });
+}
+
+/**
+ * Close the "Po rafovima" suggestion on one list, for the whole family.
+ *
+ * Optimistic, because the card should go the instant it is closed; a failed
+ * write puts it back. The database does not count this as an edit to the list
+ * (no "last changed" stamp, no jump in the recents), see
+ * 20260923085420_list_shopping_detection.sql.
+ */
+export function useDismissAisleSuggestion() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (listId: string): Promise<void> => {
+      const { error } = await supabase
+        .from("lists")
+        .update({ aisle_suggestion_dismissed: true })
+        .eq("id", listId);
+      if (error) throw new Error(error.message);
+    },
+    onMutate: async (listId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithTasks[]>(["lists", familyId]);
+      if (previous) {
+        queryClient.setQueryData(
+          ["lists", familyId],
+          previous.map((list) =>
+            list.id === listId ? { ...list, aisle_suggestion_dismissed: true } : list,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (error: Error, _listId, context) => {
+      if (context?.previous) queryClient.setQueryData(["lists", familyId], context.previous);
+      toast.error(error.message || "Greška pri zatvaranju predloga");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
     },
   });
 }
