@@ -18,11 +18,11 @@
 //     model is unsure about. Without context the model cannot decline, so a
 //     to-do such as "Oprati kola" used to be filed under bakery.
 //
-// Jev only ever answers with one of the keys below and cannot generate text,
-// so an item name crafted to steer it can at worst pick a wrong department.
+// Jev only ever answers with one of the keys below (or a probability) and
+// cannot generate text, so an item name crafted to steer it can at worst pick
+// a wrong department or misjudge a list.
 
-export const JEV_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
-export const JEV_MODEL = "jev-latest";
+import { JEV_MODEL } from "./jev.ts";
 
 /**
  * Below this confidence the item is filed as `other` rather than trusted.
@@ -162,13 +162,75 @@ export function decideCategory(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Is this list a shopping list at all? (detect-shopping-list)
+//
+// Measured on 13 lists named and filled the way the family writes them:
+// 13/13 right at 0.5. Every shopping list scored 0.64 or more ("za kupiti"
+// already 0.90 with a single item), every other list 0.28 or less, including
+// the hard ones that are full of products without being shopping: a meal diary
+// (0.28), a packing list (0.13) and gift ideas (0.05). About 500 input tokens.
+// ---------------------------------------------------------------------------
+
+/** At or above this, the list is treated as a shopping list. Mid-gap of 0.28..0.64. */
+export const SHOPPING_LIST_THRESHOLD = 0.5;
+
 /**
- * Whether a Jev HTTP status means every further call in this request will fail
- * the same way: a missing or revoked key, or an exhausted balance. The handler
- * stops calling on the first one instead of burning the rest of the batch on
- * guaranteed rejections. Rate limits and server errors are per-call and are not
- * on this list.
+ * The first judgement waits for this many items. A name like "za kupiti" is
+ * enough on its own, but "Subota" or "Maxi" needs a little content.
  */
-export function isFatalJevStatus(status: number): boolean {
-  return status === 401 || status === 402 || status === 403;
+export const MIN_ITEMS_FOR_LIST_CHECK = 2;
+
+/** Items sent with a judgement; a handful already decides it. */
+const MAX_LIST_CHECK_ITEMS = 15;
+
+/**
+ * Whether a list with `itemCount` items should be judged (again), given how
+ * many it had at the last judgement. First at MIN_ITEMS_FOR_LIST_CHECK, then
+ * each time the list has doubled, so an early "no" can still turn into a
+ * "yes" as the list grows, at most log2(n) calls per list.
+ *
+ * The client runs the same rule to avoid pointless calls and the function runs
+ * it again as the real guard; shopCategories.parity.test.ts keeps the two equal.
+ */
+export function shouldCheckShoppingList(itemCount: number, checkedItems: number | null): boolean {
+  return itemCount >= Math.max(MIN_ITEMS_FOR_LIST_CHECK, 2 * (checkedItems ?? 0));
+}
+
+/** Every kind of list the family keeps, so "not a shopping list" has somewhere to go. */
+const LIST_KINDS_CONTEXT =
+  "A Serbian family's shared list app. A list can be a shopping list, a to-do list, a meal diary, a loan ledger, a packing list, a gift-idea list or a project material list.";
+
+/** The request that asks whether a list is a shopping list, from its name and items. */
+export function buildShoppingListCheck(listName: string, items: readonly string[]) {
+  return {
+    model: JEV_MODEL,
+    state: {
+      app: LIST_KINDS_CONTEXT,
+      list_name: listName.trim().slice(0, MAX_SIBLING_CHARS),
+      items: items
+        .slice(0, MAX_LIST_CHECK_ITEMS)
+        .map((name) => name.trim().slice(0, MAX_SIBLING_CHARS)),
+    },
+    questions: {
+      is_shopping: {
+        type: "noul",
+        instructions:
+          "Is this a shopping list: things the family still has to go and buy in a shop, so that grouping them by supermarket aisle would help? A list that only mentions products is not enough: packing lists, meal diaries, gift ideas and to-dos are not shopping lists." +
+          DIACRITICS_NOTE,
+        criteria: {
+          true: "A list of things to buy in a shop",
+          false: "Any other kind of list",
+        },
+      },
+    },
+  };
+}
+
+/** The stored probability, or `null` (leave the list unjudged) for an answer that cannot be trusted. */
+export function decideShoppingLikelihood(answer: unknown): number | null {
+  if (typeof answer !== "object" || answer === null) return null;
+  const { noul } = answer as { noul?: unknown };
+  if (typeof noul !== "number" || !Number.isFinite(noul)) return null;
+  return Math.min(1, Math.max(0, noul));
 }

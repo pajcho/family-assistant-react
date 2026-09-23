@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildJevRequest,
+  buildShoppingListCheck,
   CONFIDENCE_THRESHOLD,
   decideCategory,
-  isFatalJevStatus,
+  decideShoppingLikelihood,
   MAX_SIBLINGS,
 } from "./shopCategories.ts";
 
@@ -61,9 +62,27 @@ describe("buildJevRequest", () => {
   });
 });
 
-describe("isFatalJevStatus", () => {
-  it("stops the batch on a key or balance problem, but not on a per-call failure", () => {
-    expect([401, 402, 403].every(isFatalJevStatus)).toBe(true);
-    expect([400, 408, 429, 500, 503].some(isFatalJevStatus)).toBe(false);
+describe("decideShoppingLikelihood", () => {
+  it("stores the probability, clamped to 0..1", () => {
+    expect(decideShoppingLikelihood({ noul: 0.93 })).toBe(0.93);
+    expect(decideShoppingLikelihood({ noul: 1.4 })).toBe(1);
+  });
+
+  // null leaves the list unjudged, so it is asked again as it grows.
+  it("refuses an answer it cannot trust", () => {
+    expect(decideShoppingLikelihood(undefined)).toBeNull();
+    expect(decideShoppingLikelihood({ noul: "yes" })).toBeNull();
+    expect(decideShoppingLikelihood({ noul: Number.NaN })).toBeNull();
+  });
+});
+
+describe("buildShoppingListCheck", () => {
+  it("sends the name and at most fifteen items", () => {
+    const items = Array.from({ length: 40 }, (_, i) => `item ${i}`);
+    const request = buildShoppingListCheck("  za kupiti  ", items);
+
+    expect(request.state.list_name).toBe("za kupiti");
+    expect(request.state.items).toHaveLength(15);
+    expect(request.questions.is_shopping.type).toBe("noul");
   });
 });

@@ -24,12 +24,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-import {
-  buildJevRequest,
-  decideCategory,
-  isFatalJevStatus,
-  JEV_ENDPOINT,
-} from "../_shared/shopCategories.ts";
+import { callJev } from "../_shared/jev.ts";
+import { buildJevRequest, decideCategory } from "../_shared/shopCategories.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,33 +123,16 @@ Deno.serve(async (req) => {
       .map((row) => row.name);
     const request = buildJevRequest(task.name, task.lists?.name ?? "", siblings);
 
-    let answer: unknown;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), JEV_TIMEOUT_MS);
-    try {
-      const res = await fetch(JEV_ENDPOINT, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        // Key revoked or balance gone: every remaining call would fail the
-        // same way, so stop instead of spending the batch on rejections.
-        if (isFatalJevStatus(res.status)) stopped = true;
-        console.warn(`categorize-tasks: Jev answered ${res.status}`);
-        return;
-      }
-      const payload = (await res.json()) as { answers?: { category?: unknown } };
-      answer = payload.answers?.category;
-    } catch (err) {
-      console.warn("categorize-tasks: Jev call failed", err instanceof Error ? err.message : err);
+    const result = await callJev(apiKey, request, JEV_TIMEOUT_MS);
+    if (!result.ok) {
+      // Key revoked or balance gone: every remaining call would fail the same
+      // way, so stop instead of spending the batch on rejections.
+      if (result.fatal) stopped = true;
+      console.warn(`categorize-tasks: Jev call failed (${result.reason})`);
       return;
-    } finally {
-      clearTimeout(timer);
     }
 
-    const decision = decideCategory(answer);
+    const decision = decideCategory(result.answers.category);
     if (!decision) return;
 
     const { error } = await supabase

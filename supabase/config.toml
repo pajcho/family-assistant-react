@@ -84,6 +84,13 @@ verify_jwt = true
 [functions.categorize-tasks]
 verify_jwt = true
 
+# detect-shopping-list is called from the client, fire-and-forget, when a list
+# grows while it is open. It asks Jev whether the list is a shopping list so the
+# app can offer and suggest "Po rafovima". Runs on the member's own session;
+# verify_jwt = true keeps anonymous callers from spending the key.
+[functions.detect-shopping-list]
+verify_jwt = true
+
 # notify-outbox is fired by pg_cron through pg_net, not by a user session -
 # same X-Cron-Secret pattern as send-due-pushes.
 [functions.notify-outbox]
