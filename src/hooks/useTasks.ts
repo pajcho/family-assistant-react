@@ -12,7 +12,7 @@ import type {
   TaskRecurrencePeriod,
   TaskScope,
 } from "@/types/database";
-import { applyCategorySort } from "@/lib/groceryCategorize";
+import { applyCategorySort } from "@/lib/shopCategories";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -118,7 +118,9 @@ export type UpdateTaskInput = {
  * around. Smart sort is a *view-time projection* on top: when
  * `smart_sort_enabled = true` we re-arrange the tasks into aisle order
  * client-side, without ever touching the persisted sort_order. Toggling smart
- * sort off non-destructively restores the manual order.
+ * sort off non-destructively restores the manual order. The aisle each task
+ * lands in is its stored `category` (filed by the categorize-tasks function);
+ * an unfiled task sorts last, under "Ostalo", until it is filed.
  *
  * Extracted so the optimistic mutations (`useCreateTask` etc.) can drop a
  * placeholder into the cache and have it land in the same slot the next
@@ -155,7 +157,7 @@ function rollbackTaskCaches(
 }
 
 /** Both keys, invalidated together - see the module note on the two caches. */
-function invalidateTaskCaches(queryClient: QueryClient, familyId: string | null): void {
+export function invalidateTaskCaches(queryClient: QueryClient, familyId: string | null): void {
   void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
   void queryClient.invalidateQueries({ queryKey: ["tasks", familyId] });
 }
@@ -374,6 +376,10 @@ export function useDeleteList() {
  * the flag back off non-destructively restores the user's underlying manual
  * order (the same order surfaced by the drag-to-reorder UI when smart sort is
  * off).
+ *
+ * Either direction also answers the "Po rafovima" suggestion for good: a family
+ * that turned aisles off by hand does not want to be asked again, and one that
+ * turned them on has nothing left to be asked.
  */
 export function useToggleSmartSort() {
   const { familyId } = useProfile();
@@ -383,7 +389,7 @@ export function useToggleSmartSort() {
     mutationFn: async (args: { list: ListWithTasks; enabled: boolean }): Promise<void> => {
       const { error } = await supabase
         .from("lists")
-        .update({ smart_sort_enabled: args.enabled })
+        .update({ smart_sort_enabled: args.enabled, aisle_suggestion_dismissed: true })
         .eq("id", args.list.id);
       if (error) throw new Error(error.message);
     },
@@ -401,14 +407,58 @@ export function useToggleSmartSort() {
   });
 }
 
+/**
+ * Close the "Po rafovima" suggestion on one list, for the whole family.
+ *
+ * Optimistic, because the card should go the instant it is closed; a failed
+ * write puts it back. The database does not count this as an edit to the list
+ * (no "last changed" stamp, no jump in the recents), see
+ * 20260923085420_list_shopping_detection.sql.
+ */
+export function useDismissAisleSuggestion() {
+  const { familyId } = useProfile();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (listId: string): Promise<void> => {
+      const { error } = await supabase
+        .from("lists")
+        .update({ aisle_suggestion_dismissed: true })
+        .eq("id", listId);
+      if (error) throw new Error(error.message);
+    },
+    onMutate: async (listId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["lists", familyId] });
+      const previous = queryClient.getQueryData<ListWithTasks[]>(["lists", familyId]);
+      if (previous) {
+        queryClient.setQueryData(
+          ["lists", familyId],
+          previous.map((list) =>
+            list.id === listId ? { ...list, aisle_suggestion_dismissed: true } : list,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (error: Error, _listId, context) => {
+      if (context?.previous) queryClient.setQueryData(["lists", familyId], context.previous);
+      toast.error(error.message || "Greška pri zatvaranju predloga");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["lists", familyId] });
+    },
+  });
+}
+
 /* ------------------------------------------------------------------------- */
 /* Task mutations                                                             */
 /* ------------------------------------------------------------------------- */
 
 /**
  * Bulk-clone tasks into a (freshly created) list - the "Dupliraj sa stavkama"
- * half of the duplicate flow. Copies name, notes and the manual sort_order, but
- * always inserts as NOT completed and WITHOUT dates, assignees or recurrence:
+ * half of the duplicate flow. Copies name, notes, shop department and the manual
+ * sort_order, but always inserts as NOT completed and WITHOUT dates, assignees
+ * or recurrence:
  * the use-case is a fresh shopping list from a template, not an archive copy of
  * somebody's schedule. No optimistic update - this runs right after the list
  * insert, so the invalidate is what surfaces the new list + tasks together.
@@ -433,6 +483,10 @@ export function useCopyTasks() {
         description: task.description,
         sort_order: task.sort_order,
         is_completed: false,
+        // Same name, same department: carrying the filing over spares the copy
+        // a round of model calls and a visible shuffle out of "Ostalo".
+        category: task.category,
+        category_confidence: task.category_confidence,
         // family_id, owner_id and scope are filled in by the BEFORE INSERT trigger
       }));
       const { error } = await supabase.from("tasks").insert(rows);
@@ -454,7 +508,7 @@ export function useCopyTasks() {
  * sort_order, so the value it sends to Postgres matches what `onMutate` already
  * showed in the cache.
  */
-const TEMP_TASK_ID_PREFIX = "temp-";
+export const TEMP_TASK_ID_PREFIX = "temp-";
 
 /** Highest persisted sort_order among `tasks`, ignoring in-flight placeholders. */
 function maxPersistedSortOrder(tasks: readonly Task[] | undefined): number {
@@ -568,6 +622,9 @@ export function useCreateTask() {
         remind_minutes_before: payload.remind_minutes_before ?? null,
         remind_days_before: payload.remind_days_before ?? null,
         sort_order: maxOrder + 1,
+        // Unfiled until categorize-tasks answers, same as the inserted row.
+        category: null,
+        category_confidence: null,
         // Audit columns reference `auth.users`, not `profiles`, so this is the
         // auth uid - exactly what `set_task_defaults()` will stamp server-side.
         created_by_id: user?.id ?? null,

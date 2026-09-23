@@ -23,7 +23,7 @@ import type { TaskGrouping } from "@/components/tasks/TaskListBody";
 export type TaskGroupingSelectorProps = {
   value: TaskGrouping;
   onChange: (value: TaskGrouping) => void;
-  /** Offer "Po rafovima" - true only where the categoriser recognises the list. */
+  /** Offer "Po rafovima" - see `useSmartSort` for when a list qualifies. */
   allowAisle: boolean;
   disabled?: boolean;
 };

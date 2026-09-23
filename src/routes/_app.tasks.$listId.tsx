@@ -29,6 +29,7 @@ import {
   ResponsiveDialogContent,
   useIsDesktop,
 } from "@/components/ui/responsive-dialog";
+import { AisleSuggestion } from "@/components/tasks/AisleSuggestion";
 import { ListFormDialog } from "@/components/tasks/ListFormDialog";
 import { ListInfoPanel } from "@/components/tasks/ListInfoPanel";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
@@ -280,6 +281,14 @@ function ListDetailLoaded({
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <TaskListBody list={list} grouping={grouping} today={today} />
       </div>
+
+      {smartSort.suggestAisles ? (
+        <AisleSuggestion
+          onAccept={() => setGrouping("aisle")}
+          onDismiss={smartSort.dismissSuggestion}
+          pending={smartSort.isPending}
+        />
+      ) : null}
 
       {/* The gesture hints that used to live here are gone: two permanent
           paragraphs explaining swipe and hover are instructions for something you
