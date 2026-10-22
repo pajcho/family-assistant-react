@@ -72,6 +72,19 @@ async function wipeExisting() {
     }
     console.log("Deleted the old demo family", f.id);
   }
+  // A run interrupted between creating a login and its profile leaves a demo
+  // login with no family, which the loop above cannot reach and which would
+  // make createUser fail on every rerun.
+  const demoEmails = new Set(LOGINS.map((l) => l.email));
+  const { data: users, error } = await db.auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  for (const u of users.users) {
+    if (u.email && demoEmails.has(u.email)) {
+      const { error: deleteErr } = await db.auth.admin.deleteUser(u.id);
+      if (deleteErr) throw deleteErr;
+      console.log("Deleted a leftover demo login", u.email);
+    }
+  }
 }
 
 async function main() {

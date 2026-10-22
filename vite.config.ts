@@ -184,6 +184,18 @@ export default defineConfig(({ mode }) => {
       // PORT lets tooling (e.g. the Claude Code preview harness) assign a free
       // port when 5173 is already taken by another dev-server instance.
       port: process.env.PORT ? Number(process.env.PORT) : 5173,
+      // Same-origin route to a local Supabase stack (`supabase start`). In an
+      // Amp orb the browser only reaches the dev server through its portal,
+      // so VITE_SUPABASE_URL points at `<portal>/supabase` and this forwards
+      // to the stack's API gateway, WebSockets included for Realtime.
+      proxy: {
+        "/supabase": {
+          target: "http://127.0.0.1:54321",
+          changeOrigin: true,
+          ws: true,
+          rewrite: (requestPath) => requestPath.replace(/^\/supabase/, ""),
+        },
+      },
     },
   };
 });

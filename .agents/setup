@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Prepares a fresh Amp orb: Node 22 (what CI runs), the pinned pnpm,
+# dependencies from the lockfile and the Supabase CLI for the local stack.
+# Runs again on a stale snapshot, so every step must be idempotent and cheap
+# when the work is already done.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() {
+	local label="$1"
+	shift
+	echo "==> $label"
+	local start=$SECONDS
+	"$@"
+	echo "<== $label ($((SECONDS - start))s)"
+}
+
+# The orb image ships a newer Node whose built-in localStorage shadows the
+# jsdom one and breaks tests, so install the major CI uses (.github/workflows).
+node_major=22
+node_dir="$HOME/.local/node-$node_major"
+ensure_node() {
+	if [[ ! -x "$node_dir/bin/node" ]]; then
+		local base="https://nodejs.org/dist/latest-v$node_major.x"
+		local tarball
+		tarball="$(curl -fsSL "$base/SHASUMS256.txt" | grep -oE "node-v$node_major\.[0-9.]+-linux-x64\.tar\.xz" | head -1)"
+		rm -rf "$node_dir"
+		mkdir -p "$node_dir"
+		curl -fsSL "$base/$tarball" | tar -xJ -C "$node_dir" --strip-components=1
+	fi
+	"$node_dir/bin/node" --version
+}
+step "node $node_major" ensure_node
+export PATH="$node_dir/bin:$PATH"
+
+# Later login shells (Amp, orb services) get the same Node first on PATH.
+profile_marker="# family-assistant-react: Node $node_major"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+	cat >>"$HOME/.bash_profile" <<EOF
+
+$profile_marker
+case ":\$PATH:" in
+	*":$node_dir/bin:"*) ;;
+	*) export PATH="$node_dir/bin:\$PATH" ;;
+esac
+EOF
+fi
+
+# The `packageManager` field pins pnpm; corepack provides that exact version.
+pnpm_version="$(node -p "require('./package.json').packageManager.split('@')[1]")"
+ensure_pnpm() {
+	if [[ "$(command -v pnpm)" != "$node_dir/bin/pnpm" || "$(pnpm --version 2>/dev/null || true)" != "$pnpm_version" ]]; then
+		COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable --install-directory "$node_dir/bin"
+		COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare "pnpm@$pnpm_version" --activate
+	fi
+	pnpm --version
+}
+step "pnpm $pnpm_version" ensure_pnpm
+
+export CI=true # non-interactive pnpm (no prompt to purge node_modules)
+step "pnpm install" pnpm install --frozen-lockfile
+
+# Local Supabase runs in Docker (docker-ce ships with the orb image); the
+# docker and supabase services in .amp/services.yaml start it. The images
+# (~8 GB) are pulled on the first `supabase start`, not baked into snapshots.
+supabase_version=2.121.0
+ensure_supabase() {
+	if [[ "$(supabase --version 2>/dev/null || true)" != "$supabase_version" ]]; then
+		local tmp
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/supabase/cli/releases/download/v$supabase_version/supabase_linux_amd64.tar.gz" |
+			tar -xz -C "$tmp" supabase
+		sudo install -m 0755 "$tmp/supabase" /usr/local/bin/supabase
+		rm -rf "$tmp"
+	fi
+	supabase --version
+}
+step "supabase cli $supabase_version" ensure_supabase
+
+# Orb-wide notes for agents working in this repository.
+agents_md="$HOME/.config/amp/AGENTS.md"
+agents_marker="# family-assistant-react: local Supabase"
+if ! grep -Fqx "$agents_marker" "$agents_md" 2>/dev/null; then
+	mkdir -p "$(dirname "$agents_md")"
+	cat >>"$agents_md" <<'EOF'
+
+# family-assistant-react: local Supabase
+- `amp orb services ensure` starts Docker, a local Supabase stack with every migration applied, and the dev server on a portal. The first start pulls ~8 GB of images (about 1-2 minutes).
+- The app talks to that stack through the dev server's `/supabase` proxy; `scripts/orb/supabase.sh` writes `.env.development.local`. A new database is seeded once with `scripts/seed-demo.ts`; sign in as `demo@porodica.test` / `demo1234`. Data then persists for the orb's lifetime (rerunning seed-demo resets the demo family).
+- Database: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`. Studio: port 54323 (`amp orb portal 54323 --title 'Supabase Studio'`). Never point local tooling at the production project.
+EOF
+fi

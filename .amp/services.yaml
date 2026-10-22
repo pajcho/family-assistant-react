@@ -1,0 +1,17 @@
+# Amp orb services: `amp orb services ensure` starts them. See .agents/setup
+# for the tools they need and https://ampcode.com/docs/orbs/portals.
+services:
+  docker:
+    # Socket group = the orb user's group, so `docker` and `supabase` work without sudo.
+    command: exec sudo dockerd --group "$(id -gn)"
+  supabase:
+    # No port/health on purpose: the first start in a fresh orb pulls ~8 GB of
+    # images and takes longer than `ensure` waits. Check with `supabase status`.
+    command: bash scripts/orb/supabase.sh
+    env:
+      WEB_URL: ${services.web.publicURL}
+  web:
+    command: pnpm dev --port "$PORT" --strictPort
+    portal:
+      title: App
+      description: Local Supabase with the demo family. Sign in as demo@porodica.test / demo1234.

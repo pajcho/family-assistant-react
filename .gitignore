@@ -41,9 +41,13 @@ src/routeTree.gen.ts
 .nuxt-screens/
 
 # Claude Code local state
-.agents/
+.agents/*
+!.agents/setup
 .claude/
 skills-lock.json
+
+# Amp orb portal state
+.amp/portals/*
 
 # Supabase CLI local state (project link, etc.)
 supabase/.temp/
