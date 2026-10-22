@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef } from "react";
+import { useRef } from "react";
 import type { ReactNode } from "react";
+import { Drawer } from "vaul";
 
 import { KidTile } from "@/components/kid/KidUi";
 
@@ -9,8 +10,13 @@ import { KidTile } from "@/components/kid/KidUi";
  * Deliberately NOT the app's `DetailSheet` / shadcn dialog - this world has its
  * own radii, its own surface colours and no icon buttons at all. It is also
  * deliberately flat: the kid shell has no sub-views, so there is no sheet stack
- * and no "Nazad". Every sheet closes with `Zatvori`, tapping the backdrop, or
- * Escape.
+ * and no "Nazad". Every sheet closes with `Zatvori`, tapping the backdrop,
+ * Escape, or swiping it down.
+ *
+ * The behaviour comes from Vaul's unstyled primitives - the same library the
+ * grown-up app's drawers run on - so the swipe-down, the scroll-vs-drag
+ * arbitration inside a long sheet, focus trapping and the exit animation are
+ * the battle-tested ones. Only the look is the kid shell's own.
  *
  * Height follows the content (house rule), capped at 80% of the screen so a
  * long sheet still shows the backdrop above it and reads as a sheet.
@@ -18,73 +24,61 @@ import { KidTile } from "@/components/kid/KidUi";
 export function KidSheet({
   open,
   onClose,
-  labelledBy,
   children,
 }: {
   open: boolean;
   onClose: () => void;
-  /** Id of the element naming the sheet - usually the `KidSheetTitle`. */
-  labelledBy?: string;
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Escape closes, and focus moves into the sheet on open so a keyboard user
-  // is not left behind on the card that opened it.
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus?.();
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div className="kid-fade-in fixed inset-0 z-50 flex items-end bg-[rgb(12_16_38/0.48)]">
-      {/* The backdrop is a real button, not a div with a click handler: that
-          way tapping outside and reaching it with a keyboard are the same
-          control, and there is nothing for a screen reader to trip over. */}
-      <button
-        type="button"
-        aria-label="Zatvori"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default"
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        tabIndex={-1}
-        className="kid-sheet-in kid-scroll kid-font relative max-h-[80%] w-full overflow-y-auto rounded-t-[26px] bg-[var(--k-card)] px-[18px] pt-2.5 pb-[calc(env(safe-area-inset-bottom)+18px)] text-[var(--k-ink)] outline-none"
-      >
-        <span
-          aria-hidden="true"
-          className="mx-auto mt-0.5 mb-3.5 block h-[5px] w-10 rounded-full bg-[var(--k-line)]"
-        />
-        {children}
-      </div>
-    </div>
+    <Drawer.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-[rgb(12_16_38/0.48)]" />
+        <Drawer.Content
+          ref={panelRef}
+          // The sheet has no description element; saying so explicitly keeps
+          // Radix from warning about a missing one.
+          aria-describedby={undefined}
+          // Focus moves into the sheet on open so a keyboard user is not left
+          // behind on the card that opened it - the panel itself, not its
+          // first button, so nothing lights up with a focus ring on a tap.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            panelRef.current?.focus();
+          }}
+          className="kid-font fixed inset-x-0 bottom-0 z-50 flex max-h-[80%] flex-col rounded-t-[26px] bg-[var(--k-card)] text-[var(--k-ink)] outline-none"
+        >
+          {/* The scroll lives on this inner box, not on the panel: Vaul hangs
+              a tall pseudo-element under the panel (it covers the gap when a
+              drag overshoots), and inside a scrolling panel that would add
+              two screens of empty scroll below the content. */}
+          <div className="kid-scroll min-h-0 overflow-y-auto px-[18px] pt-2.5 pb-[calc(env(safe-area-inset-bottom)+18px)]">
+            <span
+              aria-hidden="true"
+              className="mx-auto mt-0.5 mb-3.5 block h-[5px] w-10 rounded-full bg-[var(--k-line)]"
+            />
+            {children}
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }
 
-export function KidSheetTitle({ emoji, title, id }: { emoji: string; title: string; id?: string }) {
+/** The sheet's name. Radix wires it to the dialog's `aria-labelledby`. */
+export function KidSheetTitle({ emoji, title }: { emoji: string; title: string }) {
   return (
-    <h2 id={id} className="mb-1.5 flex items-center gap-2.5 text-[18px] font-bold">
+    <Drawer.Title className="mb-1.5 flex items-center gap-2.5 text-[18px] font-bold">
       <KidTile emoji={emoji} className="size-11 text-[22px]" />
       <span className="min-w-0 flex-1">{title}</span>
-    </h2>
+    </Drawer.Title>
   );
 }
 
@@ -140,10 +134,9 @@ export function KidDetailSheet({
   title: string;
   rows: ReadonlyArray<{ icon: string; text: string }>;
 }) {
-  const titleId = useId();
   return (
-    <KidSheet open={open} onClose={onClose} labelledBy={titleId}>
-      <KidSheetTitle id={titleId} emoji={emoji} title={title} />
+    <KidSheet open={open} onClose={onClose}>
+      <KidSheetTitle emoji={emoji} title={title} />
       {rows.map((row, index) => (
         <KidSheetRow key={`${row.icon}-${index}`} icon={row.icon}>
           {row.text}
