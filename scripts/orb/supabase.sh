@@ -27,18 +27,23 @@ if [[ "$(cat "$env_file" 2>/dev/null || true)" != "$env_content" ]]; then
 	printf '%s\n' "$env_content" >"$env_file"
 fi
 
-# Seed only a brand-new database. seed-demo.ts recreates its family on every
-# run, so running it on restarts would wipe what was changed during the orb's
-# lifetime. Restarts and pause/resume keep the Docker volume, so this is once
-# per orb.
+# Seed each database once. seed-demo.ts recreates its family on every run, so
+# rerunning it would wipe what was changed during the orb's lifetime. The
+# "seeded" marker is a database setting written only after the seed succeeds:
+# it lives in the same Docker volume as the data (a reset or new orb clears
+# it), and an interrupted or failed seed is retried on the next start -
+# seed-demo.ts first deletes the half-built demo family.
 project_id="$(sed -nE 's/^project_id = "(.*)"/\1/p' supabase/config.toml)"
-families="$(docker exec "supabase_db_$project_id" \
-	psql -U postgres -d postgres -tAc 'select count(*) from public.families')"
-if [[ "$families" == 0 ]]; then
+db_psql() { docker exec "supabase_db_$project_id" psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
+# A plain assignment, so a failed query stops the script (set -e) instead of
+# reading as "not seeded" and wiping the demo family.
+seeded="$(db_psql "select current_setting('orb.demo_seeded', true)")"
+if [[ "$seeded" != done ]]; then
 	SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
 		pnpm exec tsx scripts/seed-demo.ts
+	db_psql "alter database postgres set orb.demo_seeded = 'done'" >/dev/null
 else
-	echo "Database already has $families families; skipping the demo seed."
+	echo "The demo family was already seeded in this database; skipping."
 fi
 
 # The containers belong to dockerd; this process only keeps the service up.
