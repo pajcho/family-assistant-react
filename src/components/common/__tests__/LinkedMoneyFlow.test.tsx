@@ -31,11 +31,13 @@ vi.mock("@/components/payments/PaymentFormDialog", () => ({
     initialLink,
     error,
     onSubmit,
+    onScanReceipt,
   }: {
     open: boolean;
     initialLink?: PaymentLinkValue | null;
     error?: string | null;
     onSubmit: (payload: PaymentFormPayload) => void;
+    onScanReceipt?: () => void;
   }) =>
     open ? (
       <div role="dialog" aria-label="Dodaj plaćanje">
@@ -45,6 +47,9 @@ vi.mock("@/components/payments/PaymentFormDialog", () => ({
         {error ? <p role="alert">{error}</p> : null}
         <button type="button" onClick={() => onSubmit(paymentPayload)}>
           Sačuvaj plaćanje
+        </button>
+        <button type="button" onClick={onScanReceipt}>
+          Skeniraj račun
         </button>
       </div>
     ) : null,
@@ -103,7 +108,7 @@ describe("LinkedMoneyFlow", () => {
     expect(successToast).toHaveBeenCalledWith("Plaćanje je dodato.");
   });
 
-  it("supports a birthday link on the payment path", () => {
+  it("hops from a birthday payment form to the receipt scanner, keeping the link", async () => {
     render(
       <LinkedMoneyFlow
         request={{ kind: "payment", link: birthdayLink }}
@@ -112,6 +117,11 @@ describe("LinkedMoneyFlow", () => {
     );
 
     expect(screen.getByTestId("payment-link")).toHaveTextContent("birthday:bday-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Skeniraj račun" }));
+
+    expect(screen.queryByRole("dialog", { name: "Dodaj plaćanje" })).not.toBeInTheDocument();
+    expect(await screen.findByTestId("scan-link")).toHaveTextContent("birthday:bday-1");
   });
 
   it("keeps the payment form open with an inline error when saving fails", async () => {

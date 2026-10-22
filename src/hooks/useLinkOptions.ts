@@ -59,9 +59,6 @@ export type LinkOption = {
 /** How far back the event options reach - recent past + everything upcoming. */
 export const EVENT_LOOKBACK_MONTHS = 3;
 
-/** Every link kind, and the default for pickers that do not narrow it. */
-export const ALL_LINK_KINDS: ReadonlyArray<PaymentLinkKind> = ["activity", "event", "birthday"];
-
 /**
  * The pickable link targets, merged and ordered: ALL activities (they're few),
  * events from the last {@link EVENT_LOOKBACK_MONTHS} months onward (canceled
@@ -69,9 +66,7 @@ export const ALL_LINK_KINDS: ReadonlyArray<PaymentLinkKind> = ["activity", "even
  * intent), then birthdays soonest-first. Shared by the desktop combobox and
  * the mobile picker sheet.
  */
-export function usePaymentLinkOptions(
-  kinds: ReadonlyArray<PaymentLinkKind> = ALL_LINK_KINDS,
-): LinkOption[] {
+export function usePaymentLinkOptions(): LinkOption[] {
   const today = useToday();
   const activitiesQuery = useActivities();
   const activityParticipantsQuery = useActivityParticipants();
@@ -102,52 +97,43 @@ export function usePaymentLinkOptions(
     return m;
   }, [scheduleQuery.data]);
 
-  const kindsKey = kinds.join(",");
   return useMemo<LinkOption[]>(() => {
-    const wanted = new Set(kindsKey.split(","));
-    const activities = wanted.has("activity")
-      ? (activitiesQuery.data ?? []).map(
-          (a): LinkOption => ({
-            kind: "activity",
-            id: a.id,
-            name: a.name,
-            personIds: byActivity.get(a.id) ?? [],
-            scheduleLabel: activityScheduleLabel(rulesByActivity.get(a.id) ?? []),
-          }),
-        )
-      : [];
-    const events = wanted.has("event")
-      ? (eventsQuery.data ?? [])
-          .filter((e) => !e.canceled_at)
-          .map(
-            (e): LinkOption => ({
-              kind: "event",
-              id: e.id,
-              name: e.name,
-              date: e.date,
-              endDate: e.end_date,
-              startTime: normalizeTime(e.start_time) || null,
-              endTime: normalizeTime(e.end_time) || null,
-              personIds: byEvent.get(e.id) ?? [],
-            }),
-          )
-      : [];
-    const birthdays = wanted.has("birthday")
-      ? [...(birthdaysQuery.data ?? [])]
-          .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
-          .map(
-            (b): LinkOption => ({
-              kind: "birthday",
-              id: b.id,
-              name: b.name,
-              date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
-              personIds: [],
-            }),
-          )
-      : [];
+    const activities = (activitiesQuery.data ?? []).map(
+      (a): LinkOption => ({
+        kind: "activity",
+        id: a.id,
+        name: a.name,
+        personIds: byActivity.get(a.id) ?? [],
+        scheduleLabel: activityScheduleLabel(rulesByActivity.get(a.id) ?? []),
+      }),
+    );
+    const events = (eventsQuery.data ?? [])
+      .filter((e) => !e.canceled_at)
+      .map(
+        (e): LinkOption => ({
+          kind: "event",
+          id: e.id,
+          name: e.name,
+          date: e.date,
+          endDate: e.end_date,
+          startTime: normalizeTime(e.start_time) || null,
+          endTime: normalizeTime(e.end_time) || null,
+          personIds: byEvent.get(e.id) ?? [],
+        }),
+      );
+    const birthdays = [...(birthdaysQuery.data ?? [])]
+      .sort((a, b) => daysUntilBirthday(a.birth_date) - daysUntilBirthday(b.birth_date))
+      .map(
+        (b): LinkOption => ({
+          kind: "birthday",
+          id: b.id,
+          name: b.name,
+          date: format(nextBirthdayDate(b.birth_date), "yyyy-MM-dd"),
+          personIds: [],
+        }),
+      );
     return [...activities, ...events, ...birthdays];
   }, [
-    kindsKey,
     activitiesQuery.data,
     eventsQuery.data,
     birthdaysQuery.data,
@@ -169,10 +155,9 @@ export function usePaymentLinkOptions(
  */
 export function useLinkSuggestions(
   context: SuggestionContext | null | undefined,
-  kinds: ReadonlyArray<PaymentLinkKind> = ALL_LINK_KINDS,
   limit = 3,
 ): LinkSuggestion<LinkOption>[] {
-  const options = usePaymentLinkOptions(kinds);
+  const options = usePaymentLinkOptions();
   const activitiesQuery = useActivities();
   const scheduleQuery = useActivitySchedule();
   const participantsQuery = useActivityParticipants();
@@ -184,13 +169,12 @@ export function useLinkSuggestions(
   const name = context?.name ?? null;
   const date = context?.date?.trim() || null;
   const time = context?.time ?? null;
-  const wantsActivities = kinds.includes("activity");
 
   // activity_id → the termini running on `date`, deduped by time (siblings in
   // one activity share a termin and must not double it in the label).
   const slotsByActivity = useMemo(() => {
     const map = new Map<string, CandidateSlot[]>();
-    if (!date || !wantsActivities) return map;
+    if (!date) return map;
     const blocks = resolveBlocksInRange({
       from: date,
       to: date,
@@ -216,7 +200,6 @@ export function useLinkSuggestions(
     return map;
   }, [
     date,
-    wantsActivities,
     activitiesQuery.data,
     scheduleQuery.data,
     participantsQuery.data,

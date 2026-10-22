@@ -22,11 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
-import {
-  EXPENSE_LINK_KINDS,
-  ExpensePersonSelect,
-  expenseLinkValue,
-} from "@/components/budget/ExpenseForm";
+import { ExpensePersonSelect, expenseLinkValue } from "@/components/budget/ExpenseForm";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import { PickerRow } from "@/components/common/PickerRow";
@@ -279,6 +275,7 @@ export function ReceiptExpenseDialog({
           note: note.trim() || null,
           activity_id: link?.kind === "activity" ? link.id : null,
           event_id: link?.kind === "event" ? link.id : null,
+          birthday_id: link?.kind === "birthday" ? link.id : null,
         },
       });
       onOpenChange(false);
@@ -624,12 +621,7 @@ export function ReceiptExpenseDialog({
           ) : view === "items" ? (
             itemsInline
           ) : view === "link" ? (
-            <PaymentLinkPickerSheet
-              value={link}
-              onChange={setLink}
-              onDone={pop}
-              kinds={EXPENSE_LINK_KINDS}
-            />
+            <PaymentLinkPickerSheet value={link} onChange={setLink} onDone={pop} />
           ) : view === "details" ? (
             <div className="space-y-4">
               <ExpensePersonSelect value={personId} onChange={setPersonId} />
@@ -645,7 +637,6 @@ export function ReceiptExpenseDialog({
               <PaymentLinkField
                 value={link}
                 onChange={setLink}
-                kinds={EXPENSE_LINK_KINDS}
                 // Mobile-only sub-view: full-sheet picker instead of a popover.
                 onOpenPicker={() => push("link")}
               />
@@ -706,7 +697,7 @@ export function ReceiptExpenseDialog({
                       placeholder="npr. nedeljna kupovina"
                     />
                   </div>
-                  <PaymentLinkField value={link} onChange={setLink} kinds={EXPENSE_LINK_KINDS} />
+                  <PaymentLinkField value={link} onChange={setLink} />
                   {error ? (
                     <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
                       {error}

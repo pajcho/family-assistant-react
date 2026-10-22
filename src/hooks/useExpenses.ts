@@ -52,6 +52,7 @@ export type CreateExpenseInput = {
   exchange_rate?: number | null;
   activity_id?: string | null;
   event_id?: string | null;
+  birthday_id?: string | null;
 };
 
 export type UpdateExpenseInput = Partial<
@@ -67,6 +68,7 @@ export type UpdateExpenseInput = Partial<
     | "exchange_rate"
     | "activity_id"
     | "event_id"
+    | "birthday_id"
   >
 >;
 
@@ -98,10 +100,24 @@ export function useExpenses(range: ExpenseRange) {
 export type LinkedExpenseRef = {
   activityId?: string | null;
   eventId?: string | null;
+  birthdayId?: string | null;
 };
 
-async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Promise<Expense[]> {
-  let query = supabase
+/** The link column + id a ref points at, or null for an empty ref. */
+function linkedExpenseColumn(
+  ref: LinkedExpenseRef,
+): ["activity_id" | "event_id" | "birthday_id", string] | null {
+  if (ref.activityId) return ["activity_id", ref.activityId];
+  if (ref.eventId) return ["event_id", ref.eventId];
+  if (ref.birthdayId) return ["birthday_id", ref.birthdayId];
+  return null;
+}
+
+async function fetchLinkedExpenses(
+  familyId: string,
+  [column, id]: NonNullable<ReturnType<typeof linkedExpenseColumn>>,
+): Promise<Expense[]> {
+  const { data, error } = await supabase
     .from("expenses")
     .select("*")
     .eq("family_id", familyId)
@@ -109,33 +125,25 @@ async function fetchLinkedExpenses(familyId: string, ref: LinkedExpenseRef): Pro
     // showing them again would double every paid occurrence.
     .neq("source", "payment")
     .order("spent_on", { ascending: false })
-    .order("created_at", { ascending: false });
-  query = ref.activityId
-    ? query.eq("activity_id", ref.activityId)
-    : query.eq("event_id", ref.eventId as string);
-  const { data, error } = await query;
+    .order("created_at", { ascending: false })
+    .eq(column, id);
   if (error) throw new Error(error.message);
   return (data as Expense[]) ?? [];
 }
 
 /**
- * Manual + receipt expenses linked to one activity or event - the expenses
+ * Manual + receipt expenses linked to one activity, event or birthday - the expenses
  * box in the detail dialogs. Cross-month by design (the range query above is
  * month-windowed). Keyed under ["expenses", familyId] so every expense
  * mutation's invalidation refreshes this list too.
  */
 export function useLinkedExpenses(ref: LinkedExpenseRef) {
   const { familyId } = useProfile();
+  const link = linkedExpenseColumn(ref);
   const query = useQuery({
-    queryKey: [
-      "expenses",
-      familyId,
-      "linked",
-      ref.activityId ? "activity" : "event",
-      ref.activityId ?? ref.eventId ?? "",
-    ],
-    queryFn: () => fetchLinkedExpenses(familyId as string, ref),
-    enabled: !!familyId && !!(ref.activityId || ref.eventId),
+    queryKey: ["expenses", familyId, "linked", link?.[0] ?? "", link?.[1] ?? ""],
+    queryFn: () => fetchLinkedExpenses(familyId as string, link as NonNullable<typeof link>),
+    enabled: !!familyId && !!link,
   });
   const expenses = useMemo(() => query.data ?? [], [query.data]);
   return { ...query, expenses };
@@ -163,6 +171,7 @@ export function useCreateExpense() {
           source: "manual",
           activity_id: payload.activity_id ?? null,
           event_id: payload.event_id ?? null,
+          birthday_id: payload.birthday_id ?? null,
         })
         .select()
         .single();
@@ -321,9 +330,10 @@ export type SaveReceiptExpenseInput = {
   category_id: string | null;
   person_id: string | null;
   note: string | null;
-  /** Optional activity/event link (scan started from that context) - XOR. */
+  /** Optional activity/event/birthday link (scan started from that context) - XOR. */
   activity_id?: string | null;
   event_id?: string | null;
+  birthday_id?: string | null;
   items: ParsedReceiptItem[];
   /**
    * Line idx values THIS expense claims. Omit/null = claim every free line
@@ -372,6 +382,7 @@ export function useSaveReceiptExpense() {
           note: input.note ?? null,
           activity_id: input.activity_id ?? null,
           event_id: input.event_id ?? null,
+          birthday_id: input.birthday_id ?? null,
         },
         p_items: input.items.map((it, idx) => ({
           idx,

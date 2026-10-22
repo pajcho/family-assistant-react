@@ -24,7 +24,6 @@ import {
 } from "@/components/payments/PaymentLinkField";
 import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import {
-  EXPENSE_LINK_KINDS,
   ExpenseForm,
   ExpensePersonSelect,
   initialExpenseFormState,
@@ -248,7 +247,6 @@ export function ExpenseFormDialog({
                 value={form.link}
                 onChange={(link) => setForm((s) => ({ ...s, link }))}
                 onDone={stack.pop}
-                kinds={EXPENSE_LINK_KINDS}
                 suggest={expense?.id ? null : { name: form.note, date: form.spent_on }}
               />
             </>
@@ -272,7 +270,6 @@ export function ExpenseFormDialog({
                 <PaymentLinkField
                   value={form.link}
                   onChange={(link) => setForm((s) => ({ ...s, link }))}
-                  kinds={EXPENSE_LINK_KINDS}
                   suggest={expense?.id ? null : { name: form.note, date: form.spent_on }}
                   // Mobile-only sub-view: full-sheet picker instead of a popover.
                   onOpenPicker={() => stack.push({ kind: "link" })}

@@ -26,6 +26,7 @@ import {
 import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import type { Payment } from "@/types/database";
 import { useToday } from "@/hooks/useToday";
+import { preloadReceiptScanDialog } from "@/components/budget/receipt/lazyReceiptScanDialog";
 
 export type PaymentFormDialogProps = {
   open: boolean;
@@ -49,6 +50,8 @@ export type PaymentFormDialogProps = {
   error?: string | null;
   saving?: boolean;
   onSubmit: (payload: PaymentFormPayload) => void;
+  /** When adding, offers a scan-receipt shortcut into the receipt scanner. */
+  onScanReceipt?: () => void;
 };
 
 // "link" is one level deeper than the other sub-views: more details -> link to.
@@ -81,6 +84,7 @@ export function PaymentFormDialog({
   error,
   saving,
   onSubmit,
+  onScanReceipt,
 }: PaymentFormDialogProps) {
   const today = useToday();
   const stack = useSheetStack<View>(open, onOpenChange, { kind: "form" });
@@ -121,6 +125,12 @@ export function PaymentFormDialog({
     resetCurrency(payment?.currency, payment?.exchange_rate);
     resetStack();
   }, [open, payment, initialName, personSeed, linkSeed, resetCurrency, resetStack]);
+
+  // Warm the scanner chunk while the form is open - same reason as
+  // ExpenseFormDialog: a cold hop otherwise reads as "the dialog just closed".
+  useEffect(() => {
+    if (open && onScanReceipt) preloadReceiptScanDialog();
+  }, [open, onScanReceipt]);
 
   const title = payment ? "Izmeni plaćanje" : "Dodaj plaćanje";
   const isDesktop = useIsDesktop();
@@ -170,6 +180,7 @@ export function PaymentFormDialog({
                 onSubmit={onSubmit}
                 onCancel={() => onOpenChange(false)}
                 onOpenView={(kind) => stack.push({ kind })}
+                onScanReceipt={onScanReceipt}
               />
             </>
           ) : view.kind === "tip" ? (

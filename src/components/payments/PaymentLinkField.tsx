@@ -8,12 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { LinkSuggestionList } from "@/components/payments/LinkSuggestionList";
 import { PaymentLinkIcon } from "@/components/payments/PaymentLinkChip";
-import {
-  ALL_LINK_KINDS,
-  usePaymentLinkOptions,
-  useLinkSuggestions,
-  type LinkOption,
-} from "@/hooks/useLinkOptions";
+import { usePaymentLinkOptions, useLinkSuggestions, type LinkOption } from "@/hooks/useLinkOptions";
 import { usePaymentLinkTarget, type PaymentLinkKind } from "@/hooks/usePaymentLinks";
 import { candidateDetail, type SuggestionContext } from "@/utils/linkSuggestions";
 import { cn } from "@/lib/cn";
@@ -53,11 +48,6 @@ export type PaymentLinkFieldProps = {
    */
   suggest?: SuggestionContext | null;
   /**
-   * Which link kinds are offered. Defaults to all three; the EXPENSE forms
-   * pass ["activity", "event"] since `expenses` has no birthday link.
-   */
-  kinds?: ReadonlyArray<PaymentLinkKind>;
-  /**
    * Mobile sheet contexts: when set, the trigger opens the hosting dialog's
    * full-sheet picker sub-view (see PaymentLinkPickerSheet) instead of the
    * inline popover - a popover + software keyboard pushes the whole app
@@ -84,7 +74,6 @@ export function PaymentLinkField({
   value,
   onChange,
   suggest,
-  kinds,
   onOpenPicker,
 }: PaymentLinkFieldProps) {
   const [open, setOpen] = useState(false);
@@ -94,8 +83,8 @@ export function PaymentLinkField({
   // of this form. They come back when the form is reopened, not before.
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
 
-  const options = usePaymentLinkOptions(kinds);
-  const suggestions = useLinkSuggestions(value ? null : suggest, kinds);
+  const options = usePaymentLinkOptions();
+  const suggestions = useLinkSuggestions(value ? null : suggest);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -194,12 +183,8 @@ export function PaymentLinkField({
       <span className="min-w-0 flex-1 truncate text-left text-foreground">{selected.name}</span>
     </>
   ) : (
-    // Names only what this form actually offers - the expense forms have no
-    // birthday column, so promising one there is a dead end.
     <span className="flex-1 truncate text-left text-muted-foreground">
-      {(kinds ?? ALL_LINK_KINDS).includes("birthday")
-        ? "Aktivnost, događaj ili rođendan…"
-        : "Aktivnost ili događaj…"}
+      Aktivnost, događaj ili rođendan…
     </span>
   );
   const triggerClassName = cn(

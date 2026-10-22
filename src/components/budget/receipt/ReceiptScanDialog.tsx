@@ -425,6 +425,7 @@ export default function ReceiptScanDialog({
         note: note.trim() || null,
         activity_id: link?.kind === "activity" ? link.id : null,
         event_id: link?.kind === "event" ? link.id : null,
+        birthday_id: link?.kind === "birthday" ? link.id : null,
         // The RPC already stores this receipt's lines on the fast path.
         items: dbSourced ? [] : receipt.items,
         claim_idxs: claimIdxs,

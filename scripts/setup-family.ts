@@ -5,8 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Family Assistant - setup family and two users.
  * Run: pnpm run setup-family (uses .env) or pnpm run setup-family:local (uses .env.local).
- * Both scripts use `tsx --env-file=...` to load SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY into
- * process.env before this file executes.
+ * Both scripts use `tsx --env-file=...` to load VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+ * into process.env before this file executes. SUPABASE_URL, when set, still wins.
  */
 
 const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -14,7 +14,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceRoleKey) {
   console.error(
-    "Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Set them in .env or environment.",
+    "Missing VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. Set them in .env or environment.",
   );
   process.exit(1);
 }

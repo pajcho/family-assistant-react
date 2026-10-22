@@ -27,14 +27,8 @@ export interface PaymentLinkTarget {
   date?: string;
 }
 
-/**
- * Anything carrying the link columns. Expenses link only to an activity or an
- * event (never a birthday - see `LinkedMoneyFlow`), so `birthday_id` is
- * optional and they can be resolved through the same hook.
- */
-export type LinkedRow = Pick<Payment, "activity_id" | "event_id"> & {
-  birthday_id?: string | null;
-};
+/** Anything carrying the link columns - payments and expenses alike. */
+export type LinkedRow = Pick<Payment, "activity_id" | "event_id" | "birthday_id">;
 
 export interface UsePaymentLinkTargetsResult {
   /**

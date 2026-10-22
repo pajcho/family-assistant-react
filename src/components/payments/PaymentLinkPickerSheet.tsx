@@ -16,8 +16,6 @@ export type PaymentLinkPickerSheetProps = {
   onChange: (value: PaymentLinkValue | null) => void;
   /** Called after a pick / unlink - the hosting dialog pops back a level. */
   onDone: () => void;
-  /** Which link kinds are offered (expense forms exclude birthdays). */
-  kinds?: ReadonlyArray<PaymentLinkKind>;
   /** Same context the field uses - drives the "Predlozi" group up top. */
   suggest?: SuggestionContext | null;
 };
@@ -44,12 +42,11 @@ export function PaymentLinkPickerSheet({
   value,
   onChange,
   onDone,
-  kinds,
   suggest,
 }: PaymentLinkPickerSheetProps) {
   const [query, setQuery] = useState("");
-  const options = usePaymentLinkOptions(kinds);
-  const suggestions = useLinkSuggestions(suggest, kinds);
+  const options = usePaymentLinkOptions();
+  const suggestions = useLinkSuggestions(suggest);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -150,7 +150,7 @@ export function expenseRowTitle(expense: Expense): string {
 }
 
 /**
- * Expenses box - manual + receipt expenses linked to one activity or event
+ * Expenses box - manual + receipt expenses linked to one activity, event or birthday
  * (see `useLinkedExpenses`; payment-sourced auto rows are excluded there).
  * Same row anatomy as the payments box; with `onSelect` a row opens the
  * expense's detail (receipt) or edit form (manual).

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
+import type { PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import type { Expense } from "@/types/database";
 
 /**
@@ -110,7 +111,6 @@ vi.mock("@/hooks/useExpenseCategories", () => ({
 }));
 
 vi.mock("@/components/budget/ExpenseForm", () => ({
-  EXPENSE_LINK_KINDS: ["activity", "event"],
   ExpensePersonSelect: () => <div data-testid="person-select" />,
 }));
 
@@ -147,12 +147,15 @@ vi.mock("@/lib/qrScan", () => ({
 
 import ReceiptScanDialog from "@/components/budget/receipt/ReceiptScanDialog";
 
-function Harness({ attachTo }: { attachTo?: Expense | null } = {}) {
+function Harness({
+  attachTo,
+  link,
+}: { attachTo?: Expense | null; link?: PaymentLinkValue | null } = {}) {
   const [open, setOpen] = useState(true);
   return (
     <>
       <output aria-label="owner-open">{String(open)}</output>
-      <ReceiptScanDialog open={open} onOpenChange={setOpen} attachTo={attachTo} />
+      <ReceiptScanDialog open={open} onOpenChange={setOpen} attachTo={attachTo} link={link} />
     </>
   );
 }
@@ -176,8 +179,11 @@ function dismissTopSheet() {
   fireEvent.click(handles[handles.length - 1]);
 }
 
-async function scanToPreview(props?: { attachTo?: Expense | null }) {
-  render(<Harness attachTo={props?.attachTo} />);
+async function scanToPreview(props?: {
+  attachTo?: Expense | null;
+  link?: PaymentLinkValue | null;
+}) {
+  render(<Harness attachTo={props?.attachTo} link={props?.link} />);
   fireEvent.change(screen.getByLabelText("Nalepi link sa računa"), {
     target: { value: "https://suf.purs.gov.rs/v/?vl=test" },
   });
@@ -273,6 +279,21 @@ describe("ReceiptScanDialog", () => {
       event_id: string | null;
     };
     expect(input.activity_id).toBe("act-1");
+    expect(input.event_id).toBeNull();
+  });
+
+  it("saves a scan started from a birthday linked to that birthday", async () => {
+    await scanToPreview({ link: { kind: "birthday", id: "bday-1" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sačuvaj trošak" }));
+
+    const input = saveMutate.mock.calls[0]?.[0] as {
+      activity_id: string | null;
+      event_id: string | null;
+      birthday_id: string | null;
+    };
+    expect(input.birthday_id).toBe("bday-1");
+    expect(input.activity_id).toBeNull();
     expect(input.event_id).toBeNull();
   });
 
