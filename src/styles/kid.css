@@ -254,25 +254,6 @@ html[data-kid-theme] .kid-font {
   }
 }
 
-/* Sheets slide up from the bottom edge. */
-@keyframes kid-sheet-in {
-  from {
-    transform: translateY(24px);
-  }
-  to {
-    transform: none;
-  }
-}
-
-@keyframes kid-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 .kid-pulse {
   animation: kid-pulse 1.6s ease infinite;
 }
@@ -281,12 +262,6 @@ html[data-kid-theme] .kid-font {
 }
 .kid-rise {
   animation: kid-rise 0.28s ease;
-}
-.kid-sheet-in {
-  animation: kid-sheet-in 0.25s ease;
-}
-.kid-fade-in {
-  animation: kid-fade-in 0.2s ease;
 }
 
 /* A card border painted with the theme gradient (the school-today card).
@@ -355,8 +330,9 @@ html[data-kid-theme] .kid-on-gradient:focus-visible {
   .kid-pulse,
   .kid-bob,
   .kid-rise,
-  .kid-sheet-in,
-  .kid-fade-in {
+  /* The sheet (Vaul) slides and fades with its own keyframes. */
+  html[data-kid-theme] [data-vaul-drawer],
+  html[data-kid-theme] [data-vaul-overlay] {
     animation: none !important;
   }
   html[data-kid-theme] * {

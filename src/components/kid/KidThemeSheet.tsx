@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { KidSheet, KidSheetButton, KidSheetTitle } from "@/components/kid/KidSheet";
 import { KID_THEME_OPTIONS, type KidTheme } from "@/types/kid";
@@ -30,7 +30,6 @@ export function KidThemeSheet({
   /** Omitted = preview: no session to end, and the theme is not persisted. */
   onSignOut?: () => void;
 }) {
-  const titleId = useId();
   // Two-step sign-out. Nothing is lost either way (this device still remembers
   // the child, so getting back in is just the PIN), but a stray tap on a big
   // red button should not end the session outright.
@@ -43,9 +42,8 @@ export function KidThemeSheet({
         setConfirmingSignOut(false);
         onClose();
       }}
-      labelledBy={titleId}
     >
-      <KidSheetTitle id={titleId} emoji={avatar} title="Izaberi temu" />
+      <KidSheetTitle emoji={avatar} title="Izaberi temu" />
 
       {/* Two columns, so eight themes are four rows. The tiles are tighter than
           the rest of the shell (34px swatch, py-2) for one reason: the sheet is
