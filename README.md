@@ -51,3 +51,14 @@ The interface is in Serbian, with push reminders and realtime sync between famil
 - 🔍 **Global search** (⌘K) across activities, events, payments, lists and birthdays.
 - 📱 **PWA** - installs onto a phone, runs standalone, has a dark theme and
   a toast when a new version lands.
+
+## Developing in Amp orbs
+
+Fresh [Amp orbs](https://ampcode.com/docs/orbs) run [`.agents/setup`](.agents/setup) (Node 22,
+pnpm, dependencies, Supabase CLI). `amp orb services ensure` then starts
+[`.amp/services.yaml`](.amp/services.yaml): Docker, a local Supabase stack with every migration
+applied, and the dev server on a portal. The app reaches that stack through the dev server's
+`/supabase` proxy, so nothing talks to the production project. A new database gets the demo
+family from [`scripts/seed-demo.ts`](scripts/seed-demo.ts) (sign in as `demo@porodica.test` /
+`demo1234`) and keeps its data for the orb's lifetime. The first start in a new orb pulls about
+8 GB of Supabase images and takes a minute or two.

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Prepares a fresh Amp orb: Node 22 (what CI runs), the pinned pnpm, and
-# dependencies from the lockfile. Runs again on a stale snapshot, so every
-# step must be idempotent and cheap when the work is already done.
+# Prepares a fresh Amp orb: Node 22 (what CI runs), the pinned pnpm,
+# dependencies from the lockfile and the Supabase CLI for the local stack.
+# Runs again on a stale snapshot, so every step must be idempotent and cheap
+# when the work is already done.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -60,5 +61,33 @@ step "pnpm $pnpm_version" ensure_pnpm
 export CI=true # non-interactive pnpm (no prompt to purge node_modules)
 step "pnpm install" pnpm install --frozen-lockfile
 
-# The app reads VITE_SUPABASE_* from .env.local; real values come from the user.
-[ -f .env.local ] || cp -- .env.example .env.local
+# Local Supabase runs in Docker (docker-ce ships with the orb image); the
+# docker and supabase services in .amp/services.yaml start it. The images
+# (~8 GB) are pulled on the first `supabase start`, not baked into snapshots.
+supabase_version=2.121.0
+ensure_supabase() {
+	if [[ "$(supabase --version 2>/dev/null || true)" != "$supabase_version" ]]; then
+		local tmp
+		tmp="$(mktemp -d)"
+		curl -fsSL "https://github.com/supabase/cli/releases/download/v$supabase_version/supabase_linux_amd64.tar.gz" |
+			tar -xz -C "$tmp" supabase
+		sudo install -m 0755 "$tmp/supabase" /usr/local/bin/supabase
+		rm -rf "$tmp"
+	fi
+	supabase --version
+}
+step "supabase cli $supabase_version" ensure_supabase
+
+# Orb-wide notes for agents working in this repository.
+agents_md="$HOME/.config/amp/AGENTS.md"
+agents_marker="# family-assistant-react: local Supabase"
+if ! grep -Fqx "$agents_marker" "$agents_md" 2>/dev/null; then
+	mkdir -p "$(dirname "$agents_md")"
+	cat >>"$agents_md" <<'EOF'
+
+# family-assistant-react: local Supabase
+- `amp orb services ensure` starts Docker, a local Supabase stack with every migration applied, and the dev server on a portal. The first start pulls ~8 GB of images (about 1-2 minutes).
+- The app talks to that stack through the dev server's `/supabase` proxy; `scripts/orb/supabase.sh` writes `.env.development.local`. A new database is seeded once with `scripts/seed-demo.ts`; sign in as `demo@porodica.test` / `demo1234`. Data then persists for the orb's lifetime (rerunning seed-demo resets the demo family).
+- Database: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`. Studio: port 54323 (`amp orb portal 54323 --title 'Supabase Studio'`). Never point local tooling at the production project.
+EOF
+fi
