@@ -346,7 +346,8 @@ export type ExpenseSource = "manual" | "payment" | "receipt";
  * idempotency key) and inherit the payment's category/link. Receipt rows
  * (`source='receipt'`) carry `merchant` + `receipt_url` (the SUF verification
  * link, globally-unique dedup key) and own a set of `expense_items` loaded
- * lazily on detail. `activity_id` / `event_id` are XOR, mirroring payments.
+ * lazily on detail. `activity_id` / `event_id` / `birthday_id` are XOR,
+ * mirroring payments.
  */
 export interface Expense extends AuditedByMember {
   id: string;
@@ -371,6 +372,7 @@ export interface Expense extends AuditedByMember {
   payment_due_date: string | null;
   activity_id: string | null;
   event_id: string | null;
+  birthday_id: string | null;
   /** Store name parsed from a scanned receipt (source='receipt'); else null. */
   merchant: string | null;
   /** suf.purs.gov.rs verification URL for a scanned receipt; else null.

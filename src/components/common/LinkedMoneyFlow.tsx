@@ -19,8 +19,7 @@ export type LinkedMoneyKind = "payment" | "expense" | "scan";
 
 export type LinkedMoneyRequest = {
   kind: LinkedMoneyKind;
-  /** What the new payment/expense gets linked to. Expense/scan requests must
-   *  carry an activity or event link - expenses can't link birthdays. */
+  /** What the new payment/expense gets linked to. */
   link: PaymentLinkValue;
 };
 
@@ -39,8 +38,8 @@ export type LinkedMoneyFlowProps = {
  * Owns the mutations + inline errors, never navigates - the member stays where
  * they were after saving.
  *
- * `stage` mirrors `request.kind` but can diverge: the expense form's
- * The scan-receipt shortcut hops to the scanner within the same request
+ * `stage` mirrors `request.kind` but can diverge: the payment and expense
+ * forms' scan-receipt shortcut hops to the scanner within the same request
  * (the link carries over).
  */
 export function LinkedMoneyFlow({ request, onClose }: LinkedMoneyFlowProps) {
@@ -104,6 +103,7 @@ export function LinkedMoneyFlow({ request, onClose }: LinkedMoneyFlowProps) {
           onSubmit={(payload) => {
             void handlePaymentSubmit(payload);
           }}
+          onScanReceipt={() => setStage("scan")}
         />
       ) : null}
 
@@ -133,8 +133,7 @@ export function LinkedMoneyFlow({ request, onClose }: LinkedMoneyFlowProps) {
 /**
  * The chooser rows for a "dodaj uz..." sub-view: what kind of money entry to
  * add. Pure UI - the host closes its sheet and mounts the request into
- * `LinkedMoneyFlow` on pick. Birthday hosts don't render this (payments are
- * their only linkable kind), so the rows always include the expense paths.
+ * `LinkedMoneyFlow` on pick.
  */
 export function LinkedMoneyChooser({ onPick }: { onPick: (kind: LinkedMoneyKind) => void }) {
   return (

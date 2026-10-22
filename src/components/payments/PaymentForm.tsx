@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   BanknotesIcon,
   PauseIcon,
+  QrCodeIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
 
@@ -191,6 +192,12 @@ export type PaymentFormProps = {
   onCancel: () => void;
   /** Mobile "Brzi unos" rows push these sub-views (owned by the dialog's SheetStack). */
   onOpenView: (view: PaymentFormViewKind) => void;
+  /**
+   * When adding, offers the expense form's scan-receipt row on top: the money
+   * is often already spent, and a fiscal receipt then becomes an expense
+   * instead of a payment. Only the linked-money flow wires it.
+   */
+  onScanReceipt?: () => void;
 };
 
 /**
@@ -220,6 +227,7 @@ export function PaymentForm({
   onSubmit,
   onCancel,
   onOpenView,
+  onScanReceipt,
 }: PaymentFormProps) {
   const isDesktop = useIsDesktop();
   // Offers the family's enabled currencies + this payment's own (so payments in
@@ -230,6 +238,18 @@ export function PaymentForm({
   const { members } = useFamilyMembers();
 
   const isEdit = !!payment?.id;
+
+  const scanButton =
+    !isEdit && onScanReceipt ? (
+      <PickerRow
+        dashed
+        title="Skeniraj račun"
+        summary="sačuvaj kao trošak"
+        icon={<QrCodeIcon className="size-[17px]" />}
+        onClick={onScanReceipt}
+        disabled={saving}
+      />
+    ) : null;
   const isRecurring = form.recurrence_period !== "one-time";
   const showPauseToggle = isEdit && isRecurring;
   const showIntervalSelect =
@@ -318,6 +338,7 @@ export function PaymentForm({
 
     return (
       <form id="payment-form" className="space-y-3" onSubmit={handleSubmit}>
+        {scanButton}
         <FormInput
           id="name"
           value={form.name}
@@ -404,6 +425,7 @@ export function PaymentForm({
   // --- Desktop: fully-expanded layout, same field order ---
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
+      {scanButton}
       <div>
         <FieldGroupLabel>
           <label htmlFor="name">Naziv *</label>

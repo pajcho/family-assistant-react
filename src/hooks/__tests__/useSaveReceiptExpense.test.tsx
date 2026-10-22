@@ -87,6 +87,7 @@ describe("useSaveReceiptExpense", () => {
         note: null,
         activity_id: null,
         event_id: null,
+        birthday_id: null,
       },
       p_items: [
         { idx: 0, name: "Mleko 1l", quantity: 2, unit_price: 199.99, total: 399.98 },

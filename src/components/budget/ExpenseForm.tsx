@@ -49,6 +49,7 @@ export type ExpenseFormPayload = {
   note: string | null;
   activity_id: string | null;
   event_id: string | null;
+  birthday_id: string | null;
 };
 
 export type ExpenseFormState = {
@@ -64,18 +65,13 @@ export type ExpenseFormState = {
 export type ExpenseFormViewKind = "category" | "details";
 
 /**
- * Expenses link only to activities/events - `expenses` has no birthday column
- * (payments cover the poklon case), so the link pickers must not offer them.
- */
-export const EXPENSE_LINK_KINDS = ["activity", "event"] as const;
-
-/**
  * An expense's stored link as the pickers' value shape. Shared with the
  * receipt surfaces - a scanned expense links exactly like a typed one.
  */
 export function expenseLinkValue(expense: Expense | null | undefined): PaymentLinkValue | null {
   if (expense?.activity_id) return { kind: "activity", id: expense.activity_id };
   if (expense?.event_id) return { kind: "event", id: expense.event_id };
+  if (expense?.birthday_id) return { kind: "birthday", id: expense.birthday_id };
   return null;
 }
 
@@ -233,6 +229,7 @@ export function ExpenseForm({
       note: form.note.trim() || null,
       activity_id: form.link?.kind === "activity" ? form.link.id : null,
       event_id: form.link?.kind === "event" ? form.link.id : null,
+      birthday_id: form.link?.kind === "birthday" ? form.link.id : null,
     });
   };
 
@@ -420,13 +417,12 @@ export function ExpenseForm({
         />
       </div>
 
-      {/* Optional link to an activity / event (reuses the payments combobox).
+      {/* Optional link to an activity / event / birthday (reuses the payments combobox).
           An expense has no name field, so the beleška is what the suggestions
           read - the date does the heavy lifting here. */}
       <PaymentLinkField
         value={form.link}
         onChange={(link) => setForm((s) => ({ ...s, link }))}
-        kinds={EXPENSE_LINK_KINDS}
         suggest={isEdit ? null : { name: form.note, date: form.spent_on }}
       />
 

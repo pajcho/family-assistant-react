@@ -33,6 +33,7 @@ const payload: ExpenseFormPayload = {
   note: "Pijaca",
   activity_id: null,
   event_id: null,
+  birthday_id: null,
 };
 
 vi.mock("@/components/budget/ExpenseFormDialog", () => ({

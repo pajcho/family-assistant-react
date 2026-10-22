@@ -24,9 +24,13 @@ import {
   DetailInfoRows,
   DetailInfoText,
 } from "@/components/common/DetailSheet";
-import { LinkedMoneyFlow, type LinkedMoneyRequest } from "@/components/common/LinkedMoneyFlow";
+import {
+  LinkedMoneyChooser,
+  LinkedMoneyFlow,
+  type LinkedMoneyRequest,
+} from "@/components/common/LinkedMoneyFlow";
 import { LinkedMoneyViewer, type LinkedMoneyTarget } from "@/components/payments/LinkedMoneyViewer";
-import { LinkedPaymentsList } from "@/components/payments/LinkedPaymentsList";
+import { LinkedExpensesList, LinkedPaymentsList } from "@/components/payments/LinkedPaymentsList";
 import { EventDetailDialog } from "@/components/events/EventDetailDialog";
 import { EventFormDialog } from "@/components/events/EventFormDialog";
 import type { EventFormPayload } from "@/components/events/EventForm";
@@ -37,6 +41,7 @@ import {
 } from "@/hooks/useBirthdayVisibility";
 import { useBirthdayCelebrations, useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
 import { useEventParticipants } from "@/hooks/useEventParticipants";
+import { useLinkedExpenses } from "@/hooks/useExpenses";
 import { usePaymentsList } from "@/hooks/usePayments";
 import type { Birthday, Event } from "@/types/database";
 import { currentAge, daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
@@ -48,18 +53,16 @@ import { getDisplayName } from "@/utils/identity";
  * the Danas/Uskoro agenda. The shared detail-sheet layout: detalji on top
  * (hero, countdown + next-age badges, info rows incl. the celebration row),
  * every action below as a visible row - Izmeni, Organizuj proslavu (until one
- * exists), add a gift payment, delete - and the linked gift payments at
- * the bottom, each row opening its own detail.
+ * exists), add a payment or expense for the gift, delete - and the linked
+ * payments + expenses at the bottom, each row opening its own detail.
  *
  * The celebration is fully self-contained here: "Organizuj proslavu" opens
  * the event form prefilled with the person's next birthday (the created event
  * carries `birthday_id`), and tapping an existing celebration opens the full
  * event detail popup whose "Izmeni" reopens the same form. All of these HIDE
  * this sheet (not close) and return here when done; only the birthday edit
- * form still delegates to the page via `onEdit`. Payments are the only money
- * entry that can link a birthday (expenses have no birthday column), so the
- * gift action skips the payment/expense chooser and goes straight to the
- * payment form.
+ * form still delegates to the page via `onEdit`. The gift action opens the
+ * same payment / expense / scanned receipt chooser as the event detail.
  */
 export type BirthdayDetailDialogProps = {
   open: boolean;
@@ -68,7 +71,7 @@ export type BirthdayDetailDialogProps = {
   onEdit: (birthday: Birthday) => void;
 };
 
-type View = "detail" | "delete" | "audit";
+type View = "detail" | "delete" | "audit" | "money";
 
 /** "Puni 9 godina / 21 godinu / 3 godine" - Serbian count agreement. */
 function ageLabel(age: number): string {
@@ -104,7 +107,7 @@ export function BirthdayDetailDialog({
   const updateEvent = useUpdateEvent();
 
   // The sub-flows that HIDE this sheet and bring it back on close: the gift
-  // payment form, a linked payment's detail, the celebration's detail popup
+  // money form, a linked payment/expense detail, the celebration's detail popup
   // and the celebration form (organize / edit).
   const [moneyRequest, setMoneyRequest] = useState<LinkedMoneyRequest | null>(null);
   const [moneyTarget, setMoneyTarget] = useState<LinkedMoneyTarget | null>(null);
@@ -137,7 +140,8 @@ export function BirthdayDetailDialog({
     return names.length > 0 ? names.join(", ") : "Niko";
   }, [hasKidMode, birthday, visibilityByBirthday, kidChildren]);
 
-  // Poklon tracking - payments linked to this birthday.
+  // Poklon tracking - payments and expenses linked to this birthday.
+  const { expenses: linkedExpenses } = useLinkedExpenses({ birthdayId: birthday?.id });
   const linkedPayments = useMemo(
     () => (birthday ? (paymentsQuery.data ?? []).filter((p) => p.birthday_id === birthday.id) : []),
     [paymentsQuery.data, birthday],
@@ -192,7 +196,9 @@ export function BirthdayDetailDialog({
       ? "Obriši rođendan"
       : view === "audit"
         ? "Istorija izmena"
-        : "Detalji rođendana";
+        : view === "money"
+          ? "Dodaj plaćanje ili trošak"
+          : "Detalji rođendana";
   const hidden = !!moneyRequest || !!moneyTarget || !!viewedCelebration || !!celebrationForm;
 
   return (
@@ -223,6 +229,15 @@ export function BirthdayDetailDialog({
 
                 {view === "audit" ? (
                   <AuditTimeline entityType="birthdays" entityId={birthday.id} />
+                ) : view === "money" ? (
+                  <LinkedMoneyChooser
+                    onPick={(kind) => {
+                      // Hide (don't close) the sheet under the pre-linked form -
+                      // it returns to the root view once the form is done.
+                      reset();
+                      setMoneyRequest({ kind, link: { kind: "birthday", id: birthday.id } });
+                    }}
+                  />
                 ) : view === "delete" ? (
                   <DetailDeleteBody name={birthday.name} />
                 ) : (
@@ -292,14 +307,9 @@ export function BirthdayDetailDialog({
                       ) : null}
                       <DetailActionRow
                         icon={BanknotesIcon}
-                        label="Dodaj plaćanje za poklon"
-                        description="Prati poklon kao plaćanje uz rođendan"
-                        onClick={() =>
-                          setMoneyRequest({
-                            kind: "payment",
-                            link: { kind: "birthday", id: birthday.id },
-                          })
-                        }
+                        label="Dodaj plaćanje ili trošak"
+                        description="Plaćanje, trošak ili skeniran račun uz rođendan"
+                        onClick={() => push("money")}
                         disabled={saving}
                       />
                       <DetailActionRow
@@ -312,11 +322,16 @@ export function BirthdayDetailDialog({
                       />
                     </DetailActionList>
 
-                    {/* Poklon tracking: payments linked to this birthday (renders
-                      nothing without any); a row opens that payment's detail. */}
+                    {/* Poklon tracking: payments and expenses linked to this
+                      birthday (each renders nothing when empty); a row opens
+                      that entry's detail. */}
                     <LinkedPaymentsList
                       payments={linkedPayments}
                       onSelect={(payment) => setMoneyTarget({ kind: "payment", payment })}
+                    />
+                    <LinkedExpensesList
+                      expenses={linkedExpenses}
+                      onSelect={(expense) => setMoneyTarget({ kind: "expense", expense })}
                     />
 
                     <DetailAuditLine row={birthday} onOpenHistory={() => push("audit")} />

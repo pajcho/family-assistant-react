@@ -8,7 +8,7 @@ import { SheetStackHeader } from "@/components/common/SheetStack";
 import { PickerRow } from "@/components/common/PickerRow";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { CategoryGridPicker } from "@/components/budget/CategoryGridPicker";
-import { EXPENSE_LINK_KINDS, ExpensePersonSelect } from "@/components/budget/ExpenseForm";
+import { ExpensePersonSelect } from "@/components/budget/ExpenseForm";
 import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/PaymentLinkField";
 import { receiptSuggestContext } from "@/utils/linkSuggestions";
 import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
@@ -254,7 +254,6 @@ export function ReceiptPreview({
           <PaymentLinkField
             value={link}
             onChange={onLinkChange}
-            kinds={EXPENSE_LINK_KINDS}
             suggest={receiptSuggestContext(receipt)}
             // Mobile-only sub-view: full-sheet picker instead of a popover.
             onOpenPicker={() => onOpenView("link")}
@@ -271,7 +270,6 @@ export function ReceiptPreview({
           value={link}
           onChange={onLinkChange}
           onDone={onBack}
-          kinds={EXPENSE_LINK_KINDS}
           suggest={receiptSuggestContext(receipt)}
         />
       </>
@@ -363,7 +361,6 @@ export function ReceiptPreview({
               <PaymentLinkField
                 value={link}
                 onChange={onLinkChange}
-                kinds={EXPENSE_LINK_KINDS}
                 suggest={receiptSuggestContext(receipt)}
               />
             </>
