@@ -13,8 +13,9 @@ import { AppScreen } from "@/components/layout/AppScreen";
  * sidebar is the way back - no back button.
  *
  * The composer is an ordinary child at the end of the list on both, and the
- * shell does nothing special for it: no pinned slot, no overlay layer, no room
- * reserved for a keyboard. A field in the flow is the browser's job to reveal.
+ * shell does nothing special for it: no slot, no overlay layer, no room
+ * reserved for a keyboard. Below `lg` the composer makes itself sticky inside
+ * this body; revealing the focused field is the browser's job.
  */
 export function TaskScreenShell({
   isWide,

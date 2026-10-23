@@ -63,7 +63,13 @@ export function MobileBottomNav() {
       // the frame doesn't scroll, so the bar simply takes its own space (plus
       // the home-indicator inset) and nothing has to reserve room for it.
       // Opaque, no backdrop-filter - iOS fails to repaint blurred bars.
-      className="relative z-30 flex flex-none items-start gap-1 border-t border-border bg-card px-2 pt-2 pb-[calc(0.375rem+env(safe-area-inset-bottom))] lg:hidden"
+      //
+      // It steps aside while a task composer's field has focus, to give the
+      // list above the keyboard its ~90px back. Pure CSS on `:focus`, no state:
+      // the old keyboard-driven unmount could latch and strand the app without
+      // navigation, whereas this follows the focus itself - the moment the
+      // field lets go (a tap elsewhere, the keyboard's Done), the bar is back.
+      className="relative z-30 flex flex-none items-start gap-1 border-t border-border bg-card px-2 pt-2 pb-[calc(0.375rem+env(safe-area-inset-bottom))] lg:hidden [body:has([data-hides-nav]:focus)_&]:hidden"
     >
       <BottomTab section={fixed} />
       {left ? <BottomTab section={NAV_SECTION_MAP[left]} /> : <span className="flex-1" />}
