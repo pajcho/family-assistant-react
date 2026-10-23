@@ -142,9 +142,10 @@ export function TaskComposer({
   // row lands out of sight - below the fold behind the bar, or up in whatever
   // group it was sorted into - so for a moment after each add, the latest row
   // to appear with that name is scrolled into the gap above the bar, the way a
-  // chat shows the message you just sent. Matching the name is what skips the
-  // other nodes a re-render swaps in (a list's description re-mounts its
-  // paragraphs on every render).
+  // chat shows the message you just sent. The name has to be an element's
+  // WHOLE text, not just somewhere in it: a re-render swaps in other nodes too
+  // (a list's description re-mounts its paragraphs every time), and one that
+  // merely mentions the item used to drag the page up to it instead.
   const revealAdd = useRef({ name: "", until: 0 });
   useEffect(() => {
     const root = rootRef.current;
@@ -153,15 +154,14 @@ export function TaskComposer({
     const observer = new MutationObserver((records) => {
       const { name, until } = revealAdd.current;
       if (Date.now() > until) return;
-      const added = records
+      const match = records
         .flatMap((record) => [...record.addedNodes])
-        .filter(
-          (node): node is HTMLElement =>
-            node instanceof HTMLElement &&
-            !root.contains(node) &&
-            (node.textContent ?? "").includes(name),
-        );
-      const row = added.at(-1);
+        .filter((node): node is HTMLElement => node instanceof HTMLElement && !root.contains(node))
+        .flatMap((node) => [node, ...node.querySelectorAll<HTMLElement>("*")])
+        .filter((el) => el.textContent?.trim() === name)
+        .at(-1);
+      // The whole row, not just its title, has to clear the bar.
+      const row = match?.closest("li") ?? match;
       const scroller = getAppScrollEl();
       if (!row || !scroller) return;
       const rect = row.getBoundingClientRect();
