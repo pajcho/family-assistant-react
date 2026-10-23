@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import {
   ArrowUpIcon,
@@ -35,6 +35,7 @@ import { useEdgeFade } from "@/hooks/useEdgeFade";
 import { useProfile } from "@/hooks/useProfile";
 import { useCreateTask } from "@/hooks/useTasks";
 import { useToday } from "@/hooks/useToday";
+import { getAppScrollEl } from "@/lib/appScroll";
 import { cn } from "@/lib/cn";
 import { srLocale } from "@/utils/date";
 import { shiftIsoByDays } from "@/utils/pickerGrid";
@@ -44,10 +45,11 @@ import type { ListScope } from "@/types/database";
  * The one field a new task starts as, and the row of shortcuts that appears the
  * moment you touch it.
  *
- * It sits in the flow, straight after the last row, on every screen size - the
- * end of the list is where a new item belongs. Nothing pins it, nothing lifts
- * it, and nothing measures the keyboard: the browser scrolls a focused field
- * into view by itself, and letting it do that is the whole design.
+ * It sits straight after the last row - the end of the list is where a new item
+ * belongs - and below `lg`, once the list outgrows the screen, it sticks to the
+ * bottom of the scroll area so the rows scroll under it. Nothing lifts it and
+ * nothing measures the keyboard: the browser brings the focused field into view
+ * by itself, and the sticky bar is what keeps it there while rows pile up.
  *
  * The quick row splits the seven affordances by cost. Danas / Sutra / the next
  * weekday set `due_date` in place - one tap, no overlay, because "tomorrow" is
@@ -95,6 +97,11 @@ function composerDraft(
 /** Which picker is open. `null` = just the field and its chips. */
 type ComposerPicker = "date" | "who" | "recurrence" | "reminder";
 
+/** How long after an add the list keeps following its own growth - long enough
+ * for the optimistic row and the server's echo of it, short enough that a row
+ * arriving later on its own does not yank the page. */
+const REVEAL_ADD_MS = 1500;
+
 const PICKER_TITLE: Record<ComposerPicker, string> = {
   date: "Datum",
   who: "Za koga",
@@ -130,6 +137,42 @@ export function TaskComposer({
   const [fullFormMounted, setFullFormMounted] = useState(false);
   const [handover, setHandover] = useState<TaskDraft | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // The task just added, and until when to look for it. On a long list its
+  // row lands out of sight - below the fold behind the bar, or up in whatever
+  // group it was sorted into - so for a moment after each add, the latest row
+  // to appear with that name is scrolled into the gap above the bar, the way a
+  // chat shows the message you just sent. The name has to be an element's
+  // WHOLE text, not just somewhere in it: a re-render swaps in other nodes too
+  // (a list's description re-mounts its paragraphs every time), and one that
+  // merely mentions the item used to drag the page up to it instead.
+  const revealAdd = useRef({ name: "", until: 0 });
+  useEffect(() => {
+    const root = rootRef.current;
+    const column = root?.parentElement;
+    if (!root || !column) return;
+    const observer = new MutationObserver((records) => {
+      const { name, until } = revealAdd.current;
+      if (Date.now() > until) return;
+      const match = records
+        .flatMap((record) => [...record.addedNodes])
+        .filter((node): node is HTMLElement => node instanceof HTMLElement && !root.contains(node))
+        .flatMap((node) => [node, ...node.querySelectorAll<HTMLElement>("*")])
+        .filter((el) => el.textContent?.trim() === name)
+        .at(-1);
+      // The whole row, not just its title, has to clear the bar.
+      const row = match?.closest("li") ?? match;
+      const scroller = getAppScrollEl();
+      if (!row || !scroller) return;
+      const rect = row.getBoundingClientRect();
+      const below = rect.bottom - root.getBoundingClientRect().top;
+      const above = scroller.getBoundingClientRect().top - rect.top;
+      const by = below > 0 ? below + 8 : above > 0 ? -(above + 8) : 0;
+      if (by !== 0) scroller.scrollBy({ top: by, behavior: "smooth" });
+    });
+    observer.observe(column, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
   // Eight chips never fit a phone's width, and until now the row was cut dead
   // at the edge with nothing to say more was behind it.
   const chipScrollRef = useEdgeFade<HTMLDivElement>();
@@ -173,6 +216,7 @@ export function TaskComposer({
     event.preventDefault();
     if (!typed) return;
     createTask.mutate(taskDraftToCreateInput(draft, listId));
+    revealAdd.current = { name: draft.name.trim(), until: Date.now() + REVEAL_ADD_MS };
     // Back to the resting state after every add: a composer that silently keeps
     // last time's recurrence is how somebody ends up with a daily "Mleko".
     setDraft(composerDraft(listId, viewerId, initialDraft));
@@ -194,7 +238,17 @@ export function TaskComposer({
   // a card on focus, and paying for that outline with two content shifts - the
   // frame's padding and a button squeezing in - was a bad trade for a border.
   const unit = (
-    <div>
+    <div
+      className={cn(
+        // Below `lg`, where it is a bar the rows scroll under, the field and its
+        // chips sit in one card - the list's own card style - so the bar reads
+        // as a thing of its own and not as a row that stopped scrolling. The
+        // card's border takes over the field's (one outline, not two) and is
+        // what lights up on focus; its shape never changes.
+        "max-lg:rounded-xl max-lg:border max-lg:border-border max-lg:bg-card max-lg:p-1.5 max-lg:shadow-card",
+        "max-lg:transition-colors max-lg:focus-within:border-ring",
+      )}
+    >
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input
           ref={inputRef}
@@ -208,7 +262,9 @@ export function TaskComposer({
           // hint is here because without it iOS labels the key with a plain
           // return arrow, which reads as "new line", not "add".
           enterKeyHint="send"
-          className="h-10 flex-1"
+          // Hides the bottom bar while focused - see MobileBottomNav.
+          data-hides-nav=""
+          className="h-10 flex-1 max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none max-lg:focus-visible:ring-0 max-lg:dark:bg-transparent"
           // Nothing here asks the page to move. The browser scrolls a focused
           // field into view on its own, and every attempt to help it along -
           // scrollIntoView, a measured keyboard inset, a lifted overlay - has
@@ -354,7 +410,24 @@ export function TaskComposer({
   );
 
   return (
-    <div className="mt-3">
+    <div
+      ref={rootRef}
+      className={cn(
+        "mt-3",
+        // Below `lg` it sticks to the bottom of the screen's scroll area, so a
+        // long list scrolls UNDER it and the field never leaves the screen -
+        // with the keyboard up (iOS pans the whole frame, so that bottom edge
+        // lands right above the keyboard) or after a run of adds. A short list
+        // leaves it where the flow puts it, straight after the last row.
+        // The scroll area's `pb-8` is cancelled twice - by the negative inset
+        // while stuck (sticky insets count from inside that padding) and by
+        // the negative margin at the list's end - so the bar rests flush on
+        // the bottom edge either way, with no 32px hop and no row showing
+        // through below it. The side bleed covers the gutters; its own
+        // padding is the breathing room instead.
+        "max-lg:sticky max-lg:-bottom-8 max-lg:z-10 max-lg:-mx-4 max-lg:-mb-8 max-lg:bg-background max-lg:px-4 max-lg:pt-2 max-lg:pb-3",
+      )}
+    >
       {unit}
       <ComposerPickerSheets
         picker={picker}
