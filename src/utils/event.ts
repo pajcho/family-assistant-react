@@ -36,9 +36,41 @@ export function eventDurationLabel(event: EventSpan): string {
   return `${days} ${serbianPlural(days, { one: "dan", few: "dana", many: "dana" })}`;
 }
 
-/** Multi-day event whose span covers `today` - the "U toku" state. */
-export function isEventOngoing(event: EventSpan, today: string): boolean {
-  return isMultiDayEvent(event) && event.date <= today && today <= eventLastDay(event);
+/**
+ * Single-day event whose end time is earlier than its start (16:00 - 01:00):
+ * it runs past midnight and ends the next morning.
+ */
+function isOvernightEvent(event: EventSchedule): boolean {
+  return (
+    !isMultiDayEvent(event) &&
+    !!event.start_time &&
+    !!event.end_time &&
+    event.end_time.slice(0, 5) < event.start_time.slice(0, 5)
+  );
+}
+
+/** `yyyy-MM-dd` + `HH:mm[:ss]` as a local Date. */
+function localDateTime(day: string, time: string): Date {
+  return parseISO(`${day}T${time.slice(0, 5)}:00`);
+}
+
+/**
+ * The "U toku" state: a multi-day event whose span covers `today`, or a
+ * single-day event with both times whose start-to-end window (overnight
+ * included) contains the current moment. All-day and start-only single-day
+ * events have no known end, so they never read as ongoing.
+ */
+export function isEventOngoing(event: EventSchedule, today: string): boolean {
+  if (isMultiDayEvent(event)) return event.date <= today && today <= eventLastDay(event);
+  if (!event.start_time || !event.end_time) return false;
+  const endDay = isOvernightEvent(event)
+    ? format(addDays(parseDate(event.date), 1), "yyyy-MM-dd")
+    : event.date;
+  const now = new Date();
+  return (
+    now >= localDateTime(event.date, event.start_time) &&
+    now < localDateTime(endDay, event.end_time)
+  );
 }
 
 /**
@@ -90,11 +122,17 @@ export function shiftedEventEndDate(event: EventSpan, newDate: string): string |
   return format(addDays(parseDate(newDate), span), "yyyy-MM-dd");
 }
 
-/** True if event has already ended (past its last day, or its last day today after end time / end of day for all-day). */
-export function isEventEnded(event: EventSpan & Pick<Event, "end_time">): boolean {
+/**
+ * True if event has already ended (past its last day, or its last day today after end time / end of day for all-day).
+ * A single-day event whose end time is earlier than its start (16:00 - 01:00) runs past midnight, so it ends the
+ * next morning.
+ */
+export function isEventEnded(event: EventSchedule): boolean {
   const now = new Date();
   const todayStart = startOfToday();
-  const lastDay = eventLastDay(event);
+  const lastDay = isOvernightEvent(event)
+    ? format(addDays(parseDate(event.date), 1), "yyyy-MM-dd")
+    : eventLastDay(event);
   const lastDayStart = parseDate(lastDay);
   if (isBefore(lastDayStart, todayStart)) return true;
   if (isAfter(lastDayStart, todayStart)) return false;
