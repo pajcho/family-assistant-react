@@ -75,8 +75,46 @@ describe("event span helpers", () => {
     expect(isEventOngoing(e, "2026-08-06")).toBe(true);
     expect(isEventOngoing(e, "2026-08-07")).toBe(true);
     expect(isEventOngoing(e, "2026-08-08")).toBe(false);
-    // Single-day events are never "u toku".
+    // An all-day single-day event has no known end, so it is never "u toku".
     expect(isEventOngoing(makeEvent({}), "2026-08-05")).toBe(false);
+  });
+
+  describe("isEventOngoing for a timed single-day event", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    const at = (iso: string) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(iso));
+    };
+    const evening = makeEvent({ date: "2026-08-05", start_time: "16:14", end_time: "18:00" });
+    const overnight = makeEvent({ date: "2026-08-05", start_time: "16:14", end_time: "01:23" });
+
+    it("is ongoing only between its start and end", () => {
+      at("2026-08-05T16:13:00");
+      expect(isEventOngoing(evening, "2026-08-05")).toBe(false);
+      at("2026-08-05T16:14:00");
+      expect(isEventOngoing(evening, "2026-08-05")).toBe(true);
+      at("2026-08-05T18:00:00");
+      expect(isEventOngoing(evening, "2026-08-05")).toBe(false);
+    });
+
+    it("stays ongoing past midnight until an earlier end time the next day", () => {
+      at("2026-08-05T23:30:00");
+      expect(isEventOngoing(overnight, "2026-08-05")).toBe(true);
+      at("2026-08-06T01:00:00");
+      expect(isEventOngoing(overnight, "2026-08-06")).toBe(true);
+      at("2026-08-06T01:23:00");
+      expect(isEventOngoing(overnight, "2026-08-06")).toBe(false);
+      // Before it starts the same morning it is not ongoing either.
+      at("2026-08-05T01:00:00");
+      expect(isEventOngoing(overnight, "2026-08-05")).toBe(false);
+    });
+
+    it("needs an end time", () => {
+      at("2026-08-05T17:00:00");
+      expect(isEventOngoing(makeEvent({ start_time: "16:14" }), "2026-08-05")).toBe(false);
+    });
   });
 
   it("shiftedEventEndDate keeps the span length from the new start", () => {
@@ -148,6 +186,18 @@ describe("isEventEnded with end_date", () => {
       end_time: "20:00",
     });
     expect(isEventEnded(endsTonight)).toBe(false);
+  });
+
+  it("a single-day event ending after midnight ends the next morning", () => {
+    // Now is 2026-08-06 12:00. Tonight 16:14 - 01:23 has not even started.
+    const tonight = { date: "2026-08-06", start_time: "16:14", end_time: "01:23" };
+    expect(isEventEnded(makeEvent(tonight))).toBe(false);
+    // Last night's one ended at 01:23 this morning.
+    expect(isEventEnded(makeEvent({ ...tonight, date: "2026-08-05" }))).toBe(true);
+    // Last night's one that runs until 13:00 today is still going.
+    expect(isEventEnded(makeEvent({ ...tonight, date: "2026-08-05", end_time: "13:00" }))).toBe(
+      false,
+    );
   });
 
   it("all-day span ends after its last day", () => {
