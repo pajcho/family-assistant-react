@@ -1,32 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type {
+  ChangeEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  SyntheticEvent,
+} from "react";
 import { ClockIcon } from "@heroicons/react/24/outline";
 
-import { Chip, FieldGroupLabel, FieldHint, FormInput } from "@/components/common/FormControls";
+import { Chip, FieldGroupLabel } from "@/components/common/FormControls";
 import { PickerOverlay } from "@/components/common/PickerOverlay";
 import { PickerRow } from "@/components/common/PickerRow";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import {
   DURATION_PRESETS,
+  HOURS,
   MINUTE_STEPS,
-  PRIMARY_HOURS,
-  SECONDARY_HOURS,
   addMinutesToTime,
   durationBetween,
   formatDuration,
   minutesToTime,
   timeToMinutes,
+  typeTimeDigits,
 } from "@/utils/pickerGrid";
+import type { TimeDraft, TimeSegment } from "@/utils/pickerGrid";
 
 /**
  * TimeField - time in two taps.
  *
- * The picker is an hour grid (7-22 up front, the rest one tap away behind
- * "Ostali sati") followed by four minute chips (:00 :15 :30 :45); picking the
- * minutes closes the sheet. Anything unusual (11:37) is still reachable: a
- * LONG PRESS on the field opens the native `<input type="time">`, and the
- * picker itself carries an exact-time box.
+ * The picker shows the whole day as a 6x4 hour grid followed by minute chips
+ * in 5-minute steps; picking the minutes closes the sheet. Any exact time
+ * (11:37) is typed straight into the big `HH:MM` header: each half is an
+ * input dressed as plain digits, so tapping it and typing edits the number in
+ * place. A LONG PRESS on the field still opens the native `<input type="time">`.
  */
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
 const LONG_PRESS_MS = 450;
 
@@ -59,27 +68,34 @@ export function TimeField({
   className,
 }: TimeFieldProps) {
   const [open, setOpen] = useState(false);
-  const [hour, setHour] = useState<number | null>(null);
-  const [showAllHours, setShowAllHours] = useState(false);
-  const [exact, setExact] = useState("");
+  const [draft, setDraft] = useState<TimeDraft>({
+    hour: null,
+    minute: null,
+    segment: "hour",
+    pending: "",
+  });
+  const [focused, setFocused] = useState<TimeSegment | null>(null);
 
   const nativeRef = useRef<HTMLInputElement | null>(null);
+  const minuteRef = useRef<HTMLInputElement | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
 
-  const currentMinutes = timeToMinutes(value ?? defaultTime);
-  const seedHour = currentMinutes != null ? Math.floor(currentMinutes / 60) : null;
-
   // Reseed the picker whenever it opens (or the value changes while open).
   // Adjusted during render instead of in an effect to avoid a cascading render.
-  const seedKey = open ? JSON.stringify([seedHour, value]) : null;
+  const seedKey = open ? `open:${value ?? ""}` : null;
   const [seededFor, setSeededFor] = useState<string | null>(null);
   if (seedKey !== seededFor) {
     setSeededFor(seedKey);
     if (open) {
-      setHour(seedHour);
-      setShowAllHours(seedHour != null && !PRIMARY_HOURS.includes(seedHour));
-      setExact(value ?? "");
+      const seed = timeToMinutes(value ?? defaultTime);
+      setDraft({
+        hour: seed != null ? Math.floor(seed / 60) : null,
+        minute: seed != null ? seed % 60 : null,
+        segment: "hour",
+        pending: "",
+      });
+      setFocused(null);
     }
   }
 
@@ -90,21 +106,78 @@ export function TimeField({
     [],
   );
 
-  const hours = useMemo(
-    () => (showAllHours ? [...PRIMARY_HOURS, ...SECONDARY_HOURS] : [...PRIMARY_HOURS]),
-    [showAllHours],
-  );
-
-  const preview =
-    hour != null
-      ? minutesToTime(hour * 60 + (currentMinutes != null ? currentMinutes % 60 : 0))
-      : (value ?? "--:--");
-
-  const pickMinutes = (minutes: string) => {
-    if (hour == null) return;
-    onChange(minutesToTime(hour * 60 + Number(minutes)));
+  const commit = (hour: number | null, minute: number | null) => {
+    if (hour == null || minute == null) return;
+    onChange(minutesToTime(hour * 60 + minute));
     setOpen(false);
   };
+
+  // What a header segment shows: the half-typed first digit while it waits
+  // for a second one, otherwise the zero-padded value ("--" once cleared).
+  const segmentText = (segment: TimeSegment) => {
+    if (focused === segment && draft.pending) return draft.pending;
+    const v = draft[segment];
+    return v == null ? "--" : pad2(v);
+  };
+
+  const handleSegmentInput = (segment: TimeSegment) => (e: ChangeEvent<HTMLInputElement>) => {
+    const native = e.nativeEvent as InputEvent;
+    if (native.inputType?.startsWith("delete")) {
+      setDraft((d) => ({ ...d, segment, [segment]: null, pending: "" }));
+      return;
+    }
+    // `data` is the typed text; when a browser leaves it out (paste), diff the
+    // new value against what the segment showed.
+    const shown = segmentText(segment);
+    const raw = e.target.value;
+    const inserted = native.data ?? (raw.startsWith(shown) ? raw.slice(shown.length) : raw);
+    const { draft: next, complete } = typeTimeDigits({ ...draft, segment }, inserted);
+    if (complete) {
+      commit(next.hour, next.minute);
+      return;
+    }
+    setDraft(next);
+    // Focus moves inside the input event, so the on-screen keyboard stays up.
+    if (next.segment !== segment) minuteRef.current?.focus();
+  };
+
+  // Select the whole segment so the next keystroke replaces it instead of
+  // landing next to a caret the member never sees.
+  const selectSegment = (e: SyntheticEvent<HTMLInputElement>) => e.currentTarget.select();
+
+  const renderSegment = (segment: TimeSegment) => (
+    <input
+      ref={segment === "minute" ? minuteRef : undefined}
+      value={segmentText(segment)}
+      onChange={handleSegmentInput(segment)}
+      onFocus={(e) => {
+        setFocused(segment);
+        setDraft((d) => ({ ...d, segment, pending: "" }));
+        selectSegment(e);
+      }}
+      onClick={selectSegment}
+      onBlur={() => {
+        setFocused(null);
+        setDraft((d) => ({ ...d, pending: "" }));
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        commit(draft.hour, draft.minute);
+      }}
+      inputMode="numeric"
+      enterKeyHint="done"
+      autoComplete="off"
+      aria-label={segment === "hour" ? "Sati" : "Minuti"}
+      className={cn(
+        // Plain digits until touched: no border, no caret, no selection tint.
+        // Focus is shown the way a native segmented time input shows it - the
+        // active half sits on an accent pill.
+        "w-[2.3ch] cursor-text rounded-lg bg-transparent text-center tabular-nums caret-transparent transition-colors outline-none selection:bg-transparent",
+        "hover:bg-muted focus:bg-accent-soft focus:text-accent-deep",
+      )}
+    />
+  );
 
   // Long press = native picker. Pointer events cover mouse and touch; the
   // timer is cleared on move/up so a normal tap still opens our sheet.
@@ -187,82 +260,66 @@ export function TimeField({
         open={open}
         onOpenChange={setOpen}
         title="Vreme"
-        description="Sat pa minuti - dva tapa. Za neuobičajeno vreme koristi polje na dnu."
+        description="Izaberi sat pa minute, ili dodirni vreme gore i ukucaj ga."
         trigger={renderTrigger}
       >
         <div className="flex flex-col gap-2">
-          <div className="rounded-xl border border-border bg-card p-2.5 text-center shadow-card">
-            <div className="text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
-              Izabrano
-            </div>
-            <div className="mt-0.5 text-2xl font-bold tracking-tight tabular-nums">{preview}</div>
+          <div
+            className="flex items-center justify-center rounded-xl border border-border bg-card py-2 text-4xl font-bold tracking-tight shadow-card"
+            role="group"
+            aria-label="Izabrano vreme"
+          >
+            {renderSegment("hour")}
+            <span aria-hidden="true" className="px-0.5 pb-1 text-muted-foreground">
+              :
+            </span>
+            {renderSegment("minute")}
           </div>
 
           <FieldGroupLabel>Sat</FieldGroupLabel>
-          <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Sat">
-            {hours.map((h) => (
+          {/* The whole day, four rows of six: night, morning, afternoon,
+              evening. No hidden "other hours" step - every hour is one tap. */}
+          <div className="grid grid-cols-6 gap-1.5" role="group" aria-label="Sat">
+            {HOURS.map((h) => (
               <Chip
                 key={h}
-                grow
-                selected={hour === h}
+                selected={draft.hour === h}
                 aria-label={`${h} sati`}
-                onClick={() => setHour(h)}
+                onClick={() => setDraft((d) => ({ ...d, hour: h, pending: "" }))}
+                className="px-0 sm:min-h-9"
               >
-                <span className="tabular-nums">{h}</span>
+                <span className="tabular-nums">{pad2(h)}</span>
               </Chip>
             ))}
-            {!showAllHours ? (
-              <Chip grow onClick={() => setShowAllHours(true)} className="col-span-2">
-                Ostali sati
-              </Chip>
-            ) : null}
           </div>
 
           <FieldGroupLabel>Minuti</FieldGroupLabel>
-          <div className="flex gap-1.5" role="group" aria-label="Minuti">
+          <div className="grid grid-cols-6 gap-1.5" role="group" aria-label="Minuti">
             {MINUTE_STEPS.map((m) => (
               <Chip
                 key={m}
-                grow
-                disabled={hour == null}
-                selected={value != null && value.endsWith(`:${m}`)}
+                disabled={draft.hour == null}
+                selected={draft.minute === m}
                 aria-label={`${m} minuta`}
-                onClick={() => pickMinutes(m)}
+                onClick={() => commit(draft.hour, m)}
+                className="px-0 sm:min-h-9"
               >
-                <span className="tabular-nums">:{m}</span>
+                <span className="tabular-nums">:{pad2(m)}</span>
               </Chip>
             ))}
           </div>
-          {hour == null ? <FieldHint>Prvo izaberi sat.</FieldHint> : null}
 
-          <FieldGroupLabel>Tačno vreme</FieldGroupLabel>
-          <div className="flex gap-2">
-            <FormInput
-              value={exact}
-              onChange={(e) => setExact(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                if (timeToMinutes(exact) != null) {
-                  onChange(exact);
-                  setOpen(false);
-                }
-              }}
-              inputMode="numeric"
-              placeholder="npr. 11:37"
-              aria-label="Tačno vreme"
-              className="flex-1"
-            />
-            <Chip
-              disabled={timeToMinutes(exact) == null}
-              onClick={() => {
-                onChange(exact);
-                setOpen(false);
-              }}
-            >
-              Potvrdi
-            </Chip>
-          </div>
+          {/* Changing only the hour (17:45 -> 18:45) or typing an exact time
+              still needs a way out; the minute chips above close on their own. */}
+          <Button
+            type="button"
+            size="lg"
+            className="mt-2 min-h-11"
+            disabled={draft.hour == null || draft.minute == null}
+            onClick={() => commit(draft.hour, draft.minute)}
+          >
+            Potvrdi
+          </Button>
 
           {clearable && value ? (
             <button

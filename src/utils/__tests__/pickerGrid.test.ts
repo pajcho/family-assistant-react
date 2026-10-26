@@ -17,6 +17,7 @@ import {
   shiftIsoByMonths,
   shiftMonth,
   timeToMinutes,
+  typeTimeDigits,
 } from "@/utils/pickerGrid";
 
 describe("isLeapYear / daysInMonth", () => {
@@ -274,5 +275,51 @@ describe("formatDuration", () => {
     expect(formatDuration(60)).toBe("1h");
     expect(formatDuration(90)).toBe("1h 30");
     expect(formatDuration(120)).toBe("2h");
+  });
+});
+
+describe("typeTimeDigits", () => {
+  const at = (hour: number, minute: number, segment: "hour" | "minute" = "hour") => ({
+    hour,
+    minute,
+    segment,
+    pending: "",
+  });
+
+  it("types a full exact time across both segments", () => {
+    const { draft, complete } = typeTimeDigits(at(17, 0), "1137");
+    expect(complete).toBe(true);
+    expect([draft.hour, draft.minute]).toEqual([11, 37]);
+  });
+
+  it("waits for a second digit only when one could still follow", () => {
+    const one = typeTimeDigits(at(17, 45), "1");
+    expect(one.draft).toMatchObject({ hour: 1, segment: "hour", pending: "1" });
+    // 3 can't start a two-digit hour, so it completes as 03 and moves on.
+    const three = typeTimeDigits(at(17, 45), "3");
+    expect(three.draft).toMatchObject({ hour: 3, minute: 45, segment: "minute", pending: "" });
+    expect(three.complete).toBe(false);
+  });
+
+  it("restarts a segment when the second digit would overflow", () => {
+    // 2 then 7 is not 27 - it becomes hour 7.
+    const { draft } = typeTimeDigits(at(17, 45), "27");
+    expect(draft).toMatchObject({ hour: 7, segment: "minute", pending: "" });
+    // Minutes: 5 then 9 is a valid 59, 6 alone completes as 06.
+    expect(typeTimeDigits(at(9, 0, "minute"), "59").draft.minute).toBe(59);
+    expect(typeTimeDigits(at(9, 0, "minute"), "6")).toMatchObject({
+      complete: true,
+      draft: { hour: 9, minute: 6 },
+    });
+  });
+
+  it("leaves the hour alone when only the minutes are typed", () => {
+    const { draft, complete } = typeTimeDigits(at(23, 0, "minute"), "05");
+    expect(complete).toBe(true);
+    expect([draft.hour, draft.minute]).toEqual([23, 5]);
+  });
+
+  it("ignores non-digits", () => {
+    expect(typeTimeDigits(at(17, 0), "0:8").draft).toMatchObject({ hour: 8, segment: "minute" });
   });
 });

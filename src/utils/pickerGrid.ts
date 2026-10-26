@@ -230,15 +230,60 @@ export function formatDuration(minutes: number): string {
 /** Duration presets offered under the start/end time pair. */
 export const DURATION_PRESETS: readonly number[] = [30, 45, 60, 90, 120];
 
+/** Every hour, 0-23: the picker shows the full day as one 6x4 grid. */
+export const HOURS: readonly number[] = Array.from({ length: 24 }, (_, h) => h);
+
+/** Minute chips in 5-minute steps (:00 :05 ... :55). */
+export const MINUTE_STEPS: readonly number[] = Array.from({ length: 12 }, (_, i) => i * 5);
+
+export type TimeSegment = "hour" | "minute";
+
 /**
- * Hours offered as the primary grid. Everything outside 7-22 lives behind
- * "Ostali sati", so the common case stays a single tap.
+ * The typed state of the picker's editable `HH:MM` header. `pending` holds a
+ * first digit that still waits for its second one ("1" could become 1x).
  */
-export const PRIMARY_HOURS: readonly number[] = [
-  7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-];
+export type TimeDraft = {
+  hour: number | null;
+  minute: number | null;
+  segment: TimeSegment;
+  pending: string;
+};
 
-export const SECONDARY_HOURS: readonly number[] = [23, 0, 1, 2, 3, 4, 5, 6];
-
-/** The four minute chips - :00 :15 :30 :45. */
-export const MINUTE_STEPS = ["00", "15", "30", "45"] as const;
+/**
+ * Feed typed digits into the focused segment, the way a native segmented time
+ * input behaves: a segment completes after two digits, or after one digit
+ * that cannot start a valid two-digit value (hour 3-9, minute 6-9). A
+ * completed hour moves on to the minutes; a completed minute sets `complete`
+ * and ignores any further digits. A second digit that would overflow ("2" then
+ * "7" for an hour) restarts the segment with that digit instead.
+ */
+export function typeTimeDigits(
+  draft: TimeDraft,
+  digits: string,
+): { draft: TimeDraft; complete: boolean } {
+  let next = { ...draft };
+  for (const ch of digits) {
+    if (ch < "0" || ch > "9") continue;
+    const max = next.segment === "hour" ? 23 : 59;
+    let value: number | null = null;
+    if (next.pending) {
+      const combined = Number(next.pending + ch);
+      if (combined <= max) value = combined;
+    }
+    let done = value != null;
+    if (value == null) {
+      value = Number(ch);
+      done = value > Math.floor(max / 10);
+    }
+    next = {
+      ...next,
+      [next.segment]: value,
+      pending: done ? "" : ch,
+    };
+    if (done) {
+      if (next.segment === "minute") return { draft: next, complete: true };
+      next.segment = "minute";
+    }
+  }
+  return { draft: next, complete: false };
+}
