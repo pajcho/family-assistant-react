@@ -230,8 +230,9 @@ function SidebarSkeleton() {
   return (
     <div role="status" aria-busy="true" className="space-y-0.5">
       <span className="sr-only">Učitavanje</span>
-      {["w-2/5", "w-3/5", "w-1/2", "w-2/5"].map((width) => (
-        <div key={width} className="flex items-center gap-2 px-3 py-2">
+      {/* Widths repeat, so they cannot be the key; the list is static. */}
+      {["w-2/5", "w-3/5", "w-1/2", "w-2/5"].map((width, index) => (
+        <div key={index} className="flex items-center gap-2 px-3 py-2">
           <Skeleton className="size-4 shrink-0 rounded" />
           <span className="min-w-0 flex-1">
             <Skeleton className={cn("h-4", width)} />
