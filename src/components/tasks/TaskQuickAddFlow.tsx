@@ -174,11 +174,11 @@ export function TaskQuickAddFlow({
 
   // A list handed over by the caller may have been deleted meanwhile. Once the
   // lists are actually in, a selection that is not among them falls back to the
-  // Inbox rather than leaving the select pointing at a row that is gone.
-  useEffect(() => {
-    if (!lists || listId === NO_LIST) return;
-    if (!lists.some((list) => list.id === listId)) setListId(NO_LIST);
-  }, [lists, listId]);
+  // Inbox rather than leaving the select pointing at a row that is gone
+  // (adjusted during render; it settles at once, since NO_LIST is never checked).
+  if (lists && listId !== NO_LIST && !lists.some((list) => list.id === listId)) {
+    setListId(NO_LIST);
+  }
 
   const handleOpenChange = (next: boolean) => {
     onOpenChange(next);

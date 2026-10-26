@@ -105,8 +105,12 @@ export function PaymentFormDialog({
   // Same trick for the link - callers build `initialLink` inline.
   const linkSeed = paymentLinkSeed(seedLink);
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
+  // Synced in an effect declared before the reseed effect, so the reseed
+  // always reads the current day without depending on it.
   const todayRef = useRef(today.str);
-  todayRef.current = today.str;
+  useEffect(() => {
+    todayRef.current = today.str;
+  }, [today.str]);
 
   // The dialog stays mounted at the route level, so state must reseed on
   // every open - and while open, whenever the edited entity itself changes.

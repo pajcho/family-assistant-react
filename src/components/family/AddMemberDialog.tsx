@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -38,7 +38,11 @@ export function AddMemberDialog({ open, onOpenChange, onCreated }: AddMemberDial
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  useEffect(() => {
+  // Clear the form on every open. Adjusted during render on the open edge, so
+  // the previous entry never paints.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setFirstName("");
       setLastName("");
@@ -46,7 +50,7 @@ export function AddMemberDialog({ open, onOpenChange, onCreated }: AddMemberDial
       setEmail("");
       setPassword("");
     }
-  }, [open]);
+  }
 
   const busy = createMember.isPending || createLogin.isPending;
   const nameValid = firstName.trim().length > 0 || lastName.trim().length > 0;

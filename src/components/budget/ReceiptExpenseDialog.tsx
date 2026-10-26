@@ -201,8 +201,12 @@ export function ReceiptExpenseDialog({
   const [localClaimAt, setLocalClaimAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  // Reset the editable fields whenever a different expense opens.
-  useEffect(() => {
+  // Reset the editable fields whenever a different expense opens. Adjusted
+  // during render instead of in an effect; starts unset so an expense passed
+  // at mount is seeded too.
+  const [seededFor, setSeededFor] = useState<{ expense: typeof expense } | null>(null);
+  if (!seededFor || seededFor.expense !== expense) {
+    setSeededFor({ expense });
     if (expense) {
       reset();
       setCategoryId(expense.category_id);
@@ -215,9 +219,15 @@ export function ReceiptExpenseDialog({
       setSplitCategoryId(null);
       setSplitError(null);
       setLocalClaimAt(null);
-      setNow(Date.now());
     }
-  }, [expense, reset]);
+  }
+
+  // Restart the cooldown clock for the newly opened expense. Reading the wall
+  // clock is impure, so this part cannot move into the render-time reset above.
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- syncs with the wall clock (Date.now()), which is impure and cannot run during render
+    if (expense) setNow(Date.now());
+  }, [expense]);
 
   // Cooldown countdown for the refresh-items action - mirrors the server-enforced claim.
   const checkedAt = expense?.receipt_checked_at ? Date.parse(expense.receipt_checked_at) : null;

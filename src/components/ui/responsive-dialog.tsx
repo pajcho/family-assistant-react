@@ -147,9 +147,8 @@ type ContentProps = ComponentProps<typeof DialogContent> &
 function useKeyboardFloorLatch(): boolean {
   const keyboardOpen = useIsKeyboardOpen();
   const [latched, setLatched] = useState(false);
-  useEffect(() => {
-    if (keyboardOpen) setLatched(true);
-  }, [keyboardOpen]);
+  // Adjusted during render: it only ever flips false -> true, so it settles.
+  if (keyboardOpen && !latched) setLatched(true);
   return latched;
 }
 

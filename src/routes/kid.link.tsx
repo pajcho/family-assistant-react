@@ -74,9 +74,16 @@ function KidLinkDeviceScreen() {
   }, [routerHash, navigate]);
 
   const [lockSeconds, setLockSeconds] = useState(0);
+  // Reseed the countdown during render whenever a lockout (code + seconds)
+  // arrives; the effect below only ticks it down.
+  const lockSeed = JSON.stringify([code, retryAfterSeconds]);
+  const [lockSeededFor, setLockSeededFor] = useState<string | null>(null);
+  if (lockSeed !== lockSeededFor) {
+    setLockSeededFor(lockSeed);
+    if (code === "locked" && retryAfterSeconds) setLockSeconds(retryAfterSeconds);
+  }
   useEffect(() => {
     if (code !== "locked" || !retryAfterSeconds) return;
-    setLockSeconds(retryAfterSeconds);
     const timer = window.setInterval(() => {
       setLockSeconds((seconds) => (seconds <= 1 ? 0 : seconds - 1));
     }, 1000);

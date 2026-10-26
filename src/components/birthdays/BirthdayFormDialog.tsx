@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { Birthday } from "@/types/database";
 import {
@@ -75,7 +75,7 @@ export function BirthdayFormDialog({
   const saveVisibility = useSaveBirthdayVisibility();
   const [draft, setDraft] = useState<VisibilityDraft>({});
 
-  // Serialized (and key-sorted) so the effect reseeds when the stored rows
+  // Serialized (and key-sorted) so the draft reseeds when the stored rows
   // finish loading, but not on every fresh Map identity.
   const storedSeed = useMemo(() => {
     const stored = birthday ? (byBirthday.get(birthday.id) ?? []) : [];
@@ -86,11 +86,19 @@ export function BirthdayFormDialog({
     );
   }, [byBirthday, birthday]);
 
-  useEffect(() => {
-    if (!open) return;
-    setDraft(Object.fromEntries(JSON.parse(storedSeed) as [string, string][]));
-    resetStack();
-  }, [open, birthday?.id, storedSeed, resetStack]);
+  // Reseed on every open, and while open whenever the birthday or its stored
+  // rows change. Adjusted during render (keyed on what was last seeded) rather
+  // than in an effect, so the stale draft never paints. `resetStack` is this
+  // component's own state setter (via `useSheetStack`), so it is safe here.
+  const seedKey = open ? JSON.stringify([birthday?.id ?? null, storedSeed]) : null;
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (seedKey !== seededFor) {
+    setSeededFor(seedKey);
+    if (open) {
+      setDraft(Object.fromEntries(JSON.parse(storedSeed) as [string, string][]));
+      resetStack();
+    }
+  }
 
   // Roster order everywhere: the summary must not reshuffle as rows are toggled.
   const selectedChildren = children.filter((child) => child.id in draft);

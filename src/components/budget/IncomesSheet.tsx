@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   BanknotesIcon,
@@ -108,10 +108,9 @@ export function IncomesSheet({ open, onOpenChange, month }: IncomesSheetProps) {
   const { push, pop } = stack;
   const [showConfirmed, setShowConfirmed] = useState(false);
 
-  // Keep the high-frequency pending work in focus on every new open.
-  useEffect(() => {
-    if (!open) setShowConfirmed(false);
-  }, [open]);
+  // Keep the high-frequency pending work in focus on every new open. Adjusted
+  // during render instead of in an effect to avoid a cascading render.
+  if (!open && showConfirmed) setShowConfirmed(false);
 
   const back = pop;
 

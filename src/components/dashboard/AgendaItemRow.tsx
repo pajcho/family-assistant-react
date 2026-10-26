@@ -15,6 +15,7 @@ import { Pill } from "@/components/common/Pill";
 import { AGENDA_KIND_META } from "@/components/dashboard/agendaKindMeta";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import type { AgendaItem } from "@/hooks/useAgenda";
+import { useToday } from "@/hooks/useToday";
 import type {
   Activity,
   Birthday,
@@ -131,7 +132,7 @@ function ActivityRow({
 }) {
   const color = person?.color ?? fallbackColorForProfile(block.personId);
   const activityName = activity?.name ?? "Aktivnost";
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = useToday().str;
   const isPast = isActivityBlockPast(block, today);
 
   return (

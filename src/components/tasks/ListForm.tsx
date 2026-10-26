@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ComponentType, FormEvent, SVGProps } from "react";
 import { UserGroupIcon, UserIcon } from "@heroicons/react/24/outline";
 
@@ -96,9 +96,13 @@ export function ListForm({
 }: ListFormProps) {
   const [form, setForm] = useState<FormState>(() => initialState(list, initialName));
 
-  useEffect(() => {
+  // Reseed when the caller hands in a different list or starter name
+  // (adjusted during render, so no extra effect pass).
+  const [seededFrom, setSeededFrom] = useState({ list, initialName });
+  if (seededFrom.list !== list || seededFrom.initialName !== initialName) {
+    setSeededFrom({ list, initialName });
     setForm(initialState(list, initialName));
-  }, [list, initialName]);
+  }
 
   const submitLabel =
     mode === "edit" ? "Sačuvaj izmene" : mode === "duplicate" ? "Dupliraj" : "Dodaj";

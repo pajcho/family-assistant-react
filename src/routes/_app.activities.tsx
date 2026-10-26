@@ -203,24 +203,26 @@ function ActivitiesPage() {
   // re-render or back navigation. Waits for activities + schedule +
   // participants to load so the form opens with its sessions and participants
   // already populated; clears the param even if the id is stale (deleted).
-  useEffect(() => {
-    if (!editId) return;
-    if (activitiesQuery.isLoading || scheduleQuery.isLoading || participantsQuery.isLoading) return;
-    const activity = activitiesById.get(editId);
+  // The dialog opens during render (once per requested id); only the URL
+  // cleanup, a router side effect, stays in an effect.
+  const editReadyId =
+    editId && !activitiesQuery.isLoading && !scheduleQuery.isLoading && !participantsQuery.isLoading
+      ? editId
+      : null;
+  const [openedForEditId, setOpenedForEditId] = useState<string | null>(null);
+  if (editReadyId !== openedForEditId) {
+    setOpenedForEditId(editReadyId);
+    const activity = editReadyId ? activitiesById.get(editReadyId) : undefined;
     if (activity) {
       setEditing(activity);
       setFormError(null);
       setDialogOpen(true);
     }
+  }
+  useEffect(() => {
+    if (!editReadyId) return;
     void navigate({ search: (prev) => ({ ...prev, edit: undefined }), replace: true });
-  }, [
-    editId,
-    activitiesQuery.isLoading,
-    scheduleQuery.isLoading,
-    participantsQuery.isLoading,
-    activitiesById,
-    navigate,
-  ]);
+  }, [editReadyId, navigate]);
 
   const handleSubmit = async (payload: ActivityFormPayload) => {
     setFormError(null);

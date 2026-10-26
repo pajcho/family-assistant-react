@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
@@ -57,15 +57,16 @@ export function FamilyTab({ initialMemberId = null }: { initialMemberId?: string
   const [addOpen, setAddOpen] = useState(false);
 
   // Desktop: keep a member selected so the detail pane is never empty. Prefer
-  // the current user; otherwise the first row.
-  useEffect(() => {
-    if (!isWide || selectedId || sortedMembers.length === 0) return;
+  // the current user; otherwise the first row. Adjusted during render (it
+  // stays state, so the pick survives narrowing the window); the guard makes
+  // the follow-up render a no-op.
+  if (isWide && !selectedId && sortedMembers.length > 0) {
     const preferred =
       currentUserId && sortedMembers.some((m) => m.id === currentUserId)
         ? currentUserId
         : sortedMembers[0].id;
     setSelectedId(preferred);
-  }, [isWide, selectedId, sortedMembers, currentUserId]);
+  }
 
   const selected = sortedMembers.find((m) => m.id === selectedId) ?? null;
 
@@ -150,9 +151,13 @@ function FamilyNameCard({ canManage }: { canManage: boolean }) {
   const rename = useRenameFamily();
   const [name, setName] = useState(familyName ?? "");
 
-  useEffect(() => {
+  // Follow the server value when it changes (rename saved, refetch). Adjusted
+  // during render so the old name never paints.
+  const [syncedName, setSyncedName] = useState(familyName);
+  if (familyName !== syncedName) {
+    setSyncedName(familyName);
     setName(familyName ?? "");
-  }, [familyName]);
+  }
 
   const dirty = name.trim().length > 0 && (familyName ?? "") !== name.trim();
 

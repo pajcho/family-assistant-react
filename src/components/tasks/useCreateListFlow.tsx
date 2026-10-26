@@ -33,11 +33,20 @@ export function useCreateListFlow(): UseCreateListFlowResult {
   const { new: openNew } = useSearch({ from: "/_app/tasks" });
   const navigate = useNavigate();
 
+  // Open the dialog as `?new=1` arrives (adjusted during render; starts at
+  // false so a mount that already carries the param opens too).
+  const [prevOpenNew, setPrevOpenNew] = useState(false);
+  if (Boolean(openNew) !== prevOpenNew) {
+    setPrevOpenNew(Boolean(openNew));
+    if (openNew) {
+      setError(null);
+      setInitialName(null);
+      setOpen(true);
+    }
+  }
+
   useEffect(() => {
     if (!openNew) return;
-    setError(null);
-    setInitialName(null);
-    setOpen(true);
     // `to: "."` keeps the strip on the current URL even if the desktop index has
     // already redirected to /tasks/$listId.
     void navigate({ to: ".", search: (prev) => ({ ...prev, new: undefined }), replace: true });

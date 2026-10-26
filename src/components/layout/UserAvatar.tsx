@@ -32,18 +32,24 @@ export function UserAvatar({
   gravatarSize = 80,
 }: UserAvatarProps) {
   const initials = getInitials({ firstName, lastName, email });
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [imgFailed, setImgFailed] = useState(false);
+  // The resolved URL is stored with the input it belongs to, so a stale one
+  // (email or size changed, hash still pending) is ignored during render
+  // instead of being cleared from an effect. A failure is tied to that exact
+  // result object, so a fresh resolve always gets a new attempt.
+  const requestKey = JSON.stringify([email ?? null, gravatarSize]);
+  const [resolved, setResolved] = useState<{ key: string; url: string } | null>(null);
+  const [failed, setFailed] = useState<{ key: string; url: string } | null>(null);
+  const current = resolved?.key === requestKey ? resolved : null;
+  const imgUrl = current && current !== failed ? current.url : null;
 
   useEffect(() => {
     let cancelled = false;
-    setImgUrl(null);
-    setImgFailed(false);
     const e = (email ?? "").trim();
     if (!e) return;
+    const key = JSON.stringify([email ?? null, gravatarSize]);
     void gravatarHash(e).then((hash) => {
       if (cancelled || !hash) return;
-      setImgUrl(gravatarUrl(hash, gravatarSize));
+      setResolved({ key, url: gravatarUrl(hash, gravatarSize) });
     });
     return () => {
       cancelled = true;
@@ -59,13 +65,13 @@ export function UserAvatar({
       aria-hidden="true"
     >
       <span>{initials}</span>
-      {imgUrl && !imgFailed ? (
+      {imgUrl ? (
         <img
           src={imgUrl}
           alt=""
           loading="lazy"
           decoding="async"
-          onError={() => setImgFailed(true)}
+          onError={() => setFailed(current)}
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : null}

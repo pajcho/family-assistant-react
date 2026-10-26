@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,15 +81,29 @@ export function ActivityFormDialog({
 
   // Reseed on every open, and while open whenever the edited activity (or
   // its async-loaded rules / participants) changes - same semantics the form
-  // had when it owned the state.
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      ...initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId),
-      ...(activity ? null : initialName ? { name: initialName } : null),
-    });
-    resetStack();
-  }, [open, activity, initialName, existingRules, existingPersonIds, fallbackPersonId, resetStack]);
+  // had when it owned the state. Adjusted during render against the inputs it
+  // was last seeded from (compared by identity, like effect deps), so the
+  // stale form never paints. `resetStack` is this component's own state setter
+  // (via `useSheetStack`), so it is safe here.
+  const seedInputs = [
+    open,
+    activity,
+    initialName,
+    existingRules,
+    existingPersonIds,
+    fallbackPersonId,
+  ] as const;
+  const [seededFrom, setSeededFrom] = useState(seedInputs);
+  if (seedInputs.some((input, i) => !Object.is(input, seededFrom[i]))) {
+    setSeededFrom(seedInputs);
+    if (open) {
+      setForm({
+        ...initialActivityFormState(activity, existingRules, existingPersonIds, fallbackPersonId),
+        ...(activity ? null : initialName ? { name: initialName } : null),
+      });
+      resetStack();
+    }
+  }
 
   const title = activity ? "Izmeni aktivnost" : "Dodaj aktivnost";
   const isDesktop = useIsDesktop();

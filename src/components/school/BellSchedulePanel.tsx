@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -43,10 +43,12 @@ export function BellSchedulePanel({ bell, onClose }: BellSchedulePanelProps) {
   const [form, setForm] = useState<FormState>(() => fromBell(bell));
 
   // Re-sync when the underlying row changes (e.g. realtime), but only the
-  // initial mount really matters here.
-  useEffect(() => {
+  // initial mount really matters here. Adjusted during render.
+  const [syncedBell, setSyncedBell] = useState(bell);
+  if (syncedBell !== bell) {
+    setSyncedBell(bell);
     setForm(fromBell(bell));
-  }, [bell]);
+  }
 
   const setNum = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement>) => {
     const n = Number(e.target.value);

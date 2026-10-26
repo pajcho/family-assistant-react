@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { toast } from "sonner";
 import { BanknotesIcon, QrCodeIcon, WalletIcon } from "@heroicons/react/24/outline";
@@ -50,11 +50,15 @@ export function LinkedMoneyFlow({ request, onClose }: LinkedMoneyFlowProps) {
   const [stage, setStage] = useState<LinkedMoneyKind | null>(request?.kind ?? null);
 
   // Each new request restarts the flow at its kind (and clears stale errors).
-  useEffect(() => {
+  // Adjusted during render rather than in an effect, so the new request never
+  // renders one frame with the previous request's stage.
+  const [seededRequest, setSeededRequest] = useState(request);
+  if (request !== seededRequest) {
+    setSeededRequest(request);
     setStage(request?.kind ?? null);
     setPaymentError(null);
     setExpenseError(null);
-  }, [request]);
+  }
 
   if (!request || !stage) return null;
 

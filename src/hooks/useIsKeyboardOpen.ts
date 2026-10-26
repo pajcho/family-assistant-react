@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const THRESHOLD_PX = 150;
 
@@ -52,43 +52,53 @@ const isTextEntry = (el: Element | null): boolean => {
  *      dismiss) - for the sheet floor that just means the floor
  *      lingers until the next tap.
  */
-export function useIsKeyboardOpen(): boolean {
-  const [open, setOpen] = useState(false);
+const readKeyboardOpen = (): boolean => {
+  const vv = window.visualViewport;
+  const viewportSays = vv ? window.innerHeight - vv.height > THRESHOLD_PX : false;
+  const focusSays = isTextEntry(document.activeElement);
+  return viewportSays || focusSays;
+};
 
-  const compute = useCallback(() => {
-    const vv = window.visualViewport;
-    const viewportSays = vv ? window.innerHeight - vv.height > THRESHOLD_PX : false;
-    const focusSays = isTextEntry(document.activeElement);
-    setOpen(viewportSays || focusSays);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    compute();
-    window.visualViewport?.addEventListener("resize", compute);
-    window.visualViewport?.addEventListener("scroll", compute);
-    document.addEventListener("focusin", compute);
-    document.addEventListener("focusout", compute);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", compute);
-      window.visualViewport?.removeEventListener("scroll", compute);
-      document.removeEventListener("focusin", compute);
-      document.removeEventListener("focusout", compute);
-    };
-  }, [compute]);
-
-  // Safety net for the one case the events above can't cover: a focused
+const subscribe = (onStoreChange: () => void): (() => void) => {
+  // Safety net for the one case the events below can't cover: a focused
   // input that's REMOVED from the DOM (a closing dialog unmounting its
   // form) fires no focusout in Chromium/WebKit, so signal 2 would keep
   // reporting a keyboard that is long gone. Re-check on a slow tick while
-  // we believe the keyboard is up; the moment it reads closed the interval
+  // the keyboard reads open; the moment it reads closed the interval
   // stops, so this costs nothing at rest.
-  useEffect(() => {
-    if (!open) return;
-    const id = window.setInterval(compute, 400);
-    return () => window.clearInterval(id);
-  }, [open, compute]);
+  let timer: number | undefined;
+  const syncTimer = () => {
+    const open = readKeyboardOpen();
+    if (open && timer === undefined) {
+      timer = window.setInterval(check, 400);
+    } else if (!open && timer !== undefined) {
+      window.clearInterval(timer);
+      timer = undefined;
+    }
+  };
+  const check = () => {
+    onStoreChange();
+    syncTimer();
+  };
 
-  return open;
+  syncTimer();
+  window.visualViewport?.addEventListener("resize", check);
+  window.visualViewport?.addEventListener("scroll", check);
+  document.addEventListener("focusin", check);
+  document.addEventListener("focusout", check);
+  return () => {
+    window.visualViewport?.removeEventListener("resize", check);
+    window.visualViewport?.removeEventListener("scroll", check);
+    document.removeEventListener("focusin", check);
+    document.removeEventListener("focusout", check);
+    if (timer !== undefined) window.clearInterval(timer);
+  };
+};
+
+const getServerSnapshot = (): boolean => false;
+
+export function useIsKeyboardOpen(): boolean {
+  // useSyncExternalStore re-reads the snapshot right after subscribing, which
+  // covers a field autofocused in the same commit that mounted the consumer.
+  return useSyncExternalStore(subscribe, readKeyboardOpen, getServerSnapshot);
 }

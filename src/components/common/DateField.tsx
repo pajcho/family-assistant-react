@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import {
   CalendarDaysIcon,
@@ -163,13 +163,18 @@ export function DateField({
 
   // Re-seed each time the picker opens: the member may have changed the value
   // through a shortcut chip, or a day may have passed with the form open.
-  useEffect(() => {
-    if (!open) return;
-    const parts = partsFromIso(value) ?? partsFromIso(today.str);
-    if (parts) setCursor({ year: parts.year, month: parts.month });
-    setStep(mode === "dob" && !value ? "year" : "day");
-    setTyped("");
-  }, [open, value, today.str, mode]);
+  // Adjusted during render instead of in an effect to avoid a cascading render.
+  const seedKey = open ? JSON.stringify([value, today.str, mode]) : null;
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (seedKey !== seededFor) {
+    setSeededFor(seedKey);
+    if (open) {
+      const parts = partsFromIso(value) ?? partsFromIso(today.str);
+      if (parts) setCursor({ year: parts.year, month: parts.month });
+      setStep(mode === "dob" && !value ? "year" : "day");
+      setTyped("");
+    }
+  }
 
   const grid = useMemo(() => buildMonthGrid(cursor.year, cursor.month), [cursor]);
   const wantsDots = showBusyDots ?? mode !== "dob";

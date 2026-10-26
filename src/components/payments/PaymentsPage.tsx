@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { BanknotesIcon, PlusIcon } from "@heroicons/react/24/outline";
 
@@ -514,10 +514,21 @@ export function PaymentsPage({ month, searchTerm, addSlot }: PaymentsPageProps) 
     searchActive || showPaid ? 0 : combinedList.length - displayedList.length;
 
   // Long lists (all-time view, search) reveal in pages of PAGE_SIZE.
+  // Any filter change starts from the first page again. Adjusted during render
+  // instead of in an effect to avoid a cascading render.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  useEffect(() => {
+  const pageResetDeps = [
+    selectedMonth,
+    showPaid,
+    searchTerm,
+    selectedPersonIds,
+    selectedCategoryIds,
+  ] as const;
+  const [pagedFor, setPagedFor] = useState(pageResetDeps);
+  if (pageResetDeps.some((dep, i) => !Object.is(dep, pagedFor[i]))) {
+    setPagedFor(pageResetDeps);
     setVisibleCount(PAGE_SIZE);
-  }, [selectedMonth, showPaid, searchTerm, selectedPersonIds, selectedCategoryIds]);
+  }
   const pagedList = useMemo(
     () => displayedList.slice(0, visibleCount),
     [displayedList, visibleCount],

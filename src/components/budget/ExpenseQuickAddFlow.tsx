@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
@@ -29,9 +29,8 @@ export function ExpenseQuickAddFlow({ open, onOpenChange }: ExpenseQuickAddFlowP
   const [stage, setStage] = useState<"form" | "scan">("form");
 
   // A reopened flow always starts at the form (hosts that keep this mounted).
-  useEffect(() => {
-    if (!open) setStage("form");
-  }, [open]);
+  // Adjusted during render instead of in an effect to avoid a cascading render.
+  if (!open && stage !== "form") setStage("form");
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);

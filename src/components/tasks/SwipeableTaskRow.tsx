@@ -99,6 +99,9 @@ type SwipeableImplProps = Pick<SwipeableTaskRowProps, "onSwipeRight" | "onSwipeL
 function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplProps) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
+  // Mirrors `directionRef === "horizontal"` for rendering; the ref stays the
+  // source of truth inside the pointer handlers.
+  const [isHorizontal, setIsHorizontal] = useState(false);
 
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const directionRef = useRef<Direction>(null);
@@ -107,6 +110,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
   const reset = useCallback(() => {
     startRef.current = null;
     directionRef.current = null;
+    setIsHorizontal(false);
     setDx(0);
     setDragging(false);
   }, []);
@@ -118,6 +122,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
 
     startRef.current = { x: e.clientX, y: e.clientY };
     directionRef.current = null;
+    setIsHorizontal(false);
     didSwipeRef.current = false;
     setDragging(true);
   };
@@ -134,6 +139,7 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
       }
       directionRef.current = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
       if (directionRef.current === "horizontal") {
+        setIsHorizontal(true);
         // Take ownership of subsequent events so leaving the original
         // <li> bounds during the drag doesn't cancel the gesture.
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -174,7 +180,6 @@ function SwipeableImpl({ onSwipeRight, onSwipeLeft, children }: SwipeableImplPro
 
   // Show the reveal layers only when we're committed to a horizontal gesture
   // so a vertical scroll doesn't briefly flash green/red behind the row.
-  const isHorizontal = directionRef.current === "horizontal";
   const showLeftReveal = isHorizontal && dx > 0;
   const showRightReveal = isHorizontal && dx < 0;
   // Opacity ramps from 0 to 1 as the user crosses the action threshold so

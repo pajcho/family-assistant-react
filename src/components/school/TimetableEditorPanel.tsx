@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +35,20 @@ function bandForVariant(
 ): SchoolShift {
   if (anchor?.fixed_time_band) return anchor.fixed_time_band;
   return variant === "A" ? "morning" : "afternoon";
+}
+
+/** One subject per line for a column, in period order. */
+function columnText(
+  entries: ReadonlyArray<SchoolTimetableEntry>,
+  variant: TimetableVariant,
+  day: number,
+): string {
+  return entries
+    .filter((e) => e.variant === variant && e.day_of_week === day)
+    .slice()
+    .sort((a, b) => a.period_index - b.period_index)
+    .map((e) => e.subject)
+    .join("\n");
 }
 
 export type TimetableEditorPanelProps = {
@@ -75,44 +97,42 @@ export function TimetableEditorPanel({
   const [day, setDay] = useState<number>(initialDay ?? 0);
   const [text, setText] = useState<string>("");
 
-  // Freshest member entries, read via ref inside the load effect so realtime
-  // refreshes don't clobber the textarea mid-edit.
   const memberEntries = useMemo(
     () => entries.filter((e) => e.person_id === member.id),
     [entries, member.id],
   );
-  const entriesRef = useRef(memberEntries);
-  entriesRef.current = memberEntries;
-
-  const textFor = useCallback((v: TimetableVariant, d: number): string => {
-    return entriesRef.current
-      .filter((e) => e.variant === v && e.day_of_week === d)
-      .slice()
-      .sort((a, b) => a.period_index - b.period_index)
-      .map((e) => e.subject)
-      .join("\n");
-  }, []);
 
   // Baseline text for the current column, to detect whether there's anything
-  // to persist.
+  // to persist. A ref, because chained saves must see the value an earlier
+  // save in the same chain wrote.
   const loadedRef = useRef<string>("");
 
   // Re-seed the selected column when the child changes (alternation differs) or
-  // when the editor is (re)opened against a specific block. Without honoring
-  // the initial props here, this effect would clobber them back to the default
-  // on mount. Falls back to the child's default variant + Monday when no block
-  // anchor was provided (options-sheet flow).
-  useEffect(() => {
+  // when the editor is (re)opened against a specific block. Falls back to the
+  // child's default variant + Monday when no block anchor was provided
+  // (options-sheet flow). Adjusted during render; the initial key matches the
+  // initial state, so mount keeps the initial props.
+  const seedKey = JSON.stringify([singleVariant, initialVariant, initialDay]);
+  const [seededFor, setSeededFor] = useState(seedKey);
+  if (seedKey !== seededFor) {
+    setSeededFor(seedKey);
     setVariant(initialVariant ?? singleVariant);
     setDay(initialDay ?? 0);
-  }, [singleVariant, initialVariant, initialDay]);
+  }
 
-  // Load the column's text whenever the selection changes (and on mount).
-  useEffect(() => {
-    const t = textFor(variant, day);
+  // Load the column's text whenever the selection changes (and on mount). Only
+  // a column change reloads, so realtime refreshes of `entries` don't clobber
+  // the textarea mid-edit.
+  const column = `${variant}:${day}`;
+  const [loaded, setLoaded] = useState<{ column: string; text: string } | null>(null);
+  if (loaded?.column !== column) {
+    const t = columnText(memberEntries, variant, day);
+    setLoaded({ column, text: t });
     setText(t);
-    loadedRef.current = t;
-  }, [variant, day, textFor]);
+  }
+  useLayoutEffect(() => {
+    if (loaded) loadedRef.current = loaded.text;
+  }, [loaded]);
 
   // Serialize saves through a single chain so overlapping triggers can't fire
   // two delete+insert pairs for the same column. Tapping save/done
@@ -141,7 +161,9 @@ export function TimetableEditorPanel({
   // Flush pending edits on unmount - covers "navigate back" / "close" without
   // an explicit save. Uses a ref so the cleanup sees the latest closure.
   const persistRef = useRef(persistCurrent);
-  persistRef.current = persistCurrent;
+  useLayoutEffect(() => {
+    persistRef.current = persistCurrent;
+  });
   useEffect(() => () => void persistRef.current().catch(() => {}), []);
 
   const switchVariant = async (v: TimetableVariant) => {

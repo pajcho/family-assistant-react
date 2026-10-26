@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowUpOnSquareIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { canInstallOnIos } from "@/utils/pwaInstall";
@@ -20,13 +20,9 @@ import { canInstallOnIos } from "@/utils/pwaInstall";
 const DISMISS_KEY = "pwa-install-hint-dismissed";
 
 export function IosInstallHint() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (!canInstallOnIos()) return;
-    if (window.localStorage.getItem(DISMISS_KEY) === "1") return;
-    setVisible(true);
-  }, []);
+  const [visible, setVisible] = useState(
+    () => canInstallOnIos() && window.localStorage.getItem(DISMISS_KEY) !== "1",
+  );
 
   if (!visible) return null;
 

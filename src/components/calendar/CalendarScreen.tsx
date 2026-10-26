@@ -74,20 +74,28 @@ export function CalendarScreen({ view, day, onViewChange, onOpenDay }: CalendarS
   // The sticky strip box's height on phones - the offset the agenda's own
   // sticky day headers (and its scroll-to-day math) must clear so they park
   // under the strip instead of behind it.
+  // The measurement is stored with the box it belongs to, so a missing (or
+  // replaced) box reads as 0 without a reset in the effect.
   const [stickyBox, setStickyBox] = useState<HTMLElement | null>(null);
-  const [stickyOffset, setStickyOffset] = useState(0);
+  const [stickyMeasure, setStickyMeasure] = useState<{ box: HTMLElement; height: number } | null>(
+    null,
+  );
+  const stickyOffset = stickyBox && stickyMeasure?.box === stickyBox ? stickyMeasure.height : 0;
   useEffect(() => {
-    if (!stickyBox) {
-      setStickyOffset(0);
-      return;
-    }
+    if (!stickyBox) return;
     // Measured fractionally and rounded DOWN. `offsetHeight` rounds to the
     // nearest integer, and a box that is really 94.5px tall reported 95 - so
     // every sticky header below parked half a pixel BELOW the strip's bottom
     // edge and the rows scrolling past showed through the seam (a full hairline
     // at 2x). Flooring parks them half a pixel high instead, under a strip that
     // outranks them (z-30 over z-10), where the overlap cannot be seen.
-    const measure = () => setStickyOffset(Math.floor(stickyBox.getBoundingClientRect().height));
+    const measure = () => {
+      const height = Math.floor(stickyBox.getBoundingClientRect().height);
+      // Same box, same height: keep the old object so React bails out.
+      setStickyMeasure((prev) =>
+        prev?.box === stickyBox && prev.height === height ? prev : { box: stickyBox, height },
+      );
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(stickyBox);

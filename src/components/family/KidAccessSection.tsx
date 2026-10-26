@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   DevicePhoneMobileIcon,
@@ -89,6 +89,18 @@ export function KidAccessSection({ member, memberName }: KidAccessSectionProps) 
   const [revokeTarget, setRevokeTarget] = useState<KidDevice | null>(null);
   const [confirmDisable, setConfirmDisable] = useState(false);
 
+  // A PIN lockout ends at a moment in time, so "now" is state rather than a
+  // clock read during render: captured on mount and advanced by a timer that
+  // fires when the current lock runs out, which flips the badge back.
+  const [now, setNow] = useState(() => Date.now());
+  const lockedUntilRaw = access?.locked_until ?? null;
+  useEffect(() => {
+    if (!lockedUntilRaw) return;
+    const delay = Math.max(0, new Date(lockedUntilRaw).getTime() - Date.now());
+    const timer = setTimeout(() => setNow(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [lockedUntilRaw]);
+
   // Works in BOTH states, and that is the point: the parent deciding whether to
   // turn kid access on is exactly the person who has not seen the child's app.
   const openPreview = () => {
@@ -149,9 +161,7 @@ export function KidAccessSection({ member, memberName }: KidAccessSectionProps) 
   };
 
   const lockedUntil =
-    access?.locked_until && new Date(access.locked_until).getTime() > Date.now()
-      ? access.locked_until
-      : null;
+    lockedUntilRaw && new Date(lockedUntilRaw).getTime() > now ? lockedUntilRaw : null;
 
   const statusBadge: DetailBadge = !access?.is_enabled
     ? { label: "Isključen", tone: "neutral" }

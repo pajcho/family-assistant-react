@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
@@ -144,9 +144,15 @@ export function CategoryDetailSheet({
   const [auditOpen, setAuditOpen] = useState(false);
 
   // Seed the limit editor whenever a different category (or fresh open) shows.
-  useEffect(() => {
+  // Adjusted during render instead of in an effect to avoid a cascading render.
+  const [seededFor, setSeededFor] = useState<{
+    open: boolean;
+    category: ExpenseCategory | null;
+  } | null>(null);
+  if (seededFor?.open !== open || seededFor.category !== category) {
+    setSeededFor({ open, category });
     if (open) setLimitInput(category?.monthly_limit ? String(category.monthly_limit) : "");
-  }, [open, category]);
+  }
 
   const catExpenses = useMemo(() => {
     if (!row) return [];
@@ -232,6 +238,7 @@ export function CategoryDetailSheet({
                   className="grid size-[50px] shrink-0 place-items-center rounded-[17px]"
                   style={{ backgroundColor: `${row.color}22` }}
                 >
+                  {/* oxlint-disable-next-line react/static-components -- categoryIcon() returns a module-level heroicon from a static map, never a component created during render */}
                   <Icon className="size-6" style={{ color: row.color }} />
                 </span>
                 <div className="min-w-0 flex-1">

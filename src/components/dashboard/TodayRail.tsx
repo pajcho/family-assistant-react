@@ -93,23 +93,29 @@ function MiniMonth({ today, countByDay }: { today: string; countByDay: Map<strin
   const monthName = format(todayDate, "LLLL", { locale: srLocale });
 
   const cells = useMemo(() => {
-    const first = startOfMonth(todayDate);
+    // Parsed again here rather than reusing `todayDate`: that is a fresh Date
+    // every render, so as a dep it would defeat the memo.
+    const monthDate = parseISO(`${today}T12:00:00`);
+    const first = startOfMonth(monthDate);
     // Monday-first grid: start on the Monday of the week the 1st falls in.
     const gridStart = parseISO(`${getWeekStart(format(first, "yyyy-MM-dd"))}T12:00:00`);
     const total =
-      Math.ceil((first.getDay() === 0 ? 6 : first.getDay() - 1 + getDaysInMonth(todayDate)) / 7) *
+      Math.ceil((first.getDay() === 0 ? 6 : first.getDay() - 1 + getDaysInMonth(monthDate)) / 7) *
       7;
-    return Array.from({ length: total }, (_, i) => {
-      const date = addDays(gridStart, i);
-      const day = format(date, "yyyy-MM-dd");
-      return {
+    // A plain loop rather than `Array.from(..., cb)`: a `countByDay.get` inside
+    // an opaque callback reads to the compiler as a possible mutation.
+    const result: { day: string; label: number; outside: boolean; busy: boolean }[] = [];
+    for (let i = 0; i < total; i++) {
+      const day = format(addDays(gridStart, i), "yyyy-MM-dd");
+      result.push({
         day,
         label: Number(day.slice(8, 10)),
         outside: day.slice(0, 7) !== today.slice(0, 7),
         busy: (countByDay.get(day) ?? 0) > 0,
-      };
-    });
-  }, [todayDate, today, countByDay]);
+      });
+    }
+    return result;
+  }, [today, countByDay]);
 
   return (
     <div className="rounded-xl border border-border bg-card p-3.5 shadow-card">

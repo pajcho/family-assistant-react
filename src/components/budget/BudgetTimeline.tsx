@@ -118,6 +118,7 @@ function ExpenseRow({
           style={{ backgroundColor: `${color}1f`, color }}
           title={category?.name}
         >
+          {/* oxlint-disable-next-line react/static-components -- categoryIcon() returns a module-level heroicon from a static map, never a component created during render */}
           <Icon className="size-3.5" />
         </span>
         {category ? <span className="sr-only">Kategorija: {category.name}</span> : null}

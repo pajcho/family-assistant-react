@@ -111,17 +111,14 @@ export function TaskListBody({ list, grouping, today }: TaskListBodyProps) {
 
   // Keep the dialog's task in sync with realtime updates: if the cache refetches
   // (e.g. someone else edits the same task) the popup should reflect the latest
-  // server state instead of the stale fields it was opened with.
-  useEffect(() => {
-    if (!editingTask) return;
+  // server state instead of the stale fields it was opened with. Adjusted
+  // during render; it settles once `editingTask` is the cached row.
+  if (editingTask) {
     const fresh = list.tasks.find((task) => task.id === editingTask.id);
-    if (!fresh) {
-      // Deleted locally or remotely - close the popup rather than editing a ghost.
-      setEditingTask(null);
-      return;
-    }
-    if (fresh !== editingTask) setEditingTask(fresh);
-  }, [list.tasks, editingTask]);
+    // Deleted locally or remotely - close the popup rather than editing a ghost.
+    if (!fresh) setEditingTask(null);
+    else if (fresh !== editingTask) setEditingTask(fresh);
+  }
 
   // When a row is ticked, the optimistic update flips it immediately, which would
   // otherwise yank it out of the active section with no visual confirmation. We

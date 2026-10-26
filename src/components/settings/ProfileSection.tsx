@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -32,23 +32,29 @@ function ProfileCard() {
   const { user } = useAuth();
   const { profile, isLoading, updateProfile, isUpdating } = useProfile();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState(profile?.first_name ?? "");
+  const [lastName, setLastName] = useState(profile?.last_name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [emailChanging, setEmailChanging] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [emailError, setEmailError] = useState("");
 
   // Resync the form whenever the upstream row updates (initial load,
-  // post-save refetch, or another tab editing the same profile).
-  useEffect(() => {
+  // post-save refetch, or another tab editing the same profile). Adjusted
+  // during render against the values last synced, so stale input never paints.
+  const namesKey = JSON.stringify([profile?.first_name ?? null, profile?.last_name ?? null]);
+  const [syncedNames, setSyncedNames] = useState(namesKey);
+  if (namesKey !== syncedNames) {
+    setSyncedNames(namesKey);
     setFirstName(profile?.first_name ?? "");
     setLastName(profile?.last_name ?? "");
-  }, [profile?.first_name, profile?.last_name]);
+  }
 
-  useEffect(() => {
+  const [syncedEmail, setSyncedEmail] = useState(user?.email);
+  if (user?.email !== syncedEmail) {
+    setSyncedEmail(user?.email);
     setEmail(user?.email ?? "");
-  }, [user?.email]);
+  }
 
   const namesDirty =
     (profile?.first_name ?? "") !== firstName.trim() ||

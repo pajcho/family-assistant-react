@@ -205,13 +205,13 @@ export function KidAgendaList({
         ]
       : (detail?.rows ?? []);
 
-  let lastDate = "";
-
   return (
     <>
-      {items.map((item) => {
-        const showHeading = grouped && item.date !== lastDate;
-        if (showHeading) lastDate = item.date;
+      {items.map((item, index) => {
+        // A heading opens every run of same-day items: compare with the item
+        // before this one.
+        const prevDate = index > 0 ? items[index - 1].date : "";
+        const showHeading = grouped && item.date !== prevDate;
         const heading = showHeading ? kidDayHeading(item.date, todayISO) : null;
         const note = item.kind === "birthday" ? birthdayNotes?.get(item.birthday.id) : undefined;
         return (
