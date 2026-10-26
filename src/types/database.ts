@@ -386,6 +386,10 @@ export interface Expense extends AuditedByMember {
   /** Legacy mirror of receipts.checked_at (still written by the refresh claim
    *  so deployed clients keep their countdown). Null until the first refresh. */
   receipt_checked_at: string | null;
+  /** Set on an extra (e.g. a cash tip) spent together with another expense,
+   *  usually a scanned receipt. The DB copies the parent's date, category,
+   *  person and link onto it and keeps them in step. */
+  parent_expense_id: string | null;
   created_at: string;
   updated_at: string;
 }

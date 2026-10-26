@@ -124,3 +124,7 @@ display the forbidden characters in order to explain what they are.
   the ruleset in the same change:
   `gh api -X PUT repos/pajcho/family-assistant-react/rulesets/19621451`.
 - Never commit straight to `main` - always a branch, then a PR (squash-merge).
+- A new migration's filename uses the real current UTC time down to the
+  second (`date -u +%Y%m%d%H%M%S`, e.g. `20261026123105_expense_extras.sql`),
+  never a rounded value like `...120000`. Several agents often write
+  migrations in parallel, and rounded timestamps collide.

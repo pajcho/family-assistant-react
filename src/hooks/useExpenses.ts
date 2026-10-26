@@ -53,6 +53,9 @@ export type CreateExpenseInput = {
   activity_id?: string | null;
   event_id?: string | null;
   birthday_id?: string | null;
+  /** Makes this an extra of another expense (a tip next to a receipt). The DB
+   *  then copies the parent's date, category, person and link. */
+  parent_expense_id?: string | null;
 };
 
 export type UpdateExpenseInput = Partial<
@@ -149,6 +152,33 @@ export function useLinkedExpenses(ref: LinkedExpenseRef) {
   return { ...query, expenses };
 }
 
+async function fetchExpenseExtras(familyId: string, parentId: string): Promise<Expense[]> {
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("*")
+    .eq("family_id", familyId)
+    .eq("parent_expense_id", parentId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as Expense[]) ?? [];
+}
+
+/**
+ * The extras of one expense (a tip left next to a receipt) - the "Dodatno uz
+ * račun" block of the receipt detail. Keyed under ["expenses", familyId] so
+ * every expense mutation's invalidation refreshes it.
+ */
+export function useExpenseExtras(parentId: string | null) {
+  const { familyId } = useProfile();
+  const query = useQuery({
+    queryKey: ["expenses", familyId, "extras", parentId],
+    queryFn: () => fetchExpenseExtras(familyId as string, parentId as string),
+    enabled: !!familyId && !!parentId,
+  });
+  const extras = useMemo(() => query.data ?? [], [query.data]);
+  return { ...query, extras };
+}
+
 export function useCreateExpense() {
   const { familyId } = useProfile();
   const queryClient = useQueryClient();
@@ -172,6 +202,7 @@ export function useCreateExpense() {
           activity_id: payload.activity_id ?? null,
           event_id: payload.event_id ?? null,
           birthday_id: payload.birthday_id ?? null,
+          parent_expense_id: payload.parent_expense_id ?? null,
         })
         .select()
         .single();
@@ -341,6 +372,9 @@ export type SaveReceiptExpenseInput = {
    * surfaced as {@link ClaimConflictError}.
    */
   claim_idxs?: number[] | null;
+  /** Money spent with this receipt but missing from it (a cash tip), saved in
+   *  the same transaction as extras of the new expense. */
+  extras?: { amount: number; note: string | null }[];
 };
 
 export type SaveReceiptExpenseResult = {
@@ -383,6 +417,7 @@ export function useSaveReceiptExpense() {
           activity_id: input.activity_id ?? null,
           event_id: input.event_id ?? null,
           birthday_id: input.birthday_id ?? null,
+          extras: input.extras ?? [],
         },
         p_items: input.items.map((it, idx) => ({
           idx,

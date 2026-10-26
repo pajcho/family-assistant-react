@@ -84,6 +84,7 @@ function expense(over: Partial<Expense> = {}): Expense {
     receipt_url: null,
     receipt_id: null,
     receipt_checked_at: null,
+    parent_expense_id: null,
     created_at: "",
     updated_at: "",
     ...over,
