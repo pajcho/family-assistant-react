@@ -21,6 +21,7 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useUpdateExpenseCategory } from "@/hooks/useExpenseCategories";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import { usePaymentLinkTargets } from "@/hooks/usePaymentLinks";
 import type { Expense, ExpenseCategory } from "@/types/database";
 import { formatDate } from "@/utils/date";
@@ -89,7 +90,11 @@ function ExpenseLine({
   linkName?: string | null;
   onOpen?: (expense: Expense) => void;
 }) {
-  const { title, detail } = expenseLabels(expense, { linkName });
+  const { aliasFor } = useMerchantAliases();
+  const { title, detail } = expenseLabels(expense, {
+    linkName,
+    merchantAlias: aliasFor(expense.merchant),
+  });
   const body = (
     <>
       <span className="min-w-0 flex-1">

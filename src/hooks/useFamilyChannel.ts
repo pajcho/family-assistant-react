@@ -78,6 +78,7 @@ const TABLE_INVALIDATIONS: Record<string, readonly QueryKeyFor[]> = {
   income_entries: [familyKey("income_entries"), auditKey],
   incomes: [familyKey("incomes"), auditKey],
   lists: [familyKey("lists"), auditKey],
+  merchant_aliases: [familyKey("merchant_aliases")],
   payment_history: [familyKey("payments"), paymentHistoryKey],
   payment_overrides: [familyKey("payment_overrides")],
   payment_participants: [familyKey("payment_participants")],

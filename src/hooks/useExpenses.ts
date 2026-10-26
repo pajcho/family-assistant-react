@@ -617,13 +617,13 @@ export interface ExpenseSearchHit {
 
 /**
  * Family-wide expense search across ALL months: `note` + `merchant` on the
- * expense itself, plus receipt line items by name - so "mleko" finds the
+ * expense itself, the merchant's friendly name, plus receipt line items by name - so "mleko" finds the
  * receipt it was bought on. Item matches pull in their parent expense even
  * when the expense's own fields don't match.
  */
 async function searchExpenses(familyId: string, term: string): Promise<ExpenseSearchHit[]> {
   const pattern = `%${escapeIlikeTerm(term)}%`;
-  const [byNote, byMerchant, itemRows] = await Promise.all([
+  const [byNote, byMerchant, itemRows, aliasRows] = await Promise.all([
     supabase
       .from("expenses")
       .select("*")
@@ -645,6 +645,14 @@ async function searchExpenses(familyId: string, term: string): Promise<ExpenseSe
       .not("expense_id", "is", null)
       .ilike("name", pattern)
       .limit(200),
+    // A merchant's friendly name (merchant_aliases) finds its expenses too, so
+    // "market" finds the receipts stored as "STEFAN PRO 95".
+    supabase
+      .from("merchant_aliases")
+      .select("merchant")
+      .eq("family_id", familyId)
+      .ilike("display_name", pattern)
+      .limit(20),
   ]);
 
   const matchedItemsByExpense = new Map<string, string[]>();
@@ -654,8 +662,24 @@ async function searchExpenses(familyId: string, term: string): Promise<ExpenseSe
     matchedItemsByExpense.set(row.expense_id, arr);
   }
 
+  const aliasMerchants = ((aliasRows.data ?? []) as { merchant: string }[]).map((r) => r.merchant);
+  const byAlias =
+    aliasMerchants.length > 0
+      ? await supabase
+          .from("expenses")
+          .select("*")
+          .eq("family_id", familyId)
+          .in("merchant", aliasMerchants)
+          .order("spent_on", { ascending: false })
+          .limit(30)
+      : { data: [] };
+
   const byId = new Map<string, Expense>();
-  for (const e of [...(byNote.data ?? []), ...(byMerchant.data ?? [])] as Expense[]) {
+  for (const e of [
+    ...(byNote.data ?? []),
+    ...(byMerchant.data ?? []),
+    ...(byAlias.data ?? []),
+  ] as Expense[]) {
     byId.set(e.id, e);
   }
   const missingParentIds = [...matchedItemsByExpense.keys()].filter((id) => !byId.has(id));

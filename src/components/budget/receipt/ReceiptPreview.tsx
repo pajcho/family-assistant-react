@@ -19,6 +19,7 @@ import { PaymentLinkField, type PaymentLinkValue } from "@/components/payments/P
 import { receiptSuggestContext } from "@/utils/linkSuggestions";
 import { PaymentLinkPickerSheet } from "@/components/payments/PaymentLinkPickerSheet";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import type { ParsedReceipt } from "@/hooks/useReceiptImport";
 import { Amount } from "@/components/common/Amount";
 import { formatDate } from "@/utils/date";
@@ -138,6 +139,8 @@ export function ReceiptPreview({
 }: ReceiptPreviewProps) {
   const isDesktop = useIsDesktop();
   const { categories } = useExpenseCategories();
+  const { aliasFor } = useMerchantAliases();
+  const merchantAlias = aliasFor(receipt.merchant);
 
   const hasItems = lines.length > 0;
   const selectedCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
@@ -157,11 +160,16 @@ export function ReceiptPreview({
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] text-muted-foreground">
         {receipt.merchant ? (
-          <span className="font-semibold text-foreground">{receipt.merchant}</span>
+          <span className="font-semibold text-foreground">{merchantAlias ?? receipt.merchant}</span>
         ) : null}
         {/* `formatDate` parses the receipt's full ISO timestamp itself. */}
         <span>· {formatDate(receipt.issuedAt)}</span>
       </div>
+      {merchantAlias ? (
+        <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+          Na računu: {receipt.merchant}
+        </div>
+      ) : null}
       {showReceiptTotal ? (
         <div className="mt-1 text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
           Ceo račun · <Amount value={receipt.totalAmount} />

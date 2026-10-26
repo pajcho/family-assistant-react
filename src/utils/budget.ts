@@ -77,7 +77,7 @@ export function isDetachedPaymentExpense(expense: Expense): boolean {
 /* ------------------------------------------------------------------------- */
 
 /** Which field an expense's title came from. */
-export type ExpenseLabelSource = "note" | "merchant" | "link" | "category" | "generic";
+export type ExpenseLabelSource = "note" | "alias" | "merchant" | "link" | "category" | "generic";
 
 export type ExpenseLabels = {
   /** What the row is called. Never empty. */
@@ -90,6 +90,8 @@ export type ExpenseLabels = {
 };
 
 export type ExpenseLabelContext = {
+  /** The family's friendly name for the expense's merchant (see `useMerchantAliases`). */
+  merchantAlias?: string | null;
   /** Name of the activity/event the expense is linked to (see `usePaymentLinkTargets`). */
   linkName?: string | null;
   /**
@@ -112,10 +114,13 @@ const GENERIC_TITLE: Record<string, string> = {
  * same spend can't be "Maxi" in one list and "Trošak" in the next (it was, in
  * four slightly different copies of this chain).
  *
- * Order: note -> merchant -> linked activity/event -> category -> a generic
- * word for the source. The note leads because it is the only field the expense
- * form actually offers: `merchant` reaches the table from the receipt scanner
- * (and the demo seed), never from someone typing a manual expense, so a row
+ * Order: note -> merchant alias -> merchant -> linked activity/event ->
+ * category -> a generic word for the source. The alias is the family's own
+ * name for a receipt merchant ("Market kod škole" for "STEFAN PRO 95"); when
+ * it titles the row, the receipt name drops into `detail` as the small print.
+ * The note leads because it is the only field the expense form actually
+ * offers: `merchant` reaches the table from the receipt scanner (and the demo
+ * seed), never from someone typing a manual expense, so a row
  * carrying both is a SCANNED receipt that its owner also chose to label - and
  * that label is the more deliberate of the two.
  *
@@ -134,6 +139,7 @@ export function expenseLabels(
 ): ExpenseLabels {
   const candidates: ReadonlyArray<{ from: ExpenseLabelSource; value: string }> = [
     { from: "note", value: expense.note?.trim() || "" },
+    { from: "alias", value: context.merchantAlias?.trim() || "" },
     { from: "merchant", value: expense.merchant?.trim() || "" },
     { from: "link", value: context.linkName?.trim() || "" },
   ];

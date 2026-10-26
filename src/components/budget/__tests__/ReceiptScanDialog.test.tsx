@@ -102,6 +102,11 @@ vi.mock("@/hooks/useExpenses", () => ({
   useMerchantCategory: () => ({ data: null }),
 }));
 
+// `useMerchantAliases` reaches `lib/supabase` at import time; no aliases here.
+vi.mock("@/hooks/useMerchantAliases", () => ({
+  useMerchantAliases: () => ({ aliasFor: () => null }),
+}));
+
 vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ familyId: "fam-1" }),
 }));
