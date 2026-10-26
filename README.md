@@ -54,7 +54,7 @@ The interface is in Serbian, with push reminders and realtime sync between famil
 
 ## Developing in Amp orbs
 
-Fresh [Amp orbs](https://ampcode.com/docs/orbs) run [`.agents/setup`](.agents/setup) (Node 22,
+Fresh [Amp orbs](https://ampcode.com/docs/orbs) run [`.agents/setup`](.agents/setup) (Node 26,
 pnpm, dependencies, Supabase CLI). `amp orb services ensure` then starts
 [`.amp/services.yaml`](.amp/services.yaml): Docker, a local Supabase stack with every migration
 applied, and the dev server on a portal. The app reaches that stack through the dev server's

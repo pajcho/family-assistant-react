@@ -95,7 +95,7 @@ descriptions moved into those plan files. Still awaiting selection:
 - **I. DX extras** - pre-commit hook running the 1.4s `pnpm check`
   (`.githooks` + `prepare`); README "Pokretanje lokalno" section +
   `.env.example` completion (5 of 13 edge-function env NAMES documented);
-  `.editorconfig`; `engines` + `.nvmrc` (Node 22); spike: `oxlint-tsgolint`
+  `.editorconfig`; `engines` + `.nvmrc` (DONE, Node 26); spike: `oxlint-tsgolint`
   type-aware rules (`no-floating-promises` - the repo hand-writes `void` 310x);
   advisory-only `react/react-compiler` report (74 hits, 49 EffectSetState);
   knip in CI to keep dead code from returning; decide fate of unwired
@@ -361,8 +361,8 @@ Recorded so nobody re-audits them:
   deliberately has its own visual vocabulary; only the copy helpers overlap
   (folded into batch B).
 - **`"latest"` dependency ranges**: deliberate maintainer preference (always
-  newest stable; lockfile + frozen CI installs make it reproducible). Only the
-  missing `engines`/`.nvmrc` half survives, in batch I.
+  newest stable; lockfile + frozen CI installs make it reproducible). The
+  `engines`/`.nvmrc` half is done (Node 26).
 - **lucide-react -> heroicons consolidation**: after plan 001 lucide remains
   only in 4-5 generated shadcn primitives; migration is a visual-regression
   pass for ~10 glyphs. Probably not worth it; revisit only if shadcn files get
