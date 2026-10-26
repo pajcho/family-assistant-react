@@ -1,4 +1,10 @@
-import { AdjustmentsHorizontalIcon, ListBulletIcon, TagIcon } from "@heroicons/react/24/outline";
+import {
+  AdjustmentsHorizontalIcon,
+  ListBulletIcon,
+  PlusIcon,
+  TagIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +27,12 @@ import {
   ReceiptItemsSelect,
   type SelectableReceiptLine,
 } from "@/components/budget/receipt/ReceiptItemsSelect";
+import {
+  NEW_EXTRA_DRAFT,
+  ReceiptExtraFields,
+  extraDraftAmount,
+  type ExpenseExtraDraft,
+} from "@/components/budget/receipt/ReceiptExtraFields";
 
 /**
  * Preview + confirm step for a scanned receipt, on the "Brzi unos" pattern.
@@ -37,6 +49,11 @@ import {
  * shows everything inline. In `attachMode` - a receipt landing on an expense
  * that already exists - only Stavke is left: everything else is already
  * filled in on that expense and stays.
+ *
+ * Below the items sits the optional EXTRA: money spent with this receipt but
+ * missing from it (the cash tip). It saves as a separate expense tied to this
+ * one, so the receipt's own amount and lines stay exactly what the fiscal
+ * receipt says.
  *
  * Fully CONTROLLED: the hosting `ReceiptScanDialog` owns the sub-view, the
  * field values AND the line selection, because a sub-view opening over the
@@ -84,6 +101,9 @@ export type ReceiptPreviewProps = {
   /** Optional activity/event link - same field the manual expense form has. */
   link: PaymentLinkValue | null;
   onLinkChange: (link: PaymentLinkValue | null) => void;
+  /** The tip (or other off-receipt spend) being added with this receipt; null = none. */
+  extra: ExpenseExtraDraft | null;
+  onExtraChange: (extra: ExpenseExtraDraft | null) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -111,6 +131,8 @@ export function ReceiptPreview({
   onNoteChange,
   link,
   onLinkChange,
+  extra,
+  onExtraChange,
   onCancel,
   onSave,
 }: ReceiptPreviewProps) {
@@ -123,6 +145,10 @@ export function ReceiptPreview({
   const showReceiptTotal =
     Math.round(heroAmount * 100) !== Math.round(receipt.totalAmount * 100) || partial;
   const nothingSelected = selectable && selected.size === 0;
+  const extraAmount = extra ? extraDraftAmount(extra) : null;
+  // An opened extra must be filled in or removed - silently dropping a tip the
+  // member started typing would be worse than one more tap.
+  const extraIncomplete = !!extra && extraAmount == null;
 
   const amountHero = (
     <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-card">
@@ -141,7 +167,55 @@ export function ReceiptPreview({
           Ceo račun · <Amount value={receipt.totalAmount} />
         </div>
       ) : null}
+      {extraAmount != null ? (
+        <div className="mt-2 text-[13px] text-muted-foreground">
+          + {extra?.note.trim() || "dodatak"} <Amount value={extraAmount} /> ·{" "}
+          <span className="font-semibold text-foreground">
+            ukupno <Amount value={Math.round((heroAmount + extraAmount) * 100) / 100} />
+          </span>
+        </div>
+      ) : null}
     </div>
+  );
+
+  const extraBlock = attachMode ? null : extra ? (
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-3 shadow-card">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-[13.5px] font-semibold text-foreground">Dodatno uz račun</div>
+          <div className="text-xs text-muted-foreground">
+            Čuva se kao poseban trošak, vezan za ovaj račun.
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Ukloni dodatak"
+          onClick={() => onExtraChange(null)}
+          disabled={saving}
+        >
+          <XMarkIcon className="size-4" />
+        </Button>
+      </div>
+      <ReceiptExtraFields
+        idPrefix="receipt-extra"
+        draft={extra}
+        onChange={onExtraChange}
+        baseAmount={heroAmount}
+        disabled={saving}
+      />
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => onExtraChange(NEW_EXTRA_DRAFT)}
+      disabled={saving}
+      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border px-3 py-2.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      <PlusIcon className="size-4" />
+      Bakšiš ili trošak van računa
+    </button>
   );
 
   const warningsBlock =
@@ -291,7 +365,7 @@ export function ReceiptPreview({
       <Button
         type="button"
         className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
-        disabled={saving || nothingSelected}
+        disabled={saving || nothingSelected || extraIncomplete}
         onClick={onSave}
       >
         {saving ? "Čuvam…" : attachMode ? "Poveži račun" : "Sačuvaj trošak"}
@@ -353,6 +427,7 @@ export function ReceiptPreview({
             {mismatchNote}
             {itemsList}
           </div>
+          {extraBlock}
           {warningsBlock}
           {attachMode ? null : (
             <>
@@ -411,6 +486,7 @@ export function ReceiptPreview({
               />
             )}
           </div>
+          {extraBlock}
           {errorBlock}
           {footer}
         </div>

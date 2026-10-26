@@ -7,6 +7,7 @@ import {
   ReceiptPercentIcon,
 } from "@heroicons/react/24/outline";
 
+import { cn } from "@/lib/cn";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { GroupHeader, StatusPill } from "@/components/money/moneyUi";
@@ -59,6 +60,7 @@ function ExpenseRow({
   itemCounts,
   isReceiptPart,
   linkName,
+  parentExpense,
   onOpenReceipt,
   onEditManual,
   onOpenPayment,
@@ -70,6 +72,8 @@ function ExpenseRow({
   isReceiptPart: boolean;
   /** Activity/event this expense is linked to, resolved once by the parent. */
   linkName?: string | null;
+  /** The receipt this row is an extra of (a tip next to it), when listed here. */
+  parentExpense?: Expense | null;
   onOpenReceipt: (expense: Expense) => void;
   onEditManual: (expense: Expense) => void;
   onOpenPayment: (expense: Expense) => void;
@@ -87,23 +91,42 @@ function ExpenseRow({
   // called reads "Namirnice" rather than "Trošak") - it just no longer spends a
   // line of its own down in the meta.
   const { title, detail } = expenseLabels(expense, { linkName, categoryName: category?.name });
-  const hasMeta = !!detail || isPayment || isDetached || isReceipt;
+  // An extra of a receipt (the tip) opens that receipt, where it is listed,
+  // edited and removed - it has no story of its own.
+  const extraOf = parentExpense?.source === "receipt" ? parentExpense : null;
+  const hasMeta = !extraOf && (!!detail || isPayment || isDetached || isReceipt);
 
   // Every row taps the whole surface into a modal: receipt → receipt detail,
   // payment → the payment's detail popup, manual (and detached) → the edit form
   // (delete lives inside it now, no inline actions).
   const handleClick = () => {
-    if (isReceipt) onOpenReceipt(expense);
+    if (extraOf) onOpenReceipt(extraOf);
+    else if (isReceipt) onOpenReceipt(expense);
     else if (isPayment) onOpenPayment(expense);
     else onEditManual(expense);
   };
 
   return (
-    <li>
+    // An extra hangs off its receipt: indented, with an L-shaped connector
+    // drawn from the receipt card's bottom edge (across the list gap) into the
+    // middle of this row, so the pair reads as one spend.
+    <li className={extraOf ? "relative pl-7" : undefined}>
+      {extraOf ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-2 left-3 h-[calc(50%+0.5rem)] w-3 rounded-bl-lg border-b-2 border-l-2 border-muted-foreground/35"
+        />
+      ) : null}
       <button
         type="button"
         onClick={handleClick}
-        className="flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] py-3 text-left shadow-card transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]"
+        className={cn(
+          "flex w-full items-center gap-[11px] rounded-xl border border-border bg-card px-[13px] text-left shadow-card transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.98]",
+          // An extra is a single compact line: the indent and connector already
+          // say what it belongs to, and it inherits the receipt's category and
+          // person, so it repeats neither the tile, the badge nor a pill.
+          extraOf ? "py-2.5" : "py-3",
+        )}
       >
         {/* The category colour is user data, so the tile keeps it (tinted) -
             only the chrome around it follows the design tokens.
@@ -113,15 +136,19 @@ function ExpenseRow({
             on hover, and the sr-only copy keeps it in the button's accessible
             name - a coloured square announces nothing on its own. On a phone
             the name is one tap away, in the row's own modal. */}
-        <span
-          className="grid size-[26px] shrink-0 place-items-center rounded-sm"
-          style={{ backgroundColor: `${color}1f`, color }}
-          title={category?.name}
-        >
-          {/* oxlint-disable-next-line react/static-components -- categoryIcon() returns a module-level heroicon from a static map, never a component created during render */}
-          <Icon className="size-3.5" />
-        </span>
-        {category ? <span className="sr-only">Kategorija: {category.name}</span> : null}
+        {extraOf ? (
+          <span className="sr-only">Uz račun {extraOf.merchant ?? ""}</span>
+        ) : (
+          <span
+            className="grid size-[26px] shrink-0 place-items-center rounded-sm"
+            style={{ backgroundColor: `${color}1f`, color }}
+            title={category?.name}
+          >
+            {/* oxlint-disable-next-line react/static-components -- categoryIcon() returns a module-level heroicon from a static map, never a component created during render */}
+            <Icon className="size-3.5" />
+          </span>
+        )}
+        {category && !extraOf ? <span className="sr-only">Kategorija: {category.name}</span> : null}
         {/* Left column (title + meta) and right column (amount + original) are
             siblings, so the EUR annotation can never push the meta row down. */}
         <span className="min-w-0 flex-1">
@@ -129,7 +156,9 @@ function ExpenseRow({
             <span className="truncate text-[15px] leading-tight font-semibold tracking-[-0.01em]">
               {title}
             </span>
-            <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
+            {extraOf ? null : (
+              <MemberBadges personIds={expense.person_id ? [expense.person_id] : []} size="xs" />
+            )}
           </span>
           {/* Only what the row does NOT already say: a second identifier and
               the state pills. There is deliberately no "ručno" token - a hand
@@ -215,9 +244,21 @@ export function BudgetTimeline({
       else byDay.set(e.spent_on, [e]);
     }
     // Newest day first. Within a day the query's `created_at DESC` keeps the
-    // most recently entered row on top.
+    // most recently entered row on top - except an extra, which sits right
+    // under the receipt it belongs to (same day by construction).
+    for (const [day, rows] of byDay) {
+      const ids = new Set(rows.map((e) => e.id));
+      const isPlacedExtra = (e: Expense) => !!e.parent_expense_id && ids.has(e.parent_expense_id);
+      byDay.set(
+        day,
+        rows
+          .filter((e) => !isPlacedExtra(e))
+          .flatMap((e) => [e, ...rows.filter((x) => x.parent_expense_id === e.id)]),
+      );
+    }
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [expenses]);
+  const expensesById = useMemo(() => new Map(expenses.map((e) => [e.id, e])), [expenses]);
 
   // Empty months and empty filter results are the parent's job (BudgetPage
   // renders the EmptyState variants) - this component always has rows.
@@ -241,6 +282,9 @@ export function BudgetTimeline({
                 itemCounts={itemCounts}
                 isReceiptPart={!!expense.receipt_id && multiPartReceiptIds.has(expense.receipt_id)}
                 linkName={targetFor(expense)?.name}
+                parentExpense={
+                  expense.parent_expense_id ? expensesById.get(expense.parent_expense_id) : null
+                }
                 onOpenReceipt={onOpenReceipt}
                 onEditManual={onEditManual}
                 onOpenPayment={onOpenPayment}

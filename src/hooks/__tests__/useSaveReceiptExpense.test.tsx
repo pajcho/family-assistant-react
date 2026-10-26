@@ -66,7 +66,10 @@ describe("useSaveReceiptExpense", () => {
     mocks.rpc.mockResolvedValue({ data: { status: "saved", expense_id: "exp-1" }, error: null });
 
     const { result } = renderHook(() => useSaveReceiptExpense(), { wrapper });
-    const res = await result.current.mutateAsync(input);
+    const res = await result.current.mutateAsync({
+      ...input,
+      extras: [{ amount: 500, note: "Bakšiš" }],
+    });
 
     expect(res).toEqual({ expenseId: "exp-1" });
     expect(mocks.rpc).toHaveBeenCalledWith("save_receipt_expense", {
@@ -88,6 +91,7 @@ describe("useSaveReceiptExpense", () => {
         activity_id: null,
         event_id: null,
         birthday_id: null,
+        extras: [{ amount: 500, note: "Bakšiš" }],
       },
       p_items: [
         { idx: 0, name: "Mleko 1l", quantity: 2, unit_price: 199.99, total: 399.98 },

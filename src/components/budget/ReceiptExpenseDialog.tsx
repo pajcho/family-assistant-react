@@ -5,6 +5,7 @@ import {
   ArrowTopRightOnSquareIcon,
   ChevronRightIcon,
   ListBulletIcon,
+  PlusIcon,
   ScissorsIcon,
   TagIcon,
   TrashIcon,
@@ -31,11 +32,19 @@ import {
   sumLineTotals,
   type SelectableReceiptLine,
 } from "@/components/budget/receipt/ReceiptItemsSelect";
+import {
+  NEW_EXTRA_DRAFT,
+  ReceiptExtraFields,
+  extraDraftAmount,
+  type ExpenseExtraDraft,
+} from "@/components/budget/receipt/ReceiptExtraFields";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useFamilyMembers } from "@/hooks/useFamilyMembers";
 import {
   ClaimConflictError,
+  useCreateExpense,
   useDeleteExpense,
+  useExpenseExtras,
   useExpenseItems,
   useReceiptContext,
   useSplitReceiptExpense,
@@ -62,6 +71,11 @@ import { cn } from "@/lib/cn";
  * receipt has several expenses (or unclaimed lines), a receipt-part block
  * shows the whole-receipt picture with a jump to the sibling parts.
  *
+ * Extras: money spent with this receipt but missing from it (the cash tip)
+ * are separate expenses tied to this one (`parent_expense_id`). They are
+ * listed under "Dodatno uz račun" and added, edited or removed in their own
+ * sub-view, so the receipt's amount and lines stay the fiscal receipt's.
+ *
  * Mirrors the "Brzi unos" expense form: on mobile the editable bits collapse
  * into picker rows (category / items / more details) that open sub-views on
  * the sheet stack; on desktop everything stays inline. The delete confirm is
@@ -84,7 +98,7 @@ export type ReceiptExpenseDialogProps = {
 
 // "link" sits one level under "details" (details -> link to), the same
 // nesting the manual expense form uses.
-type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link";
+type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link" | "extra";
 
 /** Read-only "N stavki" list, shared by the inline (desktop) + sub-view (mobile). */
 function ItemsList({
@@ -179,6 +193,8 @@ export function ReceiptExpenseDialog({
   const deleteExpense = useDeleteExpense();
   const refreshItems = useReceiptRefresh();
   const splitExpense = useSplitReceiptExpense();
+  const createExpense = useCreateExpense();
+  const { extras } = useExpenseExtras(open && expense ? expense.id : null);
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
   // Whole-receipt picture (all lines + sibling expenses) - powers "Deo
   // block and the split guardrails. Lazy like the items.
@@ -195,6 +211,10 @@ export function ReceiptExpenseDialog({
   const [splitSelected, setSplitSelected] = useState<ReadonlySet<number>>(new Set());
   const [splitCategoryId, setSplitCategoryId] = useState<string | null>(null);
   const [splitError, setSplitError] = useState<string | null>(null);
+  // The extra open in the "extra" sub-view: null while adding a new one.
+  const [editingExtra, setEditingExtra] = useState<Expense | null>(null);
+  const [extraDraft, setExtraDraft] = useState<ExpenseExtraDraft>(NEW_EXTRA_DRAFT);
+  const [extraError, setExtraError] = useState<string | null>(null);
   // Local echo of the server-claimed receipt_checked_at: the expense prop is a
   // snapshot from the list, so a refresh attempt in THIS dialog won't update it
   // until the invalidated query lands - the local claim bridges that gap.
@@ -218,6 +238,9 @@ export function ReceiptExpenseDialog({
       setSplitSelected(new Set());
       setSplitCategoryId(null);
       setSplitError(null);
+      setEditingExtra(null);
+      setExtraDraft(NEW_EXTRA_DRAFT);
+      setExtraError(null);
       setLocalClaimAt(null);
     }
   }
@@ -349,6 +372,92 @@ export function ReceiptExpenseDialog({
   const showPartInfo =
     !!receiptContext &&
     (siblings.length > 0 || (totalLineCount > 0 && items.length < totalLineCount));
+
+  // --- Extras (a tip left next to the receipt) ---
+  const extrasSum = extras.reduce((sum, e) => sum + Math.round(e.amount * 100), 0) / 100;
+  const extraAmount = extraDraftAmount(extraDraft);
+  const extraSaving = createExpense.isPending || updateExpense.isPending || deleteExpense.isPending;
+
+  const openExtra = (target: Expense | null) => {
+    setEditingExtra(target);
+    setExtraDraft(
+      target ? { amount: String(target.amount), note: target.note ?? "" } : NEW_EXTRA_DRAFT,
+    );
+    setExtraError(null);
+    push("extra");
+  };
+
+  const handleSaveExtra = async () => {
+    if (!expense || extraAmount == null) return;
+    setExtraError(null);
+    const note = extraDraft.note.trim() || null;
+    try {
+      if (editingExtra) {
+        await updateExpense.mutateAsync({
+          id: editingExtra.id,
+          payload: { amount: extraAmount, note },
+        });
+      } else {
+        // Date, category, person and link come from this receipt (DB trigger).
+        await createExpense.mutateAsync({
+          amount: extraAmount,
+          spent_on: expense.spent_on,
+          note,
+          parent_expense_id: expense.id,
+        });
+      }
+      pop();
+    } catch (err) {
+      setExtraError(err instanceof Error && err.message ? err.message : "Greška pri čuvanju");
+    }
+  };
+
+  const handleDeleteExtra = async () => {
+    if (!editingExtra) return;
+    try {
+      await deleteExpense.mutateAsync(editingExtra.id);
+      pop();
+    } catch {
+      // Toast surfaced by the hook; stay here so the user can retry.
+    }
+  };
+
+  const extrasBlock = (
+    <div className="space-y-2">
+      {extras.length > 0 ? (
+        <>
+          <Label>Dodatno uz račun</Label>
+          <ul className="rounded-2xl border border-border bg-card px-1.5 shadow-card">
+            {extras.map((extra) => (
+              <li key={extra.id} className="border-b border-border last:border-b-0">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-1.5 py-2.5 text-left text-[13.5px] transition-colors hover:bg-muted/60"
+                  onClick={() => openExtra(extra)}
+                >
+                  <span className="min-w-0 flex-1 truncate font-normal text-foreground">
+                    {extra.note?.trim() || "Dodatak"}
+                  </span>
+                  <span className="shrink-0 font-bold text-foreground tabular-nums">
+                    <Amount value={extra.amount} />
+                  </span>
+                  <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => openExtra(null)}
+        className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border px-3 py-2.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <PlusIcon className="size-4" />
+        {extras.length > 0 ? "Dodaj još" : "Bakšiš ili trošak van računa"}
+      </button>
+    </div>
+  );
 
   const handleDelete = async () => {
     if (!expense) return;
@@ -512,11 +621,15 @@ export function ReceiptExpenseDialog({
             ? "Stavke"
             : view === "split"
               ? "Podeli račun"
-              : view === "link"
-                ? "Poveži sa"
-                : expense
-                  ? expenseLabels(expense).title
-                  : "Račun";
+              : view === "extra"
+                ? editingExtra
+                  ? "Izmeni dodatak"
+                  : "Dodatno uz račun"
+                : view === "link"
+                  ? "Poveži sa"
+                  : expense
+                    ? expenseLabels(expense).title
+                    : "Račun";
 
   return (
     <SheetStackViews
@@ -529,7 +642,13 @@ export function ReceiptExpenseDialog({
             <>
               <p className="text-sm text-muted-foreground">
                 Obrisati trošak „{expenseLabels(expense).title}" od{" "}
-                <Amount value={expense.amount} />? Ova radnja se ne može opozvati.
+                <Amount value={expense.amount} />?
+                {extras.length > 0
+                  ? ` Briše se i ono što je dodato uz račun (${extras
+                      .map((e) => e.note?.trim() || "dodatak")
+                      .join(", ")}).`
+                  : ""}{" "}
+                Ova radnja se ne može opozvati.
               </p>
               <ResponsiveDialogFooter>
                 <Button
@@ -628,6 +747,54 @@ export function ReceiptExpenseDialog({
                 </Button>
               </ResponsiveDialogFooter>
             </div>
+          ) : view === "extra" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Novac potrošen uz ovaj račun koji nije na njemu, npr. bakšiš ostavljen u kešu. Čuva
+                se kao poseban trošak sa istim datumom i kategorijom.
+              </p>
+              <ReceiptExtraFields
+                idPrefix="receipt-detail-extra"
+                draft={extraDraft}
+                onChange={setExtraDraft}
+                baseAmount={expense.amount}
+                disabled={extraSaving}
+              />
+              {extraError ? (
+                <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
+                  {extraError}
+                </div>
+              ) : null}
+              <ResponsiveDialogFooter>
+                {editingExtra ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold text-neg hover:bg-neg-soft hover:text-neg sm:mr-auto"
+                    onClick={() => void handleDeleteExtra()}
+                    disabled={extraSaving}
+                  >
+                    <TrashIcon className="size-4" />
+                    Obriši
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={extraSaving}
+                >
+                  Nazad
+                </Button>
+                <Button
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  onClick={() => void handleSaveExtra()}
+                  disabled={extraAmount == null || extraSaving}
+                >
+                  {extraSaving ? "Čuvam…" : "Sačuvaj"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </div>
           ) : view === "items" ? (
             itemsInline
           ) : view === "link" ? (
@@ -661,6 +828,15 @@ export function ReceiptExpenseDialog({
                 <div className="mt-1 text-[13px] text-muted-foreground">
                   {formatDate(expense.spent_on)}
                 </div>
+                {extras.length > 0 ? (
+                  <div className="mt-1 text-[13px] text-muted-foreground">
+                    + {extras.length === 1 ? extras[0].note?.trim() || "dodatak" : "dodatno"}{" "}
+                    <Amount value={extrasSum} /> ·{" "}
+                    <span className="font-semibold text-foreground">
+                      ukupno <Amount value={Math.round((expense.amount + extrasSum) * 100) / 100} />
+                    </span>
+                  </div>
+                ) : null}
                 {expense.receipt_url ? (
                   <a
                     href={expense.receipt_url}
@@ -697,6 +873,7 @@ export function ReceiptExpenseDialog({
                     ) : null}
                   </div>
                   {partInfoBlock}
+                  {extrasBlock}
                   <ExpensePersonSelect value={personId} onChange={setPersonId} />
                   <div className="space-y-2">
                     <Label htmlFor="receipt-detail-note-d">Beleška</Label>
@@ -797,6 +974,7 @@ export function ReceiptExpenseDialog({
                     onClick={() => push("details")}
                   />
                   {partInfoBlock}
+                  <div className="pt-3">{extrasBlock}</div>
                   {error ? (
                     <div className="rounded-xl bg-neg-soft p-3 text-sm font-normal text-neg">
                       {error}

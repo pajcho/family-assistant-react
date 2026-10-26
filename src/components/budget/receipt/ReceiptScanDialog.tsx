@@ -30,6 +30,7 @@ import { Amount } from "@/components/common/Amount";
 import { stavkeLabel } from "@/utils/plural";
 import { ReceiptCamera } from "./ReceiptCamera";
 import { ReceiptPreview, type ReceiptPreviewView } from "./ReceiptPreview";
+import { extraDraftAmount, type ExpenseExtraDraft } from "./ReceiptExtraFields";
 import { sumLineTotals, type SelectableReceiptLine } from "./ReceiptItemsSelect";
 import { decodeQrFromFile } from "@/lib/qrScan";
 
@@ -152,6 +153,7 @@ export default function ReceiptScanDialog({
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [link, setLink] = useState<PaymentLinkValue | null>(seedLink ?? null);
+  const [extra, setExtra] = useState<ExpenseExtraDraft | null>(null);
   const [categoryTouched, setCategoryTouched] = useState(false);
   const merchantCategory = useMerchantCategory(receipt?.merchant ?? null);
 
@@ -195,6 +197,7 @@ export default function ReceiptScanDialog({
       setPersonId(null);
       setNote("");
       setLink(seedLink ?? null);
+      setExtra(null);
       setCategoryTouched(false);
     }
   }
@@ -416,6 +419,7 @@ export default function ReceiptScanDialog({
     setSaveError(null);
     const claimIdxs = selectable ? [...selected].sort((a, b) => a - b) : null;
     const amount = selectable ? Math.round(selectedSum * 100) / 100 : receipt.totalAmount;
+    const extraAmount = extra ? extraDraftAmount(extra) : null;
     saveReceipt.mutate(
       {
         amount,
@@ -435,10 +439,16 @@ export default function ReceiptScanDialog({
         // The RPC already stores this receipt's lines on the fast path.
         items: dbSourced ? [] : receipt.items,
         claim_idxs: claimIdxs,
+        extras:
+          extra && extraAmount != null
+            ? [{ amount: extraAmount, note: extra.note.trim() || null }]
+            : [],
       },
       {
         onSuccess: () => {
           toast.success("Trošak je sačuvan");
+          // The extra went with the part just saved; a chained remainder starts without one.
+          setExtra(null);
           const remaining = selectable
             ? lines.filter((l) => !l.claimed && !selected.has(l.idx))
             : [];
@@ -633,6 +643,8 @@ export default function ReceiptScanDialog({
               onNoteChange={setNote}
               link={link}
               onLinkChange={setLink}
+              extra={extra}
+              onExtraChange={setExtra}
               onCancel={() => onOpenChange(false)}
               onSave={handleSave}
             />
