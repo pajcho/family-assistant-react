@@ -62,6 +62,7 @@ function ClaimChip({ categoryId }: { categoryId: string | null | undefined }) {
         category ? { backgroundColor: `${category.color}22`, color: category.color } : undefined
       }
     >
+      {/* oxlint-disable-next-line react/static-components -- categoryIcon() returns a module-level heroicon from a static map, never a component created during render */}
       {Icon ? <Icon className="size-2.5 shrink-0" /> : null}
       <span className="truncate">{category ? category.name : "Dodato"}</span>
     </span>

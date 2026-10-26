@@ -103,6 +103,9 @@ export function useKidAccessCheck(): KidAccessCheck {
   useEffect(() => {
     if (!active) return;
 
+    // runCheck only sets state after awaiting the network call, never
+    // synchronously, so this does not cascade a render.
+    // oxlint-disable-next-line react/set-state-in-effect -- setRevoked runs only after an await inside runCheck
     void runCheck();
 
     const onFocus = () => void runCheck();

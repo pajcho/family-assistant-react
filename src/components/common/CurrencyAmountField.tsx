@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Amount } from "@/components/common/Amount";
 import { FormInput, SegmentedPills } from "@/components/common/FormControls";
@@ -75,12 +75,16 @@ export function useCurrencyAmount(
   const suggestedRate = rateQuery.data?.rate;
 
   // Prefill / follow the NBS rate while the member hasn't overridden it (a
-  // date change refetches and re-fills through this same path).
-  useEffect(() => {
-    if (!isForeign || suggestedRate == null) return;
-    const next = formatRateInput(suggestedRate);
-    setRateInputState((prev) => (rateTouched || prev === next ? prev : next));
-  }, [isForeign, suggestedRate, rateTouched]);
+  // date change refetches and re-fills through this same path). Adjusted
+  // during render whenever one of its inputs changes, instead of in an effect.
+  const fillKey = JSON.stringify([isForeign, suggestedRate ?? null, rateTouched]);
+  const [filledFor, setFilledFor] = useState<string | null>(null);
+  if (fillKey !== filledFor) {
+    setFilledFor(fillKey);
+    if (isForeign && suggestedRate != null && !rateTouched) {
+      setRateInputState(formatRateInput(suggestedRate));
+    }
+  }
 
   const setCurrency = useCallback((code: string) => {
     setCurrencyState((prev) => {

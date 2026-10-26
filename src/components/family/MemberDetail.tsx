@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   AcademicCapIcon,
@@ -352,10 +352,15 @@ function NameEditor({ member }: { member: Profile }) {
   const [lastName, setLastName] = useState(member.last_name ?? "");
 
   // Resync when the selected member changes or the row updates upstream.
-  useEffect(() => {
+  // Adjusted during render against the values last synced, so stale input
+  // never paints.
+  const syncKey = JSON.stringify([member.id, member.first_name, member.last_name]);
+  const [syncedFor, setSyncedFor] = useState(syncKey);
+  if (syncKey !== syncedFor) {
+    setSyncedFor(syncKey);
     setFirstName(member.first_name ?? "");
     setLastName(member.last_name ?? "");
-  }, [member.id, member.first_name, member.last_name]);
+  }
 
   const dirty =
     (member.first_name ?? "") !== firstName.trim() || (member.last_name ?? "") !== lastName.trim();
@@ -460,12 +465,16 @@ function CreateLoginDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  useEffect(() => {
+  // Clear the form on every open. Adjusted during render on the open edge, so
+  // the previous entry never paints.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setEmail("");
       setPassword("");
     }
-  }, [open]);
+  }
 
   const valid = email.trim().length > 3 && password.length >= 6;
 

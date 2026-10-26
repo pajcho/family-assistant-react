@@ -309,8 +309,6 @@ export function AgendaWeekCalendar({
   // While a tap-driven smooth scroll runs, the horizontal spy is pinned so it
   // doesn't re-select every column passed on the way.
   const spyPinRef = useRef(false);
-  const targetRef = useRef({ todayIndex: days.indexOf(todayStr) });
-  targetRef.current = { todayIndex: days.indexOf(todayStr) };
 
   /** scrollLeft that parks a day column centered in the area past the gutter. */
   const centeredLeft = (box: HTMLElement, cell: HTMLElement) =>
@@ -330,7 +328,7 @@ export function AgendaWeekCalendar({
     if (scrolledForRef.current === weekStart) return;
     scrolledForRef.current = weekStart;
 
-    const { todayIndex } = targetRef.current;
+    const todayIndex = days.indexOf(todayStr);
     // A strip jump aims at its column; otherwise today, centered; a week
     // without today starts at Monday.
     const focusIndex = pendingColRef.current ?? todayIndex;
@@ -338,7 +336,9 @@ export function AgendaWeekCalendar({
     const cell =
       focusIndex >= 0 ? box.querySelector<HTMLElement>(`[data-day-index="${focusIndex}"]`) : null;
     box.scrollLeft = cell ? centeredLeft(box, cell) : 0;
-  }, [weekStart, isLoading]);
+    // `days` / `todayStr` only refine the aim; the guard above still scrolls
+    // once per week, so a day rollover alone re-runs this as a no-op.
+  }, [weekStart, isLoading, days, todayStr]);
 
   // Aim the grid's horizontal scroll at a column - phones only: from `sm` up
   // all seven columns share the width and there is nothing to scroll.

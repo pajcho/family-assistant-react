@@ -50,16 +50,7 @@
     "unicorn/prefer-node-protocol": "error",
     // A context value built inline is a new object on every provider render, so
     // every consumer re-renders. Memoize it.
-    "react/jsx-no-constructed-context-values": "error",
-    // React Compiler rules that oxlint 1.89 added to "correctness". The repo
-    // does not use the compiler, and plans/README.md (batch I) keeps this
-    // report advisory-only, so they stay off until that work is scheduled.
-    "react/immutability": "off",
-    "react/preserve-manual-memoization": "off",
-    "react/purity": "off",
-    "react/refs": "off",
-    "react/set-state-in-effect": "off",
-    "react/static-components": "off"
+    "react/jsx-no-constructed-context-values": "error"
   },
   "overrides": [
     {

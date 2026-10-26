@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 /**
  * Generic infinite-scroll sentinel. Attach the returned ref to an element at
@@ -23,7 +23,9 @@ export function useInfiniteScroll(
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Keep the latest callback without re-subscribing the observer every render.
   const onReachEndRef = useRef(onReachEnd);
-  onReachEndRef.current = onReachEnd;
+  useLayoutEffect(() => {
+    onReachEndRef.current = onReachEnd;
+  });
 
   useEffect(() => {
     const node = sentinelRef.current;

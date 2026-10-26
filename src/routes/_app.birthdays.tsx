@@ -20,6 +20,7 @@ import {
 import { type BirthdayFormPayload } from "@/components/birthdays/BirthdayForm";
 import { useBirthdaysList, useCreateBirthday, useUpdateBirthday } from "@/hooks/useBirthdays";
 import { useBirthdayCelebrations } from "@/hooks/useEvents";
+import { useToday } from "@/hooks/useToday";
 import { daysUntilBirthday, nextBirthdayDate } from "@/utils/birthday";
 import { srLocale } from "@/utils/date";
 
@@ -54,7 +55,8 @@ function BirthdaysPage() {
   // defaulting to every birthday; a text search; and a hide-past toggle
   // - ON by default, so the list opens with only the
   // upcoming ones.
-  const currentYear = new Date().getFullYear();
+  const today = useToday();
+  const currentYear = today.date.getFullYear();
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [searchTerm, setSearchTerm] = useState("");
   const [hidePassed, setHidePassed] = useState(true);
@@ -109,14 +111,14 @@ function BirthdaysPage() {
       if (bucket) bucket.push(b);
       else byMonth.set(mm, [b]);
     }
-    const curMonth = new Date().getMonth() + 1;
+    const curMonth = today.date.getMonth() + 1;
     const rank = (mm: string) => (Number(mm) - curMonth + 12) % 12;
     const groups = [...byMonth.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
     for (const [, list] of groups) {
       list.sort((a, b) => a.birth_date.slice(8, 10).localeCompare(b.birth_date.slice(8, 10)));
     }
     return groups;
-  }, [filteredBirthdays]);
+  }, [filteredBirthdays, today]);
 
   const openAdd = () => {
     setEditingBirthday(null);

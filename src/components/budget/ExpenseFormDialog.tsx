@@ -107,8 +107,12 @@ export function ExpenseFormDialog({
   // reseed below on every render and wipe a form mid-typing.
   const linkSeed = paymentLinkSeed(seedLink);
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
+  // Synced in an effect declared before the reseed effect, so the reseed
+  // always reads the current day without depending on it.
   const todayRef = useRef(today.str);
-  todayRef.current = today.str;
+  useEffect(() => {
+    todayRef.current = today.str;
+  }, [today.str]);
 
   // Scan-receipt closes this dialog and opens the scanner. That chunk is
   // heavy (camera + zxing-wasm) and nothing is on screen while it downloads, so

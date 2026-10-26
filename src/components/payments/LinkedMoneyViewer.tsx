@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 
 import { ExpenseFormDialog } from "@/components/budget/ExpenseFormDialog";
 import type { ExpenseFormPayload } from "@/components/budget/ExpenseForm";
@@ -41,10 +41,14 @@ export function LinkedMoneyViewer({ target, onClose }: LinkedMoneyViewerProps) {
   // attach mode - same request, one level of the same flow.
   const [attaching, setAttaching] = useState(false);
 
-  useEffect(() => {
+  // Each new target starts clean. Adjusted during render instead of in an
+  // effect, so a new target never renders with the previous one's state.
+  const [seededTarget, setSeededTarget] = useState(target);
+  if (target !== seededTarget) {
+    setSeededTarget(target);
     setExpenseError(null);
     setAttaching(false);
-  }, [target]);
+  }
 
   const handleDismiss = (open: boolean) => {
     if (!open) onClose();

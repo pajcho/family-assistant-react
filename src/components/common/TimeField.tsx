@@ -70,12 +70,18 @@ export function TimeField({
   const currentMinutes = timeToMinutes(value ?? defaultTime);
   const seedHour = currentMinutes != null ? Math.floor(currentMinutes / 60) : null;
 
-  useEffect(() => {
-    if (!open) return;
-    setHour(seedHour);
-    setShowAllHours(seedHour != null && !PRIMARY_HOURS.includes(seedHour));
-    setExact(value ?? "");
-  }, [open, seedHour, value]);
+  // Reseed the picker whenever it opens (or the value changes while open).
+  // Adjusted during render instead of in an effect to avoid a cascading render.
+  const seedKey = open ? JSON.stringify([seedHour, value]) : null;
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (seedKey !== seededFor) {
+    setSeededFor(seedKey);
+    if (open) {
+      setHour(seedHour);
+      setShowAllHours(seedHour != null && !PRIMARY_HOURS.includes(seedHour));
+      setExact(value ?? "");
+    }
+  }
 
   useEffect(
     () => () => {

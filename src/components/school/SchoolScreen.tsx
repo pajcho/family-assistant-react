@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { addDays, addWeeks, format, getDay, parseISO } from "date-fns";
 import {
@@ -141,10 +141,14 @@ export function SchoolScreen() {
   const nowMinutes = todayIndex == null ? null : now.getHours() * 60 + now.getMinutes();
 
   // Land on today when the week (or the calendar day) changes; the user's own
-  // chip taps live until then.
-  useEffect(() => {
+  // chip taps live until then. Adjusted during render (null on mount, so the
+  // first render lands on today too).
+  const dayKey = `${weekStart}:${todayIndex}`;
+  const [landedFor, setLandedFor] = useState<string | null>(null);
+  if (dayKey !== landedFor) {
+    setLandedFor(dayKey);
     setSelectedDay(todayIndex ?? 0);
-  }, [weekStart, todayIndex]);
+  }
 
   const outlook = useMemo(
     () => (anchor ? weekOutlook(anchor, bell, weekStart) : null),

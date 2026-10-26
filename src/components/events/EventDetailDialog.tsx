@@ -8,7 +8,6 @@ import {
   TrashIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
-import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -45,6 +44,7 @@ import {
 import { LinkedMoneyViewer, type LinkedMoneyTarget } from "@/components/payments/LinkedMoneyViewer";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { useDeleteEvent, useUpdateEvent } from "@/hooks/useEvents";
+import { useToday } from "@/hooks/useToday";
 import type { Event } from "@/types/database";
 import {
   eventDurationLabel,
@@ -92,6 +92,7 @@ export function EventDetailDialog({
   const { push, pop, reset } = stack;
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const today = useToday().str;
 
   const [dtValue, setDtValue] = useState<EventDateTimeValue>(() => eventToDateTimeValue(event));
   const [rescheduleReason, setRescheduleReason] = useState("");
@@ -203,7 +204,7 @@ export function EventDetailDialog({
         label: "Završeno",
         tone: "neutral",
       });
-    } else if (isEventOngoing(event, format(new Date(), "yyyy-MM-dd"))) {
+    } else if (isEventOngoing(event, today)) {
       statusBadges.push({
         label: "U toku",
         tone: "pos",

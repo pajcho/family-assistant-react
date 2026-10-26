@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { CalendarIcon, GiftIcon } from "@heroicons/react/24/outline";
 
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/components/common/ItemCard";
 import { MemberBadges } from "@/components/common/MemberBadges";
 import { Pill, type PillTone } from "@/components/common/Pill";
+import { useToday } from "@/hooks/useToday";
 import { cn } from "@/lib/cn";
 import type { Event } from "@/types/database";
 import { formatDate } from "@/utils/date";
@@ -42,11 +42,12 @@ export function EventTimelineRow({
   showDate?: boolean;
   onSelect: (event: Event) => void;
 }) {
+  const today = useToday().str;
   const isCanceled = !!event.canceled_at;
   const isEnded = !isCanceled && isEventEnded(event);
   const dimmed = isCanceled || isEnded;
   const isMulti = isMultiDayEvent(event);
-  const ongoing = !dimmed && isEventOngoing(event, format(new Date(), "yyyy-MM-dd"));
+  const ongoing = !dimmed && isEventOngoing(event, today);
   const chip: { label: string; tone: PillTone } | null = isCanceled
     ? { label: "Otkazano", tone: "neg" }
     : isEnded

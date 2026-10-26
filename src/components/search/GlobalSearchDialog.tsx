@@ -121,13 +121,16 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
     return () => window.clearTimeout(timer);
   }, [term]);
 
-  // Fresh palette on every open.
-  useEffect(() => {
+  // Fresh palette on every open: clear the term as the palette closes
+  // (adjusted during render, so no extra effect pass).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setTerm("");
       setDebouncedTerm("");
     }
-  }, [open]);
+  }
 
   const { results, isSearching, enabled } = useGlobalSearch(debouncedTerm);
 
@@ -171,9 +174,11 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   // Keyboard highlight - reset to the top on every new result set, keep the
   // highlighted row scrolled into view while arrowing.
   const [highlight, setHighlight] = useState(0);
-  useEffect(() => {
+  const [highlightResults, setHighlightResults] = useState(allResults);
+  if (highlightResults !== allResults) {
+    setHighlightResults(allResults);
     setHighlight(0);
-  }, [allResults]);
+  }
   useEffect(() => {
     document.getElementById(optionId(highlight))?.scrollIntoView({ block: "nearest" });
   }, [highlight]);

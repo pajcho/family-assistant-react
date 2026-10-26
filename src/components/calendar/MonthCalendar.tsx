@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addMonths, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -311,10 +311,12 @@ export function MonthCalendar({
   // window returns).
   const selectedInWindow = selectedDay >= gridStart && selectedDay <= gridEnd;
   const liveSelectedItems = selectedInWindow ? (byDay.get(selectedDay) ?? NO_ITEMS) : null;
+  // Updated during render (not in an effect); `byDay` is memoized, so the
+  // live list is referentially stable and this settles after one pass.
   const [heldItems, setHeldItems] = useState<AgendaItem[]>(NO_ITEMS);
-  useEffect(() => {
-    if (liveSelectedItems && !isLoading) setHeldItems(liveSelectedItems);
-  }, [liveSelectedItems, isLoading]);
+  if (liveSelectedItems && !isLoading && liveSelectedItems !== heldItems) {
+    setHeldItems(liveSelectedItems);
+  }
   const selectedItems = liveSelectedItems ?? heldItems;
 
   // One month page of day cells - the current grid and both carousel

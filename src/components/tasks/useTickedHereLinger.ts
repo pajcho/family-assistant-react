@@ -35,6 +35,12 @@ export function useTickedHereLinger(
   // not arrived, and treating that as a tick would resurrect stale rows.
   if (isLoading) return [];
 
+  // `seen` is a render-time cache on purpose: it must hold each row as it was
+  // LAST rendered, so it is written on every render, and the writes are
+  // idempotent for the same inputs. Holding it in state instead would need a
+  // setState per render, which loops as soon as a caller passes fresh item
+  // objects (both callers build `current` inline).
+  /* oxlint-disable react/refs -- render-time cache of the last rendered rows, see above */
   const present = new Set(current.map((item) => agendaItemKey(item)));
   for (const item of current) seen.current.set(agendaItemKey(item), item);
 
@@ -50,5 +56,6 @@ export function useTickedHereLinger(
     }
     out.push({ ...item, task: fresh, isDone: true });
   }
+  /* oxlint-enable react/refs */
   return out;
 }

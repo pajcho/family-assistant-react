@@ -152,25 +152,31 @@ export default function ReceiptScanDialog({
   const [personId, setPersonId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [link, setLink] = useState<PaymentLinkValue | null>(seedLink ?? null);
-  // Read the seed through a ref so the resets below depend only on what
-  // actually triggers them - an inline-constructed `link` prop is a new object
-  // every render and would otherwise wipe a pick mid-flow.
-  const seedLinkRef = useRef(seedLink ?? null);
-  seedLinkRef.current = seedLink ?? null;
-  const categoryTouched = useRef(false);
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const merchantCategory = useMerchantCategory(receipt?.merchant ?? null);
 
   // Preselect the remembered category once, unless the user already picked one
   // (or the flow decided against it - partial adds and chain remainders start
   // blank on purpose: the leftover part is usually a DIFFERENT category).
-  useEffect(() => {
-    if (categoryTouched.current) return;
-    if (merchantCategory.data) setCategoryId(merchantCategory.data);
-  }, [merchantCategory.data]);
+  // Adjusted during render when the remembered category changes, instead of in
+  // an effect.
+  // Starts unset (not at the current value) so a category already cached at
+  // mount is applied too, like the first run of an effect would.
+  const [appliedMerchantCategory, setAppliedMerchantCategory] = useState<
+    { data: typeof merchantCategory.data } | undefined
+  >(undefined);
+  if (!appliedMerchantCategory || appliedMerchantCategory.data !== merchantCategory.data) {
+    setAppliedMerchantCategory({ data: merchantCategory.data });
+    if (!categoryTouched && merchantCategory.data) setCategoryId(merchantCategory.data);
+  }
 
   // Reset everything whenever the dialog closes so the next open starts fresh.
   // (The sheet stack rearms itself on the next open - see useSheetStack.)
-  useEffect(() => {
+  // Adjusted during render on the close edge only, so an inline-constructed
+  // `link` prop (a new object every render) never wipes a pick mid-flow.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (!open) {
       setMode("capture");
       setReceipt(null);
@@ -188,10 +194,10 @@ export default function ReceiptScanDialog({
       setCategoryId(null);
       setPersonId(null);
       setNote("");
-      setLink(seedLinkRef.current);
-      categoryTouched.current = false;
+      setLink(seedLink ?? null);
+      setCategoryTouched(false);
     }
-  }, [open]);
+  }
 
   // Leaving the preview (e.g. a save that hits the duplicate guard) discards
   // any sub-view still on the stack - the next mode renders from the root.
@@ -220,7 +226,7 @@ export default function ReceiptScanDialog({
     const totalCents = newLines.reduce((sum, line) => sum + Math.round(line.total * 100), 0);
     const eligible = newLines.length > 0 && totalCents === Math.round(parsed.totalAmount * 100);
     const hasClaims = newLines.some((line) => line.claimed);
-    if (hasClaims) categoryTouched.current = true;
+    if (hasClaims) setCategoryTouched(true);
     setReceipt(parsed);
     setLines(newLines);
     setSelected(new Set(eligible ? newLines.filter((l) => !l.claimed).map((l) => l.idx) : []));
@@ -468,10 +474,10 @@ export default function ReceiptScanDialog({
   const handleChainContinue = () => {
     setSelected(new Set(lines.filter((l) => !l.claimed).map((l) => l.idx)));
     setCategoryId(null);
-    categoryTouched.current = true;
+    setCategoryTouched(true);
     setPersonId(null);
     setNote("");
-    setLink(seedLinkRef.current);
+    setLink(seedLink ?? null);
     setSaveError(null);
     setChainInfo(null);
     setMode("preview");
@@ -618,7 +624,7 @@ export default function ReceiptScanDialog({
               onBack={pop}
               categoryId={categoryId}
               onCategoryChange={(id) => {
-                categoryTouched.current = true;
+                setCategoryTouched(true);
                 setCategoryId(id);
               }}
               personId={personId}

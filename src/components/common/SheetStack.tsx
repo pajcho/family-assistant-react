@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 
@@ -67,22 +67,19 @@ export function useSheetStack<V>(
     levels: [root],
     depth: 1,
   }));
-  const { levels, depth } = state;
-  // Roots are often object literals recreated per render - keep the latest in
-  // a ref so reset/effects never loop on identity.
-  const rootRef = useRef(root);
-  rootRef.current = root;
-
   // Rearm on OPEN, not on close: a closing flow still has drawers playing their
   // exit animation, and pulling their content out from under them leaves Radix
   // waiting on an `animationend` that never fires (a ghost half-open drawer).
-  const wasOpen = useRef(open);
-  useEffect(() => {
-    if (open && !wasOpen.current) setState({ levels: [rootRef.current], depth: 1 });
-    wasOpen.current = open;
-  }, [open]);
+  // Adjusted during render on the open edge only, so a root object literal
+  // recreated on every render never triggers a loop.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setState({ levels: [root], depth: 1 });
+  }
+  const { levels, depth } = state;
 
-  const view = levels[depth - 1] ?? rootRef.current;
+  const view = levels[depth - 1] ?? root;
   const atRoot = depth <= 1;
 
   const push = useCallback((v: V) => {

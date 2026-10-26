@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -227,7 +227,13 @@ function formatLastSeen(iso: string | null | undefined): string {
 function FamilyCreateNotificationsCard() {
   const { prefs, isLoading, save, saving } = useNotificationPreferences();
   const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
-  useEffect(() => setForm(prefs), [prefs]);
+  // `prefs` is memoized upstream, so its identity changes only with new data.
+  // Adjusted during render so the stale form never paints.
+  const [syncedPrefs, setSyncedPrefs] = useState(prefs);
+  if (prefs !== syncedPrefs) {
+    setSyncedPrefs(prefs);
+    setForm(prefs);
+  }
 
   const dirty =
     form.notify_on_list_create !== prefs.notify_on_list_create ||
@@ -350,7 +356,13 @@ function DigestsCard() {
   // - committed on save. Resync whenever the upstream `prefs`
   // change (initial load, post-save refetch, or a save from another tab).
   const [form, setForm] = useState<NotificationPreferencesInput>(prefs);
-  useEffect(() => setForm(prefs), [prefs]);
+  // `prefs` is memoized upstream, so its identity changes only with new data.
+  // Adjusted during render so the stale form never paints.
+  const [syncedPrefs, setSyncedPrefs] = useState(prefs);
+  if (prefs !== syncedPrefs) {
+    setSyncedPrefs(prefs);
+    setForm(prefs);
+  }
 
   const dirty =
     form.morning_enabled !== prefs.morning_enabled ||

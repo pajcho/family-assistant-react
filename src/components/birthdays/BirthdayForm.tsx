@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { EyeIcon } from "@heroicons/react/24/outline";
 import type { Birthday } from "@/types/database";
@@ -67,13 +67,22 @@ export function BirthdayForm({
   const [birthDate, setBirthDate] = useState<string | null>(birthday?.birth_date ?? null);
 
   // Sync local state when the parent swaps the birthday (e.g. closes the edit
-  // dialog and re-opens for "add"). Resetting on `birthday?.id` keeps the
-  // dependency stable across the create case (id stays undefined).
-  useEffect(() => {
+  // dialog and re-opens for "add"). Keyed on the fields rather than the object
+  // so the create case (everything undefined) stays stable. Adjusted during
+  // render, so the old values never paint.
+  const seedKey = JSON.stringify([
+    birthday?.id,
+    birthday?.name,
+    birthday?.description,
+    birthday?.birth_date,
+  ]);
+  const [seededFor, setSeededFor] = useState(seedKey);
+  if (seedKey !== seededFor) {
+    setSeededFor(seedKey);
     setName(birthday?.name ?? "");
     setDescription(birthday?.description ?? "");
     setBirthDate(birthday?.birth_date ?? null);
-  }, [birthday?.id, birthday?.name, birthday?.description, birthday?.birth_date]);
+  }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

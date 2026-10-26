@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
+import { useToday } from "@/hooks/useToday";
 
 export interface ExchangeRateResult {
   /** Unit middle rate: 1 unit of `currency` = `rate` RSD. */
@@ -22,7 +23,7 @@ export interface ExchangeRateResult {
  * available answer in both cases. Picking a past date later refetches.
  */
 export function useExchangeRate(currency: string, date: string | null) {
-  const today = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD, local tz
+  const today = useToday().str; // YYYY-MM-DD, local tz
   const effectiveDate = !date || date > today ? today : date;
 
   return useQuery({

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { MagnifyingGlassIcon, QrCodeIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { AppScreen, ScreenHeaderRow } from "@/components/layout/AppScreen";
@@ -81,9 +81,8 @@ export function MoneyScreen({
 
   // Leaving the payments view with the all-time option on would leave the pager
   // showing every month over a single month's budget - snap back instead.
-  useEffect(() => {
-    if (!isPayments && month === ALL_MONTHS) setMonth(currentMonthYYYYMM());
-  }, [isPayments, month]);
+  // Adjusted during render instead of in an effect to avoid a cascading render.
+  if (!isPayments && month === ALL_MONTHS) setMonth(currentMonthYYYYMM());
 
   const openScan = () => {
     setAttachTarget(null);

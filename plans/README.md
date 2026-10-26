@@ -97,7 +97,8 @@ descriptions moved into those plan files. Still awaiting selection:
   `.env.example` completion (5 of 13 edge-function env NAMES documented);
   `.editorconfig`; `engines` + `.nvmrc` (DONE, Node 26); spike: `oxlint-tsgolint`
   type-aware rules (`no-floating-promises` - the repo hand-writes `void` 310x);
-  advisory-only `react/react-compiler` report (74 hits, 49 EffectSetState);
+  `react/react-compiler` report (DONE: the six React Compiler rules oxlint
+  1.89 put in "correctness" are enforced, 82 findings fixed);
   knip in CI to keep dead code from returning; decide fate of unwired
   `scripts/seed-demo.ts` and `scripts/measure-cron-queries.sh` (wire into
   package.json or delete).

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
@@ -43,14 +43,18 @@ export function ShiftSetupForm({ member, anchor, onClose }: ShiftSetupFormProps)
   const [usesPredcas, setUsesPredcas] = useState<boolean>(anchor?.afternoon_uses_predcas ?? true);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
-  useEffect(() => {
+  // Re-seed when the anchor row changes (realtime, or another child), adjusted
+  // during render.
+  const [seededAnchor, setSeededAnchor] = useState(anchor);
+  if (seededAnchor !== anchor) {
+    setSeededAnchor(anchor);
     setWeekStart(anchor?.anchor_week_start ?? getThisWeekStart());
     setShift(anchor?.anchor_shift ?? null);
     setIsAlternating(anchor?.is_alternating ?? true);
     setFixedMorning(anchor?.fixed_time_band === "morning");
     setUsesPredcas(anchor?.afternoon_uses_predcas ?? true);
     setConfirmingRemove(false);
-  }, [anchor]);
+  }
 
   const handleSave = async () => {
     if (!weekStart || !shift) return;

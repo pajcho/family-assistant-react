@@ -71,8 +71,12 @@ export function EventFormDialog({
   const personSeed = (initialPersonIds ?? []).join(",");
   const defaultsSeed = defaults ? JSON.stringify(defaults) : "";
   // Read through a ref so a midnight rollover doesn't wipe a form mid-typing.
+  // Synced in an effect (declared before the reseed effect, so it runs first
+  // in the same commit) rather than written during render.
   const todayRef = useRef(today.str);
-  todayRef.current = today.str;
+  useEffect(() => {
+    todayRef.current = today.str;
+  }, [today.str]);
 
   useEffect(() => {
     if (!open) return;

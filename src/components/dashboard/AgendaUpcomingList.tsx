@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 
@@ -107,10 +107,13 @@ export function AgendaUpcomingList({
   // finally runs is often from a render that still had 0 - and closing over
   // that lands the day a full strip-height too low, behind the strip (from
   // Danas' week strip with a warm cache this was every time). Read it live
-  // instead. Written during render, not in an effect: the rAF can fire before
-  // an effect from the same commit has run.
+  // instead. Written in a layout effect, not a passive one: the rAF can fire
+  // before a passive effect from the same commit has run, while layout effects
+  // run synchronously inside the commit.
   const stickyOffsetRef = useRef(stickyOffset);
-  stickyOffsetRef.current = stickyOffset;
+  useLayoutEffect(() => {
+    stickyOffsetRef.current = stickyOffset;
+  }, [stickyOffset]);
 
   // Window = [today, end of the week containing today + horizonDays]. Today is
   // the first day group, prefixed by the overdue section. The end is snapped
@@ -189,11 +192,12 @@ export function AgendaUpcomingList({
   // so the strip marks the day actually at the top of the list. Throttled with
   // rAF; sections are ascending, so the walk breaks at the first one below.
   useEffect(() => {
+    // The container is this list's layout ancestor and the window always holds
+    // at least today, so this guard only covers a list rendered outside the
+    // app frame - there is nothing to spy on, and `activeDay` stays as set by
+    // taps.
     const container = getAppScrollEl();
-    if (!container || allDays.length === 0) {
-      setActiveDay(null);
-      return;
-    }
+    if (!container || allDays.length === 0) return;
     let raf = 0;
     const compute = () => {
       raf = 0;
@@ -328,12 +332,10 @@ export function AgendaUpcomingList({
   //
   // Handled ONCE per requested day: growing the horizon moves `to`, and without
   // the guard every infinite-scroll chunk would yank the user back to the
-  // deep-linked day.
-  const handledDayRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!requestedDay || requestedDay < from) return;
-    if (handledDayRef.current === requestedDay) return;
-    handledDayRef.current = requestedDay;
+  // deep-linked day. Adjusted during render rather than in an effect.
+  const [handledDay, setHandledDay] = useState<string | null>(null);
+  if (requestedDay && requestedDay >= from && handledDay !== requestedDay) {
+    setHandledDay(requestedDay);
     if (requestedDay > to) {
       const needed = differenceInCalendarDays(parseISO(requestedDay + "T12:00:00"), todayDate);
       setHorizonDays((d) =>
@@ -341,7 +343,7 @@ export function AgendaUpcomingList({
       );
     }
     setPendingJumpDay(requestedDay);
-  }, [requestedDay, from, to, todayDate]);
+  }
 
   // A filter that matches nothing shows the reason (not a long run of empty
   // days); first load shows a skeleton; otherwise render every day in the window.

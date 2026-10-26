@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { getDefaultClassNames } from "react-day-picker";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -93,9 +93,6 @@ export function WeekStrip({
   nowPill,
   showArrows = false,
 }: WeekStripProps) {
-  const onReachEndRef = useRef(onReachEnd);
-  onReachEndRef.current = onReachEnd;
-
   const activeWeek = activeDay ? getWeekStart(activeDay) : (weeks[0] ?? today);
   const activeWeekIndex = Math.max(0, weeks.indexOf(activeWeek));
 
@@ -106,10 +103,12 @@ export function WeekStrip({
 
   // Follow the owner: when `activeDay` crosses into another week (list scroll,
   // week change), page there. Only fires on a real week change, so a manual
-  // swipe-ahead is left be.
-  useEffect(() => {
+  // swipe-ahead is left be. Adjusted during render, not in an effect.
+  const [followedWeekIndex, setFollowedWeekIndex] = useState(activeWeekIndex);
+  if (activeWeekIndex !== followedWeekIndex) {
+    setFollowedWeekIndex(activeWeekIndex);
     setPageIndex(activeWeekIndex);
-  }, [activeWeekIndex]);
+  }
 
   const trackRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null } | null>(null);
@@ -143,7 +142,7 @@ export function WeekStrip({
       const sameWeekday = format(addDays(parseISO(monday + "T12:00:00"), dow), "yyyy-MM-dd");
       onSelectDay(sameWeekday < from ? from : sameWeekday);
     }
-    if (next === lastIndex) onReachEndRef.current();
+    if (next === lastIndex) onReachEnd();
   };
 
   const onTouchStart = (e: React.TouchEvent) => {

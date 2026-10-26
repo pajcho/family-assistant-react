@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowTopRightOnSquareIcon, GlobeAltIcon, MapPinIcon } from "@heroicons/react/24/outline";
 
 import { Label } from "@/components/ui/label";
@@ -86,13 +86,16 @@ export function ExternalEventDetailDialog({
   const { setLocal } = useExternalEventLocal();
 
   // Local control state, seeded from the (already-merged) event. Persisted on
-  // change via external_event_local, keyed by the stable ical_uid.
-  const [assigned, setAssigned] = useState<string | null>(null);
-  const [remind, setRemind] = useState<number | null>(null);
-  useEffect(() => {
+  // change via external_event_local, keyed by the stable ical_uid. Reseeded
+  // during render whenever the event object changes (no effect round-trip).
+  const [assigned, setAssigned] = useState<string | null>(() => event?.assigned_person_id ?? null);
+  const [remind, setRemind] = useState<number | null>(() => event?.remind_minutes_before ?? null);
+  const [seededEvent, setSeededEvent] = useState(event);
+  if (event !== seededEvent) {
+    setSeededEvent(event);
     setAssigned(event?.assigned_person_id ?? null);
     setRemind(event?.remind_minutes_before ?? null);
-  }, [event]);
+  }
 
   const onAssign = (personId: string | null) => {
     setAssigned(personId);
