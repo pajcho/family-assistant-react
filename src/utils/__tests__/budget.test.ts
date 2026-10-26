@@ -232,6 +232,22 @@ describe("expenseLabels", () => {
     ).toEqual({ title: "Maxi", titleFrom: "merchant", detail: "Klavir" });
   });
 
+  it("titles a renamed merchant by its alias, keeping the receipt name as detail", () => {
+    const receipt = expense({ source: "receipt", merchant: "STEFAN PRO 95" });
+    expect(expenseLabels(receipt, { merchantAlias: "Market kod škole" })).toEqual({
+      title: "Market kod škole",
+      titleFrom: "alias",
+      detail: "STEFAN PRO 95",
+    });
+    // The note still leads; the alias becomes the second line.
+    expect(
+      expenseLabels(
+        { ...receipt, note: "Užina" },
+        { merchantAlias: "Market kod škole", linkName: "Klavir" },
+      ),
+    ).toEqual({ title: "Užina", titleFrom: "note", detail: "Market kod škole" });
+  });
+
   it("uses the category only where the caller passes one", () => {
     expect(expenseLabels(expense(), { categoryName: "Namirnice" })).toEqual({
       title: "Namirnice",

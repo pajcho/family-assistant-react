@@ -3,8 +3,10 @@ import {
   AdjustmentsHorizontalIcon,
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
+  BuildingStorefrontIcon,
   ChevronRightIcon,
   ListBulletIcon,
+  PencilIcon,
   PlusIcon,
   ScissorsIcon,
   TagIcon,
@@ -50,6 +52,7 @@ import {
   useSplitReceiptExpense,
   useUpdateExpense,
 } from "@/hooks/useExpenses";
+import { useMerchantAliases, useSetMerchantAlias } from "@/hooks/useMerchantAliases";
 import { RECEIPT_REFRESH_COOLDOWN_SECONDS, useReceiptRefresh } from "@/hooks/useReceiptImport";
 import type { Expense, ReceiptItem } from "@/types/database";
 import { expenseLabels } from "@/utils/budget";
@@ -98,7 +101,16 @@ export type ReceiptExpenseDialogProps = {
 
 // "link" sits one level under "details" (details -> link to), the same
 // nesting the manual expense form uses.
-type View = "detail" | "category" | "details" | "items" | "split" | "delete" | "link" | "extra";
+type View =
+  | "detail"
+  | "category"
+  | "details"
+  | "items"
+  | "split"
+  | "delete"
+  | "link"
+  | "extra"
+  | "merchant";
 
 /** Read-only "N stavki" list, shared by the inline (desktop) + sub-view (mobile). */
 function ItemsList({
@@ -193,6 +205,8 @@ export function ReceiptExpenseDialog({
   const deleteExpense = useDeleteExpense();
   const refreshItems = useReceiptRefresh();
   const splitExpense = useSplitReceiptExpense();
+  const { aliasFor } = useMerchantAliases();
+  const setMerchantAlias = useSetMerchantAlias();
   const createExpense = useCreateExpense();
   const { extras } = useExpenseExtras(open && expense ? expense.id : null);
   const { items, isLoading: itemsLoading } = useExpenseItems(open && expense ? expense.id : null);
@@ -215,6 +229,7 @@ export function ReceiptExpenseDialog({
   const [editingExtra, setEditingExtra] = useState<Expense | null>(null);
   const [extraDraft, setExtraDraft] = useState<ExpenseExtraDraft>(NEW_EXTRA_DRAFT);
   const [extraError, setExtraError] = useState<string | null>(null);
+  const [merchantDraft, setMerchantDraft] = useState("");
   // Local echo of the server-claimed receipt_checked_at: the expense prop is a
   // snapshot from the list, so a refresh attempt in THIS dialog won't update it
   // until the invalidated query lands - the local claim bridges that gap.
@@ -469,6 +484,57 @@ export function ReceiptExpenseDialog({
     }
   };
 
+  // --- Merchant friendly name (family-wide, saved on its own) ---
+  const merchantAlias = aliasFor(expense?.merchant);
+  const labels = expense ? expenseLabels(expense, { merchantAlias }) : null;
+
+  const openMerchantRename = () => {
+    setMerchantDraft(merchantAlias ?? "");
+    push("merchant");
+  };
+
+  const saveMerchantAlias = async (displayName: string) => {
+    if (!expense?.merchant) return;
+    try {
+      await setMerchantAlias.mutateAsync({ merchant: expense.merchant, displayName });
+      const name = displayName.trim();
+      toast.success(
+        name && name !== expense.merchant
+          ? "Naziv prodavnice je sačuvan"
+          : "Vraćen naziv sa računa",
+      );
+      pop();
+    } catch {
+      // Toast surfaced by the hook; stay here so the user can retry.
+    }
+  };
+
+  // The store this receipt is from: the family's name for it (if any) with the
+  // receipt's own name in small print, and the way into renaming it.
+  const merchantRow = expense?.merchant ? (
+    <button
+      type="button"
+      onClick={openMerchantRename}
+      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 text-left shadow-card transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-accent-soft text-accent-deep">
+        <BuildingStorefrontIcon className="size-[18px]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14.5px] font-semibold text-foreground">
+          {merchantAlias ?? expense.merchant}
+        </span>
+        <span className="block truncate text-[12px] font-normal text-muted-foreground">
+          {merchantAlias ? `Na računu: ${expense.merchant}` : "Naziv sa fiskalnog računa"}
+        </span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-accent-deep">
+        <PencilIcon className="size-3.5" />
+        {merchantAlias ? "Izmeni" : "Preimenuj"}
+      </span>
+    </button>
+  ) : null;
+
   const selectedCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
   const selectedPerson = personId ? members.find((m) => m.id === personId) : null;
   const personName = selectedPerson
@@ -627,9 +693,9 @@ export function ReceiptExpenseDialog({
                   : "Dodatno uz račun"
                 : view === "link"
                   ? "Poveži sa"
-                  : expense
-                    ? expenseLabels(expense).title
-                    : "Račun";
+                  : view === "merchant"
+                    ? "Naziv prodavnice"
+                    : (labels?.title ?? "Račun");
 
   return (
     <SheetStackViews
@@ -641,8 +707,7 @@ export function ReceiptExpenseDialog({
           {!expense ? null : view === "delete" ? (
             <>
               <p className="text-sm text-muted-foreground">
-                Obrisati trošak „{expenseLabels(expense).title}" od{" "}
-                <Amount value={expense.amount} />?
+                Obrisati trošak „{labels?.title}" od <Amount value={expense.amount} />?
                 {extras.length > 0
                   ? ` Briše se i ono što je dodato uz račun (${extras
                       .map((e) => e.note?.trim() || "dodatak")
@@ -795,6 +860,69 @@ export function ReceiptExpenseDialog({
                 </Button>
               </ResponsiveDialogFooter>
             </div>
+          ) : view === "merchant" ? (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveMerchantAlias(merchantDraft);
+              }}
+            >
+              <div className="rounded-xl bg-muted px-3 py-2.5">
+                <div className="text-[11px] font-bold tracking-[0.07em] text-muted-foreground uppercase">
+                  Naziv sa računa
+                </div>
+                <div className="mt-0.5 text-sm font-semibold break-words text-foreground">
+                  {expense.merchant}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="merchant-alias">Tvoj naziv</Label>
+                <Input
+                  id="merchant-alias"
+                  value={merchantDraft}
+                  onChange={(e) => setMerchantDraft(e.target.value)}
+                  placeholder="npr. Market kod škole"
+                  maxLength={80}
+                  autoComplete="off"
+                  disabled={setMerchantAlias.isPending}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Važi za sve račune iz ove prodavnice, i ranije i ubuduće. Naziv sa računa ostaje
+                  vidljiv sitnim slovima.
+                </p>
+              </div>
+              {merchantAlias ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full font-semibold text-muted-foreground"
+                  disabled={setMerchantAlias.isPending}
+                  onClick={() => void saveMerchantAlias("")}
+                >
+                  <ArrowPathIcon className="size-4" />
+                  Vrati naziv sa računa
+                </Button>
+              ) : null}
+              <ResponsiveDialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto rounded-[15px] border-border bg-card py-[13px] text-[15px] font-bold text-muted-foreground"
+                  onClick={pop}
+                  disabled={setMerchantAlias.isPending}
+                >
+                  Nazad
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-auto rounded-[15px] py-[13px] text-[15px] font-bold"
+                  disabled={setMerchantAlias.isPending || merchantDraft.trim() === ""}
+                >
+                  {setMerchantAlias.isPending ? "Čuvam…" : "Sačuvaj"}
+                </Button>
+              </ResponsiveDialogFooter>
+            </form>
           ) : view === "items" ? (
             itemsInline
           ) : view === "link" ? (
@@ -849,6 +977,8 @@ export function ReceiptExpenseDialog({
                   </a>
                 ) : null}
               </div>
+
+              {merchantRow}
 
               {isDesktop ? (
                 // --- Desktop: everything inline ---

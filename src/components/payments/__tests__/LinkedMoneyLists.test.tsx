@@ -8,6 +8,11 @@ import {
 } from "@/components/payments/LinkedPaymentsList";
 import type { Expense, Payment } from "@/types/database";
 
+// `useMerchantAliases` reaches `lib/supabase` at import time; no aliases here.
+vi.mock("@/hooks/useMerchantAliases", () => ({
+  useMerchantAliases: () => ({ aliasFor: () => null }),
+}));
+
 const payment = {
   id: "pay-1",
   name: "Članarina - plivanje",

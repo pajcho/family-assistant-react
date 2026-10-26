@@ -56,6 +56,7 @@ import {
 } from "@/hooks/useExpenses";
 import { useCreateExpenseCategory, useExpenseCategories } from "@/hooks/useExpenseCategories";
 import { useIncomes } from "@/hooks/useIncomes";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { hasPaymentHistory, usePaymentsList, useUpdatePayment } from "@/hooks/usePayments";
 import { usePaymentOverrides } from "@/hooks/usePaymentOverrides";
@@ -338,6 +339,7 @@ export function BudgetPage({
     [filteredExpenses],
   );
   const { data: itemCounts } = useReceiptItemCounts(receiptExpenseIds);
+  const { aliasFor } = useMerchantAliases();
 
   // Fixed (auto rows from payments) vs variable (everything else) - the
   // Monarch "flex budgeting" split in one stacked bar.
@@ -963,13 +965,14 @@ export function BudgetPage({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2 text-[13.5px] font-semibold">
-                        <span className="truncate">{m.name}</span>
+                        <span className="truncate">{aliasFor(m.name) ?? m.name}</span>
                         <span className="shrink-0 font-bold tabular-nums">
                           <Amount value={m.total} />
                         </span>
                       </span>
-                      <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-[12px] font-normal text-muted-foreground">
                         {m.count} {m.count === 1 ? "račun" : "računa"}
+                        {aliasFor(m.name) ? ` · ${m.name}` : ""}
                       </span>
                     </span>
                   </div>
@@ -1209,6 +1212,7 @@ function BudgetSearchResults({
   onOpenReceipt,
   onEditManual,
 }: BudgetSearchResultsProps) {
+  const { aliasFor } = useMerchantAliases();
   return (
     <section>
       <GroupHeader title="Rezultati pretrage · svi meseci" count={hits.length} className="mt-1" />
@@ -1226,6 +1230,7 @@ function BudgetSearchResults({
             const isDetached = isDetachedPaymentExpense(e);
             const isManual = e.source === "manual" || isDetached;
             const { title: primary, titleFrom } = expenseLabels(e, {
+              merchantAlias: aliasFor(e.merchant),
               categoryName: category?.name,
             });
 

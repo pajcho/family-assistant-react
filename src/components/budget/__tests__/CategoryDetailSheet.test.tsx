@@ -7,6 +7,11 @@ import {
 } from "@/components/budget/CategoryDetailSheet";
 import type { Expense } from "@/types/database";
 
+// `useMerchantAliases` reaches `lib/supabase` at import time; no aliases here.
+vi.mock("@/hooks/useMerchantAliases", () => ({
+  useMerchantAliases: () => ({ aliasFor: () => null }),
+}));
+
 vi.mock("@/hooks/useExpenses", () => ({
   useExpenses: () => ({ expenses: [], isLoading: false }),
 }));

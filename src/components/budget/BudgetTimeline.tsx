@@ -16,6 +16,7 @@ import type { Expense, ExpenseCategory } from "@/types/database";
 import { expenseLabels, isDetachedPaymentExpense } from "@/utils/budget";
 import { addDays, srLocale } from "@/utils/date";
 import { stavkeLabel } from "@/utils/plural";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import { usePaymentLinkTargets } from "@/hooks/usePaymentLinks";
 import { useToday } from "@/hooks/useToday";
 
@@ -60,6 +61,7 @@ function ExpenseRow({
   itemCounts,
   isReceiptPart,
   linkName,
+  merchantAlias,
   parentExpense,
   onOpenReceipt,
   onEditManual,
@@ -72,6 +74,8 @@ function ExpenseRow({
   isReceiptPart: boolean;
   /** Activity/event this expense is linked to, resolved once by the parent. */
   linkName?: string | null;
+  /** The family's friendly name for this row's merchant, if it has one. */
+  merchantAlias?: string | null;
   /** The receipt this row is an extra of (a tip next to it), when listed here. */
   parentExpense?: Expense | null;
   onOpenReceipt: (expense: Expense) => void;
@@ -90,11 +94,18 @@ function ExpenseRow({
   // The category still feeds the TITLE chain (a row with nothing else to be
   // called reads "Namirnice" rather than "Trošak") - it just no longer spends a
   // line of its own down in the meta.
-  const { title, detail } = expenseLabels(expense, { linkName, categoryName: category?.name });
+  const { title, titleFrom, detail } = expenseLabels(expense, {
+    linkName,
+    merchantAlias,
+    categoryName: category?.name,
+  });
   // An extra of a receipt (the tip) opens that receipt, where it is listed,
   // edited and removed - it has no story of its own.
   const extraOf = parentExpense?.source === "receipt" ? parentExpense : null;
   const hasMeta = !extraOf && (!!detail || isPayment || isDetached || isReceipt);
+  // Under a friendly merchant name the detail is the receipt's own name - small
+  // print, so it goes last and gives way to the pill and the item count.
+  const detailLast = titleFrom === "alias";
 
   // Every row taps the whole surface into a modal: receipt → receipt detail,
   // payment → the payment's detail popup, manual (and detached) → the edit form
@@ -169,7 +180,7 @@ function ExpenseRow({
               floor). */}
           {hasMeta ? (
             <span className="mt-[3px] flex items-center gap-1.5 text-[12.5px] font-normal text-muted-foreground">
-              {detail ? <span className="truncate">{detail}</span> : null}
+              {detail && !detailLast ? <span className="truncate">{detail}</span> : null}
               {isPayment ? (
                 <StatusPill tone="warn">
                   <LockClosedIcon className="size-2.5" />
@@ -193,6 +204,9 @@ function ExpenseRow({
                 <span className="shrink-0 truncate">
                   {itemCount} {stavkeLabel(itemCount)}
                 </span>
+              ) : null}
+              {detail && detailLast ? (
+                <span className="min-w-0 truncate text-[11.5px] tracking-[0.01em]">· {detail}</span>
               ) : null}
             </span>
           ) : null}
@@ -224,6 +238,7 @@ export function BudgetTimeline({
   const tomorrow = useMemo(() => format(addDays(todayDate, 1), "yyyy-MM-dd"), [todayDate]);
   // One resolver for the whole ledger, not one hook per row.
   const { targetFor } = usePaymentLinkTargets(expenses);
+  const { aliasFor } = useMerchantAliases();
 
   // Receipts represented by MORE than one expense this month - their rows say
   // a receipt PART instead of a whole receipt. Split parts share the receipt's date, so
@@ -282,6 +297,7 @@ export function BudgetTimeline({
                 itemCounts={itemCounts}
                 isReceiptPart={!!expense.receipt_id && multiPartReceiptIds.has(expense.receipt_id)}
                 linkName={targetFor(expense)?.name}
+                merchantAlias={aliasFor(expense.merchant)}
                 parentExpense={
                   expense.parent_expense_id ? expensesById.get(expense.parent_expense_id) : null
                 }

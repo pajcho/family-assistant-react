@@ -22,6 +22,7 @@ import { MemberBadges } from "@/components/common/MemberBadges";
 import { categoryIcon } from "@/components/budget/categoryIcons";
 import { useDeleteExpense } from "@/hooks/useExpenses";
 import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import type { Expense } from "@/types/database";
 import { formatDate } from "@/utils/date";
 import { expenseLabels } from "@/utils/budget";
@@ -63,6 +64,7 @@ export function ExpenseDetailSheet({
   const { push, pop, reset } = stack;
   const deleteExpense = useDeleteExpense();
   const { byId: categoriesById } = useExpenseCategories();
+  const { aliasFor } = useMerchantAliases();
 
   // Back to the root view whenever the subject expense changes underneath.
   useEffect(() => {
@@ -71,7 +73,10 @@ export function ExpenseDetailSheet({
 
   const category = expense?.category_id ? categoriesById.get(expense.category_id) : undefined;
   const { title, detail } = expense
-    ? expenseLabels(expense, { categoryName: category?.name })
+    ? expenseLabels(expense, {
+        merchantAlias: aliasFor(expense.merchant),
+        categoryName: category?.name,
+      })
     : { title: "", detail: "" };
   const Icon = category ? categoryIcon(category.icon) : BanknotesIcon;
   const saving = deleteExpense.isPending;

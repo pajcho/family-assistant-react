@@ -418,6 +418,20 @@ export interface Receipt {
 }
 
 /**
+ * A family's own display name for a receipt merchant ("Market kod škole" for
+ * "STEFAN PRO 95"). Keyed by the exact `merchant` string, so it applies to
+ * every expense from that merchant, past and future.
+ */
+export interface MerchantAlias {
+  id: string;
+  family_id: string;
+  merchant: string;
+  display_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * One line of a scanned receipt, child of a {@link Receipt}. `idx` is the
  * line's position in the parsed journal - UNIQUE per receipt, so a line can
  * never be stored (or claimed) twice. `expense_id` is the claim: which expense

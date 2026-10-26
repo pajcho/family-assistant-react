@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 import type { Expense, Payment } from "@/types/database";
+import { useMerchantAliases } from "@/hooks/useMerchantAliases";
 import { expenseLabels } from "@/utils/budget";
 import { formatDate, isOverdue } from "@/utils/date";
 import { Amount, AmountOriginal } from "@/components/common/Amount";
@@ -145,8 +146,8 @@ export function LinkedPaymentsList({
  * activity or event they point at, so naming them after it would repeat the
  * heading on every row.
  */
-export function expenseRowTitle(expense: Expense): string {
-  return expenseLabels(expense).title;
+export function expenseRowTitle(expense: Expense, merchantAlias?: string | null): string {
+  return expenseLabels(expense, { merchantAlias }).title;
 }
 
 /**
@@ -162,6 +163,7 @@ export function LinkedExpensesList({
   expenses: ReadonlyArray<Expense>;
   onSelect?: (expense: Expense) => void;
 }) {
+  const { aliasFor } = useMerchantAliases();
   if (expenses.length === 0) return null;
 
   return (
@@ -173,7 +175,7 @@ export function LinkedExpensesList({
         {expenses.map((expense) => (
           <li key={expense.id}>
             <MoneyRow
-              title={expenseRowTitle(expense)}
+              title={expenseRowTitle(expense, aliasFor(expense.merchant))}
               subtitle={`${formatDate(expense.spent_on)}${
                 expense.source === "receipt" ? " · fiskalni račun" : ""
               }`}
@@ -188,7 +190,7 @@ export function LinkedExpensesList({
                 </>
               }
               onSelect={onSelect ? () => onSelect(expense) : undefined}
-              selectLabel={`Detalji troška ${expenseRowTitle(expense)}`}
+              selectLabel={`Detalji troška ${expenseRowTitle(expense, aliasFor(expense.merchant))}`}
             />
           </li>
         ))}
