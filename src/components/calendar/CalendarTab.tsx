@@ -195,7 +195,7 @@ function SharingSelect({ value, onChange }: SharingSelectProps) {
         onChange={(e) => onChange(e.target.value as GoogleCalendarSharing)}
         aria-label="Deljenje kalendara"
         className={cn(
-          "h-9 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm font-normal shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30",
+          "h-9 w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-base font-normal shadow-xs md:text-sm outline-none transition-[color,box-shadow] dark:bg-input/30",
           "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         )}
       >

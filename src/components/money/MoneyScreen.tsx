@@ -154,7 +154,7 @@ export function MoneyScreen({
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder={isPayments ? "Pretraži plaćanja…" : "Pretraži troškove i stavke…"}
           aria-label={isPayments ? "Pretraži plaćanja" : "Pretraži troškove"}
-          className="w-full rounded-lg border border-border bg-card px-[13px] py-3 text-sm font-normal placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full rounded-lg border border-border bg-card px-[13px] py-3 text-base font-normal md:text-sm placeholder:font-normal placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />
       ) : null}
       <Segmented options={TABS} value={tab} ariaLabel="Prikaz" onChange={handleTabChange} />
