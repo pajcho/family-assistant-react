@@ -254,7 +254,9 @@ export function TimeField({
         onChange={(e) => onChange(e.target.value || null)}
         tabIndex={-1}
         aria-hidden="true"
-        className="pointer-events-none absolute size-0 opacity-0"
+        // text-base: it still takes focus when the long press opens it, and
+        // iOS zooms the page onto any focused control under 16px.
+        className="pointer-events-none absolute size-0 text-base opacity-0"
       />
       <PickerOverlay
         open={open}
