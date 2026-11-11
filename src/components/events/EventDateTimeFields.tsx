@@ -25,8 +25,9 @@ export function eventToDateTimeValue(event: Event | null | undefined): EventDate
   return {
     date: event?.date ?? null,
     allDay: event ? event.start_time == null && event.end_time == null : true,
-    start_time: event?.start_time ?? null,
-    end_time: event?.end_time ?? null,
+    // Postgres TIME comes back as "HH:mm:ss"; the pickers work in "HH:mm".
+    start_time: event?.start_time?.slice(0, 5) ?? null,
+    end_time: event?.end_time?.slice(0, 5) ?? null,
   };
 }
 
