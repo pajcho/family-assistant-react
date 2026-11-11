@@ -77,8 +77,9 @@ export function initialEventFormState(
     // New events default to "not all day" (matching the Vue form);
     // existing events derive allDay from whether both times are null.
     allDay: event ? event.start_time == null && event.end_time == null : false,
-    start_time: event?.start_time ?? null,
-    end_time: event?.end_time ?? null,
+    // Postgres TIME comes back as "HH:mm:ss"; the form works in "HH:mm".
+    start_time: event?.start_time?.slice(0, 5) ?? null,
+    end_time: event?.end_time?.slice(0, 5) ?? null,
     notes: event?.notes ?? defaults?.notes ?? "",
     remind_minutes_before: event?.remind_minutes_before ?? null,
     personIds,
@@ -145,8 +146,8 @@ export function EventForm({
       !!event &&
       (form.date !== event.date ||
         resolvedEndDate !== (event.end_date ?? null) ||
-        resolvedStart !== (event.start_time ?? null) ||
-        resolvedEnd !== (event.end_time ?? null));
+        resolvedStart !== (event.start_time?.slice(0, 5) ?? null) ||
+        resolvedEnd !== (event.end_time?.slice(0, 5) ?? null));
     onSubmit({
       name: form.name.trim(),
       description: form.description.trim() || null,
