@@ -370,8 +370,11 @@ export function PaymentDetailDialog({
                   ? "Istorija izmena"
                   : "Detalji plaćanja";
 
-  const overrideActive = cancelOverrideActive || override?.action === "reschedule";
-  const showOccurrenceActions = !readOnly && !!payment && !overrideActive && !payment.is_paused;
+  // A moved occurrence is still due, so it keeps "Označi kao plaćeno" as its
+  // primary action; "Vrati datum" takes the reschedule row's place instead.
+  const rescheduleOverrideActive = override?.action === "reschedule";
+  const showOccurrenceActions =
+    !readOnly && !!payment && !cancelOverrideActive && !payment.is_paused;
 
   const statusBadges: DetailBadge[] = [];
   if (payment) {
@@ -605,21 +608,11 @@ export function PaymentDetailDialog({
                       action (mark paid / restore / resume) OPENS the list as
                       the emphasized first row - the thing you came to do. */}
                     <DetailActionList>
-                      {!readOnly && overrideActive ? (
+                      {!readOnly && cancelOverrideActive ? (
                         <DetailActionRow
                           icon={ArrowUturnLeftIcon}
-                          label={
-                            cancelOverrideActive
-                              ? isRecurring
-                                ? "Vrati ratu"
-                                : "Vrati plaćanje"
-                              : "Vrati datum"
-                          }
-                          description={
-                            cancelOverrideActive
-                              ? "Poništava otkazivanje"
-                              : "Vraća prvobitni datum dospeća"
-                          }
+                          label={isRecurring ? "Vrati ratu" : "Vrati plaćanje"}
+                          description="Poništava otkazivanje"
                           onClick={() => {
                             void handleRestore();
                           }}
@@ -664,19 +657,32 @@ export function PaymentDetailDialog({
                         disabled={saving}
                         chevron
                       />
+                      {!readOnly && rescheduleOverrideActive ? (
+                        <DetailActionRow
+                          icon={ArrowUturnLeftIcon}
+                          label="Vrati datum"
+                          description="Vraća prvobitni datum dospeća"
+                          onClick={() => {
+                            void handleRestore();
+                          }}
+                          disabled={saving}
+                        />
+                      ) : null}
                       {showOccurrenceActions ? (
                         <>
-                          <DetailActionRow
-                            icon={CalendarDaysIcon}
-                            label={isRecurring ? "Pomeri ratu" : "Pomeri datum dospeća"}
-                            description={
-                              isRecurring
-                                ? "Samo ovu ratu - ostale po rasporedu"
-                                : "Promeni datum dospeća plaćanja"
-                            }
-                            onClick={openReschedule}
-                            disabled={saving}
-                          />
+                          {!rescheduleOverrideActive ? (
+                            <DetailActionRow
+                              icon={CalendarDaysIcon}
+                              label={isRecurring ? "Pomeri ratu" : "Pomeri datum dospeća"}
+                              description={
+                                isRecurring
+                                  ? "Samo ovu ratu - ostale po rasporedu"
+                                  : "Promeni datum dospeća plaćanja"
+                              }
+                              onClick={openReschedule}
+                              disabled={saving}
+                            />
+                          ) : null}
                           <DetailActionRow
                             icon={XCircleIcon}
                             label={cancelCopy?.title ?? "Otkaži ratu"}
