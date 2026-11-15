@@ -20,7 +20,7 @@ import {
 } from "@/hooks/useExpenseCategories";
 import { Amount } from "@/components/common/Amount";
 import { cn } from "@/lib/cn";
-import { sanitizeDecimalInput } from "@/utils/currency";
+import { amountInputProps } from "@/lib/amountInput";
 
 export type CategoriesSheetProps = {
   open: boolean;
@@ -336,14 +336,10 @@ export function CategoriesSheet({ open, onOpenChange }: CategoriesSheetProps) {
                   </FieldGroupLabel>
                   <FormInput
                     id="category-limit"
-                    value={editor.monthly_limit}
-                    onChange={(e) =>
-                      setEditor((s) =>
-                        s ? { ...s, monthly_limit: sanitizeDecimalInput(e.target.value) } : s,
-                      )
-                    }
-                    inputMode="decimal"
-                    placeholder="npr. 30000"
+                    {...amountInputProps(editor.monthly_limit, (monthly_limit) =>
+                      setEditor((s) => (s ? { ...s, monthly_limit } : s)),
+                    )}
+                    placeholder="npr. 30.000"
                     className="text-right tabular-nums"
                   />
                 </div>

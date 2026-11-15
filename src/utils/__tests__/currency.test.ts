@@ -4,9 +4,12 @@ import {
   convertToRsd,
   currencyOptions,
   currencySymbol,
+  editAmountInput,
+  formatAmountInput,
   formatOriginalAmount,
   formatRateInput,
   normalizeEnabledCurrencies,
+  normalizePastedAmount,
   parseDecimal,
   sanitizeDecimalInput,
 } from "@/utils/currency";
@@ -113,5 +116,93 @@ describe("sanitizeDecimalInput", () => {
 
   it("stays parseable by parseDecimal", () => {
     expect(parseDecimal(sanitizeDecimalInput("1a2,5b0"))).toBe(12.5);
+  });
+});
+
+describe("formatAmountInput", () => {
+  it("groups thousands with dots and keeps the decimal comma", () => {
+    expect(formatAmountInput("1234567,5")).toBe("1.234.567,5");
+    expect(formatAmountInput("1000")).toBe("1.000");
+    expect(formatAmountInput("999")).toBe("999");
+    expect(formatAmountInput("12,")).toBe("12,");
+    expect(formatAmountInput("")).toBe("");
+  });
+
+  it("reads a seeded String(number) dot as the decimal point", () => {
+    expect(formatAmountInput("1234.5")).toBe("1.234,5");
+  });
+});
+
+describe("normalizePastedAmount", () => {
+  it("treats the last of two different separators as the decimal point", () => {
+    expect(normalizePastedAmount("1.234,56")).toBe("1234,56");
+    expect(normalizePastedAmount("1,234.56")).toBe("1234,56");
+  });
+
+  it("treats a repeated separator as grouping", () => {
+    expect(normalizePastedAmount("1,234,567")).toBe("1234567");
+    expect(normalizePastedAmount("1.234.567")).toBe("1234567");
+  });
+
+  it("reads a lone dot as grouping only when it groups thousands", () => {
+    expect(normalizePastedAmount("12.500")).toBe("12500");
+    expect(normalizePastedAmount("12.50")).toBe("12,50");
+    expect(normalizePastedAmount("0.500")).toBe("0,500");
+  });
+
+  it("keeps a lone comma as the decimal comma and drops text around the number", () => {
+    expect(normalizePastedAmount("12,500")).toBe("12,500");
+    expect(normalizePastedAmount("RSD 1 234,00")).toBe("1234,00");
+  });
+});
+
+describe("editAmountInput", () => {
+  it("adds a grouping dot as the fourth digit is typed and keeps the caret at the end", () => {
+    expect(editAmountInput("123", 3, 3, "4")).toEqual({
+      value: "1234",
+      display: "1.234",
+      caret: 5,
+    });
+  });
+
+  it("keeps the caret next to the same digits when a group shifts", () => {
+    // "12.3|45" Backspace removes the 3; the caret stays before "45".
+    expect(editAmountInput("12.345", 3, 4, "", "deleteContentBackward")).toEqual({
+      value: "1245",
+      display: "1.245",
+      caret: 3,
+    });
+  });
+
+  it("deletes the digit beside a grouping dot instead of the dot", () => {
+    expect(editAmountInput("1.234", 1, 2, "", "deleteContentBackward")).toEqual({
+      value: "234",
+      display: "234",
+      caret: 0,
+    });
+    expect(editAmountInput("1.234", 1, 2, "", "deleteContentForward")).toEqual({
+      value: "134",
+      display: "134",
+      caret: 1,
+    });
+  });
+
+  it("turns a typed dot into the one decimal comma", () => {
+    expect(editAmountInput("1.234", 5, 5, ".").value).toBe("1234,");
+    expect(editAmountInput("12,5", 4, 4, ",").value).toBe("12,5");
+    expect(editAmountInput("", 0, 0, ",")).toEqual({ value: "0,", display: "0,", caret: 2 });
+  });
+
+  it("drops letters and leading zeros", () => {
+    expect(editAmountInput("12", 2, 2, "a")).toEqual({ value: "12", display: "12", caret: 2 });
+    expect(editAmountInput("0", 1, 1, "5").value).toBe("5");
+  });
+
+  it("formats a paste over the selection", () => {
+    expect(editAmountInput("999", 0, 3, "1.234,56")).toEqual({
+      value: "1234,56",
+      display: "1.234,56",
+      caret: 8,
+    });
   });
 });

@@ -33,7 +33,7 @@ import { fallbackColorForProfile } from "@/utils/activity";
 import { getDisplayName } from "@/utils/identity";
 import { Amount } from "@/components/common/Amount";
 import { monthLabel } from "@/utils/budget";
-import { sanitizeDecimalInput } from "@/utils/currency";
+import { amountInputProps } from "@/lib/amountInput";
 
 export type IncomesSheetProps = {
   open: boolean;
@@ -683,9 +683,7 @@ function EntryForm({
           </FieldGroupLabel>
           <FormInput
             id="entry-amount"
-            value={amount}
-            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
-            inputMode="decimal"
+            {...amountInputProps(amount, setAmount)}
             placeholder="0"
             autoFocus={isLinked}
             required
@@ -797,9 +795,7 @@ function SourceForm({
           </FieldGroupLabel>
           <FormInput
             id="source-amount"
-            value={amount}
-            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
-            inputMode="decimal"
+            {...amountInputProps(amount, setAmount)}
             placeholder="0"
             required
             className="text-right tabular-nums"
