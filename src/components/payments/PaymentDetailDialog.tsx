@@ -60,12 +60,8 @@ import { usePaymentLinkTarget, type PaymentLinkTarget } from "@/hooks/usePayment
 import type { Payment } from "@/types/database";
 import { formatDate, isOverdue, subtractDay } from "@/utils/date";
 import { Amount } from "@/components/common/Amount";
-import {
-  formatOriginalAmount,
-  formatRateInput,
-  parseDecimal,
-  sanitizeDecimalInput,
-} from "@/utils/currency";
+import { formatOriginalAmount, formatRateInput, parseDecimal } from "@/utils/currency";
+import { amountInputProps } from "@/lib/amountInput";
 import { nextPaymentOccurrenceDate, paymentCancelCopy, recurrenceLabel } from "@/utils/payment";
 
 /**
@@ -507,9 +503,7 @@ export function PaymentDetailDialog({
                           </Label>
                           <Input
                             id="payment-detail-paid-amount"
-                            value={paidAmount}
-                            onChange={(e) => setPaidAmount(sanitizeDecimalInput(e.target.value))}
-                            inputMode="decimal"
+                            {...amountInputProps(paidAmount, setPaidAmount)}
                             autoFocus
                           />
                         </>

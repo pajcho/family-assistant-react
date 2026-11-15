@@ -1,6 +1,7 @@
 import { Chip, ChipRow, FormInput } from "@/components/common/FormControls";
 import { Label } from "@/components/ui/label";
-import { parseDecimal, sanitizeDecimalInput } from "@/utils/currency";
+import { parseDecimal } from "@/utils/currency";
+import { amountInputProps } from "@/lib/amountInput";
 
 /**
  * The fields of an expense EXTRA - money spent together with a receipt but
@@ -51,9 +52,7 @@ export function ReceiptExtraFields({
         <div className="relative">
           <FormInput
             id={`${idPrefix}-amount`}
-            value={draft.amount}
-            onChange={(e) => onChange({ ...draft, amount: sanitizeDecimalInput(e.target.value) })}
-            inputMode="decimal"
+            {...amountInputProps(draft.amount, (amount) => onChange({ ...draft, amount }))}
             placeholder="0"
             disabled={disabled}
             className="pr-14 text-right font-bold tabular-nums"

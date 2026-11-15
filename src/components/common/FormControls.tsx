@@ -2,7 +2,7 @@ import type { ComponentProps, ComponentType, ReactNode, SVGProps } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@/lib/cn";
-import { sanitizeDecimalInput } from "@/utils/currency";
+import { amountInputProps } from "@/lib/amountInput";
 
 /**
  * The redesign's shared form vocabulary (the "plum" language): every entry form is built
@@ -233,12 +233,10 @@ export function AmountInputCard({
       <div className="relative">
         <input
           id={id}
-          value={value}
-          // Digits + one separator only. `inputMode` merely asks for the
-          // numeric keypad; it does not stop a hardware keyboard (or a mobile
-          // keyboard the user switched) from putting letters in an amount.
-          onChange={(e) => onChange(sanitizeDecimalInput(e.target.value))}
-          inputMode="decimal"
+          // Shown grouped ("1.234,56"), kept raw. Digits + one separator only:
+          // `inputMode` merely asks for the numeric keypad; it does not stop a
+          // hardware keyboard from putting letters in an amount.
+          {...amountInputProps(value, onChange)}
           required={required}
           placeholder="0"
           className={cn(

@@ -27,6 +27,8 @@ import type { Expense, ExpenseCategory } from "@/types/database";
 import { formatDate } from "@/utils/date";
 import { expenseLabels, monthLabel, monthOf, monthRange, shiftMonth } from "@/utils/budget";
 import { cn } from "@/lib/cn";
+import { amountInputProps } from "@/lib/amountInput";
+import { parseDecimal } from "@/utils/currency";
 
 /**
  * Drill-down for one row of the "Po kategorijama" breakdown: this month's
@@ -210,7 +212,7 @@ export function CategoryDetailSheet({
   const barColor =
     pct == null ? row?.color : pct >= 100 ? "var(--neg)" : pct >= 80 ? "var(--warn)" : row?.color;
 
-  const parsedLimit = limitInput.trim() === "" ? null : Number(limitInput);
+  const parsedLimit = limitInput.trim() === "" ? null : parseDecimal(limitInput);
   const limitValid = parsedLimit === null || (Number.isFinite(parsedLimit) && parsedLimit > 0);
   const limitDirty = (limit ?? null) !== (parsedLimit ?? null);
 
@@ -334,12 +336,8 @@ export function CategoryDetailSheet({
                   <div className="flex items-center gap-2">
                     <Input
                       id="category-limit-input"
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
                       placeholder="Bez limita"
-                      value={limitInput}
-                      onChange={(e) => setLimitInput(e.target.value)}
+                      {...amountInputProps(limitInput, setLimitInput)}
                     />
                     <Button
                       type="button"
