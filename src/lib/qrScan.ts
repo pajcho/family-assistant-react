@@ -97,8 +97,113 @@ export async function decodeQrFromFile(file: File): Promise<string | null> {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     ctx.drawImage(bitmap, 0, 0, width, height);
-    return await decodeQrFromImageData(ctx.getImageData(0, 0, width, height));
+    const full = ctx.getImageData(0, 0, width, height);
+    const decoded = await decodeQrFromImageData(full);
+    if (decoded) return decoded;
+
+    // A receipt shown on a dark screen (a screenshot of a receipt image) often
+    // has the QR running edge to edge of the paper, so its finder patterns
+    // touch the dark background and lose their quiet zone. Cropping to the
+    // paper puts the QR against the image border, which ZXing does accept.
+    const paper = paperBounds(full);
+    if (!paper || (paper.width === width && paper.height === height)) return null;
+    return await decodeQrFromImageData(
+      ctx.getImageData(paper.x, paper.y, paper.width, paper.height),
+    );
   } finally {
     bitmap.close();
   }
+}
+
+/**
+ * Bounding box of the receipt paper in an image of a receipt against a darker
+ * background. The paper is found as bright (luma above an Otsu threshold),
+ * 4-connected areas: the largest one, merged with every other large one in the
+ * same columns, because the separator rules printed across a fiscal receipt
+ * cut its paper into stacked pieces. Returns null for an empty image.
+ */
+export function paperBounds(image: {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}): { x: number; y: number; width: number; height: number } | null {
+  const { data, width, height } = image;
+  const size = width * height;
+  if (size === 0) return null;
+
+  const luma = new Uint8Array(size);
+  const histogram = new Uint32Array(256);
+  for (let i = 0; i < size; i++) {
+    const v = (data[i * 4] * 299 + data[i * 4 + 1] * 587 + data[i * 4 + 2] * 114) / 1000;
+    luma[i] = v;
+    histogram[luma[i]]++;
+  }
+
+  // Otsu: the threshold that maximizes the between-class variance.
+  let total = 0;
+  for (let v = 0; v < 256; v++) total += v * histogram[v];
+  let threshold = 127;
+  let best = -1;
+  let countBelow = 0;
+  let sumBelow = 0;
+  for (let v = 0; v < 256; v++) {
+    countBelow += histogram[v];
+    if (countBelow === 0 || countBelow === size) continue;
+    sumBelow += v * histogram[v];
+    const meanBelow = sumBelow / countBelow;
+    const meanAbove = (total - sumBelow) / (size - countBelow);
+    const variance = countBelow * (size - countBelow) * (meanBelow - meanAbove) ** 2;
+    if (variance > best) {
+      best = variance;
+      threshold = v;
+    }
+  }
+
+  const visited = new Uint8Array(size);
+  const stack = new Int32Array(size);
+  const regions: Array<{ count: number; minX: number; minY: number; maxX: number; maxY: number }> =
+    [];
+  let top = 0;
+  const push = (n: number) => {
+    if (!visited[n] && luma[n] > threshold) {
+      visited[n] = 1;
+      stack[top++] = n;
+    }
+  };
+  for (let start = 0; start < size; start++) {
+    if (visited[start] || luma[start] <= threshold) continue;
+    push(start);
+    let count = 0;
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+    while (top > 0) {
+      const p = stack[--top];
+      const x = p % width;
+      const y = (p - x) / width;
+      count++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (x > 0) push(p - 1);
+      if (x < width - 1) push(p + 1);
+      if (y > 0) push(p - width);
+      if (y < height - 1) push(p + width);
+    }
+    regions.push({ count, minX, minY, maxX, maxY });
+  }
+  if (regions.length === 0) return null;
+
+  const largest = regions.reduce((a, b) => (b.count > a.count ? b : a));
+  let { minX, minY, maxX, maxY } = largest;
+  for (const r of regions) {
+    if (r.count * 4 < largest.count || r.maxX < largest.minX || r.minX > largest.maxX) continue;
+    minX = Math.min(minX, r.minX);
+    minY = Math.min(minY, r.minY);
+    maxX = Math.max(maxX, r.maxX);
+    maxY = Math.max(maxY, r.maxY);
+  }
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
