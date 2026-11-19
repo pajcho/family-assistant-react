@@ -60,11 +60,106 @@ async function loadZXing(): Promise<ZXingReader> {
   return zxingLoader;
 }
 
-/** Decodes a QR code from raw pixel data via zxing-wasm. Returns the payload or null. */
+/**
+ * Decodes a QR code from raw pixel data via zxing-wasm. Returns the payload or null.
+ *
+ * When ZXing finds a QR code but cannot correct its errors, the second pass
+ * reads it again with the thermal printer's streaks filled in (see
+ * `fillPrintStreaks`). Fiscal receipt QR codes use error correction level L
+ * (about 7%), so the streaks alone are often enough to break them, while the
+ * iPhone camera app still reads them.
+ */
 export async function decodeQrFromImageData(data: ImageData): Promise<string | null> {
   const { readBarcodes } = await loadZXing();
-  const results = await readBarcodes(data, { formats: ["QRCode"], tryHarder: true });
-  return results[0]?.text ?? null;
+  const results = await readBarcodes(data, {
+    formats: ["QRCode"],
+    tryHarder: true,
+    returnErrors: true,
+  });
+  const valid = results.find((r) => r.isValid);
+  if (valid) return valid.text;
+
+  // A failed read still reports where the symbol is and how many modules it has.
+  const located = results
+    .filter((r) => r.format === "QRCode" && r.symbol.width > 0)
+    .sort((a, b) => b.symbol.width - a.symbol.width)[0];
+  if (!located) return null;
+  const filled = fillPrintStreaks(data, located.position, located.symbol.width);
+  const retry = await readBarcodes(filled, { formats: ["QRCode"], tryHarder: true });
+  return retry[0]?.text ?? null;
+}
+
+type Point = { x: number; y: number };
+
+/**
+ * Crops a located QR code out of `image` and fills the thin light streaks a
+ * thermal printer leaves through it, returning the crop in grayscale.
+ *
+ * A printhead dot that fails to fire leaves a light line along the paper feed,
+ * through every dark module in its column. Because the QR code is printed
+ * upright on the receipt, those lines run along the code's vertical axis. A
+ * 1-D morphological closing across them (a dark-favoring min, then a max over
+ * the same window) fills gaps narrower than the window and gives the dark
+ * modules back their size. The window is a bit over half a module: wide
+ * enough for a missing dot (about a third of a module on receipt printers),
+ * narrow enough to keep a one-module light gap between dark modules open.
+ */
+export function fillPrintStreaks(
+  image: { data: Uint8ClampedArray; width: number; height: number },
+  position: { topLeft: Point; topRight: Point; bottomRight: Point; bottomLeft: Point },
+  moduleCount: number,
+): ImageData {
+  const { topLeft, topRight, bottomRight, bottomLeft } = position;
+  const corners = [topLeft, topRight, bottomRight, bottomLeft];
+  const moduleSize = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y) / moduleCount;
+  const radius = Math.max(1, Math.round(moduleSize / 3.5));
+  // Close along whichever image axis is nearer the code's own horizontal.
+  const horizontal = Math.abs(topRight.x - topLeft.x) >= Math.abs(topRight.y - topLeft.y);
+
+  // Keep a quiet zone of 4 modules around the code (what the QR spec asks for).
+  const margin = moduleSize * 4;
+  const x0 = Math.max(0, Math.floor(Math.min(...corners.map((p) => p.x)) - margin));
+  const y0 = Math.max(0, Math.floor(Math.min(...corners.map((p) => p.y)) - margin));
+  const x1 = Math.min(image.width, Math.ceil(Math.max(...corners.map((p) => p.x)) + margin));
+  const y1 = Math.min(image.height, Math.ceil(Math.max(...corners.map((p) => p.y)) + margin));
+  const width = Math.max(1, x1 - x0);
+  const height = Math.max(1, y1 - y0);
+
+  const luma = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = ((y0 + y) * image.width + x0 + x) * 4;
+      const { data } = image;
+      luma[y * width + x] = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+    }
+  }
+
+  const slide = (src: Uint8Array, pickDarker: boolean) => {
+    const out = new Uint8Array(src.length);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let v = pickDarker ? 255 : 0;
+        for (let d = -radius; d <= radius; d++) {
+          const xx = horizontal ? x + d : x;
+          const yy = horizontal ? y : y + d;
+          if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+          const s = src[yy * width + xx];
+          v = pickDarker ? Math.min(v, s) : Math.max(v, s);
+        }
+        out[y * width + x] = v;
+      }
+    }
+    return out;
+  };
+  const closed = slide(slide(luma, true), false);
+
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let i = 0; i < closed.length; i++) {
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = closed[i];
+    data[i * 4 + 3] = 255;
+  }
+  // A plain object, because jsdom has no ImageData; zxing-wasm only reads these fields.
+  return { data, width, height, colorSpace: "srgb" };
 }
 
 /**
